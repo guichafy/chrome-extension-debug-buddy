@@ -76,10 +76,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
       return true; // Indicates we'll respond asynchronously
     } else {
-      // No modifications, just remove from pending
-      delete pendingResponses[requestId];
-      sendResponse({ success: true });
-      return false;
+      // No modifications, just continue the request
+      if (attachedTabId !== null) {
+        chrome.debugger.sendCommand(
+          { tabId: attachedTabId },
+          'Fetch.continueRequest',
+          { requestId },
+          () => {
+            console.log(`Request ${requestId} continued without modifications`);
+            // Remove from pending responses
+            delete pendingResponses[requestId];
+            sendResponse({ success: true });
+          }
+        );
+        return true; // Indicates we'll respond asynchronously
+      } else {
+        // No active debugging session
+        delete pendingResponses[requestId];
+        sendResponse({ success: true });
+        return false;
+      }
     }
   }
 });
@@ -95,43 +111,84 @@ async function applyResponseModifications(requestId, modifications) {
     throw new Error('Response not found');
   }
   
-  // Apply status code and headers modifications if provided
-  if (modifications.status || modifications.headers) {
-    // Currently, Chrome DevTools Protocol doesn't provide a direct way to modify
-    // status code and headers after they've been received.
-    // This would require more advanced interception techniques.
-    console.log('Note: Status code and headers modification is not fully supported');
-  }
-  
-  // Apply body modifications if provided
-  if (modifications.body && pendingResponse.body !== modifications.body) {
+  try {
+    // Prepare response headers
+    let responseHeaders = pendingResponse.headers;
+    if (modifications.headers) {
+      responseHeaders = modifications.headers;
+    }
+    
+    // Convert headers object to array format required by Fetch API
+    const headersArray = [];
+    for (const [name, value] of Object.entries(responseHeaders)) {
+      headersArray.push({ name, value });
+    }
+    
+    // Prepare response body
+    let responseBody = pendingResponse.body;
+    let base64Encoded = false;
+    
+    if (modifications.body && pendingResponse.body !== modifications.body) {
+      responseBody = modifications.body;
+      
+      // Check if we need to base64 encode the body
+      const binaryMimeTypes = [
+        'image/',
+        'audio/',
+        'video/',
+        'application/octet-stream',
+        'application/pdf',
+        'application/zip'
+      ];
+      
+      const isBinary = binaryMimeTypes.some(type => 
+        pendingResponse.mimeType.includes(type)
+      );
+      
+      if (isBinary) {
+        responseBody = btoa(responseBody);
+        base64Encoded = true;
+      }
+    }
+    
+    // Prepare status code
+    let statusCode = pendingResponse.status;
+    if (modifications.status) {
+      statusCode = modifications.status;
+    }
+    
+    // Continue the request with modified response
     await chrome.debugger.sendCommand(
       { tabId: attachedTabId },
-      'Network.getResponseBody',
-      { requestId },
-      async (response) => {
-        if (response && response.body) {
-          try {
-            // Set the modified response body
-            await chrome.debugger.sendCommand(
-              { tabId: attachedTabId },
-              'Network.setResponseBody',
-              {
-                requestId: requestId,
-                body: modifications.body
-              }
-            );
-            console.log('Modified response body applied');
-          } catch (error) {
-            console.error('Error modifying response:', error);
-            throw error;
-          }
-        }
+      'Fetch.fulfillRequest',
+      {
+        requestId,
+        responseCode: statusCode,
+        responseHeaders: headersArray,
+        body: responseBody,
+        base64Encoded
       }
     );
+    
+    console.log(`Request ${requestId} fulfilled with modified response`);
+    return true;
+  } catch (error) {
+    console.error('Error in applyResponseModifications:', error);
+    
+    // If there's an error, try to continue the request anyway to prevent hanging
+    try {
+      await chrome.debugger.sendCommand(
+        { tabId: attachedTabId },
+        'Fetch.continueRequest',
+        { requestId }
+      );
+      console.log(`Request ${requestId} continued despite error`);
+    } catch (continueError) {
+      console.error('Error continuing request:', continueError);
+    }
+    
+    throw error;
   }
-  
-  return true;
 }
 
 // Start debugging
@@ -162,16 +219,33 @@ async function startDebugging() {
     await chrome.debugger.attach({ tabId }, '1.3');
     console.log(`Debugger attached to tab ${tabId}`);
     
-    // Enable network tracking
-    await chrome.debugger.sendCommand({ tabId }, 'Network.enable');
-    console.log('Network tracking enabled');
+    // First disable Network domain to avoid conflicts
+    await chrome.debugger.sendCommand({ tabId }, 'Network.disable');
     
-    // Set up event listeners for network events
+    // Enable Fetch domain for request interception
+    // This is the key part - we're intercepting ALL requests at the Response stage
+    await chrome.debugger.sendCommand(
+      { tabId },
+      'Fetch.enable',
+      {
+        patterns: [
+          { 
+            urlPattern: '*', 
+            requestStage: 'Response'
+            // Removed invalid resourceType: '*'
+          }
+        ]
+      }
+    );
+    console.log('Fetch domain enabled for response interception');
+    
+    // Set up event listeners for debugger events
     chrome.debugger.onEvent.addListener(debuggerEventListener);
     
     // Set global state
     isDebugging = true;
     attachedTabId = tabId;
+    pendingResponses = {};
     
     console.log('Debugging started successfully');
     return true;
@@ -189,6 +263,25 @@ async function stopDebugging() {
   }
   
   try {
+    // Continue any pending requests before disabling
+    const pendingRequestIds = Object.keys(pendingResponses);
+    for (const requestId of pendingRequestIds) {
+      try {
+        await chrome.debugger.sendCommand(
+          { tabId: attachedTabId },
+          'Fetch.continueRequest',
+          { requestId }
+        );
+        console.log(`Continued pending request ${requestId} before stopping`);
+      } catch (error) {
+        console.error(`Error continuing request ${requestId}:`, error);
+      }
+    }
+    
+    // Disable Fetch domain
+    await chrome.debugger.sendCommand({ tabId: attachedTabId }, 'Fetch.disable');
+    console.log('Fetch domain disabled');
+    
     // Disable network tracking
     await chrome.debugger.sendCommand({ tabId: attachedTabId }, 'Network.disable');
     console.log('Network tracking disabled');
@@ -203,6 +296,7 @@ async function stopDebugging() {
     // Reset global state
     isDebugging = false;
     attachedTabId = null;
+    pendingResponses = {};
     
     console.log('Debugging stopped successfully');
     return true;
@@ -218,147 +312,133 @@ function debuggerEventListener(debuggeeId, message, params) {
     return;
   }
   
-  // Check if this is a network event
-  if (!message.startsWith('Network.')) {
-    return;
-  }
-  
-  // Process different network events
-  switch (message) {
-    case 'Network.requestWillBeSent':
-      handleRequestWillBeSent(params);
-      break;
-    case 'Network.responseReceived':
-      handleResponseReceived(params);
-      break;
-    case 'Network.loadingFinished':
-      handleLoadingFinished(params);
-      break;
-    case 'Network.loadingFailed':
-      handleLoadingFailed(params);
-      break;
-  }
-}
-
-// Handle request being sent
-function handleRequestWillBeSent(params) {
-  const { requestId, request, type } = params;
-  const { url, method, headers, postData } = request;
-  
-  // Check if URL matches any of our patterns
-  if (!shouldInterceptUrl(url)) {
-    return;
-  }
-  
-  console.log(`🔵 REQUEST INTERCEPTED (${method}): ${url}`);
-  console.log('Request ID:', requestId);
-  console.log('Resource Type:', type);
-  console.log('Headers:', headers);
-  
-  if (postData) {
-    console.log('Post Data:', postData);
-  }
-  
-  // Example of how to modify a request (commented out by default)
-  /*
-  if (attachedTabId !== null) {
-    // Example: Add a custom header to the request
-    const modifiedHeaders = { ...headers, 'X-Modified-By': 'Network-Interceptor' };
-    
-    chrome.debugger.sendCommand(
-      { tabId: attachedTabId },
-      'Network.setExtraHTTPHeaders',
-      { headers: modifiedHeaders },
-      () => {
-        console.log('Modified request headers');
-      }
-    );
-    
-    // For POST requests, you could modify the post data
-    if (postData && method === 'POST') {
-      // This is just an example and would need to be customized for your specific needs
-      // Note: This approach has limitations and may not work for all requests
-      const modifiedPostData = postData; // Modify as needed
-      
-      // You would need to implement request interception for this to work properly
-      console.log('Original POST data:', postData);
-      console.log('Modified POST data would be:', modifiedPostData);
+  // Handle fetch events
+  if (message.startsWith('Fetch.')) {
+    switch (message) {
+      case 'Fetch.requestPaused':
+        handleRequestPaused(params);
+        break;
     }
   }
-  */
-  
-  console.log('⚠️ MODIFICATION POINT: You can modify the request here before it\'s sent');
-  console.log('---------------------------------------------------');
 }
 
-// Handle response received
-function handleResponseReceived(params) {
-  const { requestId, response, type } = params;
-  const { url, status, statusText, headers, mimeType } = response;
+// Handle paused request
+function handleRequestPaused(params) {
+  const { requestId, request, responseStatusCode, responseHeaders, resourceType } = params;
+  const url = request.url;
   
-  // Check if URL matches any of our patterns
-  if (!shouldInterceptUrl(url)) {
-    return;
-  }
-  
-  console.log(`🟢 RESPONSE RECEIVED (${status} ${statusText}): ${url}`);
+  console.log(`🟡 REQUEST PAUSED: ${url}`);
   console.log('Request ID:', requestId);
-  console.log('Resource Type:', type);
-  console.log('MIME Type:', mimeType);
-  console.log('Headers:', headers);
+  console.log('Resource Type:', resourceType);
   
-  // Store basic response info immediately
-  pendingResponses[requestId] = {
-    url,
-    status,
-    statusText,
-    headers,
-    mimeType,
-    type,
-    timestamp: Date.now(),
-    body: null,
-    isWaiting: true
-  };
-  
-  // Notify popup about new pending response
-  chrome.runtime.sendMessage({
-    action: 'newPendingResponse',
-    requestId,
-    url,
-    status,
-    statusText,
-    type,
-    mimeType
-  });
-  
-  // Get response body if it's a text-based content type
-  if (isTextBasedContent(mimeType) && attachedTabId !== null) {
+  // Check if this URL should be intercepted based on our patterns
+  if (shouldInterceptUrl(url)) {
+    // This is a URL we want to intercept
+    console.log(`Intercepting response for ${url}`);
+    
+    // Get response body
     chrome.debugger.sendCommand(
       { tabId: attachedTabId },
-      'Network.getResponseBody',
+      'Fetch.getResponseBody',
       { requestId },
-      (response) => {
-        if (response && response.body) {
-          console.log('Response Body:', response.body.substring(0, 500) + (response.body.length > 500 ? '...' : ''));
+      (responseBody) => {
+        if (responseBody) {
+          let body = responseBody.base64Encoded ? 
+            atob(responseBody.body) : 
+            responseBody.body;
           
-          // Store the response body
-          if (pendingResponses[requestId]) {
-            pendingResponses[requestId].body = response.body;
-            
-            // Notify popup that body is now available
-            chrome.runtime.sendMessage({
-              action: 'responseBodyReady',
-              requestId,
-              body: response.body
-            });
-          }
+          // Store response info
+          pendingResponses[requestId] = {
+            url,
+            status: responseStatusCode,
+            statusText: getStatusText(responseStatusCode),
+            headers: responseHeadersToObject(responseHeaders),
+            mimeType: getMimeTypeFromHeaders(responseHeaders),
+            type: resourceType,
+            timestamp: Date.now(),
+            body: body,
+            isWaiting: true
+          };
+          
+          // Notify popup about new pending response
+          chrome.runtime.sendMessage({
+            action: 'newPendingResponse',
+            requestId,
+            url,
+            status: responseStatusCode,
+            statusText: getStatusText(responseStatusCode),
+            type: resourceType,
+            mimeType: getMimeTypeFromHeaders(responseHeaders)
+          });
+          
+          console.log(`Response for ${url} is now pending user approval`);
+        } else {
+          // If we can't get the response body, just continue the request
+          continueRequest(requestId);
         }
       }
     );
+  } else {
+    // This is not a URL we want to intercept, continue the request
+    continueRequest(requestId);
   }
+}
+
+// Helper function to continue a request
+function continueRequest(requestId) {
+  if (attachedTabId !== null) {
+    chrome.debugger.sendCommand(
+      { tabId: attachedTabId },
+      'Fetch.continueRequest',
+      { requestId },
+      () => {
+        console.log(`Continued request ${requestId}`);
+      }
+    );
+  }
+}
+
+// Helper function to get status text from status code
+function getStatusText(statusCode) {
+  const statusTexts = {
+    200: 'OK',
+    201: 'Created',
+    204: 'No Content',
+    301: 'Moved Permanently',
+    302: 'Found',
+    304: 'Not Modified',
+    400: 'Bad Request',
+    401: 'Unauthorized',
+    403: 'Forbidden',
+    404: 'Not Found',
+    500: 'Internal Server Error',
+    502: 'Bad Gateway',
+    503: 'Service Unavailable'
+  };
   
-  console.log('⚠️ MODIFICATION POINT: Response is now pending user approval');
-  console.log('---------------------------------------------------');
+  return statusTexts[statusCode] || 'Unknown';
+}
+
+// Helper function to convert response headers array to object
+function responseHeadersToObject(headers) {
+  const result = {};
+  if (Array.isArray(headers)) {
+    headers.forEach(header => {
+      result[header.name] = header.value;
+    });
+  }
+  return result;
+}
+
+// Helper function to get MIME type from headers
+function getMimeTypeFromHeaders(headers) {
+  if (Array.isArray(headers)) {
+    const contentType = headers.find(h => h.name.toLowerCase() === 'content-type');
+    if (contentType) {
+      return contentType.value.split(';')[0].trim();
+    }
+  }
+  return 'text/plain';
 }
 
 // Check if content type is text-based
@@ -374,27 +454,6 @@ function isTextBasedContent(mimeType) {
   ];
   
   return textTypes.some(type => mimeType.includes(type));
-}
-
-// Handle loading finished
-function handleLoadingFinished(params) {
-  const { requestId, encodedDataLength } = params;
-  
-  // We don't have the URL here, so we can't filter by pattern
-  // But we can log for debugging purposes
-  console.log(`🟣 Loading finished for request ${requestId}`);
-  console.log('Encoded Data Length:', encodedDataLength);
-  console.log('---------------------------------------------------');
-}
-
-// Handle loading failed
-function handleLoadingFailed(params) {
-  const { requestId, errorText, canceled } = params;
-  
-  console.log(`🔴 Loading failed for request ${requestId}`);
-  console.log('Error:', errorText);
-  console.log('Canceled:', canceled);
-  console.log('---------------------------------------------------');
 }
 
 // Check if a URL should be intercepted based on our patterns
