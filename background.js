@@ -2,6 +2,8 @@
 let isDebugging = false;
 let attachedTabId = null;
 let urlPatterns = [];
+let pendingResponses = {}; // Store intercepted responses
+let responseModifiers = {}; // Store response modifiers
 
 // Initialize when the extension is installed or updated
 chrome.runtime.onInstalled.addListener(() => {
@@ -36,7 +38,101 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ isDebugging });
     return false; // Indicates we've responded synchronously
   }
+  
+  else if (message.action === 'getPendingResponses') {
+    sendResponse({ pendingResponses });
+    return false; // Indicates we've responded synchronously
+  }
+  
+  else if (message.action === 'getResponseDetails') {
+    const { requestId } = message;
+    if (pendingResponses[requestId]) {
+      sendResponse({ success: true, response: pendingResponses[requestId] });
+    } else {
+      sendResponse({ success: false, error: 'Response not found' });
+    }
+    return false; // Indicates we've responded synchronously
+  }
+  
+  else if (message.action === 'approveResponse') {
+    const { requestId, modifications } = message;
+    
+    if (!pendingResponses[requestId]) {
+      sendResponse({ success: false, error: 'Response not found' });
+      return false;
+    }
+    
+    // Apply modifications if provided
+    if (modifications) {
+      applyResponseModifications(requestId, modifications)
+        .then(() => {
+          // Remove from pending responses
+          delete pendingResponses[requestId];
+          sendResponse({ success: true });
+        })
+        .catch(error => {
+          console.error('Error applying modifications:', error);
+          sendResponse({ success: false, error: error.message });
+        });
+      return true; // Indicates we'll respond asynchronously
+    } else {
+      // No modifications, just remove from pending
+      delete pendingResponses[requestId];
+      sendResponse({ success: true });
+      return false;
+    }
+  }
 });
+
+// Apply modifications to a response
+async function applyResponseModifications(requestId, modifications) {
+  if (!attachedTabId) {
+    throw new Error('No active debugging session');
+  }
+  
+  const pendingResponse = pendingResponses[requestId];
+  if (!pendingResponse) {
+    throw new Error('Response not found');
+  }
+  
+  // Apply status code and headers modifications if provided
+  if (modifications.status || modifications.headers) {
+    // Currently, Chrome DevTools Protocol doesn't provide a direct way to modify
+    // status code and headers after they've been received.
+    // This would require more advanced interception techniques.
+    console.log('Note: Status code and headers modification is not fully supported');
+  }
+  
+  // Apply body modifications if provided
+  if (modifications.body && pendingResponse.body !== modifications.body) {
+    await chrome.debugger.sendCommand(
+      { tabId: attachedTabId },
+      'Network.getResponseBody',
+      { requestId },
+      async (response) => {
+        if (response && response.body) {
+          try {
+            // Set the modified response body
+            await chrome.debugger.sendCommand(
+              { tabId: attachedTabId },
+              'Network.setResponseBody',
+              {
+                requestId: requestId,
+                body: modifications.body
+              }
+            );
+            console.log('Modified response body applied');
+          } catch (error) {
+            console.error('Error modifying response:', error);
+            throw error;
+          }
+        }
+      }
+    );
+  }
+  
+  return true;
+}
 
 // Start debugging
 async function startDebugging() {
@@ -211,6 +307,30 @@ function handleResponseReceived(params) {
   console.log('MIME Type:', mimeType);
   console.log('Headers:', headers);
   
+  // Store basic response info immediately
+  pendingResponses[requestId] = {
+    url,
+    status,
+    statusText,
+    headers,
+    mimeType,
+    type,
+    timestamp: Date.now(),
+    body: null,
+    isWaiting: true
+  };
+  
+  // Notify popup about new pending response
+  chrome.runtime.sendMessage({
+    action: 'newPendingResponse',
+    requestId,
+    url,
+    status,
+    statusText,
+    type,
+    mimeType
+  });
+  
   // Get response body if it's a text-based content type
   if (isTextBasedContent(mimeType) && attachedTabId !== null) {
     chrome.debugger.sendCommand(
@@ -221,44 +341,23 @@ function handleResponseReceived(params) {
         if (response && response.body) {
           console.log('Response Body:', response.body.substring(0, 500) + (response.body.length > 500 ? '...' : ''));
           
-          // Example of how to modify a response (commented out by default)
-          /*
-          // This is just an example and would need to be customized for your specific needs
-          if (url.includes('api/data') && mimeType.includes('application/json')) {
-            try {
-              // Parse the JSON response
-              const jsonData = JSON.parse(response.body);
-              
-              // Modify the data as needed
-              jsonData.modified = true;
-              jsonData.timestamp = new Date().toISOString();
-              
-              // Convert back to string
-              const modifiedBody = JSON.stringify(jsonData);
-              
-              // Set the modified response
-              chrome.debugger.sendCommand(
-                { tabId: attachedTabId },
-                'Network.setResponseBody',
-                {
-                  requestId: requestId,
-                  body: modifiedBody
-                },
-                () => {
-                  console.log('Modified response body');
-                }
-              );
-            } catch (error) {
-              console.error('Error modifying response:', error);
-            }
+          // Store the response body
+          if (pendingResponses[requestId]) {
+            pendingResponses[requestId].body = response.body;
+            
+            // Notify popup that body is now available
+            chrome.runtime.sendMessage({
+              action: 'responseBodyReady',
+              requestId,
+              body: response.body
+            });
           }
-          */
         }
       }
     );
   }
   
-  console.log('⚠️ MODIFICATION POINT: You can modify the response here before it\'s processed by the browser');
+  console.log('⚠️ MODIFICATION POINT: Response is now pending user approval');
   console.log('---------------------------------------------------');
 }
 

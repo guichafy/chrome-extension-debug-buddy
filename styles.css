@@ -2,7 +2,7 @@ body {
   font-family: Arial, sans-serif;
   margin: 0;
   padding: 0;
-  width: 400px;
+  width: 500px;
   background-color: #f5f5f5;
 }
 
@@ -22,6 +22,41 @@ h2 {
   color: #333;
 }
 
+/* Tabs */
+.tabs {
+  display: flex;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #ddd;
+}
+
+.tab-button {
+  padding: 10px 15px;
+  background-color: #f5f5f5;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-weight: bold;
+  color: #666;
+}
+
+.tab-button:hover {
+  background-color: #e9e9e9;
+}
+
+.tab-button.active {
+  color: #4285f4;
+  border-bottom: 2px solid #4285f4;
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* Settings Tab */
 .input-group {
   display: flex;
   margin-bottom: 15px;
@@ -127,4 +162,122 @@ h2 {
 
 #status {
   font-weight: bold;
+}
+
+/* Responses Tab */
+.pending-responses-container {
+  margin-bottom: 15px;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 10px;
+}
+
+.pending-responses-list {
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.no-responses {
+  color: #666;
+  font-style: italic;
+  text-align: center;
+}
+
+.response-item {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+}
+
+.response-item:hover {
+  background-color: #f5f5f5;
+}
+
+.response-item:last-child {
+  border-bottom: none;
+}
+
+.response-item .url {
+  font-weight: bold;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.response-item .details {
+  font-size: 12px;
+  color: #666;
+}
+
+.response-details {
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 15px;
+}
+
+.response-details.hidden {
+  display: none;
+}
+
+.response-info {
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.response-edit-group {
+  margin-bottom: 15px;
+}
+
+.response-edit-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.response-edit-group input,
+.response-edit-group textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.response-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.approve-button {
+  flex: 1;
+  padding: 10px;
+  background-color: #0f9d58;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.approve-button:hover {
+  background-color: #0b8043;
+}
+
+.cancel-button {
+  padding: 10px;
+  background-color: #f5f5f5;
+  color: #333;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.cancel-button:hover {
+  background-color: #e9e9e9;
 }
