@@ -1,0 +1,17 @@
+{
+  "name": "Network Request Interceptor",
+  "description": "Intercept and log network requests based on URL patterns",
+  "version": "1.0",
+  "manifest_version": 3,
+  "permissions": [
+    "debugger",
+    "tabs",
+    "storage"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  }
+}

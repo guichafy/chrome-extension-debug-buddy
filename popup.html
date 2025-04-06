@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Network Request Interceptor</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Network Request Interceptor</h1>
+    
+    <div class="input-group">
+      <input type="text" id="urlPattern" placeholder="Enter URL pattern to intercept (e.g., example.com)">
+      <button id="addUrl">Add URL</button>
+    </div>
+    
+    <div class="url-list-container">
+      <h2>URLs to intercept:</h2>
+      <ul id="urlList"></ul>
+    </div>
+    
+    <div class="controls">
+      <button id="startDebugging">Start Debugging</button>
+      <button id="stopDebugging">Stop Debugging</button>
+    </div>
+    
+    <div class="status-container">
+      <p>Status: <span id="status">Not debugging</span></p>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
