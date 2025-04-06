@@ -112,66 +112,97 @@ async function applyResponseModifications(requestId, modifications) {
   }
   
   try {
-    // Prepare response headers
-    let responseHeaders = pendingResponse.headers;
-    if (modifications.headers) {
-      responseHeaders = modifications.headers;
-    }
-    
-    // Convert headers object to array format required by Fetch API
-    const headersArray = [];
-    for (const [name, value] of Object.entries(responseHeaders)) {
-      headersArray.push({ name, value });
-    }
-    
-    // Prepare response body
-    let responseBody = pendingResponse.body;
-    let base64Encoded = false;
-    
-    if (modifications.body && pendingResponse.body !== modifications.body) {
-      responseBody = modifications.body;
+    // Check if body was modified
+    if (modifications.body && modifications.body !== pendingResponse.body) {
+      console.log('Body was modified, attempting to apply changes');
       
-      // Check if we need to base64 encode the body
-      const binaryMimeTypes = [
-        'image/',
-        'audio/',
-        'video/',
-        'application/octet-stream',
-        'application/pdf',
-        'application/zip'
-      ];
-      
-      const isBinary = binaryMimeTypes.some(type => 
-        pendingResponse.mimeType.includes(type)
+      try {
+        // Get original response body format
+        const responseBodyResult = await new Promise((resolve, reject) => {
+          chrome.debugger.sendCommand(
+            { tabId: attachedTabId },
+            'Fetch.getResponseBody',
+            { requestId },
+            (result) => {
+              if (chrome.runtime.lastError) {
+                reject(chrome.runtime.lastError);
+              } else {
+                resolve(result);
+              }
+            }
+          );
+        });
+        
+        // Determine if the original response was base64 encoded
+        const base64Encoded = responseBodyResult.base64Encoded;
+        
+        // Prepare the modified body in the correct format
+        let modifiedBody = modifications.body;
+        if (base64Encoded) {
+          // If original was base64, we need to encode our modified body
+          try {
+            modifiedBody = btoa(modifiedBody);
+          } catch (e) {
+            console.error('Error encoding body to base64:', e);
+            // If encoding fails, just use the original format
+            modifiedBody = responseBodyResult.body;
+          }
+        }
+        
+        // Prepare response headers
+        let responseHeaders = pendingResponse.headers;
+        if (modifications.headers) {
+          responseHeaders = modifications.headers;
+        }
+        
+        // Convert headers object to array format required by Fetch API
+        const headersArray = [];
+        for (const [name, value] of Object.entries(responseHeaders)) {
+          headersArray.push({ name, value });
+        }
+        
+        // Prepare status code
+        let statusCode = pendingResponse.status;
+        if (modifications.status) {
+          statusCode = modifications.status;
+        }
+        
+        // Fulfill the request with modified response
+        await chrome.debugger.sendCommand(
+          { tabId: attachedTabId },
+          'Fetch.fulfillRequest',
+          {
+            requestId,
+            responseCode: statusCode,
+            responseHeaders: headersArray,
+            body: modifiedBody,
+            base64Encoded: base64Encoded
+          }
+        );
+        
+        console.log('Successfully applied modified response');
+        return true;
+      } catch (modError) {
+        console.error('Error modifying response:', modError);
+        // If modification fails, fall back to continuing the request
+        await chrome.debugger.sendCommand(
+          { tabId: attachedTabId },
+          'Fetch.continueRequest',
+          { requestId }
+        );
+        console.log('Continued request after modification error');
+        return true;
+      }
+    } else {
+      // No body modifications, just continue the request
+      await chrome.debugger.sendCommand(
+        { tabId: attachedTabId },
+        'Fetch.continueRequest',
+        { requestId }
       );
-      
-      if (isBinary) {
-        responseBody = btoa(responseBody);
-        base64Encoded = true;
-      }
+      console.log(`Request ${requestId} continued without modifications`);
+      return true;
     }
-    
-    // Prepare status code
-    let statusCode = pendingResponse.status;
-    if (modifications.status) {
-      statusCode = modifications.status;
-    }
-    
-    // Continue the request with modified response
-    await chrome.debugger.sendCommand(
-      { tabId: attachedTabId },
-      'Fetch.fulfillRequest',
-      {
-        requestId,
-        responseCode: statusCode,
-        responseHeaders: headersArray,
-        body: responseBody,
-        base64Encoded
-      }
-    );
-    
-    console.log(`Request ${requestId} fulfilled with modified response`);
-    return true;
   } catch (error) {
     console.error('Error in applyResponseModifications:', error);
     
