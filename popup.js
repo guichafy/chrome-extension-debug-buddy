@@ -1,6 +1,10 @@
 document.addEventListener('DOMContentLoaded', function() {
   // DOM elements - Settings tab
   const urlPatternInput = document.getElementById('urlPattern');
+  const httpMethodSelect = document.getElementById('httpMethod');
+  const requestHeaderNameInput = document.getElementById('requestHeaderName');
+  const requestHeaderValueInput = document.getElementById('requestHeaderValue');
+  const headerTypeSelect = document.getElementById('headerType');
   const addUrlButton = document.getElementById('addUrl');
   const urlList = document.getElementById('urlList');
   const startDebuggingButton = document.getElementById('startDebugging');
@@ -112,31 +116,64 @@ document.addEventListener('DOMContentLoaded', function() {
   // Add URL pattern to the list
   function addUrlPattern() {
     const urlPattern = urlPatternInput.value.trim();
+    const httpMethod = httpMethodSelect.value;
+    const headerName = requestHeaderNameInput.value.trim();
+    const headerValue = requestHeaderValueInput.value.trim();
+    const headerType = headerTypeSelect.value;
     
     if (!urlPattern) {
-      alert('Please enter a URL pattern');
+      alert('Por favor, insira um padrão de URL');
       return;
+    }
+    
+    // Preparar o objeto de configuração de interceptação
+    const interceptConfig = {
+      url: urlPattern,
+      method: httpMethod,
+    };
+    
+    // Adicionar header se estiver preenchido
+    if (headerName && headerValue) {
+      interceptConfig.headerType = headerType;
+      interceptConfig.headerName = headerName;
+      interceptConfig.headerValue = headerValue;
     }
     
     // Get existing patterns
     chrome.storage.local.get(['urlPatterns'], function(result) {
       const patterns = result.urlPatterns || [];
       
-      // Check if pattern already exists
-      if (patterns.includes(urlPattern)) {
-        alert('This URL pattern is already in the list');
+      // Verificar se já existe uma configuração idêntica
+      const exists = patterns.some(pattern => {
+        if (typeof pattern === 'string') {
+          return pattern === urlPattern;
+        } else {
+          return pattern.url === urlPattern && 
+                 pattern.method === httpMethod &&
+                 pattern.headerName === headerName &&
+                 pattern.headerValue === headerValue &&
+                 pattern.headerType === headerType;
+        }
+      });
+      
+      if (exists) {
+        alert('Esta configuração de interceptação já existe na lista');
         return;
       }
       
-      // Add new pattern
-      patterns.push(urlPattern);
+      // Adicionar nova configuração
+      patterns.push(interceptConfig);
       
-      // Save updated patterns
+      // Salvar as configurações atualizadas
       chrome.storage.local.set({ urlPatterns: patterns }, function() {
-        // Clear input
+        // Limpar os campos
         urlPatternInput.value = '';
+        httpMethodSelect.value = 'ANY';
+        requestHeaderNameInput.value = '';
+        requestHeaderValueInput.value = '';
+        headerTypeSelect.value = 'request';
         
-        // Refresh the list
+        // Atualizar a lista
         loadUrlPatterns();
       });
     });
@@ -151,18 +188,34 @@ document.addEventListener('DOMContentLoaded', function() {
       urlList.innerHTML = '';
       
       // Add each pattern to the list
-      patterns.forEach(function(pattern) {
+      patterns.forEach(function(pattern, index) {
         const li = document.createElement('li');
         
-        const patternText = document.createElement('span');
-        patternText.textContent = pattern;
+        const patternText = document.createElement('div');
+        patternText.className = 'pattern-info';
+        
+        // Verificar se é um objeto de configuração ou uma string (compatibilidade)
+        if (typeof pattern === 'string') {
+          patternText.innerHTML = `<strong>URL:</strong> ${pattern}`;
+        } else {
+          // Exibir URL e método
+          patternText.innerHTML = `<strong>URL:</strong> ${pattern.url}<br>
+                                  <strong>Método:</strong> ${pattern.method || 'ANY'}`;
+          
+          // Exibir informações de header, se existirem
+          if (pattern.headerName && pattern.headerValue) {
+            patternText.innerHTML += `<br><strong>Header (${pattern.headerType || 'request'}):</strong> 
+                                    ${pattern.headerName}: ${pattern.headerValue}`;
+          }
+        }
+        
         li.appendChild(patternText);
         
         const removeButton = document.createElement('button');
-        removeButton.textContent = 'Remove';
+        removeButton.textContent = 'Remover';
         removeButton.className = 'remove-url';
         removeButton.addEventListener('click', function() {
-          removeUrlPattern(pattern);
+          removeUrlPattern(index);
         });
         li.appendChild(removeButton);
         
@@ -171,17 +224,19 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
   
-  // Remove URL pattern from the list
-  function removeUrlPattern(pattern) {
+  // Remove URL pattern from the list by index
+  function removeUrlPattern(index) {
     chrome.storage.local.get(['urlPatterns'], function(result) {
       let patterns = result.urlPatterns || [];
       
-      // Remove the pattern
-      patterns = patterns.filter(p => p !== pattern);
+      // Remove o padrão pelo índice
+      if (index >= 0 && index < patterns.length) {
+        patterns.splice(index, 1);
+      }
       
-      // Save updated patterns
+      // Salvar os padrões atualizados
       chrome.storage.local.set({ urlPatterns: patterns }, function() {
-        // Refresh the list
+        // Atualizar a lista
         loadUrlPatterns();
       });
     });

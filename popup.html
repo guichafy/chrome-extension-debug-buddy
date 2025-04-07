@@ -15,7 +15,30 @@
     
     <div id="settings" class="tab-content active">
       <div class="input-group">
-        <input type="text" id="urlPattern" placeholder="Enter URL pattern to intercept (e.g., example.com)">
+        <div class="input-row">
+          <input type="text" id="urlPattern" placeholder="Enter URL pattern to intercept (e.g., example.com)">
+        </div>
+        <div class="input-row">
+          <select id="httpMethod">
+            <option value="ANY">ANY (Qualquer método)</option>
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+            <option value="PUT">PUT</option>
+            <option value="DELETE">DELETE</option>
+            <option value="PATCH">PATCH</option>
+            <option value="HEAD">HEAD</option>
+            <option value="OPTIONS">OPTIONS</option>
+          </select>
+          
+          <div class="header-input">
+            <input type="text" id="requestHeaderName" placeholder="Nome do header">
+            <input type="text" id="requestHeaderValue" placeholder="Valor do header">
+            <select id="headerType">
+              <option value="request">Request</option>
+              <option value="response">Response</option>
+            </select>
+          </div>
+        </div>
         <button id="addUrl">Add URL</button>
       </div>
       

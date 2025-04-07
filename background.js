@@ -111,6 +111,19 @@ async function applyResponseModifications(requestId, modifications) {
     throw new Error('Response not found');
   }
   
+  // Verificar se precisamos adicionar headers de resposta conforme configurações
+  const url = pendingResponse.url;
+  const addResponseHeaders = getResponseHeadersToAdd(url);
+  if (addResponseHeaders.length > 0) {
+    if (!modifications.headers) {
+      modifications.headers = pendingResponse.headers;
+    }
+    
+    addResponseHeaders.forEach(header => {
+      modifications.headers[header.name] = header.value;
+    });
+  }
+  
   try {
     // Check if body was modified
     if (modifications.body && modifications.body !== pendingResponse.body) {
@@ -360,10 +373,11 @@ function handleRequestPaused(params) {
   
   console.log(`🟡 REQUEST PAUSED: ${url}`);
   console.log('Request ID:', requestId);
+  console.log('Method:', request.method);
   console.log('Resource Type:', resourceType);
   
   // Check if this URL should be intercepted based on our patterns
-  if (shouldInterceptUrl(url)) {
+  if (shouldInterceptUrl(url, request)) {
     // This is a URL we want to intercept
     console.log(`Intercepting response for ${url}`);
     
@@ -487,13 +501,58 @@ function isTextBasedContent(mimeType) {
   return textTypes.some(type => mimeType.includes(type));
 }
 
+// Obter headers de resposta para adicionar com base nas configurações
+function getResponseHeadersToAdd(url) {
+  const responseHeaders = [];
+  
+  // Procurar por configurações que correspondam a esta URL e tenham headers de resposta
+  urlPatterns.forEach(pattern => {
+    if (typeof pattern !== 'string' && pattern.url && url.includes(pattern.url)) {
+      // Se for uma configuração com header de resposta
+      if (pattern.headerName && pattern.headerValue && pattern.headerType === 'response') {
+        responseHeaders.push({
+          name: pattern.headerName,
+          value: pattern.headerValue
+        });
+      }
+    }
+  });
+  
+  return responseHeaders;
+}
+
 // Check if a URL should be intercepted based on our patterns
-function shouldInterceptUrl(url) {
+function shouldInterceptUrl(url, request) {
   if (!url) return false;
   
   return urlPatterns.some(pattern => {
-    // Simple string match (contains)
-    return url.includes(pattern);
+    // Verificar se é um objeto de configuração ou uma string (compatibilidade)
+    if (typeof pattern === 'string') {
+      // String simples (contém)
+      return url.includes(pattern);
+    } else {
+      // Verificar se a URL corresponde
+      const urlMatches = url.includes(pattern.url);
+      if (!urlMatches) return false;
+      
+      // Verificar o método HTTP, se especificado
+      if (pattern.method && pattern.method !== 'ANY') {
+        if (request.method !== pattern.method) return false;
+      }
+      
+      // Verificar headers na request, se especificados
+      if (pattern.headerName && pattern.headerValue && pattern.headerType === 'request') {
+        // Verificar se o header na request corresponde
+        const headerValue = request.headers.find(h => 
+          h.name.toLowerCase() === pattern.headerName.toLowerCase()
+        )?.value;
+        
+        if (!headerValue || headerValue !== pattern.headerValue) return false;
+      }
+      
+      // Todos os critérios foram satisfeitos
+      return true;
+    }
   });
 }
 

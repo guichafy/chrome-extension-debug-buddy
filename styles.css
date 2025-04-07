@@ -59,14 +59,50 @@ h2 {
 /* Settings Tab */
 .input-group {
   display: flex;
+  flex-direction: column;
   margin-bottom: 15px;
+}
+
+.input-row {
+  display: flex;
+  margin-bottom: 8px;
+  gap: 8px;
 }
 
 #urlPattern {
   flex: 1;
   padding: 8px;
   border: 1px solid #ccc;
-  border-radius: 4px 0 0 4px;
+  border-radius: 4px;
+}
+
+#httpMethod {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: white;
+  min-width: 100px;
+}
+
+.header-input {
+  display: flex;
+  flex: 1;
+  gap: 5px;
+}
+
+#requestHeaderName, #requestHeaderValue {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  flex: 1;
+}
+
+#headerType {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: white;
+  min-width: 100px;
 }
 
 #addUrl {
@@ -74,8 +110,9 @@ h2 {
   background-color: #4285f4;
   color: white;
   border: none;
-  border-radius: 0 4px 4px 0;
+  border-radius: 4px;
   cursor: pointer;
+  align-self: flex-end;
 }
 
 #addUrl:hover {
@@ -103,7 +140,17 @@ h2 {
   border-bottom: 1px solid #eee;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+}
+
+.pattern-info {
+  flex: 1;
+  margin-right: 10px;
+}
+
+.pattern-info strong {
+  font-weight: bold;
+  color: #333;
 }
 
 #urlList li:last-child {
