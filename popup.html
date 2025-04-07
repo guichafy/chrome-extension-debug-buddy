@@ -7,12 +7,12 @@
 <body>
   <div class="container">
     <h1>Network Request Interceptor</h1>
-    
+
     <div class="tabs">
       <button class="tab-button active" data-tab="settings">Settings</button>
       <button class="tab-button" data-tab="responses">Pending Responses</button>
     </div>
-    
+
     <div id="settings" class="tab-content active">
       <div class="input-group">
         <div class="input-row">
@@ -29,7 +29,7 @@
             <option value="HEAD">HEAD</option>
             <option value="OPTIONS">OPTIONS</option>
           </select>
-          
+
           <div class="header-input">
             <input type="text" id="requestHeaderName" placeholder="Nome do header">
             <input type="text" id="requestHeaderValue" placeholder="Valor do header">
@@ -41,22 +41,22 @@
         </div>
         <button id="addUrl">Add URL</button>
       </div>
-      
+
       <div class="url-list-container">
         <h2>URLs to intercept:</h2>
         <ul id="urlList"></ul>
       </div>
-      
+
       <div class="controls">
         <button id="startDebugging">Start Debugging</button>
         <button id="stopDebugging">Stop Debugging</button>
       </div>
-      
+
       <div class="status-container">
         <p>Status: <span id="status">Not debugging</span></p>
       </div>
     </div>
-    
+
     <div id="responses" class="tab-content">
       <div class="pending-responses-container">
         <h2>Pending Responses</h2>
@@ -64,7 +64,7 @@
           <p class="no-responses">No pending responses</p>
         </div>
       </div>
-      
+
       <div id="responseDetails" class="response-details hidden">
         <h2>Response Details</h2>
         <div class="response-info">
@@ -72,23 +72,23 @@
           <p><strong>Type:</strong> <span id="responseType"></span></p>
           <p><strong>MIME Type:</strong> <span id="responseMimeType"></span></p>
         </div>
-        
+
         <div class="response-edit-container">
           <div class="response-edit-group">
             <label for="responseStatus">Status Code:</label>
             <input type="number" id="responseStatus" min="100" max="599">
           </div>
-          
+
           <div class="response-edit-group">
             <label for="responseHeaders">Headers:</label>
             <textarea id="responseHeaders" rows="5"></textarea>
           </div>
-          
+
           <div class="response-edit-group">
             <label for="responseBody">Body:</label>
             <textarea id="responseBody" rows="10"></textarea>
           </div>
-          
+
           <div class="response-actions">
             <button id="approveResponse" class="approve-button">Approve Response</button>
             <button id="cancelEdit" class="cancel-button">Cancel</button>
@@ -97,7 +97,7 @@
       </div>
     </div>
   </div>
-  
+
   <script src="popup.js"></script>
 </body>
 </html>

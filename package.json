@@ -1,0 +1,23 @@
+{
+  "name": "chrome-interceptor",
+  "version": "1.0.0",
+  "description": "Chrome extension to intercept and modify network requests",
+  "main": "background.js",
+  "scripts": {
+    "build": "chmod +x build.sh && ./build.sh",
+    "watch": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "chrome",
+    "extension",
+    "network",
+    "interceptor"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/chrome": "^0.0.254",
+    "typescript": "^5.3.3"
+  }
+}

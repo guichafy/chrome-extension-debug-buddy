@@ -1,13 +1,84 @@
-// Global variables
-let isDebugging = false;
-let attachedTabId = null;
-let urlPatterns = [];
-let pendingResponses = {}; // Store intercepted responses
-let responseModifiers = {}; // Store response modifiers
+// Tipos para padrões de URL
+interface UrlPattern {
+  url: string;
+  method: string;
+  headerType?: string;
+  headerName?: string;
+  headerValue?: string;
+}
 
+// Tipos para respostas interceptadas
+interface InterceptedResponse {
+  url: string;
+  status: number;
+  statusText: string;
+  headers: Record<string, string>;
+  mimeType: string;
+  type: string;
+  timestamp: number;
+  body: string;
+  isWaiting?: boolean;
+}
+
+// Tipos para modificações de resposta
+interface ResponseModifications {
+  status?: number;
+  headers?: Record<string, string>;
+  body?: string;
+}
+
+// Tipos para mocks
+interface MockConfig {
+  urlPattern: string;
+  method: string;
+  status: number;
+  headers: Record<string, string>;
+  body: string;
+  createdAt: number;
+  enabled: boolean;
+}
+
+// Tipos para mensagens entre scripts
+type MessageAction =
+  | 'getMocks'
+  | 'startDebugging'
+  | 'stopDebugging'
+  | 'getDebuggingStatus'
+  | 'getPendingResponses'
+  | 'getResponseDetails'
+  | 'approveResponse'
+  | 'newPendingResponse'
+  | 'responseBodyReady';
+
+interface Message {
+  action: MessageAction;
+  tabId?: number;
+  requestId?: string;
+  url?: string;
+  status?: number;
+  statusText?: string;
+  type?: string;
+  mimeType?: string;
+  body?: string;
+  modifications?: ResponseModifications;
+}
+
+interface MessageResponse {
+  success?: boolean;
+  error?: string;
+  isDebugging?: boolean;
+  pendingResponses?: Record<string, InterceptedResponse>;
+  response?: InterceptedResponse;
+  mocks?: MockConfig[];
+}
+
+// Global variables
+let isDebugging: boolean = false;
+let attachedTabId: number | null = null;
+let urlPatterns: (string | UrlPattern)[] = [];
+let pendingResponses: Record<string, InterceptedResponse> = {}; // Store intercepted responses
 // Variáveis globais para rastrear abas
-let interceptorTabId = null;
-let targetTabId = null;
+let interceptorTabId: number | null = null;
 
 // Initialize when the extension is installed or updated
 chrome.runtime.onInstalled.addListener(() => {
@@ -20,8 +91,10 @@ chrome.action.onClicked.addListener(() => {
     url: chrome.runtime.getURL('main.html')
   }, (tab) => {
     // Guardar o ID da aba do interceptor
-    interceptorTabId = tab.id;
-    console.log(`Aba do interceptor criada com ID: ${interceptorTabId}`);
+    if (tab && tab.id) {
+      interceptorTabId = tab.id;
+      console.log(`Aba do interceptor criada com ID: ${interceptorTabId}`);
+    }
   });
 });
 
@@ -39,11 +112,11 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 });
 
 // Listen for messages from the popup
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse: (response: MessageResponse) => void) => {
   console.log('Received message:', message);
 
   if (message.action === 'getMocks') {
-    chrome.storage.local.get(['mocks'], function(result) {
+    chrome.storage.local.get(['mocks'], function(result: { mocks?: MockConfig[] }) {
       sendResponse({ success: true, mocks: result.mocks || [] });
     });
     return true; // Indicates we'll respond asynchronously
@@ -52,13 +125,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   else if (message.action === 'startDebugging') {
     // Usa o tabId fornecido pelo usuário através da interface
     const targetTabId = message.tabId;
-    startDebugging(targetTabId)
-      .then(() => sendResponse({ success: true }))
-      .catch(error => {
-        console.error('Error starting debugging:', error);
-        sendResponse({ success: false, error: error.message });
-      });
-    return true; // Indicates we'll respond asynchronously
+    if (targetTabId) {
+      startDebugging(targetTabId)
+        .then(() => sendResponse({ success: true }))
+        .catch(error => {
+          console.error('Error starting debugging:', error);
+          sendResponse({ success: false, error: error.message });
+        });
+      return true; // Indicates we'll respond asynchronously
+    } else {
+      sendResponse({ success: false, error: 'No tab ID provided' });
+      return false;
+    }
   }
 
   else if (message.action === 'stopDebugging') {
@@ -83,7 +161,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   else if (message.action === 'getResponseDetails') {
     const { requestId } = message;
-    if (pendingResponses[requestId]) {
+    if (requestId && pendingResponses[requestId]) {
       sendResponse({ success: true, response: pendingResponses[requestId] });
     } else {
       sendResponse({ success: false, error: 'Response not found' });
@@ -94,7 +172,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   else if (message.action === 'approveResponse') {
     const { requestId, modifications } = message;
 
-    if (!pendingResponses[requestId]) {
+    if (!requestId || !pendingResponses[requestId]) {
       sendResponse({ success: false, error: 'Response not found' });
       return false;
     }
@@ -104,7 +182,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       applyResponseModifications(requestId, modifications)
         .then(() => {
           // Remove from pending responses
-          delete pendingResponses[requestId];
+          if (requestId) {
+            delete pendingResponses[requestId];
+          }
           sendResponse({ success: true });
         })
         .catch(error => {
@@ -122,23 +202,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           () => {
             console.log(`Request ${requestId} continued without modifications`);
             // Remove from pending responses
-            delete pendingResponses[requestId];
+            if (requestId) {
+              delete pendingResponses[requestId];
+            }
             sendResponse({ success: true });
           }
         );
         return true; // Indicates we'll respond asynchronously
       } else {
         // No active debugging session
-        delete pendingResponses[requestId];
+        if (requestId) {
+          delete pendingResponses[requestId];
+        }
         sendResponse({ success: true });
         return false;
       }
     }
   }
+
+  return false;
 });
 
 // Apply modifications to a response
-async function applyResponseModifications(requestId, modifications) {
+async function applyResponseModifications(requestId: string, modifications: ResponseModifications): Promise<boolean> {
   if (!attachedTabId) {
     throw new Error('No active debugging session');
   }
@@ -157,7 +243,9 @@ async function applyResponseModifications(requestId, modifications) {
     }
 
     addResponseHeaders.forEach(header => {
-      modifications.headers[header.name] = header.value;
+      if (modifications.headers) {
+        modifications.headers[header.name] = header.value;
+      }
     });
   }
 
@@ -168,26 +256,26 @@ async function applyResponseModifications(requestId, modifications) {
 
       try {
         // Get original response body format
-        const responseBodyResult = await new Promise((resolve, reject) => {
+        const responseBodyResult = await new Promise<{ body: string, base64Encoded: boolean }>((resolve, reject) => {
           chrome.debugger.sendCommand(
-            { tabId: attachedTabId },
+            { tabId: attachedTabId as number },
             'Fetch.getResponseBody',
             { requestId },
             (result) => {
               if (chrome.runtime.lastError) {
                 reject(chrome.runtime.lastError);
               } else {
-                resolve(result);
+                resolve(result as { body: string, base64Encoded: boolean });
               }
             }
           );
         });
 
         // Determine if the original response was base64 encoded
-        const base64Encoded = responseBodyResult.base64Encoded;
+        let base64Encoded = responseBodyResult.base64Encoded;
 
         // Prepare the modified body in the correct format - sempre codifica como base64
-        let modifiedBody;
+        let modifiedBody: string;
         try {
           // Codifica o corpo como base64 independente do original
           modifiedBody = btoa(unescape(encodeURIComponent(modifications.body)));
@@ -206,7 +294,7 @@ async function applyResponseModifications(requestId, modifications) {
         }
 
         // Convert headers object to array format required by Fetch API
-        const headersArray = [];
+        const headersArray: { name: string, value: string }[] = [];
         for (const [name, value] of Object.entries(responseHeaders)) {
           headersArray.push({ name, value });
         }
@@ -219,7 +307,7 @@ async function applyResponseModifications(requestId, modifications) {
 
         // Fulfill the request with modified response
         await chrome.debugger.sendCommand(
-          { tabId: attachedTabId },
+          { tabId: attachedTabId as number },
           'Fetch.fulfillRequest',
           {
             requestId,
@@ -236,7 +324,7 @@ async function applyResponseModifications(requestId, modifications) {
         console.error('Error modifying response:', modError);
         // If modification fails, fall back to continuing the request
         await chrome.debugger.sendCommand(
-          { tabId: attachedTabId },
+          { tabId: attachedTabId as number },
           'Fetch.continueRequest',
           { requestId }
         );
@@ -246,7 +334,7 @@ async function applyResponseModifications(requestId, modifications) {
     } else {
       // No body modifications, just continue the request
       await chrome.debugger.sendCommand(
-        { tabId: attachedTabId },
+        { tabId: attachedTabId as number },
         'Fetch.continueRequest',
         { requestId }
       );
@@ -259,7 +347,7 @@ async function applyResponseModifications(requestId, modifications) {
     // If there's an error, try to continue the request anyway to prevent hanging
     try {
       await chrome.debugger.sendCommand(
-        { tabId: attachedTabId },
+        { tabId: attachedTabId as number },
         'Fetch.continueRequest',
         { requestId }
       );
@@ -273,7 +361,7 @@ async function applyResponseModifications(requestId, modifications) {
 }
 
 // Start debugging
-async function startDebugging(specificTabId = null) {
+async function startDebugging(specificTabId: number | null = null): Promise<boolean> {
   // If already debugging, stop first
   if (isDebugging) {
     await stopDebugging();
@@ -294,12 +382,12 @@ async function startDebugging(specificTabId = null) {
     try {
       // Primeiro, tentamos obter a aba ativa na janela atual
       const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tabs.length > 0) {
+      if (tabs.length > 0 && tabs[0].id) {
         tabId = tabs[0].id;
       } else {
         // Se não encontrarmos, buscamos qualquer aba ativa
         const allTabs = await chrome.tabs.query({ active: true });
-        if (allTabs.length > 0) {
+        if (allTabs.length > 0 && allTabs[0].id) {
           tabId = allTabs[0].id;
         } else {
           throw new Error('Nenhuma aba ativa encontrada');
@@ -309,6 +397,10 @@ async function startDebugging(specificTabId = null) {
       console.error('Erro ao obter aba ativa:', error);
       throw new Error('Não foi possível determinar a aba para depuração');
     }
+  }
+
+  if (!tabId) {
+    throw new Error('Não foi possível determinar a aba para depuração');
   }
 
   console.log(`Tentando anexar à aba ${tabId}`);
@@ -355,7 +447,7 @@ async function startDebugging(specificTabId = null) {
 }
 
 // Stop debugging
-async function stopDebugging() {
+async function stopDebugging(): Promise<boolean> {
   if (!isDebugging || attachedTabId === null) {
     console.log('Not currently debugging');
     return true;
@@ -406,7 +498,11 @@ async function stopDebugging() {
 }
 
 // Debugger event listener
-function debuggerEventListener(debuggeeId, message, params) {
+function debuggerEventListener(
+  debuggeeId: chrome.debugger.Debuggee,
+  message: string,
+  params: any
+): void {
   if (debuggeeId.tabId !== attachedTabId) {
     return;
   }
@@ -422,7 +518,7 @@ function debuggerEventListener(debuggeeId, message, params) {
 }
 
 // Handle paused request
-async function handleRequestPaused(params) {
+async function handleRequestPaused(params: any): Promise<void> {
   const { requestId, request, responseStatusCode, responseHeaders, resourceType } = params;
   const url = request.url;
 
@@ -446,10 +542,11 @@ async function handleRequestPaused(params) {
 
     // Get response body
     chrome.debugger.sendCommand(
-      { tabId: attachedTabId },
+      { tabId: attachedTabId as number },
       'Fetch.getResponseBody',
       { requestId },
-      (responseBody) => {
+      (result: any) => {
+        const responseBody = result as { body: string, base64Encoded: boolean } | undefined;
         if (responseBody) {
           let body = responseBody.base64Encoded ?
             atob(responseBody.body) :
@@ -493,7 +590,7 @@ async function handleRequestPaused(params) {
 }
 
 // Helper function to continue a request
-function continueRequest(requestId) {
+function continueRequest(requestId: string): void {
   if (attachedTabId !== null) {
     chrome.debugger.sendCommand(
       { tabId: attachedTabId },
@@ -507,8 +604,8 @@ function continueRequest(requestId) {
 }
 
 // Helper function to get status text from status code
-function getStatusText(statusCode) {
-  const statusTexts = {
+function getStatusText(statusCode: number): string {
+  const statusTexts: Record<number, string> = {
     200: 'OK',
     201: 'Created',
     204: 'No Content',
@@ -528,8 +625,8 @@ function getStatusText(statusCode) {
 }
 
 // Helper function to convert response headers array to object
-function responseHeadersToObject(headers) {
-  const result = {};
+function responseHeadersToObject(headers: { name: string, value: string }[]): Record<string, string> {
+  const result: Record<string, string> = {};
   if (Array.isArray(headers)) {
     headers.forEach(header => {
       result[header.name] = header.value;
@@ -539,7 +636,7 @@ function responseHeadersToObject(headers) {
 }
 
 // Helper function to get MIME type from headers
-function getMimeTypeFromHeaders(headers) {
+function getMimeTypeFromHeaders(headers: { name: string, value: string }[]): string {
   if (Array.isArray(headers)) {
     const contentType = headers.find(h => h.name.toLowerCase() === 'content-type');
     if (contentType) {
@@ -549,24 +646,11 @@ function getMimeTypeFromHeaders(headers) {
   return 'text/plain';
 }
 
-// Check if content type is text-based
-function isTextBasedContent(mimeType) {
-  if (!mimeType) return false;
 
-  const textTypes = [
-    'text/',
-    'application/json',
-    'application/xml',
-    'application/javascript',
-    'application/x-javascript'
-  ];
-
-  return textTypes.some(type => mimeType.includes(type));
-}
 
 // Obter headers de resposta para adicionar com base nas configurações
-function getResponseHeadersToAdd(url) {
-  const responseHeaders = [];
+function getResponseHeadersToAdd(url: string): { name: string, value: string }[] {
+  const responseHeaders: { name: string, value: string }[] = [];
 
   // Procurar por configurações que correspondam a esta URL e tenham headers de resposta
   urlPatterns.forEach(pattern => {
@@ -585,7 +669,7 @@ function getResponseHeadersToAdd(url) {
 }
 
 // Check if a URL should be intercepted based on our patterns
-function shouldInterceptUrl(url, request) {
+function shouldInterceptUrl(url: string, request: any): boolean {
   if (!url) return false;
 
   return urlPatterns.some(pattern => {
@@ -606,8 +690,8 @@ function shouldInterceptUrl(url, request) {
       // Verificar headers na request, se especificados
       if (pattern.headerName && pattern.headerValue && pattern.headerType === 'request') {
         // Verificar se o header na request corresponde
-        const headerValue = request.headers.find(h =>
-          h.name.toLowerCase() === pattern.headerName.toLowerCase()
+        const headerValue = request.headers.find((h: { name: string, value: string }) =>
+          h.name.toLowerCase() === pattern.headerName?.toLowerCase()
         )?.value;
 
         if (!headerValue || headerValue !== pattern.headerValue) return false;
@@ -620,9 +704,9 @@ function shouldInterceptUrl(url, request) {
 }
 
 // Verifica se existe um mock configurado para a URL
-async function checkForMock(url, method) {
+async function checkForMock(url: string, method: string): Promise<MockConfig | undefined> {
   return new Promise((resolve) => {
-    chrome.storage.local.get(['mocks'], (result) => {
+    chrome.storage.local.get(['mocks'], (result: { mocks?: MockConfig[] }) => {
       const mocks = result.mocks || [];
 
       // Procura por um mock que corresponda à URL e método e esteja habilitado
@@ -639,19 +723,19 @@ async function checkForMock(url, method) {
 }
 
 // Aplica um mock como resposta para uma requisição
-async function applyMockResponse(requestId, mock) {
+async function applyMockResponse(requestId: string, mock: MockConfig): Promise<void> {
   if (!attachedTabId || !mock) return;
 
   try {
     // Converte headers de objeto para array (formato esperado pelo API Fetch)
-    const headerArray = [];
+    const headerArray: { name: string, value: string }[] = [];
     for (const [name, value] of Object.entries(mock.headers)) {
       headerArray.push({ name, value });
     }
 
     // Importante: O Chrome espera que o body seja codificado como base64
     // quando passado para fulfillRequest
-    let base64Body;
+    let base64Body: string;
     try {
       // Tenta codificar o corpo como base64
       base64Body = btoa(unescape(encodeURIComponent(mock.body)));
@@ -694,7 +778,7 @@ async function applyMockResponse(requestId, mock) {
 }
 
 // Handle debugger detached event
-chrome.debugger.onDetach.addListener((debuggeeId, reason) => {
+chrome.debugger.onDetach.addListener((debuggeeId: chrome.debugger.Debuggee, reason: string) => {
   if (debuggeeId.tabId === attachedTabId) {
     console.log(`Debugger detached: ${reason}`);
     isDebugging = false;
