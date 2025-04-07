@@ -16,7 +16,10 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "Network Request Interceptor"
+    "default_title": "Network Request Interceptor",
+    "default_icon": {
+      "48": "images/icon48.png"
+    }
   },
   "options_page": "main.html"
 }
