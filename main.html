@@ -8,6 +8,11 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap">
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
   <link rel="stylesheet" href="styles.css">
+  <!-- CodeMirror CSS -->
+  <link rel="stylesheet" href="lib/codemirror/codemirror.min.css">
+  <link rel="stylesheet" href="lib/codemirror/theme/dracula.min.css">
+  <link rel="stylesheet" href="lib/codemirror/addon/fold/foldgutter.min.css">
+  <link rel="stylesheet" href="lib/codemirror/addon/lint/lint.min.css">
 </head>
 <body>
   <div class="app-container">
@@ -221,14 +226,38 @@
               </div>
               <div class="input-row">
                 <div class="field full-width">
-                  <label for="mockHeaders">Headers (JSON)</label>
-                  <textarea id="mockHeaders" rows="3" placeholder='{"Content-Type": "application/json"}'></textarea>
+                  <div class="editor-header">
+                    <label for="mockHeaders">Headers (JSON)</label>
+                    <div class="editor-actions">
+                      <button type="button" id="formatHeadersBtn" class="editor-action-btn" title="Formatar JSON">
+                        <span class="material-icons">format_align_left</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div id="mockHeadersEditor" class="code-editor-container"></div>
+                  <textarea id="mockHeaders" rows="3" placeholder='{"Content-Type": "application/json"}' style="display: none;"></textarea>
                 </div>
               </div>
               <div class="input-row">
                 <div class="field full-width">
-                  <label for="mockBody">Body</label>
-                  <textarea id="mockBody" rows="8" placeholder='{"data": "Conteúdo de exemplo"}'></textarea>
+                  <div class="editor-header">
+                    <label for="mockBody">Body</label>
+                    <div class="editor-actions">
+                      <button type="button" id="detectBodyTypeBtn" class="editor-action-btn" title="Detectar tipo de conteúdo">
+                        <span class="material-icons">auto_fix_high</span>
+                      </button>
+                      <button type="button" id="formatBodyBtn" class="editor-action-btn" title="Formatar conteúdo">
+                        <span class="material-icons">format_align_left</span>
+                      </button>
+                      <select id="bodyContentType" class="content-type-select">
+                        <option value="json">JSON</option>
+                        <option value="html">HTML</option>
+                        <option value="text">Texto</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div id="mockBodyEditor" class="code-editor-container"></div>
+                  <textarea id="mockBody" rows="8" placeholder='{"data": "Conteúdo de exemplo"}' style="display: none;"></textarea>
                 </div>
               </div>
               <div class="button-row">
@@ -247,6 +276,24 @@
       </div>
     </div>
   </div>
+
+  <!-- CodeMirror Scripts -->
+  <script src="lib/codemirror/codemirror.min.js"></script>
+  <script src="lib/codemirror/mode/javascript/javascript.min.js"></script>
+  <script src="lib/codemirror/mode/htmlmixed/htmlmixed.min.js"></script>
+  <script src="lib/codemirror/mode/xml/xml.min.js"></script>
+  <script src="lib/codemirror/mode/css/css.min.js"></script>
+  <script src="lib/codemirror/addon/edit/matchbrackets.min.js"></script>
+  <script src="lib/codemirror/addon/edit/closebrackets.min.js"></script>
+  <script src="lib/codemirror/addon/fold/foldcode.min.js"></script>
+  <script src="lib/codemirror/addon/fold/foldgutter.min.js"></script>
+  <script src="lib/codemirror/addon/fold/brace-fold.min.js"></script>
+  <script src="lib/codemirror/addon/lint/lint.min.js"></script>
+  <script src="lib/codemirror/addon/lint/json-lint.min.js"></script>
+  <script src="lib/jsonlint.min.js"></script>
+  <script src="lib/prettier/standalone.min.js"></script>
+  <script src="lib/prettier/parser-html.min.js"></script>
+  <script src="lib/prettier/parser-babel.min.js"></script>
 
   <script src="main.js"></script>
 </body>

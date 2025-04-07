@@ -30,7 +30,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   if (tabId === interceptorTabId) {
     console.log('Aba do interceptor fechada, parando debugging');
     interceptorTabId = null;
-    
+
     // Parar debugging se estiver ativo
     if (isDebugging && attachedTabId !== null) {
       stopDebugging().catch(console.error);
@@ -41,14 +41,14 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 // Listen for messages from the popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('Received message:', message);
-  
+
   if (message.action === 'getMocks') {
     chrome.storage.local.get(['mocks'], function(result) {
       sendResponse({ success: true, mocks: result.mocks || [] });
     });
     return true; // Indicates we'll respond asynchronously
   }
-  
+
   else if (message.action === 'startDebugging') {
     // Usa o tabId fornecido pelo usuário através da interface
     const targetTabId = message.tabId;
@@ -60,7 +60,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
     return true; // Indicates we'll respond asynchronously
   }
-  
+
   else if (message.action === 'stopDebugging') {
     stopDebugging()
       .then(() => sendResponse({ success: true }))
@@ -70,17 +70,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
     return true; // Indicates we'll respond asynchronously
   }
-  
+
   else if (message.action === 'getDebuggingStatus') {
     sendResponse({ isDebugging });
     return false; // Indicates we've responded synchronously
   }
-  
+
   else if (message.action === 'getPendingResponses') {
     sendResponse({ pendingResponses });
     return false; // Indicates we've responded synchronously
   }
-  
+
   else if (message.action === 'getResponseDetails') {
     const { requestId } = message;
     if (pendingResponses[requestId]) {
@@ -90,15 +90,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     return false; // Indicates we've responded synchronously
   }
-  
+
   else if (message.action === 'approveResponse') {
     const { requestId, modifications } = message;
-    
+
     if (!pendingResponses[requestId]) {
       sendResponse({ success: false, error: 'Response not found' });
       return false;
     }
-    
+
     // Apply modifications if provided
     if (modifications) {
       applyResponseModifications(requestId, modifications)
@@ -142,12 +142,12 @@ async function applyResponseModifications(requestId, modifications) {
   if (!attachedTabId) {
     throw new Error('No active debugging session');
   }
-  
+
   const pendingResponse = pendingResponses[requestId];
   if (!pendingResponse) {
     throw new Error('Response not found');
   }
-  
+
   // Verificar se precisamos adicionar headers de resposta conforme configurações
   const url = pendingResponse.url;
   const addResponseHeaders = getResponseHeadersToAdd(url);
@@ -155,17 +155,17 @@ async function applyResponseModifications(requestId, modifications) {
     if (!modifications.headers) {
       modifications.headers = pendingResponse.headers;
     }
-    
+
     addResponseHeaders.forEach(header => {
       modifications.headers[header.name] = header.value;
     });
   }
-  
+
   try {
     // Check if body was modified
     if (modifications.body && modifications.body !== pendingResponse.body) {
       console.log('Body was modified, attempting to apply changes');
-      
+
       try {
         // Get original response body format
         const responseBodyResult = await new Promise((resolve, reject) => {
@@ -182,10 +182,10 @@ async function applyResponseModifications(requestId, modifications) {
             }
           );
         });
-        
+
         // Determine if the original response was base64 encoded
         const base64Encoded = responseBodyResult.base64Encoded;
-        
+
         // Prepare the modified body in the correct format - sempre codifica como base64
         let modifiedBody;
         try {
@@ -198,25 +198,25 @@ async function applyResponseModifications(requestId, modifications) {
           // Se falhar, tenta usar o corpo original
           modifiedBody = responseBodyResult.body;
         }
-        
+
         // Prepare response headers
         let responseHeaders = pendingResponse.headers;
         if (modifications.headers) {
           responseHeaders = modifications.headers;
         }
-        
+
         // Convert headers object to array format required by Fetch API
         const headersArray = [];
         for (const [name, value] of Object.entries(responseHeaders)) {
           headersArray.push({ name, value });
         }
-        
+
         // Prepare status code
         let statusCode = pendingResponse.status;
         if (modifications.status) {
           statusCode = modifications.status;
         }
-        
+
         // Fulfill the request with modified response
         await chrome.debugger.sendCommand(
           { tabId: attachedTabId },
@@ -229,7 +229,7 @@ async function applyResponseModifications(requestId, modifications) {
             base64Encoded: base64Encoded
           }
         );
-        
+
         console.log('Successfully applied modified response');
         return true;
       } catch (modError) {
@@ -255,7 +255,7 @@ async function applyResponseModifications(requestId, modifications) {
     }
   } catch (error) {
     console.error('Error in applyResponseModifications:', error);
-    
+
     // If there's an error, try to continue the request anyway to prevent hanging
     try {
       await chrome.debugger.sendCommand(
@@ -267,7 +267,7 @@ async function applyResponseModifications(requestId, modifications) {
     } catch (continueError) {
       console.error('Error continuing request:', continueError);
     }
-    
+
     throw error;
   }
 }
@@ -278,18 +278,18 @@ async function startDebugging(specificTabId = null) {
   if (isDebugging) {
     await stopDebugging();
   }
-  
+
   // Get URL patterns from storage
   const result = await chrome.storage.local.get(['urlPatterns']);
   urlPatterns = result.urlPatterns || [];
-  
+
   if (urlPatterns.length === 0) {
     throw new Error('No URL patterns to intercept');
   }
-  
+
   // Use o tabId especificado ou tente encontrar uma aba ativa
   let tabId = specificTabId;
-  
+
   if (!tabId) {
     try {
       // Primeiro, tentamos obter a aba ativa na janela atual
@@ -310,17 +310,17 @@ async function startDebugging(specificTabId = null) {
       throw new Error('Não foi possível determinar a aba para depuração');
     }
   }
-  
+
   console.log(`Tentando anexar à aba ${tabId}`);
-  
+
   // Attach debugger to the tab
   try {
     await chrome.debugger.attach({ tabId }, '1.3');
     console.log(`Debugger attached to tab ${tabId}`);
-    
+
     // First disable Network domain to avoid conflicts
     await chrome.debugger.sendCommand({ tabId }, 'Network.disable');
-    
+
     // Enable Fetch domain for request interception
     // This is the key part - we're intercepting ALL requests at the Response stage
     await chrome.debugger.sendCommand(
@@ -328,8 +328,8 @@ async function startDebugging(specificTabId = null) {
       'Fetch.enable',
       {
         patterns: [
-          { 
-            urlPattern: '*', 
+          {
+            urlPattern: '*',
             requestStage: 'Response'
             // Removed invalid resourceType: '*'
           }
@@ -337,15 +337,15 @@ async function startDebugging(specificTabId = null) {
       }
     );
     console.log('Fetch domain enabled for response interception');
-    
+
     // Set up event listeners for debugger events
     chrome.debugger.onEvent.addListener(debuggerEventListener);
-    
+
     // Set global state
     isDebugging = true;
     attachedTabId = tabId;
     pendingResponses = {};
-    
+
     console.log('Debugging started successfully');
     return true;
   } catch (error) {
@@ -360,7 +360,7 @@ async function stopDebugging() {
     console.log('Not currently debugging');
     return true;
   }
-  
+
   try {
     // Continue any pending requests before disabling
     const pendingRequestIds = Object.keys(pendingResponses);
@@ -376,27 +376,27 @@ async function stopDebugging() {
         console.error(`Error continuing request ${requestId}:`, error);
       }
     }
-    
+
     // Disable Fetch domain
     await chrome.debugger.sendCommand({ tabId: attachedTabId }, 'Fetch.disable');
     console.log('Fetch domain disabled');
-    
+
     // Disable network tracking
     await chrome.debugger.sendCommand({ tabId: attachedTabId }, 'Network.disable');
     console.log('Network tracking disabled');
-    
+
     // Detach debugger
     await chrome.debugger.detach({ tabId: attachedTabId });
     console.log(`Debugger detached from tab ${attachedTabId}`);
-    
+
     // Remove event listener
     chrome.debugger.onEvent.removeListener(debuggerEventListener);
-    
+
     // Reset global state
     isDebugging = false;
     attachedTabId = null;
     pendingResponses = {};
-    
+
     console.log('Debugging stopped successfully');
     return true;
   } catch (error) {
@@ -410,7 +410,7 @@ function debuggerEventListener(debuggeeId, message, params) {
   if (debuggeeId.tabId !== attachedTabId) {
     return;
   }
-  
+
   // Handle fetch events
   if (message.startsWith('Fetch.')) {
     switch (message) {
@@ -425,12 +425,12 @@ function debuggerEventListener(debuggeeId, message, params) {
 async function handleRequestPaused(params) {
   const { requestId, request, responseStatusCode, responseHeaders, resourceType } = params;
   const url = request.url;
-  
+
   console.log(`🟡 REQUEST PAUSED: ${url}`);
   console.log('Request ID:', requestId);
   console.log('Method:', request.method);
   console.log('Resource Type:', resourceType);
-  
+
   // Verificar se existe um mock configurado para essa requisição
   const mockResult = await checkForMock(url, request.method);
   if (mockResult) {
@@ -438,12 +438,12 @@ async function handleRequestPaused(params) {
     applyMockResponse(requestId, mockResult);
     return;
   }
-  
+
   // Check if this URL should be intercepted based on our patterns
   if (shouldInterceptUrl(url, request)) {
     // This is a URL we want to intercept
     console.log(`Intercepting response for ${url}`);
-    
+
     // Get response body
     chrome.debugger.sendCommand(
       { tabId: attachedTabId },
@@ -451,10 +451,10 @@ async function handleRequestPaused(params) {
       { requestId },
       (responseBody) => {
         if (responseBody) {
-          let body = responseBody.base64Encoded ? 
-            atob(responseBody.body) : 
+          let body = responseBody.base64Encoded ?
+            atob(responseBody.body) :
             responseBody.body;
-          
+
           // Store response info
           pendingResponses[requestId] = {
             url,
@@ -467,7 +467,7 @@ async function handleRequestPaused(params) {
             body: body,
             isWaiting: true
           };
-          
+
           // Notify popup about new pending response
           chrome.runtime.sendMessage({
             action: 'newPendingResponse',
@@ -478,7 +478,7 @@ async function handleRequestPaused(params) {
             type: resourceType,
             mimeType: getMimeTypeFromHeaders(responseHeaders)
           });
-          
+
           console.log(`Response for ${url} is now pending user approval`);
         } else {
           // If we can't get the response body, just continue the request
@@ -523,7 +523,7 @@ function getStatusText(statusCode) {
     502: 'Bad Gateway',
     503: 'Service Unavailable'
   };
-  
+
   return statusTexts[statusCode] || 'Unknown';
 }
 
@@ -552,7 +552,7 @@ function getMimeTypeFromHeaders(headers) {
 // Check if content type is text-based
 function isTextBasedContent(mimeType) {
   if (!mimeType) return false;
-  
+
   const textTypes = [
     'text/',
     'application/json',
@@ -560,14 +560,14 @@ function isTextBasedContent(mimeType) {
     'application/javascript',
     'application/x-javascript'
   ];
-  
+
   return textTypes.some(type => mimeType.includes(type));
 }
 
 // Obter headers de resposta para adicionar com base nas configurações
 function getResponseHeadersToAdd(url) {
   const responseHeaders = [];
-  
+
   // Procurar por configurações que correspondam a esta URL e tenham headers de resposta
   urlPatterns.forEach(pattern => {
     if (typeof pattern !== 'string' && pattern.url && url.includes(pattern.url)) {
@@ -580,14 +580,14 @@ function getResponseHeadersToAdd(url) {
       }
     }
   });
-  
+
   return responseHeaders;
 }
 
 // Check if a URL should be intercepted based on our patterns
 function shouldInterceptUrl(url, request) {
   if (!url) return false;
-  
+
   return urlPatterns.some(pattern => {
     // Verificar se é um objeto de configuração ou uma string (compatibilidade)
     if (typeof pattern === 'string') {
@@ -597,22 +597,22 @@ function shouldInterceptUrl(url, request) {
       // Verificar se a URL corresponde
       const urlMatches = url.includes(pattern.url);
       if (!urlMatches) return false;
-      
+
       // Verificar o método HTTP, se especificado
       if (pattern.method && pattern.method !== 'ANY') {
         if (request.method !== pattern.method) return false;
       }
-      
+
       // Verificar headers na request, se especificados
       if (pattern.headerName && pattern.headerValue && pattern.headerType === 'request') {
         // Verificar se o header na request corresponde
-        const headerValue = request.headers.find(h => 
+        const headerValue = request.headers.find(h =>
           h.name.toLowerCase() === pattern.headerName.toLowerCase()
         )?.value;
-        
+
         if (!headerValue || headerValue !== pattern.headerValue) return false;
       }
-      
+
       // Todos os critérios foram satisfeitos
       return true;
     }
@@ -624,14 +624,15 @@ async function checkForMock(url, method) {
   return new Promise((resolve) => {
     chrome.storage.local.get(['mocks'], (result) => {
       const mocks = result.mocks || [];
-      
-      // Procura por um mock que corresponda à URL e método
+
+      // Procura por um mock que corresponda à URL e método e esteja habilitado
       const mock = mocks.find(m => {
         const urlMatches = url.includes(m.urlPattern);
         const methodMatches = m.method === 'ANY' || m.method === method;
-        return urlMatches && methodMatches;
+        const isEnabled = m.enabled !== undefined ? m.enabled : true; // Se não tiver a propriedade, considera como habilitado
+        return urlMatches && methodMatches && isEnabled;
       });
-      
+
       resolve(mock);
     });
   });
@@ -640,14 +641,14 @@ async function checkForMock(url, method) {
 // Aplica um mock como resposta para uma requisição
 async function applyMockResponse(requestId, mock) {
   if (!attachedTabId || !mock) return;
-  
+
   try {
     // Converte headers de objeto para array (formato esperado pelo API Fetch)
     const headerArray = [];
     for (const [name, value] of Object.entries(mock.headers)) {
       headerArray.push({ name, value });
     }
-    
+
     // Importante: O Chrome espera que o body seja codificado como base64
     // quando passado para fulfillRequest
     let base64Body;
@@ -661,7 +662,7 @@ async function applyMockResponse(requestId, mock) {
       const fallbackBody = JSON.stringify({message: "Mock body error - could not encode"});
       base64Body = btoa(fallbackBody);
     }
-    
+
     // Envia a resposta mockada com o body corretamente codificado
     await chrome.debugger.sendCommand(
       { tabId: attachedTabId },
@@ -674,11 +675,11 @@ async function applyMockResponse(requestId, mock) {
         base64Encoded: true // Importante! Indica que o body está em base64
       }
     );
-    
+
     console.log(`Mock aplicado com sucesso para ${requestId}`);
   } catch (error) {
     console.error('Erro ao aplicar mock:', error);
-    
+
     // Em caso de erro, tenta continuar a requisição original
     try {
       await chrome.debugger.sendCommand(
