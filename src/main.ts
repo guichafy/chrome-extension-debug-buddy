@@ -1,4 +1,13 @@
-// As classes serão definidas nos arquivos de módulos
+// Import classes from modules
+import { UrlPatternManager } from './modules/urlPatterns';
+import { ResponseManager } from './modules/responses';
+import { MockManager } from './modules/mocks';
+import { DebuggingManager } from './modules/debugging';
+
+// Import hot reload utility for development mode
+if (process.env.NODE_ENV !== 'production') {
+  console.log('Running in development mode with hot reload support');
+}
 
 document.addEventListener('DOMContentLoaded', function() {
   // DOM elements - Navegação
@@ -180,6 +189,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (document.getElementById('responses')?.classList.contains('active')) {
           responseManager.loadPendingResponses();
         }
+      } else if (message.action === 'hot_reload') {
+        console.log('Hot reload message received, reloading page...');
+        window.location.reload();
       }
     });
   }

@@ -1,4 +1,4 @@
-interface InterceptedResponse {
+export interface InterceptedResponse {
   url: string;
   status: number;
   statusText: string;
@@ -10,7 +10,7 @@ interface InterceptedResponse {
   isWaiting?: boolean;
 }
 
-interface ResponseModifications {
+export interface ResponseModifications {
   status?: number;
   headers?: Record<string, string>;
   body?: string;
@@ -19,7 +19,7 @@ interface ResponseModifications {
 /**
  * Converte texto de headers em um objeto
  */
-function parseResponseHeaders(headersText: string): Record<string, string> {
+export function parseResponseHeaders(headersText: string): Record<string, string> {
   const headers: Record<string, string> = {};
   const lines = headersText.split('\n');
 
@@ -41,7 +41,7 @@ function parseResponseHeaders(headersText: string): Record<string, string> {
 /**
  * Gerencia as respostas interceptadas
  */
-class ResponseManager {
+export class ResponseManager {
   private pendingResponsesList: HTMLElement;
   private responseDetails: HTMLElement;
   private responseUrl: HTMLElement;

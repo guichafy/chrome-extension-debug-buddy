@@ -1,7 +1,7 @@
 /**
  * Gerencia as operações de debugging
  */
-class DebuggingManager {
+export class DebuggingManager {
   private statusDot: HTMLElement;
   private statusText: HTMLElement;
   private selectTargetTabButton: HTMLElement;

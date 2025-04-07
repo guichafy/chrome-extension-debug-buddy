@@ -1,4 +1,4 @@
-interface UrlPattern {
+export interface UrlPattern {
   url: string;
   method: string;
   headerType?: string;
@@ -9,7 +9,7 @@ interface UrlPattern {
 /**
  * Gerencia os padrões de URL para interceptação
  */
-class UrlPatternManager {
+export class UrlPatternManager {
   private urlList: HTMLElement;
 
   constructor(urlList: HTMLElement) {

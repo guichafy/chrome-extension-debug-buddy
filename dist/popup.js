@@ -1,3 +1,11 @@
+/******/ (() => { // webpackBootstrap
+/*!**********************!*\
+  !*** ./src/popup.ts ***!
+  \**********************/
+// Support for hot reload during development
+if (true) {
+    console.log('Popup running in development mode with hot reload support');
+}
 // Função para converter texto de headers em um objeto
 function parseHeaders(headersText) {
     const headers = {};
@@ -96,6 +104,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     responseBody.value = message.body;
                 }
             }
+        }
+        else if (message.action === 'hot_reload') {
+            console.log('Hot reload message received, reloading popup...');
+            window.location.reload();
         }
     });
     // Tab switching
@@ -389,4 +401,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 });
+
+/******/ })()
+;
 //# sourceMappingURL=popup.js.map

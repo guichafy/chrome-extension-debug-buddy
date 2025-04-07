@@ -1,3 +1,7 @@
+/******/ (() => { // webpackBootstrap
+/*!***************************!*\
+  !*** ./src/background.ts ***!
+  \***************************/
 // Global variables
 let isDebugging = false;
 let attachedTabId = null;
@@ -9,6 +13,10 @@ let interceptorTabId = null;
 chrome.runtime.onInstalled.addListener(() => {
     console.log('Network Request Interceptor extension installed');
 });
+// Support for hot reload during development
+if (true) {
+    console.log('Running in development mode with hot reload support');
+}
 // Abrir a janela do interceptor quando o usuário clicar no ícone da extensão
 chrome.action.onClicked.addListener(() => {
     chrome.tabs.create({
@@ -32,9 +40,15 @@ chrome.tabs.onRemoved.addListener((tabId) => {
         }
     }
 });
-// Listen for messages from the popup
+// Listen for messages from the popup or hot reload
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     console.log('Received message:', message);
+    // Handle hot reload message
+    if (message.action === 'hot_reload') {
+        console.log('Hot reload triggered');
+        // No need to do anything here, the extension will be reloaded by Chrome
+        return false;
+    }
     if (message.action === 'getMocks') {
         chrome.storage.local.get(['mocks'], function (result) {
             sendResponse({ success: true, mocks: result.mocks || [] });
@@ -176,7 +190,7 @@ async function applyResponseModifications(requestId, modifications) {
                 let modifiedBody;
                 try {
                     // Codifica o corpo como base64 independente do original
-                    modifiedBody = btoa(unescape(encodeURIComponent(modifications.body)));
+                    modifiedBody = btoa(encodeURIComponent(modifications.body).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))));
                     // Força base64 para evitar problemas de codificação
                     base64Encoded = true;
                 }
@@ -555,7 +569,7 @@ async function applyMockResponse(requestId, mock) {
         let base64Body;
         try {
             // Tenta codificar o corpo como base64
-            base64Body = btoa(unescape(encodeURIComponent(mock.body)));
+            base64Body = btoa(encodeURIComponent(mock.body).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))));
             console.log('Body codificado em base64:', base64Body);
         }
         catch (encodeError) {
@@ -593,4 +607,7 @@ chrome.debugger.onDetach.addListener((debuggeeId, reason) => {
         attachedTabId = null;
     }
 });
+
+/******/ })()
+;
 //# sourceMappingURL=background.js.map

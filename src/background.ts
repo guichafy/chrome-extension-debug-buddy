@@ -48,7 +48,8 @@ type MessageAction =
   | 'getResponseDetails'
   | 'approveResponse'
   | 'newPendingResponse'
-  | 'responseBodyReady';
+  | 'responseBodyReady'
+  | 'hot_reload';
 
 interface Message {
   action: MessageAction;
@@ -85,6 +86,11 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log('Network Request Interceptor extension installed');
 });
 
+// Support for hot reload during development
+if (process.env.NODE_ENV !== 'production') {
+  console.log('Running in development mode with hot reload support');
+}
+
 // Abrir a janela do interceptor quando o usuário clicar no ícone da extensão
 chrome.action.onClicked.addListener(() => {
   chrome.tabs.create({
@@ -111,9 +117,16 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   }
 });
 
-// Listen for messages from the popup
-chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse: (response: MessageResponse) => void) => {
+// Listen for messages from the popup or hot reload
+chrome.runtime.onMessage.addListener((message: any, _sender, sendResponse: (response: MessageResponse) => void) => {
   console.log('Received message:', message);
+
+  // Handle hot reload message
+  if (message.action === 'hot_reload') {
+    console.log('Hot reload triggered');
+    // No need to do anything here, the extension will be reloaded by Chrome
+    return false;
+  }
 
   if (message.action === 'getMocks') {
     chrome.storage.local.get(['mocks'], function(result: { mocks?: MockConfig[] }) {
@@ -278,7 +291,7 @@ async function applyResponseModifications(requestId: string, modifications: Resp
         let modifiedBody: string;
         try {
           // Codifica o corpo como base64 independente do original
-          modifiedBody = btoa(unescape(encodeURIComponent(modifications.body)));
+          modifiedBody = btoa(encodeURIComponent(modifications.body).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))));
           // Força base64 para evitar problemas de codificação
           base64Encoded = true;
         } catch (e) {
@@ -738,7 +751,7 @@ async function applyMockResponse(requestId: string, mock: MockConfig): Promise<v
     let base64Body: string;
     try {
       // Tenta codificar o corpo como base64
-      base64Body = btoa(unescape(encodeURIComponent(mock.body)));
+      base64Body = btoa(encodeURIComponent(mock.body).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))));
       console.log('Body codificado em base64:', base64Body);
     } catch (encodeError) {
       console.error('Erro ao codificar corpo em base64:', encodeError);

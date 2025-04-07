@@ -18,6 +18,11 @@ interface ResponseModifications {
   body?: string;
 }
 
+// Support for hot reload during development
+if (process.env.NODE_ENV !== 'production') {
+  console.log('Popup running in development mode with hot reload support');
+}
+
 // Função para converter texto de headers em um objeto
 function parseHeaders(headersText: string): Record<string, string> {
   const headers: Record<string, string> = {};
@@ -131,6 +136,10 @@ document.addEventListener('DOMContentLoaded', function() {
           responseBody.value = message.body;
         }
       }
+    }
+    else if (message.action === 'hot_reload') {
+      console.log('Hot reload message received, reloading popup...');
+      window.location.reload();
     }
   });
 

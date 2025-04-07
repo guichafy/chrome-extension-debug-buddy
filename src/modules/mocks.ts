@@ -1,4 +1,4 @@
-interface MockConfig {
+export interface MockConfig {
   urlPattern: string;
   method: string;
   status: number;
@@ -11,7 +11,7 @@ interface MockConfig {
 /**
  * Detecta o tipo de conteúdo com base no texto
  */
-function detectContentType(content: string): 'json' | 'html' | 'text' {
+export function detectContentType(content: string): 'json' | 'html' | 'text' {
   content = content.trim();
 
   // Tentar detectar JSON
@@ -41,7 +41,7 @@ function detectContentType(content: string): 'json' | 'html' | 'text' {
 /**
  * Obtém o modo correto para o CodeMirror
  */
-function getCodeMirrorMode(type: string): string | { name: string, json: boolean } {
+export function getCodeMirrorMode(type: string): string | { name: string, json: boolean } {
   switch (type) {
     case 'json':
       return { name: 'javascript', json: true };
@@ -55,7 +55,7 @@ function getCodeMirrorMode(type: string): string | { name: string, json: boolean
 /**
  * Gerencia os mocks para respostas
  */
-class MockManager {
+export class MockManager {
   private mockList: HTMLElement;
   private mockDetails: HTMLElement;
   private mockUrlPatternInput: HTMLInputElement;
