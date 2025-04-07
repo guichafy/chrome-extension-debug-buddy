@@ -5,17 +5,54 @@ let urlPatterns = [];
 let pendingResponses = {}; // Store intercepted responses
 let responseModifiers = {}; // Store response modifiers
 
+// Variáveis globais para rastrear abas
+let interceptorTabId = null;
+let targetTabId = null;
+
 // Initialize when the extension is installed or updated
 chrome.runtime.onInstalled.addListener(() => {
   console.log('Network Request Interceptor extension installed');
+});
+
+// Abrir a janela do interceptor quando o usuário clicar no ícone da extensão
+chrome.action.onClicked.addListener(() => {
+  chrome.tabs.create({
+    url: chrome.runtime.getURL('main.html')
+  }, (tab) => {
+    // Guardar o ID da aba do interceptor
+    interceptorTabId = tab.id;
+    console.log(`Aba do interceptor criada com ID: ${interceptorTabId}`);
+  });
+});
+
+// Quando uma aba é fechada, verificar se é a aba do interceptor
+chrome.tabs.onRemoved.addListener((tabId) => {
+  if (tabId === interceptorTabId) {
+    console.log('Aba do interceptor fechada, parando debugging');
+    interceptorTabId = null;
+    
+    // Parar debugging se estiver ativo
+    if (isDebugging && attachedTabId !== null) {
+      stopDebugging().catch(console.error);
+    }
+  }
 });
 
 // Listen for messages from the popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('Received message:', message);
   
-  if (message.action === 'startDebugging') {
-    startDebugging()
+  if (message.action === 'getMocks') {
+    chrome.storage.local.get(['mocks'], function(result) {
+      sendResponse({ success: true, mocks: result.mocks || [] });
+    });
+    return true; // Indicates we'll respond asynchronously
+  }
+  
+  else if (message.action === 'startDebugging') {
+    // Usa o tabId fornecido pelo usuário através da interface
+    const targetTabId = message.tabId;
+    startDebugging(targetTabId)
       .then(() => sendResponse({ success: true }))
       .catch(error => {
         console.error('Error starting debugging:', error);
@@ -149,17 +186,17 @@ async function applyResponseModifications(requestId, modifications) {
         // Determine if the original response was base64 encoded
         const base64Encoded = responseBodyResult.base64Encoded;
         
-        // Prepare the modified body in the correct format
-        let modifiedBody = modifications.body;
-        if (base64Encoded) {
-          // If original was base64, we need to encode our modified body
-          try {
-            modifiedBody = btoa(modifiedBody);
-          } catch (e) {
-            console.error('Error encoding body to base64:', e);
-            // If encoding fails, just use the original format
-            modifiedBody = responseBodyResult.body;
-          }
+        // Prepare the modified body in the correct format - sempre codifica como base64
+        let modifiedBody;
+        try {
+          // Codifica o corpo como base64 independente do original
+          modifiedBody = btoa(unescape(encodeURIComponent(modifications.body)));
+          // Força base64 para evitar problemas de codificação
+          base64Encoded = true;
+        } catch (e) {
+          console.error('Error encoding body to base64:', e);
+          // Se falhar, tenta usar o corpo original
+          modifiedBody = responseBodyResult.body;
         }
         
         // Prepare response headers
@@ -236,7 +273,7 @@ async function applyResponseModifications(requestId, modifications) {
 }
 
 // Start debugging
-async function startDebugging() {
+async function startDebugging(specificTabId = null) {
   // If already debugging, stop first
   if (isDebugging) {
     await stopDebugging();
@@ -250,13 +287,31 @@ async function startDebugging() {
     throw new Error('No URL patterns to intercept');
   }
   
-  // Get active tab
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tabs.length === 0) {
-    throw new Error('No active tab found');
+  // Use o tabId especificado ou tente encontrar uma aba ativa
+  let tabId = specificTabId;
+  
+  if (!tabId) {
+    try {
+      // Primeiro, tentamos obter a aba ativa na janela atual
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs.length > 0) {
+        tabId = tabs[0].id;
+      } else {
+        // Se não encontrarmos, buscamos qualquer aba ativa
+        const allTabs = await chrome.tabs.query({ active: true });
+        if (allTabs.length > 0) {
+          tabId = allTabs[0].id;
+        } else {
+          throw new Error('Nenhuma aba ativa encontrada');
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao obter aba ativa:', error);
+      throw new Error('Não foi possível determinar a aba para depuração');
+    }
   }
   
-  const tabId = tabs[0].id;
+  console.log(`Tentando anexar à aba ${tabId}`);
   
   // Attach debugger to the tab
   try {
@@ -367,7 +422,7 @@ function debuggerEventListener(debuggeeId, message, params) {
 }
 
 // Handle paused request
-function handleRequestPaused(params) {
+async function handleRequestPaused(params) {
   const { requestId, request, responseStatusCode, responseHeaders, resourceType } = params;
   const url = request.url;
   
@@ -375,6 +430,14 @@ function handleRequestPaused(params) {
   console.log('Request ID:', requestId);
   console.log('Method:', request.method);
   console.log('Resource Type:', resourceType);
+  
+  // Verificar se existe um mock configurado para essa requisição
+  const mockResult = await checkForMock(url, request.method);
+  if (mockResult) {
+    console.log(`Applying mock for ${url}`);
+    applyMockResponse(requestId, mockResult);
+    return;
+  }
   
   // Check if this URL should be intercepted based on our patterns
   if (shouldInterceptUrl(url, request)) {
@@ -554,6 +617,79 @@ function shouldInterceptUrl(url, request) {
       return true;
     }
   });
+}
+
+// Verifica se existe um mock configurado para a URL
+async function checkForMock(url, method) {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['mocks'], (result) => {
+      const mocks = result.mocks || [];
+      
+      // Procura por um mock que corresponda à URL e método
+      const mock = mocks.find(m => {
+        const urlMatches = url.includes(m.urlPattern);
+        const methodMatches = m.method === 'ANY' || m.method === method;
+        return urlMatches && methodMatches;
+      });
+      
+      resolve(mock);
+    });
+  });
+}
+
+// Aplica um mock como resposta para uma requisição
+async function applyMockResponse(requestId, mock) {
+  if (!attachedTabId || !mock) return;
+  
+  try {
+    // Converte headers de objeto para array (formato esperado pelo API Fetch)
+    const headerArray = [];
+    for (const [name, value] of Object.entries(mock.headers)) {
+      headerArray.push({ name, value });
+    }
+    
+    // Importante: O Chrome espera que o body seja codificado como base64
+    // quando passado para fulfillRequest
+    let base64Body;
+    try {
+      // Tenta codificar o corpo como base64
+      base64Body = btoa(unescape(encodeURIComponent(mock.body)));
+      console.log('Body codificado em base64:', base64Body);
+    } catch (encodeError) {
+      console.error('Erro ao codificar corpo em base64:', encodeError);
+      // Se falhar, tenta um fallback seguro
+      const fallbackBody = JSON.stringify({message: "Mock body error - could not encode"});
+      base64Body = btoa(fallbackBody);
+    }
+    
+    // Envia a resposta mockada com o body corretamente codificado
+    await chrome.debugger.sendCommand(
+      { tabId: attachedTabId },
+      'Fetch.fulfillRequest',
+      {
+        requestId,
+        responseCode: mock.status,
+        responseHeaders: headerArray,
+        body: base64Body,
+        base64Encoded: true // Importante! Indica que o body está em base64
+      }
+    );
+    
+    console.log(`Mock aplicado com sucesso para ${requestId}`);
+  } catch (error) {
+    console.error('Erro ao aplicar mock:', error);
+    
+    // Em caso de erro, tenta continuar a requisição original
+    try {
+      await chrome.debugger.sendCommand(
+        { tabId: attachedTabId },
+        'Fetch.continueRequest',
+        { requestId }
+      );
+    } catch (continueError) {
+      console.error('Erro ao continuar requisição após falha do mock:', continueError);
+    }
+  }
 }
 
 // Handle debugger detached event

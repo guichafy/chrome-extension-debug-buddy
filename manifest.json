@@ -6,12 +6,17 @@
   "permissions": [
     "debugger",
     "tabs",
-    "storage"
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "background.js"
   },
   "action": {
-    "default_popup": "popup.html"
-  }
+    "default_title": "Network Request Interceptor"
+  },
+  "options_page": "main.html"
 }
