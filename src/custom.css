@@ -1,6 +1,6 @@
-/* Garantir que o contêiner principal tenha rolagem */
+/* Garantir que apenas o contêiner principal tenha rolagem */
 body {
-  overflow: auto;
+  overflow: hidden;
 }
 
 /* Estilo para o contêiner de conteúdo principal */
