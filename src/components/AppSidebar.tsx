@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import { ChevronsUpDown, LogOut, Settings, User } from 'lucide-react';
 import { Icon } from '@/components/ui/icon';
 import { NavMain } from '@/components/NavMain';
 import {
@@ -10,7 +11,21 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  useSidebar,
 } from '@/components/ui/sidebar';
+import {
+  Avatar,
+  AvatarFallback,
+} from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 // Dados de navegação
 const navItems = [
@@ -18,49 +33,18 @@ const navItems = [
     title: 'Configurações',
     path: '/',
     icon: 'settings',
-    isActive: true,
-    items: [
-      {
-        title: 'Geral',
-        path: '/settings/general',
-      },
-      {
-        title: 'Avançado',
-        path: '/settings/advanced',
-      },
-    ],
   },
   {
     title: 'Requisições',
     path: '/requests',
     icon: 'list',
     count: 0, // Será atualizado dinamicamente
-    items: [
-      {
-        title: 'Histórico',
-        path: '/requests/history',
-      },
-      {
-        title: 'Favoritos',
-        path: '/requests/favorites',
-      },
-    ],
   },
   {
     title: 'Mocks',
     path: '/mocks',
     icon: 'build',
     count: 0, // Será atualizado dinamicamente
-    items: [
-      {
-        title: 'Criar Mock',
-        path: '/mocks/create',
-      },
-      {
-        title: 'Gerenciar',
-        path: '/mocks/manage',
-      },
-    ],
   },
 ];
 
@@ -74,19 +58,18 @@ export function AppSidebar({
   mocksCount,
   ...props
 }: AppSidebarProps) {
-  // Atualizar contadores e verificar rotas ativas
+  const { isMobile } = useSidebar();
+
+  // Atualizar contadores
   const items = React.useMemo(() => {
     return navItems.map(item => {
-      let updatedItem = { ...item };
-
       if (item.path === '/requests') {
-        updatedItem.count = pendingResponsesCount;
+        return { ...item, count: pendingResponsesCount };
       }
       if (item.path === '/mocks') {
-        updatedItem.count = mocksCount;
+        return { ...item, count: mocksCount };
       }
-
-      return updatedItem;
+      return item;
     });
   }, [pendingResponsesCount, mocksCount]);
 
@@ -111,17 +94,61 @@ export function AppSidebar({
         <NavMain items={items} />
       </SidebarContent>
       <SidebarFooter>
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
-              <Icon name="person" className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-sm font-medium">Usuário</p>
-              <p className="text-xs text-muted-foreground">Desenvolvedor</p>
-            </div>
-          </div>
-        </div>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  size="lg"
+                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                >
+                  <Avatar className="h-8 w-8 rounded-lg">
+                    <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
+                      <User className="h-4 w-4" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">Usuário</span>
+                    <span className="truncate text-xs text-muted-foreground">Desenvolvedor</span>
+                  </div>
+                  <ChevronsUpDown className="ml-auto size-4" />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+                side={isMobile ? "bottom" : "right"}
+                align="end"
+                sideOffset={4}
+              >
+                <DropdownMenuLabel className="p-0 font-normal">
+                  <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                    <Avatar className="h-8 w-8 rounded-lg">
+                      <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
+                        <User className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="grid flex-1 text-left text-sm leading-tight">
+                      <span className="truncate font-semibold">Usuário</span>
+                      <span className="truncate text-xs text-muted-foreground">Desenvolvedor</span>
+                    </div>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuItem>
+                    <Settings className="mr-2 h-4 w-4" />
+                    Configurações
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sair
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
   );
