@@ -30,9 +30,16 @@ jest.mock('../NavMain', () => ({
   NavMain: ({ items }) => (
     <div data-testid="nav-main">
       {items.map((item) => (
-        <div key={item.path} data-testid="nav-item">
+        <div key={item.path} data-testid="nav-item" data-has-subitems={!!item.items}>
           {item.title}
           {item.count > 0 && <span data-testid="nav-item-count">{item.count}</span>}
+          {item.items && (
+            <div data-testid="nav-item-subitems">
+              {item.items.map((subItem, idx) => (
+                <div key={idx} data-testid="nav-subitem">{subItem.title}</div>
+              ))}
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -48,14 +55,14 @@ describe('AppSidebar Component', () => {
 
     // Verifica se o componente shadcn-sidebar está presente
     expect(screen.getByTestId('shadcn-sidebar')).toBeTruthy();
-    
+
     // Verifica se o header e footer estão presentes
     expect(screen.getByTestId('sidebar-header')).toBeTruthy();
     expect(screen.getByTestId('sidebar-footer')).toBeTruthy();
-    
+
     // Verifica se o componente NavMain está presente
     expect(screen.getByTestId('nav-main')).toBeTruthy();
-    
+
     // Verifica se o título está presente
     expect(screen.getByText('Network Interceptor')).toBeTruthy();
   });
@@ -65,17 +72,38 @@ describe('AppSidebar Component', () => {
     render(
       <AppSidebar pendingResponsesCount={5} mocksCount={3} />
     );
-    
+
     // Verifica se os itens de navegação estão presentes
     const navItems = screen.getAllByTestId('nav-item');
     expect(navItems.length).toBe(3); // Configurações, Requisições, Mocks
-    
+
     // Verifica se os contadores estão presentes
     const counts = screen.getAllByTestId('nav-item-count');
     expect(counts.length).toBe(2); // Deve haver dois contadores (um para requisições e outro para mocks)
-    
+
     // Verifica se os valores dos contadores estão corretos
     expect(counts[0].textContent).toBe('5'); // Requisições
     expect(counts[1].textContent).toBe('3'); // Mocks
+  });
+
+  // Teste para verificar se os subitens estão sendo passados corretamente
+  test('passa os subitens corretamente para o NavMain', () => {
+    render(
+      <AppSidebar pendingResponsesCount={0} mocksCount={0} />
+    );
+
+    // Verifica se todos os itens têm subitens
+    const navItems = screen.getAllByTestId('nav-item');
+    navItems.forEach(item => {
+      expect(item).toHaveAttribute('data-has-subitems', 'true');
+    });
+
+    // Verifica se os containers de subitens estão presentes
+    const subitemContainers = screen.getAllByTestId('nav-item-subitems');
+    expect(subitemContainers.length).toBe(3); // Um para cada item principal
+
+    // Verifica se os subitens estão presentes
+    const subitems = screen.getAllByTestId('nav-subitem');
+    expect(subitems.length).toBe(6); // 2 para Configurações + 2 para Requisições + 2 para Mocks
   });
 });

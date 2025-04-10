@@ -18,18 +18,49 @@ const navItems = [
     title: 'Configurações',
     path: '/',
     icon: 'settings',
+    isActive: true,
+    items: [
+      {
+        title: 'Geral',
+        path: '/settings/general',
+      },
+      {
+        title: 'Avançado',
+        path: '/settings/advanced',
+      },
+    ],
   },
   {
     title: 'Requisições',
     path: '/requests',
     icon: 'list',
     count: 0, // Será atualizado dinamicamente
+    items: [
+      {
+        title: 'Histórico',
+        path: '/requests/history',
+      },
+      {
+        title: 'Favoritos',
+        path: '/requests/favorites',
+      },
+    ],
   },
   {
     title: 'Mocks',
     path: '/mocks',
     icon: 'build',
     count: 0, // Será atualizado dinamicamente
+    items: [
+      {
+        title: 'Criar Mock',
+        path: '/mocks/create',
+      },
+      {
+        title: 'Gerenciar',
+        path: '/mocks/manage',
+      },
+    ],
   },
 ];
 
@@ -38,21 +69,24 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   mocksCount: number;
 }
 
-export function AppSidebar({ 
-  pendingResponsesCount, 
-  mocksCount, 
-  ...props 
+export function AppSidebar({
+  pendingResponsesCount,
+  mocksCount,
+  ...props
 }: AppSidebarProps) {
-  // Atualizar contadores
+  // Atualizar contadores e verificar rotas ativas
   const items = React.useMemo(() => {
     return navItems.map(item => {
+      let updatedItem = { ...item };
+
       if (item.path === '/requests') {
-        return { ...item, count: pendingResponsesCount };
+        updatedItem.count = pendingResponsesCount;
       }
       if (item.path === '/mocks') {
-        return { ...item, count: mocksCount };
+        updatedItem.count = mocksCount;
       }
-      return item;
+
+      return updatedItem;
     });
   }, [pendingResponsesCount, mocksCount]);
 
