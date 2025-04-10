@@ -46,7 +46,7 @@ export function useResponses() {
         action: 'getResponseDetails',
         requestId
       });
-      
+
       if (result && result.success) {
         setCurrentResponseId(requestId);
         setCurrentResponse(result.response);
@@ -67,24 +67,30 @@ export function useResponses() {
     modifications: ResponseModifications
   ): Promise<boolean> => {
     try {
+      // Log para depuração
+      console.log('useResponses - Sending modifications:', JSON.stringify(modifications));
+      if (modifications.status) {
+        console.log(`useResponses - Status code: ${modifications.status}, type: ${typeof modifications.status}`);
+      }
+
       const response = await chrome.runtime.sendMessage({
         action: 'approveResponse',
         requestId,
         modifications
       });
-      
+
       if (response && response.success) {
         // Remover da lista de respostas pendentes
         const newPendingResponses = { ...pendingResponses };
         delete newPendingResponses[requestId];
         setPendingResponses(newPendingResponses);
-        
+
         // Limpar resposta atual
         if (currentResponseId === requestId) {
           setCurrentResponseId(null);
           setCurrentResponse(null);
         }
-        
+
         return true;
       } else {
         alert('Falha ao aprovar resposta: ' + (response ? response.error : 'Erro desconhecido'));
@@ -103,19 +109,19 @@ export function useResponses() {
         action: 'ignoreResponse',
         requestId
       });
-      
+
       if (response && response.success) {
         // Remover da lista de respostas pendentes
         const newPendingResponses = { ...pendingResponses };
         delete newPendingResponses[requestId];
         setPendingResponses(newPendingResponses);
-        
+
         // Limpar resposta atual
         if (currentResponseId === requestId) {
           setCurrentResponseId(null);
           setCurrentResponse(null);
         }
-        
+
         return true;
       } else {
         return false;
@@ -160,7 +166,7 @@ export function useResponses() {
               body: message.body
             }
           }));
-          
+
           // Atualizar resposta atual se for a mesma
           if (currentResponseId === message.requestId && currentResponse) {
             setCurrentResponse({
@@ -171,19 +177,19 @@ export function useResponses() {
         }
       }
     };
-    
+
     chrome.runtime.onMessage.addListener(messageListener);
-    
+
     // Carregar respostas pendentes ao montar o componente
     loadPendingResponses();
-    
+
     // Configurar intervalo para verificar respostas pendentes periodicamente
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         loadPendingResponses();
       }
     }, 2000);
-    
+
     return () => {
       chrome.runtime.onMessage.removeListener(messageListener);
       clearInterval(interval);

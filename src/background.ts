@@ -241,6 +241,11 @@ chrome.runtime.onMessage.addListener((message: any, _sender, sendResponse: (resp
   else if (message.action === 'approveResponse') {
     const { requestId, modifications } = message;
 
+    console.log('background.ts - Received approveResponse message:', JSON.stringify(message));
+    if (modifications && modifications.status) {
+      console.log(`background.ts - Received status code: ${modifications.status}, type: ${typeof modifications.status}`);
+    }
+
     if (!requestId || !pendingResponses[requestId]) {
       sendResponse({ success: false, error: 'Response not found' });
       return false;
@@ -248,6 +253,12 @@ chrome.runtime.onMessage.addListener((message: any, _sender, sendResponse: (resp
 
     // Apply modifications if provided
     if (modifications) {
+      // Garantir que o status code seja um número
+      if (modifications.status) {
+        modifications.status = Number(modifications.status);
+        console.log(`background.ts - Converted status code: ${modifications.status}, type: ${typeof modifications.status}`);
+      }
+
       applyResponseModifications(requestId, modifications)
         .then(() => {
           // Remove from pending responses
@@ -319,9 +330,18 @@ async function applyResponseModifications(requestId: string, modifications: Resp
   }
 
   try {
-    // Check if body was modified
-    if (modifications.body && modifications.body !== pendingResponse.body) {
-      console.log('Body was modified, attempting to apply changes');
+    // Verificar se há alguma modificação (status, headers ou body)
+    // Nota: Sempre tratamos como modificação se houver status, headers ou body definidos
+    const hasModifications = (
+      modifications.status !== undefined ||
+      modifications.headers !== undefined ||
+      modifications.body !== undefined
+    );
+
+    console.log(`Has modifications: ${hasModifications}, status: ${modifications.status}`);
+
+    if (hasModifications) {
+      console.log('Modifications detected, attempting to apply changes');
 
       try {
         // Get original response body format
@@ -343,16 +363,23 @@ async function applyResponseModifications(requestId: string, modifications: Resp
         // Determine if the original response was base64 encoded
         let base64Encoded = responseBodyResult.base64Encoded;
 
-        // Prepare the modified body in the correct format - sempre codifica como base64
+        // Prepare the modified body in the correct format
         let modifiedBody: string;
-        try {
-          // Codifica o corpo como base64 independente do original
-          modifiedBody = btoa(encodeURIComponent(modifications.body).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))));
-          // Força base64 para evitar problemas de codificação
-          base64Encoded = true;
-        } catch (e) {
-          console.error('Error encoding body to base64:', e);
-          // Se falhar, tenta usar o corpo original
+
+        // Se o body foi modificado, use o novo body
+        if (modifications.body && modifications.body !== pendingResponse.body) {
+          try {
+            // Codifica o corpo como base64 independente do original
+            modifiedBody = btoa(encodeURIComponent(modifications.body).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))));
+            // Força base64 para evitar problemas de codificação
+            base64Encoded = true;
+          } catch (e) {
+            console.error('Error encoding body to base64:', e);
+            // Se falhar, tenta usar o corpo original
+            modifiedBody = responseBodyResult.body;
+          }
+        } else {
+          // Se o body não foi modificado, use o body original
           modifiedBody = responseBodyResult.body;
         }
 
@@ -368,23 +395,39 @@ async function applyResponseModifications(requestId: string, modifications: Resp
           headersArray.push({ name, value });
         }
 
-        // Prepare status code
+        // Prepare status code and phrase
         let statusCode = pendingResponse.status;
+        let statusPhrase = getStatusText(statusCode);
+
         if (modifications.status) {
-          statusCode = modifications.status;
+          console.log(`Original status code: ${statusCode}, type: ${typeof statusCode}`);
+          console.log(`Modification status code: ${modifications.status}, type: ${typeof modifications.status}`);
+
+          // Garantir que o status code seja um número
+          statusCode = Number(modifications.status);
+          statusPhrase = getStatusText(statusCode);
+
+          console.log(`Final status code: ${statusCode}, type: ${typeof statusCode}`);
+          console.log(`Applying modified status code: ${statusCode} (${statusPhrase})`);
         }
+
+        // Preparar os parâmetros para o comando
+        const fulfillParams = {
+          requestId,
+          responseCode: statusCode,
+          responsePhrase: statusPhrase,
+          responseHeaders: headersArray,
+          body: modifiedBody,
+          base64Encoded: base64Encoded
+        };
+
+        console.log('Fetch.fulfillRequest params:', JSON.stringify(fulfillParams));
 
         // Fulfill the request with modified response
         await chrome.debugger.sendCommand(
           { tabId: attachedTabId as number },
           'Fetch.fulfillRequest',
-          {
-            requestId,
-            responseCode: statusCode,
-            responseHeaders: headersArray,
-            body: modifiedBody,
-            base64Encoded: base64Encoded
-          }
+          fulfillParams
         );
 
         console.log('Successfully applied modified response');
@@ -401,7 +444,7 @@ async function applyResponseModifications(requestId: string, modifications: Resp
         return true;
       }
     } else {
-      // No body modifications, just continue the request
+      // No modifications, just continue the request
       await chrome.debugger.sendCommand(
         { tabId: attachedTabId as number },
         'Fetch.continueRequest',
@@ -816,6 +859,9 @@ async function applyMockResponse(requestId: string, mock: MockConfig): Promise<v
       base64Body = btoa(fallbackBody);
     }
 
+    // Obter o texto do status para o código
+    const statusPhrase = getStatusText(mock.status);
+
     // Envia a resposta mockada com o body corretamente codificado
     await chrome.debugger.sendCommand(
       { tabId: attachedTabId },
@@ -823,6 +869,7 @@ async function applyMockResponse(requestId: string, mock: MockConfig): Promise<v
       {
         requestId,
         responseCode: mock.status,
+        responsePhrase: statusPhrase,
         responseHeaders: headerArray,
         body: base64Body,
         base64Encoded: true // Importante! Indica que o body está em base64

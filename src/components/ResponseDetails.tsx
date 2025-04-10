@@ -26,7 +26,7 @@ const ResponseDetails: React.FC<ResponseDetailsProps> = ({
   const [headers, setHeaders] = useState('');
   const [body, setBody] = useState('');
   const [isEditing, setIsEditing] = useState(false);
-  
+
   useEffect(() => {
     if (response) {
       setStatus(response.status.toString());
@@ -34,51 +34,61 @@ const ResponseDetails: React.FC<ResponseDetailsProps> = ({
       setBody(response.body || '');
     }
   }, [response]);
-  
+
   if (!response || !requestId) {
     return null;
   }
-  
+
   const handleApprove = async () => {
     if (!requestId) return;
-    
+
     const modifications: ResponseModifications = {};
-    
+
     if (isEditing) {
       // Adicionar modificações se estiver editando
-      modifications.status = parseInt(status, 10);
-      
+      // Garantir que o status code seja um número válido
+      if (status && status.trim() !== '') {
+        const statusNumber = parseInt(status, 10);
+        if (!isNaN(statusNumber)) {
+          console.log(`ResponseDetails - Status input: ${status}, parsed: ${statusNumber}, type: ${typeof statusNumber}`);
+          modifications.status = statusNumber;
+        } else {
+          alert('Status code inválido. Deve ser um número.');
+          return;
+        }
+      }
+
       try {
         modifications.headers = JSON.parse(headers);
       } catch (e) {
         alert('Formato de headers inválido. Deve ser um objeto JSON válido.');
         return;
       }
-      
+
       modifications.body = body;
     }
-    
+
     const success = await onApprove(requestId, modifications);
     if (success) {
       setIsEditing(false);
     }
   };
-  
+
   const handleIgnore = async () => {
     if (!requestId) return;
     await onIgnore(requestId);
   };
-  
+
   const handleMock = () => {
     if (!response) return;
     onMock(response);
   };
-  
+
   const handleEdit = () => {
     setIsEditing(true);
     onEdit();
   };
-  
+
   const handleCancel = () => {
     if (response) {
       setStatus(response.status.toString());
@@ -88,7 +98,7 @@ const ResponseDetails: React.FC<ResponseDetailsProps> = ({
     setIsEditing(false);
     onCancel();
   };
-  
+
   return (
     <div className="space-y-4">
       <div className="bg-gray-100 p-4 rounded">
@@ -97,7 +107,7 @@ const ResponseDetails: React.FC<ResponseDetailsProps> = ({
         <p><strong>Tipo:</strong> {response.type}</p>
         <p><strong>MIME Type:</strong> {response.mimeType}</p>
       </div>
-      
+
       <div className="flex space-x-2">
         <Button
           variant="outline"
@@ -108,7 +118,7 @@ const ResponseDetails: React.FC<ResponseDetailsProps> = ({
           <Icon name="content_copy" />
           Criar Mock
         </Button>
-        
+
         <Button
           variant="outline"
           size="sm"
@@ -118,7 +128,7 @@ const ResponseDetails: React.FC<ResponseDetailsProps> = ({
           <Icon name="close" />
           Ignorar
         </Button>
-        
+
         <Button
           variant="outline"
           size="sm"
@@ -130,7 +140,7 @@ const ResponseDetails: React.FC<ResponseDetailsProps> = ({
           Editar
         </Button>
       </div>
-      
+
       <div className="space-y-4">
         <div>
           <label htmlFor="responseStatus" className="block text-sm font-medium mb-1">Status</label>
@@ -143,7 +153,7 @@ const ResponseDetails: React.FC<ResponseDetailsProps> = ({
             disabled={!isEditing}
           />
         </div>
-        
+
         <div>
           <label htmlFor="responseHeaders" className="block text-sm font-medium mb-1">Headers</label>
           <textarea
@@ -154,7 +164,7 @@ const ResponseDetails: React.FC<ResponseDetailsProps> = ({
             disabled={!isEditing}
           />
         </div>
-        
+
         <div>
           <label htmlFor="responseBody" className="block text-sm font-medium mb-1">Body</label>
           <textarea
@@ -166,7 +176,7 @@ const ResponseDetails: React.FC<ResponseDetailsProps> = ({
           />
         </div>
       </div>
-      
+
       <div className="flex space-x-2">
         <Button
           className="primary-button flex items-center gap-2"
@@ -175,7 +185,7 @@ const ResponseDetails: React.FC<ResponseDetailsProps> = ({
           <Icon name="check" />
           {isEditing ? 'Salvar e Aprovar' : 'Aprovar'}
         </Button>
-        
+
         {isEditing && (
           <Button
             variant="outline"
