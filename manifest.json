@@ -21,5 +21,11 @@
       "48": "images/icon48.png"
     }
   },
-  "options_page": "main.html"
+  "options_page": "main.html",
+  "web_accessible_resources": [
+    {
+      "resources": ["styles.css", "images/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

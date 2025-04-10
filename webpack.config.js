@@ -6,8 +6,8 @@ module.exports = {
   mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
   entry: {
     background: './src/background.ts',
-    popup: './src/popup.ts',
-    main: './src/main.ts',
+    popup: './src/popup.tsx',
+    main: './src/main.tsx'
   },
   output: {
     path: path.resolve(__dirname, 'dist'),
@@ -18,14 +18,21 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /\.ts$/,
+        test: /\.tsx?$/,
         use: 'ts-loader',
         exclude: /node_modules/,
+      },
+      {
+        test: /\.css$/,
+        use: ['style-loader', 'css-loader', 'postcss-loader'],
       },
     ],
   },
   resolve: {
-    extensions: ['.ts', '.js'],
+    extensions: ['.tsx', '.ts', '.js', '.jsx'],
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+    },
   },
   plugins: [
     new CopyPlugin({

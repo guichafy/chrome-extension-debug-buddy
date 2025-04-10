@@ -1,0 +1,12 @@
+# Contexto do Projeto
+Esse projeto é uma extensão para Google Chrome que facilita ajuda os desenvolver a manipular as requisições e respostas de uma aplicação web.
+
+
+# Rules
+- Utilize Português do Brasil nos comentários e Inglês nos arquivos de código
+- Toda implementação no código precisa ser avaliado a compatibilidade das versões das dependências presentes no arquivo ./package.json
+- Toda implementação deve ser utilizado componentes da lib shadcn-ui
+
+## Tests
+
+- Vamos usar o Jest para criação de testes automatizados no projeto

@@ -49,7 +49,9 @@ type MessageAction =
   | 'approveResponse'
   | 'newPendingResponse'
   | 'responseBodyReady'
-  | 'hot_reload';
+  | 'hot_reload'
+  | 'selectTargetTab'
+  | 'setTargetTab';
 
 interface Message {
   action: MessageAction;
@@ -80,6 +82,9 @@ let urlPatterns: (string | UrlPattern)[] = [];
 let pendingResponses: Record<string, InterceptedResponse> = {}; // Store intercepted responses
 // Variáveis globais para rastrear abas
 let interceptorTabId: number | null = null;
+let targetTabId: number | null = null;
+let targetTabTitle: string = '';
+let targetTabUrl: string = '';
 
 // Initialize when the extension is installed or updated
 chrome.runtime.onInstalled.addListener(() => {
@@ -119,7 +124,10 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 
 // Listen for messages from the popup or hot reload
 chrome.runtime.onMessage.addListener((message: any, _sender, sendResponse: (response: MessageResponse) => void) => {
-  console.log('Received message:', message);
+  // Apenas log mensagens que não são de verificação de status para reduzir ruído
+  if (message.action !== 'getDebuggingStatus' && message.action !== 'getPendingResponses') {
+    console.log('Received message:', message);
+  }
 
   // Handle hot reload message
   if (message.action === 'hot_reload') {
@@ -136,18 +144,27 @@ chrome.runtime.onMessage.addListener((message: any, _sender, sendResponse: (resp
   }
 
   else if (message.action === 'startDebugging') {
-    // Usa o tabId fornecido pelo usuário através da interface
-    const targetTabId = message.tabId;
-    if (targetTabId) {
-      startDebugging(targetTabId)
-        .then(() => sendResponse({ success: true }))
-        .catch(error => {
-          console.error('Error starting debugging:', error);
-          sendResponse({ success: false, error: error.message });
-        });
+    // Usa o tabId armazenado ou o fornecido pelo usuário
+    const tabIdToUse = message.tabId || targetTabId;
+    if (tabIdToUse) {
+      // Verificar se há padrões de URL configurados
+      chrome.storage.local.get(['urlPatterns'], function(result) {
+        const patterns = result.urlPatterns || [];
+        if (patterns.length === 0) {
+          sendResponse({ success: false, error: 'Nenhum padrão de URL configurado para interceptar. Adicione pelo menos um padrão.' });
+          return;
+        }
+
+        startDebugging(tabIdToUse)
+          .then(() => sendResponse({ success: true }))
+          .catch(error => {
+            console.error('Error starting debugging:', error);
+            sendResponse({ success: false, error: error.message });
+          });
+      });
       return true; // Indicates we'll respond asynchronously
     } else {
-      sendResponse({ success: false, error: 'No tab ID provided' });
+      sendResponse({ success: false, error: 'Nenhuma aba selecionada. Selecione uma aba primeiro.' });
       return false;
     }
   }
@@ -178,6 +195,45 @@ chrome.runtime.onMessage.addListener((message: any, _sender, sendResponse: (resp
       sendResponse({ success: true, response: pendingResponses[requestId] });
     } else {
       sendResponse({ success: false, error: 'Response not found' });
+    }
+    return false; // Indicates we've responded synchronously
+  }
+
+  else if (message.action === 'selectTargetTab') {
+    // Notificar a página principal para abrir o modal de seleção de aba
+    if (interceptorTabId) {
+      chrome.tabs.sendMessage(interceptorTabId, {
+        action: 'openSelectTabDialog'
+      }).catch(() => {
+        // Ignora erros se a página principal não estiver aberta
+      });
+    }
+    sendResponse({ success: true });
+    return false; // Indicates we've responded synchronously
+  }
+
+  else if (message.action === 'setTargetTab') {
+    // Armazenar informações da aba selecionada
+    if (message.tabId) {
+      targetTabId = message.tabId;
+      targetTabTitle = message.tabTitle || '';
+      targetTabUrl = message.tabUrl || '';
+
+      // Notificar a página principal sobre a aba selecionada
+      if (interceptorTabId) {
+        chrome.tabs.sendMessage(interceptorTabId, {
+          action: 'targetTabSelected',
+          tabId: targetTabId,
+          tabTitle: targetTabTitle,
+          tabUrl: targetTabUrl
+        }).catch(() => {
+          // Ignora erros se a página principal não estiver aberta
+        });
+      }
+
+      sendResponse({ success: true });
+    } else {
+      sendResponse({ success: false, error: 'ID da aba não fornecido' });
     }
     return false; // Indicates we've responded synchronously
   }
