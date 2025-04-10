@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import SelectTabDialog from '../components/SelectTabDialog';
 import { AppSidebar } from '../components/AppSidebar';
 import { SiteHeader } from '../components/SiteHeader';
@@ -13,7 +13,6 @@ const Layout: React.FC = () => {
   const { pendingResponses } = useResponses();
   const { mocks } = useMocks();
   const [selectTabDialogOpen, setSelectTabDialogOpen] = useState(false);
-  const navigate = useNavigate();
 
   // Listener para mensagens do background script
   useEffect(() => {
@@ -62,8 +61,10 @@ const Layout: React.FC = () => {
           onStopDebugging={() => stopDebugging()}
         />
 
-        <div className="flex-1 p-4 overflow-auto content-area">
-          <Outlet />
+        <div className="main-content-container">
+          <div className="p-4 pb-8">
+            <Outlet />
+          </div>
         </div>
       </SidebarInset>
     </SidebarProvider>

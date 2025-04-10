@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
 import './globals.css';
+import './custom.css';
 import router from './routes';
 
 const MainApp: React.FC = () => {

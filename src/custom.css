@@ -1,0 +1,11 @@
+/* Garantir que o contêiner principal tenha rolagem */
+body {
+  overflow: auto;
+}
+
+/* Estilo para o contêiner de conteúdo principal */
+.main-content-container {
+  flex: 1;
+  overflow: auto;
+  max-height: calc(100vh - 3.5rem);
+}
