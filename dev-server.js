@@ -1,94 +1,68 @@
-const webpack = require('webpack');
-const WebpackDevServer = require('webpack-dev-server');
-const chokidar = require('chokidar');
+const http = require('http');
+const fs = require('fs');
 const path = require('path');
-const config = require('./webpack.config');
 
-// Set environment to development
-process.env.NODE_ENV = 'development';
+const PORT = 8080;
+const DIST_DIR = path.join(__dirname, 'dist');
 
-// Create webpack compiler
-const compiler = webpack(config);
+const server = http.createServer((req, res) => {
+  // Obter o caminho do arquivo solicitado
+  let filePath = path.join(DIST_DIR, req.url === '/' ? 'main.html' : req.url);
+  
+  // Se o caminho não tiver extensão, assumimos que é uma rota do React Router
+  // e servimos o arquivo main.html
+  if (!path.extname(filePath) && !fs.existsSync(filePath)) {
+    filePath = path.join(DIST_DIR, 'main.html');
+  }
 
-// Create a variable to track if the initial build is complete
-let isInitialBuildComplete = false;
-
-// Function to notify Chrome extension to reload
-const notifyExtensionToReload = () => {
-  console.log('Changes detected, rebuilding...');
-
-  // Create a timestamp file that the extension can check to know when to reload
-  const fs = require('fs');
-  const updateInfo = {
-    timestamp: Date.now(),
-    message: 'Extension should reload'
+  // Obter a extensão do arquivo
+  const extname = String(path.extname(filePath)).toLowerCase();
+  
+  // Tipos MIME
+  const mimeTypes = {
+    '.html': 'text/html',
+    '.js': 'text/javascript',
+    '.css': 'text/css',
+    '.json': 'application/json',
+    '.png': 'image/png',
+    '.jpg': 'image/jpg',
+    '.gif': 'image/gif',
+    '.svg': 'image/svg+xml',
+    '.wav': 'audio/wav',
+    '.mp4': 'video/mp4',
+    '.woff': 'application/font-woff',
+    '.ttf': 'application/font-ttf',
+    '.eot': 'application/vnd.ms-fontobject',
+    '.otf': 'application/font-otf',
+    '.wasm': 'application/wasm'
   };
 
-  // Write to the dist directory so it's accessible to the extension
-  fs.writeFileSync('./dist/last-update.json', JSON.stringify(updateInfo));
-};
+  // Tipo de conteúdo
+  const contentType = mimeTypes[extname] || 'application/octet-stream';
 
-// Set up file watcher for extension reload
-const watcher = chokidar.watch([
-  'src/**/*.ts',
-  'src/**/*.js',
-  '*.html',
-  'styles.css',
-  'manifest.json',
-  'images/**/*',
-  'lib/**/*'
-], {
-  ignored: /(^|[/\\])\..|node_modules|dist/,
-  persistent: true
+  // Ler o arquivo
+  fs.readFile(filePath, (error, content) => {
+    if (error) {
+      if (error.code === 'ENOENT') {
+        // Arquivo não encontrado
+        fs.readFile(path.join(DIST_DIR, '404.html'), (err, content) => {
+          res.writeHead(404, { 'Content-Type': 'text/html' });
+          res.end(content, 'utf-8');
+        });
+      } else {
+        // Erro de servidor
+        res.writeHead(500);
+        res.end(`Erro de servidor: ${error.code}`);
+      }
+    } else {
+      // Sucesso
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.end(content, 'utf-8');
+    }
+  });
 });
 
-// Listen for file changes
-watcher.on('change', (path) => {
-  if (isInitialBuildComplete) {
-    console.log(`File ${path} has been changed`);
-    notifyExtensionToReload();
-  }
-});
-
-// Set up webpack compiler hooks
-compiler.hooks.done.tap('DonePlugin', (stats) => {
-  if (stats.hasErrors()) {
-    console.log('Build failed with errors');
-    return;
-  }
-
-  if (!isInitialBuildComplete) {
-    isInitialBuildComplete = true;
-    console.log('Initial build complete. Watching for changes...');
-    console.log('');
-    console.log('==========================================================');
-    console.log('  Chrome Extension Hot Reload Development Server');
-    console.log('==========================================================');
-    console.log('');
-    console.log('  1. Open Chrome and go to chrome://extensions');
-    console.log('  2. Enable "Developer mode"');
-    console.log('  3. Click "Load unpacked" and select the "dist" folder');
-    console.log('  4. Any changes to the source files will trigger a rebuild');
-    console.log('     and the extension will be reloaded automatically');
-    console.log('');
-    console.log('==========================================================');
-  } else {
-    console.log('Build successful. Extension should reload automatically.');
-  }
-});
-
-// Run webpack in watch mode
-compiler.watch({
-  aggregateTimeout: 300,
-  poll: undefined
-}, (err, stats) => {
-  if (err) {
-    console.error(err);
-    return;
-  }
-
-  console.log(stats.toString({
-    chunks: false,
-    colors: true
-  }));
+server.listen(PORT, () => {
+  console.log(`Servidor rodando em http://localhost:${PORT}`);
+  console.log(`Pressione Ctrl+C para encerrar`);
 });
