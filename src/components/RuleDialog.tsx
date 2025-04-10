@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
   DialogTitle,
   DialogDescription,
   DialogFooter
@@ -13,23 +13,36 @@ import { UrlPattern } from '../hooks/useUrlPatterns';
 
 interface RuleDialogProps {
   open: boolean;
-  rule: UrlPattern;
+  mode: 'create' | 'edit';
+  rule?: UrlPattern;
   onOpenChange: (open: boolean) => void;
   onSave: (rule: UrlPattern) => Promise<boolean>;
 }
 
-const RuleDialog: React.FC<RuleDialogProps> = ({ 
-  open, 
+const RuleDialog: React.FC<RuleDialogProps> = ({
+  open,
+  mode,
   rule,
   onOpenChange,
   onSave
 }) => {
-  const [urlPattern, setUrlPattern] = useState(rule.url || '');
-  const [httpMethod, setHttpMethod] = useState(rule.method || 'ANY');
-  const [headerName, setHeaderName] = useState(rule.headerName || '');
-  const [headerValue, setHeaderValue] = useState(rule.headerValue || '');
-  const [headerType, setHeaderType] = useState(rule.headerType || 'request');
-  const [enabled, setEnabled] = useState(rule.enabled !== false); // Default to true if undefined
+  const defaultRule: UrlPattern = {
+    url: '',
+    method: 'ANY',
+    headerName: '',
+    headerValue: '',
+    headerType: 'request',
+    enabled: true
+  };
+
+  const currentRule = rule || defaultRule;
+
+  const [urlPattern, setUrlPattern] = useState(currentRule.url || '');
+  const [httpMethod, setHttpMethod] = useState(currentRule.method || 'ANY');
+  const [headerName, setHeaderName] = useState(currentRule.headerName || '');
+  const [headerValue, setHeaderValue] = useState(currentRule.headerValue || '');
+  const [headerType, setHeaderType] = useState(currentRule.headerType || 'request');
+  const [enabled, setEnabled] = useState(currentRule.enabled !== false); // Default to true if undefined
   const [isSaving, setIsSaving] = useState(false);
 
   // Atualizar o estado quando a regra mudar
@@ -41,6 +54,14 @@ const RuleDialog: React.FC<RuleDialogProps> = ({
       setHeaderValue(rule.headerValue || '');
       setHeaderType(rule.headerType || 'request');
       setEnabled(rule.enabled !== false); // Default to true if undefined
+    } else {
+      // Reset para valores padrão quando estiver criando uma nova regra
+      setUrlPattern('');
+      setHttpMethod('ANY');
+      setHeaderName('');
+      setHeaderValue('');
+      setHeaderType('request');
+      setEnabled(true);
     }
   }, [rule]);
 
@@ -51,7 +72,7 @@ const RuleDialog: React.FC<RuleDialogProps> = ({
     }
 
     setIsSaving(true);
-    
+
     try {
       const updatedRule: UrlPattern = {
         url: urlPattern.trim(),
@@ -67,7 +88,7 @@ const RuleDialog: React.FC<RuleDialogProps> = ({
       }
 
       const success = await onSave(updatedRule);
-      
+
       if (success) {
         onOpenChange(false);
       }
@@ -78,14 +99,16 @@ const RuleDialog: React.FC<RuleDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg md:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Editar Regra</DialogTitle>
+          <DialogTitle>{mode === 'create' ? 'Adicionar Nova Regra' : 'Editar Regra'}</DialogTitle>
           <DialogDescription>
-            Modifique os detalhes da regra de interceptação
+            {mode === 'create'
+              ? 'Configure uma nova regra de interceptação'
+              : 'Modifique os detalhes da regra de interceptação'}
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="py-4">
           <div className="grid gap-4">
             <div>
@@ -100,7 +123,7 @@ const RuleDialog: React.FC<RuleDialogProps> = ({
                 required
               />
             </div>
-            
+
             <div className="flex gap-4">
               <div className="w-1/3">
                 <label htmlFor="editHttpMethod" className="block text-sm font-medium mb-1">Método HTTP</label>
@@ -120,7 +143,7 @@ const RuleDialog: React.FC<RuleDialogProps> = ({
                   <option value="OPTIONS">OPTIONS</option>
                 </select>
               </div>
-              
+
               <div className="w-2/3">
                 <label htmlFor="editHeaderType" className="block text-sm font-medium mb-1">Tipo de Header</label>
                 <select
@@ -134,7 +157,7 @@ const RuleDialog: React.FC<RuleDialogProps> = ({
                 </select>
               </div>
             </div>
-            
+
             <div className="flex gap-4">
               <div className="w-1/2">
                 <label htmlFor="editHeaderName" className="block text-sm font-medium mb-1">Nome do Header</label>
@@ -147,7 +170,7 @@ const RuleDialog: React.FC<RuleDialogProps> = ({
                   className="w-full p-2 border rounded"
                 />
               </div>
-              
+
               <div className="w-1/2">
                 <label htmlFor="editHeaderValue" className="block text-sm font-medium mb-1">Valor do Header</label>
                 <input
@@ -195,9 +218,9 @@ const RuleDialog: React.FC<RuleDialogProps> = ({
                 <Icon name="refresh" />
               </span>
             ) : (
-              <Icon name="save" />
+              <Icon name={mode === 'create' ? 'add' : 'save'} />
             )}
-            Salvar
+            {mode === 'create' ? 'Adicionar' : 'Salvar'}
           </Button>
         </DialogFooter>
       </DialogContent>

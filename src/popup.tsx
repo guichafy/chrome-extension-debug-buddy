@@ -5,7 +5,7 @@ import { Button } from './components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './components/ui/card';
 import { Icon } from './components/ui/icon';
-import UrlForm from './components/UrlForm';
+import RuleDialog from './components/RuleDialog';
 import UrlList from './components/UrlList';
 import ResponseList from './components/ResponseList';
 import ResponseDetails from './components/ResponseDetails';
@@ -29,8 +29,9 @@ const PopupApp: React.FC = () => {
   } = useResponses();
   const { createMockFromResponse } = useMocks();
 
-  // Estado local para controlar a edição de respostas
+  // Estado local para controlar a edição de respostas e criação de regras
   const [isEditing, setIsEditing] = useState(false);
+  const [isCreatingRule, setIsCreatingRule] = useState(false);
 
   // Manipuladores de eventos
   const handleSelectResponse = async (requestId: string) => {
@@ -71,13 +72,19 @@ const PopupApp: React.FC = () => {
 
         <TabsContent value="settings" className="tab-content">
           <Card>
-            <CardHeader>
-              <CardTitle>Configure Interception</CardTitle>
-              <CardDescription>Add URL patterns to intercept</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Configure Interception</CardTitle>
+                <CardDescription>Add URL patterns to intercept</CardDescription>
+              </div>
+              <Button
+                onClick={() => setIsCreatingRule(true)}
+                className="primary-button flex items-center gap-2"
+              >
+                <Icon name="add" />
+                Add Rule
+              </Button>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <UrlForm onAdd={addUrlPattern} />
-            </CardContent>
           </Card>
 
           <Card className="mt-4">
@@ -157,6 +164,26 @@ const PopupApp: React.FC = () => {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Modal para criação de regra */}
+      <RuleDialog
+        open={isCreatingRule}
+        mode="create"
+        onOpenChange={(open) => {
+          if (!open) setIsCreatingRule(false);
+        }}
+        onSave={async (newRule) => {
+          const success = await addUrlPattern(
+            newRule.url,
+            newRule.method,
+            newRule.headerName || '',
+            newRule.headerValue || '',
+            newRule.headerType || 'request'
+          );
+          if (success) setIsCreatingRule(false);
+          return success;
+        }}
+      />
     </div>
   );
 };

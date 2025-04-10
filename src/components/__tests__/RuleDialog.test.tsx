@@ -67,10 +67,11 @@ describe('RuleDialog Component', () => {
     mockOnSave.mockResolvedValue(true);
   });
 
-  test('renderiza o diálogo quando open é true', () => {
+  test('renderiza o diálogo quando open é true no modo de edição', () => {
     render(
       <RuleDialog
         open={true}
+        mode="edit"
         rule={mockRule}
         onOpenChange={mockOnOpenChange}
         onSave={mockOnSave}
@@ -82,10 +83,26 @@ describe('RuleDialog Component', () => {
     expect(screen.getByTestId('dialog-title')).toHaveTextContent('Editar Regra');
   });
 
+  test('renderiza o diálogo quando open é true no modo de criação', () => {
+    render(
+      <RuleDialog
+        open={true}
+        mode="create"
+        onOpenChange={mockOnOpenChange}
+        onSave={mockOnSave}
+      />
+    );
+
+    // Verificar se o diálogo foi renderizado
+    expect(screen.getByTestId('dialog')).toBeInTheDocument();
+    expect(screen.getByTestId('dialog-title')).toHaveTextContent('Adicionar Nova Regra');
+  });
+
   test('não renderiza o diálogo quando open é false', () => {
     render(
       <RuleDialog
         open={false}
+        mode="edit"
         rule={mockRule}
         onOpenChange={mockOnOpenChange}
         onSave={mockOnSave}
@@ -96,10 +113,11 @@ describe('RuleDialog Component', () => {
     expect(screen.queryByTestId('dialog')).not.toBeInTheDocument();
   });
 
-  test('preenche os campos com os valores da regra', () => {
+  test('preenche os campos com os valores da regra no modo de edição', () => {
     render(
       <RuleDialog
         open={true}
+        mode="edit"
         rule={mockRule}
         onOpenChange={mockOnOpenChange}
         onSave={mockOnSave}
@@ -119,6 +137,7 @@ describe('RuleDialog Component', () => {
     render(
       <RuleDialog
         open={true}
+        mode="edit"
         rule={mockRule}
         onOpenChange={mockOnOpenChange}
         onSave={mockOnSave}
@@ -132,10 +151,11 @@ describe('RuleDialog Component', () => {
     expect(mockOnOpenChange).toHaveBeenCalledWith(false);
   });
 
-  test('chama onSave com os valores atualizados quando o botão Salvar é clicado', async () => {
+  test('chama onSave com os valores atualizados quando o botão Salvar é clicado no modo de edição', async () => {
     render(
       <RuleDialog
         open={true}
+        mode="edit"
         rule={mockRule}
         onOpenChange={mockOnOpenChange}
         onSave={mockOnSave}
@@ -177,6 +197,7 @@ describe('RuleDialog Component', () => {
     render(
       <RuleDialog
         open={true}
+        mode="edit"
         rule={mockRule}
         onOpenChange={mockOnOpenChange}
         onSave={mockOnSave}
@@ -202,6 +223,7 @@ describe('RuleDialog Component', () => {
     render(
       <RuleDialog
         open={true}
+        mode="edit"
         rule={mockRule}
         onOpenChange={mockOnOpenChange}
         onSave={mockOnSave}
@@ -222,5 +244,39 @@ describe('RuleDialog Component', () => {
 
     // Restaurar o mock
     alertMock.mockRestore();
+  });
+
+  test('inicializa campos vazios no modo de criação', () => {
+    render(
+      <RuleDialog
+        open={true}
+        mode="create"
+        onOpenChange={mockOnOpenChange}
+        onSave={mockOnSave}
+      />
+    );
+
+    // Verificar se os campos estão vazios ou com valores padrão
+    expect(screen.getByLabelText('Padrão de URL')).toHaveValue('');
+    expect(screen.getByLabelText('Método HTTP')).toHaveValue('ANY');
+    expect(screen.getByLabelText('Tipo de Header')).toHaveValue('request');
+    expect(screen.getByLabelText('Nome do Header')).toHaveValue('');
+    expect(screen.getByLabelText('Valor do Header')).toHaveValue('');
+    expect(screen.getByLabelText('Regra ativa')).toBeChecked();
+  });
+
+  test('mostra o botão Adicionar no modo de criação', () => {
+    render(
+      <RuleDialog
+        open={true}
+        mode="create"
+        onOpenChange={mockOnOpenChange}
+        onSave={mockOnSave}
+      />
+    );
+
+    // Verificar se o botão tem o texto Adicionar
+    const saveButton = screen.getByTestId('button-adicionar');
+    expect(saveButton).toBeInTheDocument();
   });
 });
