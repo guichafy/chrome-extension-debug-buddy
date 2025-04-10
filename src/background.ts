@@ -91,6 +91,16 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log('Network Request Interceptor extension installed');
 });
 
+// Carregar informações da aba alvo do armazenamento quando o background script é iniciado
+chrome.storage.local.get(['targetTabInfo'], (result) => {
+  if (result.targetTabInfo) {
+    targetTabId = result.targetTabInfo.id;
+    targetTabTitle = result.targetTabInfo.title || '';
+    targetTabUrl = result.targetTabInfo.url || '';
+    console.log('Informações da aba alvo carregadas do armazenamento:', result.targetTabInfo);
+  }
+});
+
 // Support for hot reload during development
 if (process.env.NODE_ENV !== 'production') {
   console.log('Running in development mode with hot reload support');
@@ -219,6 +229,17 @@ chrome.runtime.onMessage.addListener((message: any, _sender, sendResponse: (resp
       targetTabTitle = message.tabTitle || '';
       targetTabUrl = message.tabUrl || '';
 
+      // Salvar informações da aba no Chrome Storage para persistência
+      chrome.storage.local.set({
+        targetTabInfo: {
+          id: targetTabId,
+          title: targetTabTitle,
+          url: targetTabUrl
+        }
+      }, () => {
+        console.log('Informações da aba alvo salvas no armazenamento');
+      });
+
       // Notificar a página principal sobre a aba selecionada
       if (interceptorTabId) {
         chrome.tabs.sendMessage(interceptorTabId, {
@@ -273,7 +294,8 @@ chrome.runtime.onMessage.addListener((message: any, _sender, sendResponse: (resp
         });
       return true; // Indicates we'll respond asynchronously
     } else {
-      // No modifications, just continue the request
+      // No modifications, just continue the request (ignoring the response)
+      console.log(`Ignoring response for request ${requestId} - continuing without modifications`);
       if (attachedTabId !== null) {
         chrome.debugger.sendCommand(
           { tabId: attachedTabId },

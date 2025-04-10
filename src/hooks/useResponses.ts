@@ -102,12 +102,15 @@ export function useResponses() {
     }
   }, [pendingResponses, currentResponseId]);
 
-  // Ignorar uma resposta
+  // Ignorar uma resposta (continua sem modificações)
   const ignoreResponse = useCallback(async (requestId: string): Promise<boolean> => {
     try {
+      console.log(`Ignorando resposta: ${requestId}`);
+      // Enviar para o background script sem modificações
       const response = await chrome.runtime.sendMessage({
-        action: 'ignoreResponse',
+        action: 'approveResponse',
         requestId
+        // Não enviamos modificações para continuar a requisição original
       });
 
       if (response && response.success) {
@@ -124,6 +127,7 @@ export function useResponses() {
 
         return true;
       } else {
+        alert('Falha ao ignorar resposta: ' + (response ? response.error : 'Erro desconhecido'));
         return false;
       }
     } catch (error) {

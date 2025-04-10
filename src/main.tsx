@@ -123,12 +123,15 @@ const MainApp: React.FC = () => {
         <div className="flex items-center gap-2 header-controls">
           <Button
             variant="outline"
-            className={`flex items-center gap-2 text-black ${targetTab.id ? 'bg-green-500 text-white' : ''}`}
+            className={`flex items-center gap-2 ${targetTab.id ? 'bg-green-500 text-white' : 'text-black'}`}
             onClick={() => setSelectTabDialogOpen(true)}
             title={targetTab.url}
           >
             <Icon name="tab" />
-            {targetTab.id ? targetTab.title.substring(0, 15) + '...' : 'Selecionar Aba'}
+            {targetTab.id ?
+              (targetTab.title.length > 15 ? targetTab.title.substring(0, 15) + '...' : targetTab.title) :
+              'Selecionar Aba'
+            }
           </Button>
           {!isDebugging ? (
             <Button

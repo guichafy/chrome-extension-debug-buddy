@@ -61,9 +61,28 @@ export function useDebugging() {
     }
   }, []);
 
+  // Carregar informações da aba alvo do armazenamento
+  const loadTargetTabInfo = useCallback(async () => {
+    try {
+      const result = await chrome.storage.local.get(['targetTabInfo']);
+      if (result.targetTabInfo) {
+        setTargetTab({
+          id: result.targetTabInfo.id,
+          title: result.targetTabInfo.title || '',
+          url: result.targetTabInfo.url || ''
+        });
+        console.log('Informações da aba alvo carregadas:', result.targetTabInfo);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar informações da aba alvo:', error);
+    }
+  }, []);
+
   // Verificar status de debugging ao montar o componente
   useEffect(() => {
+    // Carregar status e informações da aba alvo
     checkDebuggingStatus();
+    loadTargetTabInfo();
 
     // Configurar intervalo para verificar o status periodicamente
     const interval = setInterval(() => {
@@ -89,7 +108,7 @@ export function useDebugging() {
       clearInterval(interval);
       chrome.runtime.onMessage.removeListener(messageListener);
     };
-  }, [checkDebuggingStatus]);
+  }, [checkDebuggingStatus, loadTargetTabInfo]);
 
   return {
     isDebugging,
