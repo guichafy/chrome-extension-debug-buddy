@@ -28,7 +28,7 @@ const UrlForm: React.FC<UrlFormProps> = ({ onAdd }) => {
       headerValue.trim(),
       headerType
     );
-    
+
     if (success) {
       // Limpar os campos
       setUrlPattern('');
@@ -54,7 +54,7 @@ const UrlForm: React.FC<UrlFormProps> = ({ onAdd }) => {
             required
           />
         </div>
-        
+
         <div className="flex gap-4">
           <div className="w-1/3">
             <label htmlFor="httpMethod" className="block text-sm font-medium mb-1">Método HTTP</label>
@@ -74,7 +74,7 @@ const UrlForm: React.FC<UrlFormProps> = ({ onAdd }) => {
               <option value="OPTIONS">OPTIONS</option>
             </select>
           </div>
-          
+
           <div className="w-2/3">
             <label htmlFor="headerType" className="block text-sm font-medium mb-1">Tipo de Header</label>
             <select
@@ -88,7 +88,7 @@ const UrlForm: React.FC<UrlFormProps> = ({ onAdd }) => {
             </select>
           </div>
         </div>
-        
+
         <div className="flex gap-4">
           <div className="w-1/2">
             <label htmlFor="headerName" className="block text-sm font-medium mb-1">Nome do Header</label>
@@ -101,7 +101,7 @@ const UrlForm: React.FC<UrlFormProps> = ({ onAdd }) => {
               className="w-full p-2 border rounded"
             />
           </div>
-          
+
           <div className="w-1/2">
             <label htmlFor="headerValue" className="block text-sm font-medium mb-1">Valor do Header</label>
             <input
@@ -115,10 +115,10 @@ const UrlForm: React.FC<UrlFormProps> = ({ onAdd }) => {
           </div>
         </div>
       </div>
-      
+
       <Button type="submit" className="primary-button flex items-center gap-2">
         <Icon name="add" />
-        Adicionar URL
+        Adicionar Regra
       </Button>
     </form>
   );

@@ -6,6 +6,7 @@ export interface UrlPattern {
   headerType?: string;
   headerName?: string;
   headerValue?: string;
+  enabled?: boolean;
 }
 
 export function useUrlPatterns() {
@@ -43,6 +44,7 @@ export function useUrlPatterns() {
     const interceptConfig: UrlPattern = {
       url: urlPattern,
       method: httpMethod,
+      enabled: true, // Por padrão, novas regras são habilitadas
     };
 
     // Adicionar header se estiver preenchido
@@ -73,13 +75,13 @@ export function useUrlPatterns() {
 
       // Adicionar nova configuração
       const newPatterns = [...urlPatterns, interceptConfig];
-      
+
       // Salvar as configurações atualizadas
       await chrome.storage.local.set({ urlPatterns: newPatterns });
-      
+
       // Atualizar o estado
       setUrlPatterns(newPatterns);
-      
+
       return true;
     } catch (error) {
       console.error('Erro ao adicionar padrão de URL:', error);
@@ -91,7 +93,7 @@ export function useUrlPatterns() {
   const removeUrlPattern = useCallback(async (index: number): Promise<void> => {
     try {
       const newPatterns = [...urlPatterns];
-      
+
       // Remove o padrão pelo índice
       if (index >= 0 && index < newPatterns.length) {
         newPatterns.splice(index, 1);
@@ -99,7 +101,7 @@ export function useUrlPatterns() {
 
       // Salvar os padrões atualizados
       await chrome.storage.local.set({ urlPatterns: newPatterns });
-      
+
       // Atualizar o estado
       setUrlPatterns(newPatterns);
     } catch (error) {
@@ -112,11 +114,77 @@ export function useUrlPatterns() {
     loadUrlPatterns();
   }, [loadUrlPatterns]);
 
+  // Alternar o estado de habilitado/desabilitado de uma regra
+  const toggleRuleEnabled = useCallback(async (index: number): Promise<boolean> => {
+    try {
+      if (index < 0 || index >= urlPatterns.length) {
+        return false;
+      }
+
+      const newPatterns = [...urlPatterns];
+      const pattern = newPatterns[index];
+
+      // Se for uma string, converter para objeto UrlPattern
+      if (typeof pattern === 'string') {
+        newPatterns[index] = {
+          url: pattern,
+          method: 'ANY',
+          enabled: true // Habilitar por padrão ao converter
+        };
+      } else {
+        // Alternar o estado enabled
+        newPatterns[index] = {
+          ...pattern,
+          enabled: pattern.enabled === undefined ? false : !pattern.enabled
+        };
+      }
+
+      // Salvar os padrões atualizados
+      await chrome.storage.local.set({ urlPatterns: newPatterns });
+
+      // Atualizar o estado
+      setUrlPatterns(newPatterns);
+
+      return true;
+    } catch (error) {
+      console.error('Erro ao alternar estado da regra:', error);
+      return false;
+    }
+  }, [urlPatterns]);
+
+  // Atualizar uma regra existente
+  const updateUrlPattern = useCallback(async (
+    index: number,
+    updatedPattern: UrlPattern
+  ): Promise<boolean> => {
+    try {
+      if (index < 0 || index >= urlPatterns.length) {
+        return false;
+      }
+
+      const newPatterns = [...urlPatterns];
+      newPatterns[index] = updatedPattern;
+
+      // Salvar os padrões atualizados
+      await chrome.storage.local.set({ urlPatterns: newPatterns });
+
+      // Atualizar o estado
+      setUrlPatterns(newPatterns);
+
+      return true;
+    } catch (error) {
+      console.error('Erro ao atualizar regra:', error);
+      return false;
+    }
+  }, [urlPatterns]);
+
   return {
     urlPatterns,
     loading,
     addUrlPattern,
     removeUrlPattern,
+    toggleRuleEnabled,
+    updateUrlPattern,
     loadUrlPatterns
   };
 }

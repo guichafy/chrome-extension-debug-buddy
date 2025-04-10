@@ -5,6 +5,7 @@ interface UrlPattern {
   headerType?: string;
   headerName?: string;
   headerValue?: string;
+  enabled?: boolean;
 }
 
 // Tipos para respostas interceptadas
@@ -789,6 +790,9 @@ function getResponseHeadersToAdd(url: string): { name: string, value: string }[]
   // Procurar por configurações que correspondam a esta URL e tenham headers de resposta
   urlPatterns.forEach(pattern => {
     if (typeof pattern !== 'string' && pattern.url && url.includes(pattern.url)) {
+      // Verificar se a regra está habilitada
+      if (pattern.enabled === false) return;
+
       // Se for uma configuração com header de resposta
       if (pattern.headerName && pattern.headerValue && pattern.headerType === 'response') {
         responseHeaders.push({
@@ -812,6 +816,9 @@ function shouldInterceptUrl(url: string, request: any): boolean {
       // String simples (contém)
       return url.includes(pattern);
     } else {
+      // Verificar se a regra está habilitada
+      if (pattern.enabled === false) return false;
+
       // Verificar se a URL corresponde
       const urlMatches = url.includes(pattern.url);
       if (!urlMatches) return false;
