@@ -35,7 +35,7 @@ export function SiteHeader({
             className="mx-2 data-[orientation=vertical]:h-6"
           />
           <div className="flex items-center gap-2">
-            <img src="images/icon48.png" alt="Logo" className="w-6 h-6" />
+            <img src="images/icon_64px.png" alt="Logo" className="w-6 h-6" />
             <h1 className="text-base font-medium">Network Request Interceptor</h1>
           </div>
         </div>

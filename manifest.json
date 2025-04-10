@@ -18,7 +18,11 @@
   "action": {
     "default_title": "Network Request Interceptor",
     "default_icon": {
-      "48": "images/icon48.png"
+      "64": "images/icon_64px.png",
+      "56": "images/icon_56px.png",
+      "48": "images/icon_48px.png",
+      "40": "images/icon_40px.png",
+      "32": "images/icon_32px.png"
     }
   },
   "options_page": "main.html",
