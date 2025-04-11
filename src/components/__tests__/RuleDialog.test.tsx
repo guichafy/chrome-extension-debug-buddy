@@ -181,7 +181,8 @@ describe('RuleDialog Component', () => {
         headerType: 'response',
         headerName: 'Authorization',
         headerValue: 'Bearer token',
-        enabled: false
+        enabled: false,
+        isRegex: false
       });
     });
 

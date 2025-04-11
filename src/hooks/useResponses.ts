@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 
 export interface InterceptedResponse {
   url: string;
+  method?: string;
   status: number;
   statusText: string;
   headers: Record<string, string>;
@@ -151,13 +152,15 @@ export function useResponses() {
           ...prev,
           [message.requestId]: {
             url: message.url,
+            method: message.method || 'GET',
             status: message.status,
             statusText: message.statusText,
             type: message.type,
             mimeType: message.mimeType,
             body: "",
             headers: {},
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            isWaiting: true
           }
         }));
       } else if (message.action === 'responseBodyReady') {

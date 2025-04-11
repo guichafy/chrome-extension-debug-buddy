@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Icon } from './ui/icon';
+import { Input } from './ui/input';
+import { Badge } from './ui/badge';
+import { Card, CardContent } from './ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { ScrollArea } from './ui/scroll-area';
 import { InterceptedResponse, ResponseModifications } from '../hooks/useResponses';
 
 interface ResponseDetailsProps {
@@ -101,102 +106,154 @@ const ResponseDetails: React.FC<ResponseDetailsProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="bg-gray-100 p-4 rounded">
-        <h3 className="font-medium text-lg mb-2">Detalhes da Resposta</h3>
-        <p><strong>URL:</strong> {response.url}</p>
-        <p><strong>Tipo:</strong> {response.type}</p>
-        <p><strong>MIME Type:</strong> {response.mimeType}</p>
-      </div>
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h3 className="text-lg font-medium mb-2">Detalhes da Requisição</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                <div>
+                  <p className="flex items-center gap-1">
+                    <span className="font-medium">URL:</span>
+                    <span className="truncate">{response.url}</span>
+                  </p>
+                  <p className="flex items-center gap-1">
+                    <span className="font-medium">Método:</span>
+                    <Badge variant="outline">{response.method || 'GET'}</Badge>
+                  </p>
+                </div>
+                <div>
+                  <p className="flex items-center gap-1">
+                    <span className="font-medium">Tipo:</span>
+                    <span>{response.type}</span>
+                  </p>
+                  <p className="flex items-center gap-1">
+                    <span className="font-medium">MIME Type:</span>
+                    <span>{response.mimeType}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={handleMock}
+              >
+                <Icon name="content_copy" className="h-4 w-4" />
+                <span className="hidden sm:inline">Criar Mock</span>
+              </Button>
 
-      <div className="flex space-x-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="secondary-button flex items-center gap-2"
-          onClick={handleMock}
-        >
-          <Icon name="content_copy" />
-          Criar Mock
-        </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={handleIgnore}
+              >
+                <Icon name="close" className="h-4 w-4" />
+                <span className="hidden sm:inline">Ignorar</span>
+              </Button>
 
-        <Button
-          variant="outline"
-          size="sm"
-          className="secondary-button flex items-center gap-2"
-          onClick={handleIgnore}
-        >
-          <Icon name="close" />
-          Ignorar
-        </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={handleEdit}
+                disabled={isEditing}
+              >
+                <Icon name="edit" className="h-4 w-4" />
+                <span className="hidden sm:inline">Editar</span>
+              </Button>
+            </div>
+          </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          className="secondary-button flex items-center gap-2"
-          onClick={handleEdit}
-          disabled={isEditing}
-        >
-          <Icon name="edit" />
-          Editar
-        </Button>
-      </div>
+          <Tabs defaultValue="response" className="w-full">
+            <TabsList className="grid grid-cols-3 mb-4">
+              <TabsTrigger value="response">Status</TabsTrigger>
+              <TabsTrigger value="headers">Headers</TabsTrigger>
+              <TabsTrigger value="body">Body</TabsTrigger>
+            </TabsList>
 
-      <div className="space-y-4">
-        <div>
-          <label htmlFor="responseStatus" className="block text-sm font-medium mb-1">Status</label>
-          <input
-            type="text"
-            id="responseStatus"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="w-full p-2 border rounded"
-            disabled={!isEditing}
-          />
-        </div>
+            <TabsContent value="response" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="responseStatus" className="block text-sm font-medium mb-1">Status Code</label>
+                  <Input
+                    type="text"
+                    id="responseStatus"
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                    disabled={!isEditing}
+                    className="font-mono"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="responseStatusText" className="block text-sm font-medium mb-1">Status Text</label>
+                  <Input
+                    type="text"
+                    id="responseStatusText"
+                    value={response.statusText}
+                    disabled={true}
+                    className="font-mono"
+                  />
+                </div>
+              </div>
+            </TabsContent>
 
-        <div>
-          <label htmlFor="responseHeaders" className="block text-sm font-medium mb-1">Headers</label>
-          <textarea
-            id="responseHeaders"
-            value={headers}
-            onChange={(e) => setHeaders(e.target.value)}
-            className="w-full p-2 border rounded h-32 font-mono text-sm"
-            disabled={!isEditing}
-          />
-        </div>
+            <TabsContent value="headers" className="space-y-4">
+              <div>
+                <label htmlFor="responseHeaders" className="block text-sm font-medium mb-1">Headers (JSON)</label>
+                <ScrollArea className="h-[300px] border rounded-md">
+                  <textarea
+                    id="responseHeaders"
+                    value={headers}
+                    onChange={(e) => setHeaders(e.target.value)}
+                    className="w-full p-3 font-mono text-sm min-h-[300px] focus:outline-none"
+                    disabled={!isEditing}
+                  />
+                </ScrollArea>
+              </div>
+            </TabsContent>
 
-        <div>
-          <label htmlFor="responseBody" className="block text-sm font-medium mb-1">Body</label>
-          <textarea
-            id="responseBody"
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            className="w-full p-2 border rounded h-64 font-mono text-sm"
-            disabled={!isEditing}
-          />
-        </div>
-      </div>
+            <TabsContent value="body" className="space-y-4">
+              <div>
+                <label htmlFor="responseBody" className="block text-sm font-medium mb-1">Body</label>
+                <ScrollArea className="h-[400px] border rounded-md">
+                  <textarea
+                    id="responseBody"
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    className="w-full p-3 font-mono text-sm min-h-[400px] focus:outline-none"
+                    disabled={!isEditing}
+                  />
+                </ScrollArea>
+              </div>
+            </TabsContent>
+          </Tabs>
 
-      <div className="flex space-x-2">
-        <Button
-          className="primary-button flex items-center gap-2"
-          onClick={handleApprove}
-        >
-          <Icon name="check" />
-          {isEditing ? 'Salvar e Aprovar' : 'Aprovar'}
-        </Button>
+          <div className="flex space-x-2 mt-6">
+            <Button
+              className="flex items-center gap-2"
+              onClick={handleApprove}
+            >
+              <Icon name="check" className="h-4 w-4" />
+              {isEditing ? 'Salvar e Aprovar' : 'Aprovar'}
+            </Button>
 
-        {isEditing && (
-          <Button
-            variant="outline"
-            className="secondary-button flex items-center gap-2"
-            onClick={handleCancel}
-          >
-            <Icon name="cancel" />
-            Cancelar
-          </Button>
-        )}
-      </div>
+            {isEditing && (
+              <Button
+                variant="outline"
+                className="flex items-center gap-2"
+                onClick={handleCancel}
+              >
+                <Icon name="cancel" className="h-4 w-4" />
+                Cancelar
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

@@ -5,6 +5,8 @@ export interface UrlPattern {
   headerType?: string;
   headerName?: string;
   headerValue?: string;
+  enabled?: boolean;
+  isRegex?: boolean;
 }
 
 // Tipos para respostas interceptadas
@@ -39,7 +41,7 @@ export interface MockConfig {
 }
 
 // Tipos para mensagens entre scripts
-export type MessageAction = 
+export type MessageAction =
   | 'getMocks'
   | 'startDebugging'
   | 'stopDebugging'

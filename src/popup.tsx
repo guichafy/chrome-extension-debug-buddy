@@ -8,7 +8,7 @@ import { Icon } from '@/components/ui/icon';
 import RuleDialog from './components/RuleDialog';
 import RuleList from './components/RuleList';
 import ResponseList from './components/ResponseList';
-import ResponseDetails from './components/ResponseDetails';
+import ResponseDialog from './components/ResponseDialog';
 import { useUrlPatterns } from './hooks/useUrlPatterns';
 import { useDebugging } from './hooks/useDebugging';
 import { useResponses } from './hooks/useResponses';
@@ -34,8 +34,11 @@ const PopupApp: React.FC = () => {
   const [isCreatingRule, setIsCreatingRule] = useState(false);
 
   // Manipuladores de eventos
+  const [dialogOpen, setDialogOpen] = useState(false);
+
   const handleSelectResponse = async (requestId: string) => {
     await getResponseDetails(requestId);
+    setDialogOpen(true);
   };
 
   const handleEditResponse = () => {
@@ -133,35 +136,23 @@ const PopupApp: React.FC = () => {
               <ResponseList
                 responses={pendingResponses}
                 onSelect={handleSelectResponse}
+                onIgnore={ignoreResponse}
               />
             </CardContent>
           </Card>
 
-          {currentResponse && (
-            <div className="mt-4 response-details">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Response Details</CardTitle>
-                  <div className="space-y-1 response-info">
-                    <p><strong>URL:</strong> <span>{currentResponse.url}</span></p>
-                    <p><strong>Type:</strong> <span>{currentResponse.type}</span></p>
-                    <p><strong>MIME Type:</strong> <span>{currentResponse.mimeType}</span></p>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4 response-edit-container">
-                  <ResponseDetails
-                    response={currentResponse}
-                    requestId={currentResponseId}
-                    onApprove={approveResponse}
-                    onIgnore={ignoreResponse}
-                    onMock={handleCreateMock}
-                    onEdit={handleEditResponse}
-                    onCancel={handleCancelEdit}
-                  />
-                </CardContent>
-              </Card>
-            </div>
-          )}
+          <ResponseDialog
+            open={dialogOpen}
+            onOpenChange={setDialogOpen}
+            response={currentResponse}
+            requestId={currentResponseId}
+            onApprove={approveResponse}
+            onIgnore={ignoreResponse}
+            onMock={handleCreateMock}
+            onEdit={handleEditResponse}
+            onCancel={handleCancelEdit}
+            isEditing={isEditing}
+          />
         </TabsContent>
       </Tabs>
 
@@ -178,7 +169,8 @@ const PopupApp: React.FC = () => {
             newRule.method,
             newRule.headerName || '',
             newRule.headerValue || '',
-            newRule.headerType || 'request'
+            newRule.headerType || 'request',
+            newRule.isRegex || false
           );
           if (success) setIsCreatingRule(false);
           return success;

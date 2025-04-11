@@ -112,7 +112,8 @@ describe('useUrlPatterns hook', () => {
           headerType: 'request',
           headerName: 'Content-Type',
           headerValue: 'application/json',
-          enabled: true
+          enabled: true,
+          isRegex: false
         }
       ]
     });
