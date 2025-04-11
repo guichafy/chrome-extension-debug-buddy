@@ -1,8 +1,16 @@
 {
   "name": "Network Request Interceptor",
-  "description": "Intercept and log network requests based on URL patterns",
-  "version": "1.0",
+  "short_name": "NetReqInterceptor",
+  "description": "Intercept and log network requests based on URL patterns. Modify responses and create mocks for web development.",
+  "version": "1.0.0",
   "manifest_version": 3,
+  "icons": {
+    "16": "images/icon_16px.png",
+    "32": "images/icon_32px.png",
+    "48": "images/icon_48px.png",
+    "64": "images/icon_64px.png",
+    "128": "images/icon_128px.png"
+  },
   "permissions": [
     "debugger",
     "tabs",
@@ -18,11 +26,11 @@
   "action": {
     "default_title": "Network Request Interceptor",
     "default_icon": {
-      "64": "images/icon_64px.png",
-      "56": "images/icon_56px.png",
+      "16": "images/icon_16px.png",
+      "32": "images/icon_32px.png",
       "48": "images/icon_48px.png",
-      "40": "images/icon_40px.png",
-      "32": "images/icon_32px.png"
+      "64": "images/icon_64px.png",
+      "128": "images/icon_128px.png"
     }
   },
   "options_page": "main.html",
@@ -31,5 +39,7 @@
       "resources": ["styles.css", "images/*"],
       "matches": ["<all_urls>"]
     }
-  ]
+  ],
+  "author": "Chafy Studio",
+  "homepage_url": "https://github.com/Chafy-Studio/chrome-interceptor"
 }
