@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import ResponseList from '../components/ResponseList';
 import ResponseDetails from '../components/ResponseDetails';
 import { useResponses } from '../hooks/useResponses';

@@ -1,9 +1,9 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Icon } from '../components/ui/icon';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import MockList from '../components/MockList';
-import MockEditor from '../components/MockEditor';
+import MockForm from '../components/MockForm';
 import { useMocks } from '../hooks/useMocks';
 
 const Mocks: React.FC = () => {
@@ -48,7 +48,7 @@ const Mocks: React.FC = () => {
             <CardTitle>Configuração de Mock</CardTitle>
           </CardHeader>
           <CardContent>
-            <MockEditor
+            <MockForm
               initialData={currentEditingMockIndex >= 0 ? mocks[currentEditingMockIndex] : undefined}
               onSave={saveMock}
               onCancel={cancelEdit}

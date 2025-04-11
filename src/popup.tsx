@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import './globals.css';
-import { Button } from './components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './components/ui/card';
-import { Icon } from './components/ui/icon';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Icon } from '@/components/ui/icon';
 import RuleDialog from './components/RuleDialog';
-import UrlList from './components/UrlList';
+import RuleList from './components/RuleList';
 import ResponseList from './components/ResponseList';
 import ResponseDetails from './components/ResponseDetails';
 import { useUrlPatterns } from './hooks/useUrlPatterns';
@@ -92,7 +92,7 @@ const PopupApp: React.FC = () => {
               <CardTitle>URLs to intercept</CardTitle>
             </CardHeader>
             <CardContent>
-              <UrlList urlPatterns={urlPatterns} onRemove={removeUrlPattern} />
+              <RuleList urlPatterns={urlPatterns} onRemove={removeUrlPattern} />
             </CardContent>
             <CardFooter className="flex justify-between">
               <div className="flex gap-2">

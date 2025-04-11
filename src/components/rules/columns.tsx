@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { UrlPattern } from "@/hooks/useUrlPatterns"
+import { UrlPattern } from "../../hooks/useUrlPatterns"
 
 // Tipo para representar uma regra (que pode ser uma string ou um objeto UrlPattern)
 export type Rule = string | UrlPattern;
@@ -76,6 +76,17 @@ export const columns: ColumnDef<Rule>[] = [
         return "-";
       }
       return rule.headerType === 'request' ? 'Request' : 'Response';
+    },
+  },
+  {
+    accessorKey: "isRegex",
+    header: "Tipo de URL",
+    cell: ({ row }) => {
+      const rule = row.original;
+      if (typeof rule === 'string' || rule.isRegex === undefined) {
+        return "Texto simples";
+      }
+      return rule.isRegex ? 'Expressão Regular' : 'Texto simples';
     },
   },
   {

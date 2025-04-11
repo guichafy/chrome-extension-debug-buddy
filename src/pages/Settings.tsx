@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Icon } from '../components/ui/icon';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import RuleList from '../components/RuleList';
 import RuleDialog from '../components/RuleDialog';
 import { useUrlPatterns, UrlPattern } from '../hooks/useUrlPatterns';
@@ -82,7 +82,8 @@ const Settings: React.FC = () => {
             newRule.method,
             newRule.headerName || '',
             newRule.headerValue || '',
-            newRule.headerType || 'request'
+            newRule.headerType || 'request',
+            newRule.isRegex || false
           );
           if (success) setIsCreating(false);
           return success;

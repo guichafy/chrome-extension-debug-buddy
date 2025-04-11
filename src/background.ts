@@ -6,6 +6,7 @@ interface UrlPattern {
   headerName?: string;
   headerValue?: string;
   enabled?: boolean;
+  isRegex?: boolean;
 }
 
 // Tipos para respostas interceptadas
@@ -820,7 +821,22 @@ function shouldInterceptUrl(url: string, request: any): boolean {
       if (pattern.enabled === false) return false;
 
       // Verificar se a URL corresponde
-      const urlMatches = url.includes(pattern.url);
+      let urlMatches = false;
+
+      if (pattern.isRegex) {
+        // Usar expressão regular para verificar a correspondência
+        try {
+          const regex = new RegExp(pattern.url);
+          urlMatches = regex.test(url);
+        } catch (error) {
+          console.error(`Erro ao processar expressão regular '${pattern.url}':`, error);
+          return false; // Se a expressão regular for inválida, não intercepta
+        }
+      } else {
+        // Usar método includes para verificação simples
+        urlMatches = url.includes(pattern.url);
+      }
+
       if (!urlMatches) return false;
 
       // Verificar o método HTTP, se especificado
@@ -852,9 +868,31 @@ async function checkForMock(url: string, method: string): Promise<MockConfig | u
 
       // Procura por um mock que corresponda à URL e método e esteja habilitado
       const mock = mocks.find(m => {
-        const urlMatches = url.includes(m.urlPattern);
-        const methodMatches = m.method === 'ANY' || m.method === method;
+        // Verificar se o mock está habilitado
         const isEnabled = m.enabled !== undefined ? m.enabled : true; // Se não tiver a propriedade, considera como habilitado
+        if (!isEnabled) return false;
+
+        // Verificar se o método corresponde
+        const methodMatches = m.method === 'ANY' || m.method === method;
+        if (!methodMatches) return false;
+
+        // Verificar se a URL corresponde
+        let urlMatches = false;
+
+        // Verificar se o padrão de URL é uma expressão regular
+        if (m.urlPattern.startsWith('^') || m.urlPattern.includes('.*') || m.urlPattern.endsWith('$')) {
+          try {
+            const regex = new RegExp(m.urlPattern);
+            urlMatches = regex.test(url);
+          } catch (error) {
+            console.error(`Erro ao processar expressão regular '${m.urlPattern}' no mock:`, error);
+            return false;
+          }
+        } else {
+          // Usar método includes para verificação simples
+          urlMatches = url.includes(m.urlPattern);
+        }
+
         return urlMatches && methodMatches && isEnabled;
       });
 

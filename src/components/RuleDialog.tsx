@@ -9,6 +9,7 @@ import {
 } from './ui/dialog';
 import { Button } from './ui/button';
 import { Icon } from './ui/icon';
+import { Checkbox } from './ui/checkbox';
 import { UrlPattern } from '../hooks/useUrlPatterns';
 
 interface RuleDialogProps {
@@ -43,6 +44,7 @@ const RuleDialog: React.FC<RuleDialogProps> = ({
   const [headerValue, setHeaderValue] = useState(currentRule.headerValue || '');
   const [headerType, setHeaderType] = useState(currentRule.headerType || 'request');
   const [enabled, setEnabled] = useState(currentRule.enabled !== false); // Default to true if undefined
+  const [isRegex, setIsRegex] = useState(currentRule.isRegex || false); // Default to false if undefined
   const [isSaving, setIsSaving] = useState(false);
 
   // Atualizar o estado quando a regra mudar
@@ -54,6 +56,7 @@ const RuleDialog: React.FC<RuleDialogProps> = ({
       setHeaderValue(rule.headerValue || '');
       setHeaderType(rule.headerType || 'request');
       setEnabled(rule.enabled !== false); // Default to true if undefined
+      setIsRegex(rule.isRegex || false); // Default to false if undefined
     } else {
       // Reset para valores padrão quando estiver criando uma nova regra
       setUrlPattern('');
@@ -62,6 +65,7 @@ const RuleDialog: React.FC<RuleDialogProps> = ({
       setHeaderValue('');
       setHeaderType('request');
       setEnabled(true);
+      setIsRegex(false);
     }
   }, [rule]);
 
@@ -77,7 +81,8 @@ const RuleDialog: React.FC<RuleDialogProps> = ({
       const updatedRule: UrlPattern = {
         url: urlPattern.trim(),
         method: httpMethod,
-        enabled: enabled
+        enabled: enabled,
+        isRegex: isRegex
       };
 
       // Adicionar header se estiver preenchido
@@ -112,16 +117,19 @@ const RuleDialog: React.FC<RuleDialogProps> = ({
         <div className="py-4">
           <div className="grid gap-4">
             <div>
-              <label htmlFor="editUrlPattern" className="block text-sm font-medium mb-1">Padrão de URL</label>
+              <div className="mb-1">
+                <label htmlFor="editUrlPattern" className="block text-sm font-medium">Padrão de URL</label>
+              </div>
               <input
                 type="text"
                 id="editUrlPattern"
                 value={urlPattern}
                 onChange={(e) => setUrlPattern(e.target.value)}
-                placeholder="Exemplo: api.exemplo.com/endpoint"
+                placeholder={isRegex ? "Exemplo: ^https://api\\.exemplo\\.com/.*$" : "Exemplo: api.exemplo.com/endpoint"}
                 className="w-full p-2 border rounded"
                 required
               />
+
             </div>
 
             <div className="flex gap-4">
@@ -184,16 +192,43 @@ const RuleDialog: React.FC<RuleDialogProps> = ({
               </div>
             </div>
 
-            <div>
-              <label className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={enabled}
-                  onChange={(e) => setEnabled(e.target.checked)}
-                  className="rounded border-gray-300"
-                />
-                <span className="text-sm font-medium">Regra ativa</span>
-              </label>
+            <div className="flex flex-col items-center mt-6">
+              <div className="flex gap-8 mb-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="use-regex"
+                    checked={isRegex}
+                    onCheckedChange={(checked) => setIsRegex(checked === true)}
+                  />
+                  <label
+                    htmlFor="use-regex"
+                    className="text-sm font-medium leading-none"
+                  >
+                    Usar expressão regular
+                  </label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="rule-enabled"
+                    checked={enabled}
+                    onCheckedChange={(checked) => setEnabled(checked === true)}
+                  />
+                  <label
+                    htmlFor="rule-enabled"
+                    className="text-sm font-medium leading-none"
+                  >
+                    Regra ativa
+                  </label>
+                </div>
+              </div>
+
+              {isRegex && (
+                <p className="text-xs text-gray-500 mt-1 max-w-md text-center">
+                  Use expressões regulares para interceptar URLs com padrões mais complexos.
+                  Exemplo: ^https://api\.exemplo\.com/.* captura todas as URLs que começam com https://api.exemplo.com/
+                </p>
+              )}
             </div>
           </div>
         </div>

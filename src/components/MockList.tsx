@@ -1,5 +1,7 @@
 import React from 'react';
 import { MockConfig } from '../hooks/useMocks';
+import { Button } from './ui/button';
+import { Icon } from './ui/icon';
 
 interface MockListProps {
   mocks: MockConfig[];
@@ -28,29 +30,32 @@ const MockList: React.FC<MockListProps> = ({ mocks, onEdit, onRemove, onToggle }
               </div>
             </div>
             <div className="flex space-x-2">
-              <button
+              <Button
                 onClick={() => onToggle(index)}
-                className={`px-2 py-1 rounded text-sm ${
-                  mock.enabled
-                    ? 'bg-green-500 hover:bg-green-600 text-white'
-                    : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
-                }`}
+                variant={mock.enabled ? "default" : "outline"}
+                size="sm"
+                className={mock.enabled ? 'bg-green-500 hover:bg-green-600' : 'text-gray-500'}
                 title={mock.enabled ? 'Desabilitar' : 'Habilitar'}
               >
                 {mock.enabled ? 'Ativo' : 'Inativo'}
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => onEdit(index)}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm"
+                variant="default"
+                size="sm"
+                className="bg-blue-500 hover:bg-blue-600"
               >
+                <Icon name="edit" className="mr-1 h-4 w-4" />
                 Editar
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => onRemove(index)}
-                className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm"
+                variant="destructive"
+                size="sm"
               >
+                <Icon name="delete" className="mr-1 h-4 w-4" />
                 Remover
-              </button>
+              </Button>
             </div>
           </div>
         </div>

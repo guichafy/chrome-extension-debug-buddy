@@ -7,6 +7,7 @@ export interface UrlPattern {
   headerName?: string;
   headerValue?: string;
   enabled?: boolean;
+  isRegex?: boolean;
 }
 
 export function useUrlPatterns() {
@@ -33,7 +34,8 @@ export function useUrlPatterns() {
     httpMethod: string,
     headerName: string,
     headerValue: string,
-    headerType: string
+    headerType: string,
+    isRegex: boolean = false
   ): Promise<boolean> => {
     if (!urlPattern) {
       alert('Por favor, insira um padrão de URL');
@@ -45,6 +47,7 @@ export function useUrlPatterns() {
       url: urlPattern,
       method: httpMethod,
       enabled: true, // Por padrão, novas regras são habilitadas
+      isRegex: isRegex, // Indica se o padrão de URL é uma expressão regular
     };
 
     // Adicionar header se estiver preenchido
