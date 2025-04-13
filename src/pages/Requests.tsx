@@ -14,7 +14,7 @@ import { indexedDBService } from '../services/indexedDB';
 const Requests: React.FC = () => {
   // Estado para controlar a inicialização do IndexedDB
   const [dbStatus, setDbStatus] = useState<'initializing' | 'ready' | 'error'>('initializing');
-  
+
   // Inicializar o IndexedDB quando o componente for montado
   useEffect(() => {
     const initDB = async () => {
@@ -26,7 +26,7 @@ const Requests: React.FC = () => {
         setDbStatus('error');
       }
     };
-    
+
     initDB();
   }, []);
   const {
@@ -117,7 +117,7 @@ const Requests: React.FC = () => {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-4">
               <TabsTrigger value="intercepted">Interceptadas</TabsTrigger>
-              <TabsTrigger value="all">Todas</TabsTrigger>
+              <TabsTrigger value="all">Histórico</TabsTrigger>
             </TabsList>
 
             <TabsContent value="intercepted">
@@ -133,7 +133,7 @@ const Requests: React.FC = () => {
 
             <TabsContent value="all">
               <CardDescription className="mb-4">
-                Todas as requisições capturadas enquanto o debugger estava ativo, incluindo as interceptadas e as apenas observadas.
+                Histórico de todas as requisições capturadas enquanto o debugger estava ativo, incluindo as interceptadas e as apenas observadas.
               </CardDescription>
               <RequestTable
                 requests={filteredRequests}

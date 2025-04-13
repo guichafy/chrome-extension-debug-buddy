@@ -4,6 +4,7 @@ import { ColumnDef } from "@tanstack/react-table"
 import { ArrowUpDown, MoreHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Icon } from "@/components/ui/icon"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -154,16 +155,22 @@ export const columns: ColumnDef<RequestRow>[] = [
 
       let variant: "destructive" | "default" | "outline" | "secondary" = "outline";
       let label = "Proxy";
+      let icon = null;
 
       if (isIntercepted) {
         variant = "destructive";
         label = "Aguardando";
+        icon = "hourglass_empty";
       } else if (wasIntercepted) {
         variant = "default";
-        label = "Interceptado";
+        label = "Modificado";
+        icon = "edit";
       } else if (isMocked) {
         variant = "secondary";
         label = "Mockado";
+        icon = "content_copy";
+      } else {
+        icon = "check_circle";
       }
 
       return (
@@ -223,7 +230,21 @@ export const columns: ColumnDef<RequestRow>[] = [
     },
     cell: ({ row }) => {
       const request = row.original.request;
-      return <span className="truncate block max-w-[300px]">{request.url}</span>;
+      const isIntercepted = !!request.isWaiting;
+      const wasIntercepted = request.isWaiting === false;
+      const isMocked = request.isMocked === true;
+
+      // Adicionar uma classe de borda à esquerda para indicar o status
+      let borderClass = "";
+      if (isIntercepted) {
+        borderClass = "border-l-2 border-l-red-500 pl-2";
+      } else if (wasIntercepted) {
+        borderClass = "border-l-2 border-l-blue-500 pl-2";
+      } else if (isMocked) {
+        borderClass = "border-l-2 border-l-purple-500 pl-2";
+      }
+
+      return <span className={`truncate block max-w-[300px] ${borderClass}`}>{request.url}</span>;
     },
     size: 300,
   },

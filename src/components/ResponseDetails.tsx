@@ -113,24 +113,24 @@ const ResponseDetails: React.FC<ResponseDetailsProps> = ({
               <h3 className="text-lg font-medium mb-2">Detalhes da Requisição</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
                 <div>
-                  <p className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 mb-1">
                     <span className="font-medium">URL:</span>
                     <span className="truncate">{response.url}</span>
-                  </p>
-                  <p className="flex items-center gap-1">
+                  </div>
+                  <div className="flex items-center gap-1">
                     <span className="font-medium">Método:</span>
-                    <Badge variant="outline">{response.method || 'GET'}</Badge>
-                  </p>
+                    <Badge variant="outline" className="text-xs">{response.method || 'GET'}</Badge>
+                  </div>
                 </div>
                 <div>
-                  <p className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 mb-1">
                     <span className="font-medium">Tipo:</span>
                     <span>{response.type}</span>
-                  </p>
-                  <p className="flex items-center gap-1">
+                  </div>
+                  <div className="flex items-center gap-1">
                     <span className="font-medium">MIME Type:</span>
                     <span>{response.mimeType}</span>
-                  </p>
+                  </div>
                 </div>
               </div>
             </div>
