@@ -83,7 +83,30 @@ export function AppSidebar({
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <NavLink to="/" replace state={{ timestamp: Date.now() }}>
+              <NavLink
+                to="/"
+                replace
+                state={{ timestamp: Date.now() }}
+                onClick={(e) => {
+                  // Verificar se a aba "Histórico" está ativa
+                  if (document.body.classList.contains('history-tab-active')) {
+                    // Forçar um hard reload da página
+                    e.preventDefault();
+
+                    // Emitir um evento para notificar outros componentes
+                    const event = new CustomEvent('history-tab-navigation', {
+                      detail: { path: '/' }
+                    });
+                    window.dispatchEvent(event);
+
+                    // Usar setTimeout para dar tempo aos componentes de reagirem
+                    setTimeout(() => {
+                      window.location.hash = '/';
+                      window.location.reload();
+                    }, 50);
+                  }
+                }}
+              >
                 <Icon name="code" className="h-5 w-5" />
                 <span className="text-base font-semibold">Network Interceptor</span>
               </NavLink>

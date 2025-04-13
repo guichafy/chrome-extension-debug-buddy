@@ -87,10 +87,25 @@ const Requests: React.FC = () => {
       console.log('Requests: Evento de mudança de rota detectado, resetando estado');
     };
 
+    const handleForceRemount = (event: Event) => {
+      // Resetar estados quando ocorre uma remontagem forçada
+      setActiveTab('intercepted');
+      setIsEditing(false);
+      setDialogOpen(false);
+      clearCurrentResponse();
+
+      console.log('Requests: Evento de remontagem forçada detectado, resetando estado');
+    };
+
     window.addEventListener('route-changed', handleRouteChange);
+    window.addEventListener('force-remount', handleForceRemount);
+
+    // Resetar para a aba intercepted imediatamente após a montagem
+    setActiveTab('intercepted');
 
     return () => {
       window.removeEventListener('route-changed', handleRouteChange);
+      window.removeEventListener('force-remount', handleForceRemount);
     };
   }, [clearCurrentResponse]);
 
@@ -98,7 +113,22 @@ const Requests: React.FC = () => {
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     console.log('Aba alterada para:', value);
+
+    // Se a aba for alterada para "all" (Histórico), adicionar uma classe ao body
+    // para indicar que estamos na aba de histórico
+    if (value === 'all') {
+      document.body.classList.add('history-tab-active');
+    } else {
+      document.body.classList.remove('history-tab-active');
+    }
   };
+
+  // Remover a classe quando o componente for desmontado
+  useEffect(() => {
+    return () => {
+      document.body.classList.remove('history-tab-active');
+    };
+  }, []);
 
   const handleEditResponse = () => {
     setIsEditing(true);

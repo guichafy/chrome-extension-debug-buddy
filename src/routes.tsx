@@ -4,10 +4,15 @@ import Layout from './pages/Layout';
 import Settings from './pages/Settings';
 import Requests from './pages/Requests';
 import Mocks from './pages/Mocks';
+import ForceRemount from './components/ForceRemount';
 
 // Componente de wrapper para forçar remontagem completa
 const RouteWrapper = ({ Component }: { Component: React.ComponentType }) => {
-  return <Component />;
+  return (
+    <ForceRemount>
+      <Component />
+    </ForceRemount>
+  );
 };
 
 // Usamos HashRouter (via createHashRouter) em vez de BrowserRouter para extensões Chrome

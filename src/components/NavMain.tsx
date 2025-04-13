@@ -40,6 +40,25 @@ export function NavMain({ items, className }: NavMainProps) {
                   // Adicionar replace e state para forçar remontagem completa
                   replace
                   state={{ timestamp: Date.now() }}
+                  onClick={(e) => {
+                    // Verificar se a aba "Histórico" está ativa
+                    if (document.body.classList.contains('history-tab-active')) {
+                      // Forçar um hard reload da página
+                      e.preventDefault();
+
+                      // Emitir um evento para notificar outros componentes
+                      const event = new CustomEvent('history-tab-navigation', {
+                        detail: { path: item.path }
+                      });
+                      window.dispatchEvent(event);
+
+                      // Usar setTimeout para dar tempo aos componentes de reagirem
+                      setTimeout(() => {
+                        window.location.hash = item.path;
+                        window.location.reload();
+                      }, 50);
+                    }
+                  }}
                 >
                   <Icon name={item.icon} className="mr-2" />
                   <span>{item.title}</span>
