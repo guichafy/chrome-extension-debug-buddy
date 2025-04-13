@@ -26,11 +26,14 @@ export function useAllRequests() {
     initDB();
   }, []);
 
-  // Função para desativar temporariamente o auto-refresh
+  // Função para desativar o auto-refresh
   const pauseAutoRefresh = useCallback(() => {
     setAutoRefreshEnabled(false);
-    // Reativar após 30 segundos
-    setTimeout(() => setAutoRefreshEnabled(true), 30000);
+  }, []);
+
+  // Função para reativar o auto-refresh
+  const enableAutoRefresh = useCallback(() => {
+    setAutoRefreshEnabled(true);
   }, []);
 
   // Carregar todas as requisições
@@ -41,7 +44,11 @@ export function useAllRequests() {
       if (dbInitialized) {
         const dbRequests = await indexedDBService.getAllRequests();
         if (Object.keys(dbRequests).length > 0) {
-          setAllRequests(dbRequests);
+          // Verificar se há mudanças antes de atualizar o estado
+          const hasChanges = hasDataChanged(allRequests, dbRequests);
+          if (hasChanges) {
+            setAllRequests(dbRequests);
+          }
           setLoading(false);
           return;
         }
@@ -51,15 +58,19 @@ export function useAllRequests() {
       // carrega do background script
       const response = await chrome.runtime.sendMessage({ action: 'getAllRequests' });
       if (response && response.allRequests) {
-        setAllRequests(response.allRequests);
-        
-        // Salva as requisições no IndexedDB
-        if (dbInitialized) {
-          Object.entries(response.allRequests).forEach(([id, request]) => {
-            indexedDBService.saveRequest(id, request as InterceptedResponse).catch(err => {
-              console.error('Erro ao salvar requisição no IndexedDB:', err);
+        // Verificar se há mudanças antes de atualizar o estado
+        const hasChanges = hasDataChanged(allRequests, response.allRequests);
+        if (hasChanges) {
+          setAllRequests(response.allRequests);
+          
+          // Salva as requisições no IndexedDB
+          if (dbInitialized) {
+            Object.entries(response.allRequests).forEach(([id, request]) => {
+              indexedDBService.saveRequest(id, request as InterceptedResponse).catch(err => {
+                console.error('Erro ao salvar requisição no IndexedDB:', err);
+              });
             });
-          });
+          }
         }
       }
     } catch (error) {
@@ -67,7 +78,31 @@ export function useAllRequests() {
     } finally {
       setLoading(false);
     }
-  }, [dbInitialized]);
+  }, [dbInitialized, allRequests]);
+
+  // Função auxiliar para verificar se os dados mudaram
+  const hasDataChanged = (oldData: Record<string, InterceptedResponse>, newData: Record<string, InterceptedResponse>): boolean => {
+    // Verificar se o número de requisições mudou
+    if (Object.keys(oldData).length !== Object.keys(newData).length) {
+      return true;
+    }
+    
+    // Verificar se alguma requisição foi adicionada ou removida
+    for (const id in oldData) {
+      if (!newData[id]) {
+        return true;
+      }
+    }
+    
+    for (const id in newData) {
+      if (!oldData[id]) {
+        return true;
+      }
+    }
+    
+    // Se chegou até aqui, não houve mudanças significativas
+    return false;
+  };
 
   // Obter detalhes de uma requisição específica
   const getRequestDetails = useCallback(async (requestId: string) => {
@@ -183,6 +218,7 @@ export function useAllRequests() {
     filter,
     setFilter,
     pauseAutoRefresh,
+    enableAutoRefresh,
     autoRefreshEnabled,
     dbInitialized
   };

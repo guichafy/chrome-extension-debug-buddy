@@ -5,6 +5,8 @@ import { Icon } from '@/components/ui/icon';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
 
 interface ResponseListProps {
   responses: Record<string, InterceptedResponse>;
@@ -52,49 +54,99 @@ const ResponseList: React.FC<ResponseListProps> = ({
     return Math.floor((currentTime - timestamp) / 1000);
   };
 
+  // Função para obter a primeira letra do método HTTP
+  const getMethodInitial = (method: string) => {
+    return (method || 'G').charAt(0);
+  };
+
+  // Função para obter a cor de fundo do avatar com base no método
+  const getMethodColor = (method: string) => {
+    switch (method) {
+      case 'GET':
+        return 'bg-green-500';
+      case 'POST':
+        return 'bg-blue-500';
+      case 'PUT':
+        return 'bg-amber-500';
+      case 'DELETE':
+        return 'bg-red-500';
+      case 'PATCH':
+        return 'bg-purple-500';
+      default:
+        return 'bg-gray-500';
+    }
+  };
+
   return (
     <ScrollArea className="h-[380px] pr-4">
       <div className="space-y-3">
         {responseIds.map(requestId => {
           const response = responses[requestId];
+          const method = response.method || 'GET';
+          const avatarColor = getMethodColor(method);
+          
           return (
             <Card
               key={requestId}
-              className="response-item hover:bg-accent/5 transition-colors"
+              className={`response-item hover:bg-accent/5 transition-colors cursor-pointer overflow-hidden ${
+                response.isWaiting ? 'border-l-4 border-l-red-500' : 'border-l-4 border-l-green-500'
+              }`}
+              onClick={() => onSelect(requestId)}
             >
-              <CardContent className="p-4">
-                <div
-                  className="flex items-start justify-between cursor-pointer"
-                  onClick={() => onSelect(requestId)}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge variant={response.isWaiting ? "destructive" : "outline"} className="text-xs">
-                        {response.isWaiting ? "Aguardando" : "Interceptado"}
-                      </Badge>
-                      <span className="text-sm font-medium">{response.method || 'GET'}</span>
-                      {response.isWaiting && (
-                        <Badge variant="secondary" className="text-xs ml-1">
-                          {getWaitingTime(response.timestamp)}s
+              <CardContent className="p-0">
+                <div className="flex items-center p-4">
+                  <Avatar className={`h-10 w-10 ${avatarColor} text-white`}>
+                    <span className="text-sm font-bold">{getMethodInitial(method)}</span>
+                  </Avatar>
+                  
+                  <div className="ml-4 flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-medium truncate">
+                          {(() => {
+                            try {
+                              return new URL(response.url).pathname;
+                            } catch (e) {
+                              // Fallback para URLs inválidas
+                              return response.url.split('?')[0];
+                            }
+                          })()}
+                        </h3>
+                        <Badge variant={response.isWaiting ? "destructive" : "outline"} className="text-xs">
+                          {response.isWaiting ? "Aguardando" : "Interceptado"}
                         </Badge>
+                      </div>
+                      
+                      {showIgnoreButton && onIgnore && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 rounded-full"
+                          onClick={(e) => handleIgnore(e, requestId)}
+                          title="Ignorar requisição"
+                        >
+                          <Icon name="close" className="h-4 w-4" />
+                        </Button>
                       )}
                     </div>
-                    <h3 className="font-medium truncate url">{response.url}</h3>
-                    <div className="text-sm text-muted-foreground details mt-1">
-                      {response.status} {response.statusText} | {response.type} | {response.mimeType}
+                    
+                    <div className="flex items-center text-sm text-muted-foreground mt-1">
+                      <span className="font-medium text-foreground">{method}</span>
+                      <Separator orientation="vertical" className="mx-2 h-3" />
+                      <span>{response.status} {response.statusText}</span>
+                      <Separator orientation="vertical" className="mx-2 h-3" />
+                      <span className="truncate">{response.mimeType}</span>
+                      
+                      {response.isWaiting && (
+                        <>
+                          <Separator orientation="vertical" className="mx-2 h-3" />
+                          <Badge variant="secondary" className="text-xs">
+                            {getWaitingTime(response.timestamp)}s
+                          </Badge>
+                        </>
+                      )}
                     </div>
                   </div>
-                  {showIgnoreButton && onIgnore && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="ml-2 h-8 px-2"
-                      onClick={(e) => handleIgnore(e, requestId)}
-                      title="Ignorar requisição"
-                    >
-                      <Icon name="close" className="h-4 w-4" />
-                    </Button>
-                  )}
                 </div>
               </CardContent>
             </Card>

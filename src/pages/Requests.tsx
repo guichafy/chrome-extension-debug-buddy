@@ -47,6 +47,7 @@ const Requests: React.FC = () => {
     filter,
     setFilter,
     pauseAutoRefresh,
+    enableAutoRefresh,
     autoRefreshEnabled,
     dbInitialized
   } = useAllRequests();
@@ -105,11 +106,11 @@ const Requests: React.FC = () => {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Requisições</CardTitle>
-            {dbStatus === 'ready' && dbInitialized && (
+            {/* {dbStatus === 'ready' && dbInitialized && (
               <Badge variant="outline" className="ml-2">
-                IndexedDB Ativo
+                Database - Ready
               </Badge>
-            )}
+            )} */}
           </div>
         </CardHeader>
         <CardContent>
@@ -140,6 +141,7 @@ const Requests: React.FC = () => {
                 searchValue={filter}
                 onSearchChange={setFilter}
                 pauseAutoRefresh={pauseAutoRefresh}
+                enableAutoRefresh={enableAutoRefresh}
                 autoRefreshEnabled={autoRefreshEnabled}
               />
             </TabsContent>

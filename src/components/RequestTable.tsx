@@ -9,6 +9,7 @@ interface RequestTableProps {
   searchValue: string;
   onSearchChange: (value: string) => void;
   pauseAutoRefresh?: () => void;
+  enableAutoRefresh?: () => void;
   autoRefreshEnabled?: boolean;
 }
 
@@ -18,6 +19,7 @@ const RequestTable: React.FC<RequestTableProps> = ({
   searchValue,
   onSearchChange,
   pauseAutoRefresh,
+  enableAutoRefresh,
   autoRefreshEnabled
 }) => {
   // Converter o objeto de requisições para o formato esperado pelo DataTable
@@ -37,6 +39,7 @@ const RequestTable: React.FC<RequestTableProps> = ({
       searchValue={searchValue}
       onSearchChange={onSearchChange}
       pauseAutoRefresh={pauseAutoRefresh}
+      enableAutoRefresh={enableAutoRefresh}
       autoRefreshEnabled={autoRefreshEnabled}
     />
   );
