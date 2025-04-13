@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -8,7 +8,7 @@ import ResponseDialog from '../components/ResponseDialog';
 import { useResponses } from '../hooks/useResponses';
 import { useAllRequests } from '../hooks/useAllRequests';
 import { useMocks } from '../hooks/useMocks';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { indexedDBService } from '../services/indexedDB';
 
 const Requests: React.FC = () => {
@@ -58,22 +58,17 @@ const Requests: React.FC = () => {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('intercepted');
-  const location = useLocation();
-  const isFirstRender = useRef(true);
 
-  // Resetar para a aba padrão quando o componente é montado ou quando a rota muda
+  // Sempre inicializar com a aba "intercepted" quando o componente é montado
   useEffect(() => {
-    // Ignorar o primeiro render para evitar resetar a aba quando o componente é montado inicialmente
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-
-    // Resetar estados quando a rota muda
+    // Resetar estados quando o componente é montado
     setActiveTab('intercepted');
     setIsEditing(false);
     setDialogOpen(false);
-  }, [location.key]); // location.key muda sempre que a navegação ocorre
+
+    // Limpar quaisquer seleções anteriores
+    clearCurrentResponse();
+  }, []); // Executar apenas na montagem do componente
 
   const handleEditResponse = () => {
     setIsEditing(true);
@@ -130,7 +125,7 @@ const Requests: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs defaultValue="intercepted" value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-4">
               <TabsTrigger value="intercepted">Interceptadas</TabsTrigger>
               <TabsTrigger value="all">Histórico</TabsTrigger>
