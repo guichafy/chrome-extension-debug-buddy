@@ -47,11 +47,12 @@ export const columns: ColumnDef<RequestRow>[] = [
       const minutes = date.getMinutes().toString().padStart(2, '0');
       const seconds = date.getSeconds().toString().padStart(2, '0');
       const milliseconds = date.getMilliseconds().toString().padStart(3, '0');
-      
-      return <span className="text-xs text-muted-foreground">
+
+      return <span className="text-xs text-muted-foreground whitespace-nowrap">
         {`${hours}:${minutes}:${seconds}.${milliseconds}`}
       </span>;
     },
+    size: 120,
   },
   {
     accessorKey: "duration",
@@ -70,29 +71,29 @@ export const columns: ColumnDef<RequestRow>[] = [
     sortingFn: (rowA, rowB) => {
       const requestIdA = rowA.original.id;
       const requestIdB = rowB.original.id;
-      
+
       // Gerar valores de tempo de resposta simulados com base nos IDs
       const hashA = requestIdA.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
       const hashB = requestIdB.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-      
+
       const responseTimeA = 50 + (hashA % 1950);
       const responseTimeB = 50 + (hashB % 1950);
-      
+
       return responseTimeA - responseTimeB;
     },
     cell: ({ row }) => {
       const request = row.original.request;
       const requestId = row.original.id;
-      
+
       // Gerar um tempo de resposta simulado com base no ID da requisição
       // Isso garante que o mesmo ID sempre terá o mesmo tempo de resposta
       const hash = requestId.split('').reduce((acc, char) => {
         return acc + char.charCodeAt(0);
       }, 0);
-      
+
       // Gerar um valor entre 50ms e 2000ms
       const responseTime = 50 + (hash % 1950);
-      
+
       // Formatar o tempo de resposta
       let formattedTime = '';
       if (responseTime < 1000) {
@@ -104,7 +105,7 @@ export const columns: ColumnDef<RequestRow>[] = [
         const ms = responseTime % 1000;
         formattedTime = `${seconds}s ${ms}ms`;
       }
-      
+
       // Adicionar classe de cor com base no tempo de resposta
       let colorClass = 'text-green-600';
       if (responseTime > 1000) {
@@ -112,9 +113,10 @@ export const columns: ColumnDef<RequestRow>[] = [
       } else if (responseTime > 500) {
         colorClass = 'text-yellow-600';
       }
-      
-      return <span className={`text-xs font-medium ${colorClass}`}>{formattedTime}</span>;
+
+      return <span className={`text-xs font-medium ${colorClass} whitespace-nowrap`}>{formattedTime}</span>;
     },
+    size: 80,
   },
   {
     accessorKey: "status",
@@ -125,7 +127,7 @@ export const columns: ColumnDef<RequestRow>[] = [
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           className="pl-0"
         >
-          Status
+          Tipo
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       )
@@ -133,7 +135,7 @@ export const columns: ColumnDef<RequestRow>[] = [
     sortingFn: (rowA, rowB) => {
       const requestA = rowA.original.request;
       const requestB = rowB.original.request;
-      
+
       // Definir prioridade para ordenação
       const getPriority = (request: InterceptedResponse) => {
         if (request.isWaiting) return 1; // Aguardando
@@ -141,7 +143,7 @@ export const columns: ColumnDef<RequestRow>[] = [
         if (request.isMocked) return 3; // Mockado
         return 4; // Proxy
       };
-      
+
       return getPriority(requestA) - getPriority(requestB);
     },
     cell: ({ row }) => {
@@ -165,14 +167,15 @@ export const columns: ColumnDef<RequestRow>[] = [
       }
 
       return (
-        <Badge 
-          variant={variant} 
-          className="text-xs"
+        <Badge
+          variant={variant}
+          className="text-xs whitespace-nowrap"
         >
           {label}
         </Badge>
       );
     },
+    size: 100,
   },
   {
     accessorKey: "method",
@@ -195,8 +198,9 @@ export const columns: ColumnDef<RequestRow>[] = [
     },
     cell: ({ row }) => {
       const request = row.original.request;
-      return <span className="font-medium">{request.method || 'GET'}</span>;
+      return <span className="font-medium whitespace-nowrap">{request.method || 'GET'}</span>;
     },
+    size: 80,
   },
   {
     accessorKey: "url",
@@ -219,8 +223,9 @@ export const columns: ColumnDef<RequestRow>[] = [
     },
     cell: ({ row }) => {
       const request = row.original.request;
-      return <span className="truncate block max-w-[400px]">{request.url}</span>;
+      return <span className="truncate block max-w-[300px]">{request.url}</span>;
     },
+    size: 300,
   },
   {
     accessorKey: "statusCode",
@@ -243,24 +248,27 @@ export const columns: ColumnDef<RequestRow>[] = [
     },
     cell: ({ row }) => {
       const request = row.original.request;
-      return <span>{request.status} {request.statusText}</span>;
+      return <span className="whitespace-nowrap">{request.status} {request.statusText}</span>;
     },
+    size: 120,
   },
   {
-    accessorKey: "type",
-    header: "Tipo",
+    accessorKey: "requestType",
+    header: "Request Type",
     cell: ({ row }) => {
       const request = row.original.request;
-      return <span>{request.type}</span>;
+      return <span className="whitespace-nowrap">{request.type}</span>;
     },
+    size: 80,
   },
   {
     accessorKey: "mimeType",
     header: "MIME Type",
     cell: ({ row }) => {
       const request = row.original.request;
-      return <span className="text-xs text-muted-foreground">{request.mimeType}</span>;
+      return <span className="text-xs text-muted-foreground whitespace-nowrap">{request.mimeType}</span>;
     },
+    size: 100,
   },
   {
     id: "actions",
@@ -286,5 +294,6 @@ export const columns: ColumnDef<RequestRow>[] = [
         </DropdownMenu>
       )
     },
+    size: 50,
   },
 ]

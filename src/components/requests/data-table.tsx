@@ -59,18 +59,20 @@ export function DataTable<TData, TValue>({
     { id: "timestamp", desc: true } // Ordenar por timestamp decrescente por padrão
   ])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
+    requestType: false // Ocultar a coluna 'requestType' por padrão
+  })
   const [rowSelection, setRowSelection] = React.useState({})
-  
+
   // Estado persistente para paginação
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
     pageSize: 10,
   })
-  
+
   // Ref para armazenar o estado da paginação atual
   const paginationRef = React.useRef(pagination)
-  
+
   // Estado para o filtro global
   const [globalFilter, setGlobalFilter] = React.useState(searchValue)
 
@@ -78,19 +80,48 @@ export function DataTable<TData, TValue>({
   React.useEffect(() => {
     setGlobalFilter(searchValue)
   }, [searchValue])
-  
+
+  // Define o estado de visibilidade das colunas com base no tamanho da tela
+  React.useEffect(() => {
+    const handleResize = () => {
+      // Em telas menores, ocultar algumas colunas menos importantes
+      if (window.innerWidth < 1200) {
+        setColumnVisibility({
+          ...columnVisibility,
+          mimeType: false,
+        })
+      } else {
+        setColumnVisibility({
+          ...columnVisibility,
+          mimeType: true,
+        })
+      }
+    }
+
+    // Verificar inicialmente
+    handleResize()
+
+    // Adicionar listener para redimensionamento da janela
+    window.addEventListener("resize", handleResize)
+
+    // Limpar listener ao desmontar
+    return () => {
+      window.removeEventListener("resize", handleResize)
+    }
+  }, [columnVisibility])
+
   // Atualizar a ref quando a paginação mudar
   React.useEffect(() => {
     paginationRef.current = pagination
   }, [pagination])
-  
+
   // Função para pausar o auto-refresh quando necessário
   const handlePauseAutoRefresh = React.useCallback(() => {
     if (pauseAutoRefresh) {
       pauseAutoRefresh()
     }
   }, [pauseAutoRefresh])
-  
+
   // Inicializa a tabela
   const table = useReactTable({
     data,
@@ -104,6 +135,7 @@ export function DataTable<TData, TValue>({
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
     onPaginationChange: setPagination,
+    columnResizeMode: "onChange",
     state: {
       sorting,
       columnFilters,
@@ -118,13 +150,13 @@ export function DataTable<TData, TValue>({
     globalFilterFn: (row, columnId, filterValue) => {
       // Se não houver valor de filtro, retorna true
       if (!filterValue) return true
-      
+
       const searchLower = String(filterValue).toLowerCase()
-      
+
       // @ts-ignore - Acessar a estrutura específica dos dados
       const request = row.original?.request
       if (!request) return false
-      
+
       // Verificar cada campo relevante
       return (
         (request.url && request.url.toLowerCase().includes(searchLower)) ||
@@ -137,14 +169,14 @@ export function DataTable<TData, TValue>({
     },
     onGlobalFilterChange: setGlobalFilter,
   })
-  
+
   // Efeito para restaurar a paginação após o auto-refresh
   React.useEffect(() => {
     if (data.length > 0 && autoRefreshEnabled) {
       // Verificar se a página atual ainda é válida
       const maxPageIndex = Math.max(0, Math.ceil(data.length / pagination.pageSize) - 1)
       const validPageIndex = Math.min(paginationRef.current.pageIndex, maxPageIndex)
-      
+
       // Só atualiza se for diferente da paginação atual
       if (validPageIndex !== pagination.pageIndex) {
         setPagination(prev => ({
@@ -168,8 +200,8 @@ export function DataTable<TData, TValue>({
         </div>
         <div className="flex items-center gap-2">
           {autoRefreshEnabled && pauseAutoRefresh ? (
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={pauseAutoRefresh}
               className="text-xs bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
@@ -178,8 +210,8 @@ export function DataTable<TData, TValue>({
               Live Tail
             </Button>
           ) : !autoRefreshEnabled && enableAutoRefresh && (
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={enableAutoRefresh}
               className="text-xs bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"
@@ -210,9 +242,9 @@ export function DataTable<TData, TValue>({
                   >
                     {column.id === "url" ? "URL" :
                      column.id === "method" ? "Método" :
-                     column.id === "status" ? "Status" :
+                     column.id === "status" ? "Tipo" :
                      column.id === "statusCode" ? "Status Code" :
-                     column.id === "type" ? "Tipo" :
+                     column.id === "requestType" ? "Request Type" :
                      column.id === "mimeType" ? "MIME Type" :
                      column.id === "timestamp" ? "Horário" :
                      column.id === "duration" ? "Tempo" :
@@ -224,13 +256,18 @@ export function DataTable<TData, TValue>({
         </DropdownMenu>
         </div>
       </div>
-      <div className="rounded-md border">
-        <Table>
+      <div className="rounded-md border overflow-x-auto data-table-container">
+        <Table className="w-full table-fixed">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
+                  <TableHead
+                    key={header.id}
+                    style={{
+                      width: header.column.getSize() !== 150 ? `${header.column.getSize()}px` : undefined,
+                    }}
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -256,7 +293,12 @@ export function DataTable<TData, TValue>({
                   }}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell
+                      key={cell.id}
+                      style={{
+                        width: cell.column.getSize() !== 150 ? `${cell.column.getSize()}px` : undefined,
+                      }}
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
@@ -339,7 +381,7 @@ export function DataTable<TData, TValue>({
             >
               <Icon name="navigate_before" className="h-4 w-4" />
             </Button>
-            
+
             {/* Números de página */}
             <div className="flex items-center space-x-1">
               {Array.from({ length: Math.min(5, table.getPageCount()) }, (_, i) => {
@@ -347,7 +389,7 @@ export function DataTable<TData, TValue>({
                 let pageIndex: number;
                 const currentPage = table.getState().pagination.pageIndex;
                 const pageCount = table.getPageCount();
-                
+
                 if (pageCount <= 5) {
                   // Se tiver 5 ou menos páginas, mostra todas
                   pageIndex = i;
@@ -361,9 +403,9 @@ export function DataTable<TData, TValue>({
                   // Se estiver no meio, mostra 2 antes e 2 depois
                   pageIndex = currentPage - 2 + i;
                 }
-                
+
                 const isCurrentPage = pageIndex === currentPage;
-                
+
                 return (
                   <Button
                     key={pageIndex}
@@ -374,8 +416,8 @@ export function DataTable<TData, TValue>({
                       table.setPageIndex(pageIndex)
                     }}
                     className={`${isCurrentPage ? "h-10 w-10 shadow-md" : "h-8 w-8"} p-0 ${
-                      isCurrentPage 
-                        ? "bg-primary text-primary-foreground font-bold ring-2 ring-primary ring-offset-2 scale-110 z-10" 
+                      isCurrentPage
+                        ? "bg-primary text-primary-foreground font-bold ring-2 ring-primary ring-offset-2 scale-110 z-10"
                         : ""
                     }`}
                   >
@@ -384,7 +426,7 @@ export function DataTable<TData, TValue>({
                 );
               })}
             </div>
-            
+
             <Button
               variant="outline"
               size="sm"

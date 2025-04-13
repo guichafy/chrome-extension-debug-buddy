@@ -9,3 +9,23 @@ body {
   overflow: auto;
   max-height: calc(100vh - 3.5rem);
 }
+
+/* Estilos para melhorar a visualização da tabela */
+.data-table-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* Garantir que as células da tabela respeitem o tamanho definido */
+.data-table-container table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+/* Ajustar o tamanho das células para evitar quebra de layout */
+.data-table-container th,
+.data-table-container td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
