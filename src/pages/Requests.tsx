@@ -8,7 +8,7 @@ import ResponseDialog from '../components/ResponseDialog';
 import { useResponses } from '../hooks/useResponses';
 import { useAllRequests } from '../hooks/useAllRequests';
 import { useMocks } from '../hooks/useMocks';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { indexedDBService } from '../services/indexedDB';
 
 const Requests: React.FC = () => {
@@ -58,6 +58,14 @@ const Requests: React.FC = () => {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('intercepted');
+  const location = useLocation();
+
+  // Resetar para a aba padrão quando o componente é montado ou quando a rota muda
+  useEffect(() => {
+    setActiveTab('intercepted');
+    setIsEditing(false);
+    setDialogOpen(false);
+  }, [location.key]); // location.key muda sempre que a navegação ocorre
 
   const handleEditResponse = () => {
     setIsEditing(true);
