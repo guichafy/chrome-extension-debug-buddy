@@ -37,9 +37,9 @@ export function NavMain({ items, className }: NavMainProps) {
                   className={({ isActive }) => cn(
                     isActive && "text-primary font-medium"
                   )}
-                  // Adicionar replace para garantir que a navegação substitua a rota atual
-                  // em vez de adicionar uma nova entrada no histórico
+                  // Adicionar replace e state para forçar remontagem completa
                   replace
+                  state={{ timestamp: Date.now() }}
                 >
                   <Icon name={item.icon} className="mr-2" />
                   <span>{item.title}</span>

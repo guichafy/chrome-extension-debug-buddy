@@ -16,20 +16,15 @@ const Layout: React.FC = () => {
   const location = useLocation();
 
   // Usar o pathname completo como key para forçar remontagem total dos componentes
-  // quando a rota muda
   const routeKey = location.pathname;
 
-  // Forçar re-renderização quando a rota muda
-  const [forceUpdate, setForceUpdate] = useState(0);
-
-  // Atualizar o estado para forçar re-renderização quando a rota muda
+  // Limpar qualquer estado persistente quando a rota muda
   useEffect(() => {
-    // Pequeno delay para garantir que a navegação seja concluída antes de forçar a atualização
-    const timer = setTimeout(() => {
-      setForceUpdate(prev => prev + 1);
-    }, 50);
-
-    return () => clearTimeout(timer);
+    // Limpar o console para facilitar a depuração
+    if (process.env.NODE_ENV === 'development') {
+      console.clear();
+      console.log('Rota alterada para:', location.pathname);
+    }
   }, [location.pathname]);
 
   // Listener para mensagens do background script
@@ -81,7 +76,7 @@ const Layout: React.FC = () => {
 
         <div className="main-content-container">
           <div className="p-4 pb-8">
-            <Outlet key={`${routeKey}-${forceUpdate}`} />
+            <Outlet key={routeKey} />
           </div>
         </div>
       </SidebarInset>

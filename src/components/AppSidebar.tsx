@@ -83,7 +83,7 @@ export function AppSidebar({
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <NavLink to="/" replace>
+              <NavLink to="/" replace state={{ timestamp: Date.now() }}>
                 <Icon name="code" className="h-5 w-5" />
                 <span className="text-base font-semibold">Network Interceptor</span>
               </NavLink>
