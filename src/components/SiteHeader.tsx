@@ -1,9 +1,11 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
 
 interface SiteHeaderProps {
   targetTab: {
@@ -26,6 +28,7 @@ export function SiteHeader({
   onStartDebugging,
   onStopDebugging
 }: SiteHeaderProps) {
+  const navigate = useNavigate();
   return (
     <header className="group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 flex h-14 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear">
       <div className="flex w-full items-center justify-between px-4 lg:px-6">
@@ -35,10 +38,39 @@ export function SiteHeader({
             orientation="vertical"
             className="mx-2 data-[orientation=vertical]:h-6"
           />
-          <div className="flex items-center gap-2">
-            <img src="images/icon_64px.png" alt="Logo" className="w-6 h-6" />
-            <h1 className="text-base font-medium">Network Request Interceptor</h1>
-          </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className="flex items-center gap-2 cursor-pointer"
+                  onClick={() => navigate('/requests')}
+                >
+                  {/* <img src="images/icon_64px.png" alt="Logo" className="w-6 h-6" /> */}
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`w-3 h-3 rounded-full ${isDebugging
+                        ? pendingResponsesCount > 0
+                          ? 'status-indicator-blinking'
+                          : 'bg-green-500'
+                        : 'bg-gray-400'}`}
+                    ></span>
+                    <h1 className="text-base font-medium">
+                      {pendingResponsesCount > 0
+                        ? `${pendingResponsesCount} ${pendingResponsesCount === 1 ? 'requisição' : 'requisições'} aguardando`
+                        : 'Nenhuma requisição interceptada'}
+                    </h1>
+                  </div>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <div className="text-sm">
+                  {pendingResponsesCount > 0
+                    ? `${pendingResponsesCount} requisição(ões) interceptada(s) aguardando ação`
+                    : 'Nenhuma requisição interceptada'}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         <div className="flex items-center gap-2">
@@ -87,15 +119,9 @@ export function SiteHeader({
             </Button>
           )}
 
-          <div className="flex items-center gap-2 ml-2">
-            <span className={`w-3 h-3 rounded-full ${isDebugging ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+          {/* <div className="flex items-center gap-2 ml-2">
             <span className="hidden sm:inline">{isDebugging ? 'Ativo' : 'Inativo'}</span>
-            {isDebugging && pendingResponsesCount > 0 && (
-              <span className="ml-1 bg-muted px-2 rounded-full text-xs">
-                {pendingResponsesCount}
-              </span>
-            )}
-          </div>
+          </div> */}
         </div>
       </div>
     </header>

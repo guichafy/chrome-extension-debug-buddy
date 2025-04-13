@@ -63,15 +63,16 @@ export function AppSidebar({
   // Atualizar contadores
   const items = React.useMemo(() => {
     return navItems.map(item => {
+      // Não mostrar contador para requisições no sidebar, pois já está no header
       if (item.path === '/requests') {
-        return { ...item, count: pendingResponsesCount };
+        return { ...item, count: 0 };
       }
       if (item.path === '/mocks') {
         return { ...item, count: mocksCount };
       }
       return item;
     });
-  }, [pendingResponsesCount, mocksCount]);
+  }, [mocksCount]);
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>

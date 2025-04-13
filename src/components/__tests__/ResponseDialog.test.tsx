@@ -30,8 +30,8 @@ jest.mock('@/components/ui/badge', () => ({
 
 jest.mock('@/components/ui/button', () => ({
   Button: ({ children, onClick, variant, size, className, disabled }) => (
-    <button 
-      data-testid="button" 
+    <button
+      data-testid="button"
       data-variant={variant}
       data-size={size}
       className={className}
@@ -45,7 +45,7 @@ jest.mock('@/components/ui/button', () => ({
 
 jest.mock('@/components/ui/input', () => ({
   Input: ({ id, value, onChange, disabled, className, type }) => (
-    <input 
+    <input
       data-testid="input"
       id={id}
       value={value}
@@ -96,7 +96,7 @@ describe('ResponseDialog Component', () => {
     timestamp: Date.now(),
     body: '{"data": "test"}'
   };
-  
+
   const mockRequestId = 'req1';
   const mockOnApprove = jest.fn().mockResolvedValue(true);
   const mockOnIgnore = jest.fn().mockResolvedValue(true);
@@ -104,14 +104,14 @@ describe('ResponseDialog Component', () => {
   const mockOnEdit = jest.fn();
   const mockOnCancel = jest.fn();
   const mockOnOpenChange = jest.fn();
-  
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
-  
+
   test('renderiza o diálogo quando open é true', () => {
     render(
-      <ResponseDialog 
+      <ResponseDialog
         open={true}
         onOpenChange={mockOnOpenChange}
         response={mockResponse}
@@ -124,29 +124,31 @@ describe('ResponseDialog Component', () => {
         isEditing={false}
       />
     );
-    
+
     // Verificar se o diálogo foi renderizado
     expect(screen.getByTestId('dialog')).toBeInTheDocument();
     expect(screen.getByTestId('dialog-title')).toHaveTextContent('Detalhes da Requisição');
-    
+
     // Verificar se as informações básicas estão presentes
     expect(screen.getByText('https://api.example.com/data')).toBeInTheDocument();
     expect(screen.getByText('GET')).toBeInTheDocument();
     expect(screen.getByText('xhr')).toBeInTheDocument();
-    expect(screen.getByText('application/json')).toBeInTheDocument();
-    
+    // Usar getAllByText para application/json pois pode aparecer múltiplas vezes
+    const jsonTexts = screen.getAllByText('application/json');
+    expect(jsonTexts.length).toBeGreaterThan(0);
+
     // Verificar se as abas estão presentes
     expect(screen.getByTestId('tabs')).toBeInTheDocument();
-    expect(screen.getAllByTestId('tabs-trigger').length).toBe(3);
-    
+    expect(screen.getAllByTestId('tabs-trigger').length).toBe(2); // Agora são apenas 2 abas: Request e Response
+
     // Verificar se os botões de ação estão presentes
     const buttons = screen.getAllByTestId('button');
     expect(buttons.length).toBeGreaterThan(0);
   });
-  
+
   test('não renderiza nada quando open é false', () => {
     render(
-      <ResponseDialog 
+      <ResponseDialog
         open={false}
         onOpenChange={mockOnOpenChange}
         response={mockResponse}
@@ -159,14 +161,14 @@ describe('ResponseDialog Component', () => {
         isEditing={false}
       />
     );
-    
+
     // Verificar se o diálogo não foi renderizado
     expect(screen.queryByTestId('dialog')).not.toBeInTheDocument();
   });
-  
+
   test('chama onApprove quando o botão Aprovar é clicado', () => {
     render(
-      <ResponseDialog 
+      <ResponseDialog
         open={true}
         onOpenChange={mockOnOpenChange}
         response={mockResponse}
@@ -179,20 +181,20 @@ describe('ResponseDialog Component', () => {
         isEditing={false}
       />
     );
-    
+
     // Encontrar o botão de aprovar e clicar nele
-    const approveButton = screen.getAllByTestId('button').find(button => 
+    const approveButton = screen.getAllByTestId('button').find(button =>
       button.textContent.includes('Aprovar')
     );
     fireEvent.click(approveButton);
-    
+
     // Verificar se onApprove foi chamado com os parâmetros corretos
     expect(mockOnApprove).toHaveBeenCalledWith(mockRequestId, {});
   });
-  
+
   test('chama onIgnore quando o botão Ignorar é clicado', () => {
     render(
-      <ResponseDialog 
+      <ResponseDialog
         open={true}
         onOpenChange={mockOnOpenChange}
         response={mockResponse}
@@ -205,20 +207,20 @@ describe('ResponseDialog Component', () => {
         isEditing={false}
       />
     );
-    
+
     // Encontrar o botão de ignorar e clicar nele
-    const ignoreButton = screen.getAllByTestId('button').find(button => 
+    const ignoreButton = screen.getAllByTestId('button').find(button =>
       button.textContent.includes('Ignorar')
     );
     fireEvent.click(ignoreButton);
-    
+
     // Verificar se onIgnore foi chamado com o ID correto
     expect(mockOnIgnore).toHaveBeenCalledWith(mockRequestId);
   });
-  
+
   test('chama onMock quando o botão Criar Mock é clicado', () => {
     render(
-      <ResponseDialog 
+      <ResponseDialog
         open={true}
         onOpenChange={mockOnOpenChange}
         response={mockResponse}
@@ -231,20 +233,20 @@ describe('ResponseDialog Component', () => {
         isEditing={false}
       />
     );
-    
+
     // Encontrar o botão de criar mock e clicar nele
-    const mockButton = screen.getAllByTestId('button').find(button => 
+    const mockButton = screen.getAllByTestId('button').find(button =>
       button.textContent.includes('Criar Mock')
     );
     fireEvent.click(mockButton);
-    
+
     // Verificar se onMock foi chamado com a resposta correta
     expect(mockOnMock).toHaveBeenCalledWith(mockResponse);
   });
-  
+
   test('não renderiza nada quando response ou requestId são null', () => {
     const { container } = render(
-      <ResponseDialog 
+      <ResponseDialog
         open={true}
         onOpenChange={mockOnOpenChange}
         response={null}
@@ -257,7 +259,7 @@ describe('ResponseDialog Component', () => {
         isEditing={false}
       />
     );
-    
+
     // Verificar se o componente não renderizou nada
     expect(container.firstChild).toBeNull();
   });

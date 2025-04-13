@@ -127,12 +127,11 @@ describe('AppSidebar Component', () => {
     const navItems = screen.getAllByTestId('nav-item');
     expect(navItems.length).toBe(3); // Configurações, Requisições, Mocks
 
-    // Verifica se os contadores estão presentes
+    // Verifica se apenas o contador de mocks está presente (o de requisições foi removido)
     const counts = screen.getAllByTestId('nav-item-count');
-    expect(counts.length).toBe(2); // Deve haver dois contadores (um para requisições e outro para mocks)
+    expect(counts.length).toBe(1); // Deve haver apenas um contador (para mocks)
 
-    // Verifica se os valores dos contadores estão corretos
-    expect(counts[0].textContent).toBe('5'); // Requisições
-    expect(counts[1].textContent).toBe('3'); // Mocks
+    // Verifica se o valor do contador está correto
+    expect(counts[0].textContent).toBe('3'); // Mocks
   });
 });
