@@ -32,11 +32,14 @@ export function NavMain({ items, className }: NavMainProps) {
           {items.map((item) => (
             <SidebarMenuItem key={item.path}>
               <SidebarMenuButton asChild>
-                <NavLink 
+                <NavLink
                   to={item.path}
                   className={({ isActive }) => cn(
                     isActive && "text-primary font-medium"
                   )}
+                  // Adicionar replace para garantir que a navegação substitua a rota atual
+                  // em vez de adicionar uma nova entrada no histórico
+                  replace
                 >
                   <Icon name={item.icon} className="mr-2" />
                   <span>{item.title}</span>

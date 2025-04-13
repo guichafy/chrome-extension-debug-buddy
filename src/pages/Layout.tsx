@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import SelectTabDialog from '../components/SelectTabDialog';
 import { AppSidebar } from '../components/AppSidebar';
 import { SiteHeader } from '../components/SiteHeader';
@@ -13,6 +13,15 @@ const Layout: React.FC = () => {
   const { pendingResponses } = useResponses();
   const { mocks } = useMocks();
   const [selectTabDialogOpen, setSelectTabDialogOpen] = useState(false);
+  const location = useLocation();
+
+  // Forçar re-renderização quando a rota muda
+  const [key, setKey] = useState(0);
+
+  // Atualizar a key quando a rota muda para forçar re-renderização do Outlet
+  useEffect(() => {
+    setKey(prev => prev + 1);
+  }, [location.pathname]);
 
   // Listener para mensagens do background script
   useEffect(() => {
@@ -63,7 +72,7 @@ const Layout: React.FC = () => {
 
         <div className="main-content-container">
           <div className="p-4 pb-8">
-            <Outlet />
+            <Outlet key={key} />
           </div>
         </div>
       </SidebarInset>

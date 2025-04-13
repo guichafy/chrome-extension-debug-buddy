@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -59,9 +59,17 @@ const Requests: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('intercepted');
   const location = useLocation();
+  const isFirstRender = useRef(true);
 
   // Resetar para a aba padrão quando o componente é montado ou quando a rota muda
   useEffect(() => {
+    // Ignorar o primeiro render para evitar resetar a aba quando o componente é montado inicialmente
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    // Resetar estados quando a rota muda
     setActiveTab('intercepted');
     setIsEditing(false);
     setDialogOpen(false);
