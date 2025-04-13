@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import ResponseList from '../components/ResponseList';
 import RequestTable from '../components/RequestTable';
 import ResponseDialog from '../components/ResponseDialog';
@@ -8,8 +9,26 @@ import { useResponses } from '../hooks/useResponses';
 import { useAllRequests } from '../hooks/useAllRequests';
 import { useMocks } from '../hooks/useMocks';
 import { useNavigate } from 'react-router-dom';
+import { indexedDBService } from '../services/indexedDB';
 
 const Requests: React.FC = () => {
+  // Estado para controlar a inicialização do IndexedDB
+  const [dbStatus, setDbStatus] = useState<'initializing' | 'ready' | 'error'>('initializing');
+  
+  // Inicializar o IndexedDB quando o componente for montado
+  useEffect(() => {
+    const initDB = async () => {
+      try {
+        await indexedDBService.init();
+        setDbStatus('ready');
+      } catch (error) {
+        console.error('Erro ao inicializar IndexedDB:', error);
+        setDbStatus('error');
+      }
+    };
+    
+    initDB();
+  }, []);
   const {
     pendingResponses,
     currentResponseId,
@@ -28,7 +47,8 @@ const Requests: React.FC = () => {
     filter,
     setFilter,
     pauseAutoRefresh,
-    autoRefreshEnabled
+    autoRefreshEnabled,
+    dbInitialized
   } = useAllRequests();
 
   const { createMockFromResponse, saveMock } = useMocks();
@@ -82,8 +102,15 @@ const Requests: React.FC = () => {
   return (
     <>
       <Card className="panel">
-        <CardHeader>
-          <CardTitle>Requisições</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Requisições</CardTitle>
+            {dbStatus === 'ready' && dbInitialized && (
+              <Badge variant="outline" className="ml-2">
+                IndexedDB Ativo
+              </Badge>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

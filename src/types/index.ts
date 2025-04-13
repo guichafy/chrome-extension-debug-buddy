@@ -20,6 +20,7 @@ export interface InterceptedResponse {
   timestamp: number;
   body: string;
   isWaiting?: boolean;
+  isMocked?: boolean;
 }
 
 // Tipos para modificações de resposta

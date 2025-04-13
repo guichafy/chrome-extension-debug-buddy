@@ -21,6 +21,7 @@ interface InterceptedResponse {
   timestamp: number;
   body: string;
   isWaiting?: boolean;
+  isMocked?: boolean;
 }
 
 // Tipos para modificações de resposta
@@ -207,6 +208,32 @@ chrome.runtime.onMessage.addListener((message: any, _sender, sendResponse: (resp
   else if (message.action === 'getAllRequests') {
     sendResponse({ allRequests });
     return false; // Indicates we've responded synchronously
+  }
+  
+  else if (message.action === 'addToRequestHistory') {
+    const { requestId, request } = message;
+    if (requestId && request) {
+      // Adicionar ao histórico de requisições
+      allRequests[requestId] = request;
+      
+      // Notificar o frontend sobre a nova requisição para atualizar a UI
+      if (interceptorTabId) {
+        chrome.tabs.sendMessage(interceptorTabId, {
+          action: 'newRequest',
+          requestId,
+          request
+        }).catch(() => {
+          // Ignora erros se a página principal não estiver aberta
+          console.log('Não foi possível enviar a requisição interceptada para o frontend');
+        });
+      }
+      
+      console.log(`Requisição interceptada ${requestId} adicionada ao histórico`);
+      sendResponse({ success: true });
+    } else {
+      sendResponse({ success: false, error: 'ID de requisição ou dados inválidos' });
+    }
+    return false; // Indica que respondemos de forma síncrona
   }
 
   else if (message.action === 'getResponseDetails') {
@@ -736,6 +763,18 @@ async function handleRequestPaused(params: any): Promise<void> {
         } else {
           // This is not a URL we want to intercept, continue the request
           continueRequest(requestId);
+          
+          // Notificar o frontend sobre a nova requisição para armazenamento no IndexedDB
+          if (interceptorTabId) {
+            chrome.tabs.sendMessage(interceptorTabId, {
+              action: 'newRequest',
+              requestId,
+              request: responseObj
+            }).catch(() => {
+              // Ignora erros se a página principal não estiver aberta
+              console.log('Não foi possível enviar a nova requisição para o frontend');
+            });
+          }
         }
       } else {
         // If we can't get the response body, just continue the request
@@ -948,6 +987,35 @@ async function applyMockResponse(requestId: string, mock: MockConfig): Promise<v
 
     // Obter o texto do status para o código
     const statusPhrase = getStatusText(mock.status);
+
+    // Criar objeto de resposta para armazenar no histórico
+    const responseObj: InterceptedResponse = {
+      url: mock.urlPattern, // Usamos o padrão de URL do mock
+      method: mock.method,
+      status: mock.status,
+      statusText: statusPhrase,
+      headers: mock.headers,
+      mimeType: getMimeTypeFromHeaders(headerArray),
+      type: 'mock',
+      timestamp: Date.now(),
+      body: mock.body,
+      isMocked: true
+    };
+
+    // Armazenar em allRequests
+    allRequests[requestId] = responseObj;
+
+    // Notificar o frontend sobre a nova requisição mockada
+    if (interceptorTabId) {
+      chrome.tabs.sendMessage(interceptorTabId, {
+        action: 'newRequest',
+        requestId,
+        request: responseObj
+      }).catch(() => {
+        // Ignora erros se a página principal não estiver aberta
+        console.log('Não foi possível enviar a requisição mockada para o frontend');
+      });
+    }
 
     // Envia a resposta mockada com o body corretamente codificado
     await chrome.debugger.sendCommand(

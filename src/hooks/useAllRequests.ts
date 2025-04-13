@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { InterceptedResponse } from './useResponses';
+import { indexedDBService } from '../services/indexedDB';
 
 export function useAllRequests() {
   const [allRequests, setAllRequests] = useState<Record<string, InterceptedResponse>>({});
@@ -8,6 +9,22 @@ export function useAllRequests() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  const [dbInitialized, setDbInitialized] = useState(false);
+
+  // Inicializar o banco de dados
+  useEffect(() => {
+    const initDB = async () => {
+      try {
+        await indexedDBService.init();
+        setDbInitialized(true);
+        console.log('IndexedDB inicializado com sucesso');
+      } catch (error) {
+        console.error('Erro ao inicializar IndexedDB:', error);
+      }
+    };
+
+    initDB();
+  }, []);
 
   // Função para desativar temporariamente o auto-refresh
   const pauseAutoRefresh = useCallback(() => {
@@ -20,16 +37,37 @@ export function useAllRequests() {
   const loadAllRequests = useCallback(async () => {
     setLoading(true);
     try {
+      // Primeiro, tenta carregar do IndexedDB
+      if (dbInitialized) {
+        const dbRequests = await indexedDBService.getAllRequests();
+        if (Object.keys(dbRequests).length > 0) {
+          setAllRequests(dbRequests);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Se não houver dados no IndexedDB ou ele não estiver inicializado,
+      // carrega do background script
       const response = await chrome.runtime.sendMessage({ action: 'getAllRequests' });
       if (response && response.allRequests) {
         setAllRequests(response.allRequests);
+        
+        // Salva as requisições no IndexedDB
+        if (dbInitialized) {
+          Object.entries(response.allRequests).forEach(([id, request]) => {
+            indexedDBService.saveRequest(id, request as InterceptedResponse).catch(err => {
+              console.error('Erro ao salvar requisição no IndexedDB:', err);
+            });
+          });
+        }
       }
     } catch (error) {
       console.error('Erro ao carregar todas as requisições:', error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dbInitialized]);
 
   // Obter detalhes de uma requisição específica
   const getRequestDetails = useCallback(async (requestId: string) => {
@@ -38,6 +76,20 @@ export function useAllRequests() {
       setCurrentRequestId(requestId);
       setCurrentRequest(allRequests[requestId]);
       return allRequests[requestId];
+    }
+
+    // Tenta obter do IndexedDB primeiro
+    if (dbInitialized) {
+      try {
+        const request = await indexedDBService.getRequest(requestId);
+        if (request) {
+          setCurrentRequestId(requestId);
+          setCurrentRequest(request);
+          return request;
+        }
+      } catch (error) {
+        console.error('Erro ao obter requisição do IndexedDB:', error);
+      }
     }
 
     // Caso contrário, carregamos todas as requisições novamente
@@ -53,7 +105,7 @@ export function useAllRequests() {
       console.error('Erro ao obter detalhes da requisição:', error);
       return null;
     }
-  }, [allRequests, loadAllRequests]);
+  }, [allRequests, loadAllRequests, dbInitialized]);
 
   // Limpar a requisição atual
   const clearCurrentRequest = useCallback(() => {
@@ -82,6 +134,26 @@ export function useAllRequests() {
     // Armazenar o último timestamp para evitar atualizações muito frequentes
     let lastUpdateTime = Date.now();
 
+    // Listener para novas requisições do background script
+    const messageListener = (message: any) => {
+      if (message.action === 'newRequest' && message.requestId && message.request) {
+        // Adicionar à lista de requisições
+        setAllRequests(prev => ({
+          ...prev,
+          [message.requestId]: message.request
+        }));
+
+        // Salvar no IndexedDB
+        if (dbInitialized) {
+          indexedDBService.saveRequest(message.requestId, message.request).catch(err => {
+            console.error('Erro ao salvar nova requisição no IndexedDB:', err);
+          });
+        }
+      }
+    };
+
+    chrome.runtime.onMessage.addListener(messageListener);
+
     // Configurar intervalo para verificar requisições periodicamente
     const interval = setInterval(() => {
       // Só atualiza se o auto-refresh estiver habilitado, a página estiver visível
@@ -95,8 +167,9 @@ export function useAllRequests() {
 
     return () => {
       clearInterval(interval);
+      chrome.runtime.onMessage.removeListener(messageListener);
     };
-  }, [loadAllRequests, autoRefreshEnabled]);
+  }, [loadAllRequests, autoRefreshEnabled, dbInitialized]);
 
   return {
     allRequests,
@@ -110,6 +183,7 @@ export function useAllRequests() {
     filter,
     setFilter,
     pauseAutoRefresh,
-    autoRefreshEnabled
+    autoRefreshEnabled,
+    dbInitialized
   };
 }

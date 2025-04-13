@@ -21,19 +21,56 @@ export type RequestRow = {
 
 export const columns: ColumnDef<RequestRow>[] = [
   {
+    accessorKey: "timestamp",
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="pl-0"
+        >
+          Horário
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      )
+    },
+    cell: ({ row }) => {
+      const request = row.original.request;
+      const date = new Date(request.timestamp);
+      return <span className="text-xs text-muted-foreground">
+        {date.toLocaleTimeString()}
+      </span>;
+    },
+  },
+  {
     accessorKey: "status",
     header: "Status",
     cell: ({ row }) => {
       const request = row.original.request;
       const isIntercepted = !!request.isWaiting;
       const wasIntercepted = request.isWaiting === false;
+      const isMocked = request.isMocked === true;
+
+      let variant: "destructive" | "default" | "outline" | "secondary" = "outline";
+      let label = "Proxy";
+
+      if (isIntercepted) {
+        variant = "destructive";
+        label = "Aguardando";
+      } else if (wasIntercepted) {
+        variant = "default";
+        label = "Interceptado";
+      } else if (isMocked) {
+        variant = "secondary";
+        label = "Mockado";
+      }
 
       return (
         <Badge 
-          variant={isIntercepted ? "destructive" : wasIntercepted ? "default" : "outline"} 
+          variant={variant} 
           className="text-xs"
         >
-          {isIntercepted ? "Aguardando" : wasIntercepted ? "Interceptado" : "Observado"}
+          {label}
         </Badge>
       );
     },
@@ -109,28 +146,6 @@ export const columns: ColumnDef<RequestRow>[] = [
     cell: ({ row }) => {
       const request = row.original.request;
       return <span className="text-xs text-muted-foreground">{request.mimeType}</span>;
-    },
-  },
-  {
-    accessorKey: "timestamp",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="pl-0"
-        >
-          Horário
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      )
-    },
-    cell: ({ row }) => {
-      const request = row.original.request;
-      const date = new Date(request.timestamp);
-      return <span className="text-xs text-muted-foreground">
-        {date.toLocaleTimeString()}
-      </span>;
     },
   },
   {

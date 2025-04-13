@@ -11,6 +11,7 @@ export interface InterceptedResponse {
   timestamp: number;
   body: string;
   isWaiting?: boolean;
+  isMocked?: boolean;
 }
 
 export interface ResponseModifications {
@@ -81,6 +82,9 @@ export function useResponses() {
       });
 
       if (response && response.success) {
+        // Obter a resposta atual antes de removê-la
+        const currentPendingResponse = pendingResponses[requestId];
+
         // Remover da lista de respostas pendentes
         const newPendingResponses = { ...pendingResponses };
         delete newPendingResponses[requestId];
@@ -90,6 +94,26 @@ export function useResponses() {
         if (currentResponseId === requestId) {
           setCurrentResponseId(null);
           setCurrentResponse(null);
+        }
+
+        // Adicionar ao histórico geral de requisições
+        if (currentPendingResponse) {
+          // Criar uma cópia da resposta com isWaiting=false para indicar que foi processada
+          const processedResponse: InterceptedResponse = {
+            ...currentPendingResponse,
+            isWaiting: false,  // Indica que não está mais aguardando
+            // Aplicar modificações, se houver
+            status: modifications.status || currentPendingResponse.status,
+            headers: modifications.headers || currentPendingResponse.headers,
+            body: modifications.body || currentPendingResponse.body
+          };
+
+          // Notificar o background script para adicionar ao histórico
+          chrome.runtime.sendMessage({
+            action: 'addToRequestHistory',
+            requestId,
+            request: processedResponse
+          });
         }
 
         return true;
@@ -107,6 +131,10 @@ export function useResponses() {
   const ignoreResponse = useCallback(async (requestId: string): Promise<boolean> => {
     try {
       console.log(`Ignorando resposta: ${requestId}`);
+      
+      // Obter a resposta atual antes de qualquer operação
+      const currentPendingResponse = pendingResponses[requestId];
+      
       // Enviar para o background script sem modificações
       const response = await chrome.runtime.sendMessage({
         action: 'approveResponse',
@@ -124,6 +152,22 @@ export function useResponses() {
         if (currentResponseId === requestId) {
           setCurrentResponseId(null);
           setCurrentResponse(null);
+        }
+        
+        // Adicionar ao histórico geral de requisições
+        if (currentPendingResponse) {
+          // Criar uma cópia da resposta com isWaiting=false
+          const processedResponse: InterceptedResponse = {
+            ...currentPendingResponse,
+            isWaiting: false // Indica que não está mais aguardando
+          };
+
+          // Notificar o background script para adicionar ao histórico
+          chrome.runtime.sendMessage({
+            action: 'addToRequestHistory',
+            requestId,
+            request: processedResponse
+          });
         }
 
         return true;

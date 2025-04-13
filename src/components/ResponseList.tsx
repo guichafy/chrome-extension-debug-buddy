@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { InterceptedResponse } from '../hooks/useResponses';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -19,6 +19,18 @@ const ResponseList: React.FC<ResponseListProps> = ({
   onIgnore,
   showIgnoreButton = true
 }) => {
+  // Estado para forçar a atualização do componente a cada segundo
+  const [currentTime, setCurrentTime] = useState(Date.now());
+  
+  // Efeito para atualizar o tempo a cada segundo
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
+  
   const responseIds = Object.keys(responses);
 
   if (responseIds.length === 0) {
@@ -34,9 +46,14 @@ const ResponseList: React.FC<ResponseListProps> = ({
       await onIgnore(requestId);
     }
   };
+  
+  // Função para calcular o tempo de espera em segundos
+  const getWaitingTime = (timestamp: number) => {
+    return Math.floor((currentTime - timestamp) / 1000);
+  };
 
   return (
-    <ScrollArea className="h-[500px] pr-4">
+    <ScrollArea className="h-[380px] pr-4">
       <div className="space-y-3">
         {responseIds.map(requestId => {
           const response = responses[requestId];
@@ -56,6 +73,11 @@ const ResponseList: React.FC<ResponseListProps> = ({
                         {response.isWaiting ? "Aguardando" : "Interceptado"}
                       </Badge>
                       <span className="text-sm font-medium">{response.method || 'GET'}</span>
+                      {response.isWaiting && (
+                        <Badge variant="secondary" className="text-xs ml-1">
+                          {getWaitingTime(response.timestamp)}s
+                        </Badge>
+                      )}
                     </div>
                     <h3 className="font-medium truncate url">{response.url}</h3>
                     <div className="text-sm text-muted-foreground details mt-1">
