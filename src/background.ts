@@ -12,6 +12,7 @@ interface UrlPattern {
 // Tipos para respostas interceptadas
 interface InterceptedResponse {
   url: string;
+  method?: string;
   status: number;
   statusText: string;
   headers: Record<string, string>;
@@ -73,6 +74,7 @@ interface MessageResponse {
   error?: string;
   isDebugging?: boolean;
   pendingResponses?: Record<string, InterceptedResponse>;
+  allRequests?: Record<string, InterceptedResponse>;
   response?: InterceptedResponse;
   mocks?: MockConfig[];
 }
@@ -82,6 +84,7 @@ let isDebugging: boolean = false;
 let attachedTabId: number | null = null;
 let urlPatterns: (string | UrlPattern)[] = [];
 let pendingResponses: Record<string, InterceptedResponse> = {}; // Store intercepted responses
+let allRequests: Record<string, InterceptedResponse> = {}; // Store all requests
 // Variáveis globais para rastrear abas
 let interceptorTabId: number | null = null;
 let targetTabId: number | null = null;
@@ -198,6 +201,11 @@ chrome.runtime.onMessage.addListener((message: any, _sender, sendResponse: (resp
 
   else if (message.action === 'getPendingResponses') {
     sendResponse({ pendingResponses });
+    return false; // Indicates we've responded synchronously
+  }
+
+  else if (message.action === 'getAllRequests') {
+    sendResponse({ allRequests });
     return false; // Indicates we've responded synchronously
   }
 
@@ -624,6 +632,7 @@ async function stopDebugging(): Promise<boolean> {
     isDebugging = false;
     attachedTabId = null;
     pendingResponses = {};
+    allRequests = {};
 
     console.log('Debugging stopped successfully');
     return true;
@@ -657,47 +666,57 @@ function debuggerEventListener(
 async function handleRequestPaused(params: any): Promise<void> {
   const { requestId, request, responseStatusCode, responseHeaders, resourceType } = params;
   const url = request.url;
+  const method = request.method || 'GET';
 
   console.log(`🟡 REQUEST PAUSED: ${url}`);
   console.log('Request ID:', requestId);
-  console.log('Method:', request.method);
+  console.log('Method:', method);
   console.log('Resource Type:', resourceType);
 
   // Verificar se existe um mock configurado para essa requisição
-  const mockResult = await checkForMock(url, request.method);
+  const mockResult = await checkForMock(url, method);
   if (mockResult) {
     console.log(`Applying mock for ${url}`);
     applyMockResponse(requestId, mockResult);
     return;
   }
 
-  // Check if this URL should be intercepted based on our patterns
-  if (shouldInterceptUrl(url, request)) {
-    // This is a URL we want to intercept
-    console.log(`Intercepting response for ${url}`);
+  // Sempre obter o corpo da resposta para todas as requisições
+  chrome.debugger.sendCommand(
+    { tabId: attachedTabId as number },
+    'Fetch.getResponseBody',
+    { requestId },
+    (result: any) => {
+      const responseBody = result as { body: string, base64Encoded: boolean } | undefined;
+      if (responseBody) {
+        let body = responseBody.base64Encoded ?
+          atob(responseBody.body) :
+          responseBody.body;
 
-    // Get response body
-    chrome.debugger.sendCommand(
-      { tabId: attachedTabId as number },
-      'Fetch.getResponseBody',
-      { requestId },
-      (result: any) => {
-        const responseBody = result as { body: string, base64Encoded: boolean } | undefined;
-        if (responseBody) {
-          let body = responseBody.base64Encoded ?
-            atob(responseBody.body) :
-            responseBody.body;
+        // Criar objeto de resposta
+        const responseObj: InterceptedResponse = {
+          url,
+          method,
+          status: responseStatusCode,
+          statusText: getStatusText(responseStatusCode),
+          headers: responseHeadersToObject(responseHeaders),
+          mimeType: getMimeTypeFromHeaders(responseHeaders),
+          type: resourceType,
+          timestamp: Date.now(),
+          body: body
+        };
 
-          // Store response info
+        // Armazenar em allRequests
+        allRequests[requestId] = responseObj;
+
+        // Check if this URL should be intercepted based on our patterns
+        if (shouldInterceptUrl(url, request)) {
+          // This is a URL we want to intercept
+          console.log(`Intercepting response for ${url}`);
+
+          // Adicionar flag isWaiting para requisições interceptadas
           pendingResponses[requestId] = {
-            url,
-            status: responseStatusCode,
-            statusText: getStatusText(responseStatusCode),
-            headers: responseHeadersToObject(responseHeaders),
-            mimeType: getMimeTypeFromHeaders(responseHeaders),
-            type: resourceType,
-            timestamp: Date.now(),
-            body: body,
+            ...responseObj,
             isWaiting: true
           };
 
@@ -706,6 +725,7 @@ async function handleRequestPaused(params: any): Promise<void> {
             action: 'newPendingResponse',
             requestId,
             url,
+            method,
             status: responseStatusCode,
             statusText: getStatusText(responseStatusCode),
             type: resourceType,
@@ -714,15 +734,15 @@ async function handleRequestPaused(params: any): Promise<void> {
 
           console.log(`Response for ${url} is now pending user approval`);
         } else {
-          // If we can't get the response body, just continue the request
+          // This is not a URL we want to intercept, continue the request
           continueRequest(requestId);
         }
+      } else {
+        // If we can't get the response body, just continue the request
+        continueRequest(requestId);
       }
-    );
-  } else {
-    // This is not a URL we want to intercept, continue the request
-    continueRequest(requestId);
-  }
+    }
+  );
 }
 
 // Helper function to continue a request

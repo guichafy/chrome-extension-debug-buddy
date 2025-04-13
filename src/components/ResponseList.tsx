@@ -9,14 +9,20 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 interface ResponseListProps {
   responses: Record<string, InterceptedResponse>;
   onSelect: (requestId: string) => void;
-  onIgnore: (requestId: string) => Promise<boolean>;
+  onIgnore?: (requestId: string) => Promise<boolean>;
+  showIgnoreButton?: boolean;
 }
 
-const ResponseList: React.FC<ResponseListProps> = ({ responses, onSelect, onIgnore }) => {
+const ResponseList: React.FC<ResponseListProps> = ({
+  responses,
+  onSelect,
+  onIgnore,
+  showIgnoreButton = true
+}) => {
   const responseIds = Object.keys(responses);
 
   if (responseIds.length === 0) {
-    return <p className="text-gray-500 p-4 no-responses">Nenhuma requisição interceptada</p>;
+    return <p className="text-gray-500 p-4 no-responses">Nenhuma requisição encontrada</p>;
   }
 
   // Ordenar por timestamp (mais recente primeiro)
@@ -24,7 +30,9 @@ const ResponseList: React.FC<ResponseListProps> = ({ responses, onSelect, onIgno
 
   const handleIgnore = async (e: React.MouseEvent, requestId: string) => {
     e.stopPropagation(); // Evita que o clique propague para o card
-    await onIgnore(requestId);
+    if (onIgnore) {
+      await onIgnore(requestId);
+    }
   };
 
   return (
@@ -54,15 +62,17 @@ const ResponseList: React.FC<ResponseListProps> = ({ responses, onSelect, onIgno
                       {response.status} {response.statusText} | {response.type} | {response.mimeType}
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="ml-2 h-8 px-2"
-                    onClick={(e) => handleIgnore(e, requestId)}
-                    title="Ignorar requisição"
-                  >
-                    <Icon name="close" className="h-4 w-4" />
-                  </Button>
+                  {showIgnoreButton && onIgnore && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="ml-2 h-8 px-2"
+                      onClick={(e) => handleIgnore(e, requestId)}
+                      title="Ignorar requisição"
+                    >
+                      <Icon name="close" className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>

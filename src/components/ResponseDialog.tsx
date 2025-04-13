@@ -26,6 +26,7 @@ interface ResponseDialogProps {
   onEdit: () => void;
   onCancel: () => void;
   isEditing: boolean;
+  readOnly?: boolean;
 }
 
 const ResponseDialog: React.FC<ResponseDialogProps> = ({
@@ -38,7 +39,8 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
   onMock,
   onEdit,
   onCancel,
-  isEditing
+  isEditing,
+  readOnly = false
 }) => {
   const [status, setStatus] = React.useState('');
   const [headers, setHeaders] = React.useState('');
@@ -123,26 +125,26 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
         <DialogHeader>
           <DialogTitle>Detalhes da Requisição</DialogTitle>
         </DialogHeader>
-        
+
         <div className="flex justify-between items-start mb-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
             <div>
               <p className="flex items-center gap-1">
-                <span className="font-medium">URL:</span> 
+                <span className="font-medium">URL:</span>
                 <span className="truncate max-w-[300px]">{response.url}</span>
               </p>
               <p className="flex items-center gap-1">
-                <span className="font-medium">Método:</span> 
+                <span className="font-medium">Método:</span>
                 <Badge variant="outline">{response.method || 'GET'}</Badge>
               </p>
             </div>
             <div>
               <p className="flex items-center gap-1">
-                <span className="font-medium">Tipo:</span> 
+                <span className="font-medium">Tipo:</span>
                 <span>{response.type}</span>
               </p>
               <p className="flex items-center gap-1">
-                <span className="font-medium">MIME Type:</span> 
+                <span className="font-medium">MIME Type:</span>
                 <span>{response.mimeType}</span>
               </p>
             </div>
@@ -158,26 +160,30 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
               <span className="hidden sm:inline">Criar Mock</span>
             </Button>
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={handleIgnore}
-            >
-              <Icon name="close" className="h-4 w-4" />
-              <span className="hidden sm:inline">Ignorar</span>
-            </Button>
+            {!readOnly && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={handleIgnore}
+              >
+                <Icon name="close" className="h-4 w-4" />
+                <span className="hidden sm:inline">Ignorar</span>
+              </Button>
+            )}
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={handleEdit}
-              disabled={isEditing}
-            >
-              <Icon name="edit" className="h-4 w-4" />
-              <span className="hidden sm:inline">Editar</span>
-            </Button>
+            {!readOnly && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={handleEdit}
+                disabled={isEditing}
+              >
+                <Icon name="edit" className="h-4 w-4" />
+                <span className="hidden sm:inline">Editar</span>
+              </Button>
+            )}
           </div>
         </div>
 
@@ -199,7 +205,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
                       id="responseStatus"
                       value={status}
                       onChange={(e) => setStatus(e.target.value)}
-                      disabled={!isEditing}
+                      disabled={!isEditing || readOnly}
                       className="font-mono"
                     />
                   </div>
@@ -225,7 +231,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
                       value={headers}
                       onChange={(e) => setHeaders(e.target.value)}
                       className="w-full p-3 font-mono text-sm min-h-[300px] focus:outline-none"
-                      disabled={!isEditing}
+                      disabled={!isEditing || readOnly}
                     />
                   </ScrollArea>
                 </div>
@@ -240,7 +246,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
                       value={body}
                       onChange={(e) => setBody(e.target.value)}
                       className="w-full p-3 font-mono text-sm min-h-[300px] focus:outline-none"
-                      disabled={!isEditing}
+                      disabled={!isEditing || readOnly}
                     />
                   </ScrollArea>
                 </div>
@@ -250,25 +256,29 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
         </div>
 
         <DialogFooter className="mt-4">
-          <Button
-            className="flex items-center gap-2"
-            onClick={handleApprove}
-          >
-            <Icon name="check" className="h-4 w-4" />
-            {isEditing ? 'Salvar e Aprovar' : 'Aprovar'}
-          </Button>
+          {!readOnly ? (
+            <>
+              <Button
+                className="flex items-center gap-2"
+                onClick={handleApprove}
+              >
+                <Icon name="check" className="h-4 w-4" />
+                {isEditing ? 'Salvar e Aprovar' : 'Aprovar'}
+              </Button>
 
-          {isEditing && (
-            <Button
-              variant="outline"
-              className="flex items-center gap-2"
-              onClick={handleCancel}
-            >
-              <Icon name="cancel" className="h-4 w-4" />
-              Cancelar
-            </Button>
-          )}
-          
+              {isEditing && (
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-2"
+                  onClick={handleCancel}
+                >
+                  <Icon name="cancel" className="h-4 w-4" />
+                  Cancelar
+                </Button>
+              )}
+            </>
+          ) : null}
+
           <DialogClose asChild>
             <Button variant="outline" size="sm">
               <Icon name="close" className="h-4 w-4 mr-2" />

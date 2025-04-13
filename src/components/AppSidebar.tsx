@@ -30,15 +30,15 @@ import {
 // Dados de navegação
 const navItems = [
   {
-    title: 'Configurações',
-    path: '/',
-    icon: 'settings',
-  },
-  {
     title: 'Requisições',
     path: '/requests',
     icon: 'list',
     count: 0, // Será atualizado dinamicamente
+  },
+  {
+    title: 'Configurações',
+    path: '/',
+    icon: 'settings',
   },
   {
     title: 'Mocks',

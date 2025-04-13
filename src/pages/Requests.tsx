@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ResponseList from '../components/ResponseList';
+import RequestTable from '../components/RequestTable';
 import ResponseDialog from '../components/ResponseDialog';
 import { useResponses } from '../hooks/useResponses';
+import { useAllRequests } from '../hooks/useAllRequests';
 import { useMocks } from '../hooks/useMocks';
 import { useNavigate } from 'react-router-dom';
 
@@ -17,11 +20,23 @@ const Requests: React.FC = () => {
     clearCurrentResponse
   } = useResponses();
 
+  const {
+    filteredRequests,
+    currentRequestId,
+    currentRequest,
+    getRequestDetails,
+    filter,
+    setFilter,
+    pauseAutoRefresh,
+    autoRefreshEnabled
+  } = useAllRequests();
+
   const { createMockFromResponse, saveMock } = useMocks();
   const [isEditing, setIsEditing] = useState(false);
   const navigate = useNavigate();
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('intercepted');
 
   const handleEditResponse = () => {
     setIsEditing(true);
@@ -29,13 +44,17 @@ const Requests: React.FC = () => {
 
   const handleCancelEdit = () => {
     setIsEditing(false);
-    clearCurrentResponse();
+    if (activeTab === 'intercepted') {
+      clearCurrentResponse();
+    }
   };
 
   const handleCreateMock = () => {
-    if (currentResponse) {
+    const response = activeTab === 'intercepted' ? currentResponse : currentRequest;
+
+    if (response) {
       // Criar um mock a partir da resposta atual
-      const mockData = createMockFromResponse(currentResponse);
+      const mockData = createMockFromResponse(response);
 
       // Adicionar o mock à lista de mocks
       saveMock({
@@ -52,7 +71,11 @@ const Requests: React.FC = () => {
   };
 
   const handleSelectResponse = async (requestId: string) => {
-    await getResponseDetails(requestId);
+    if (activeTab === 'intercepted') {
+      await getResponseDetails(requestId);
+    } else {
+      await getRequestDetails(requestId);
+    }
     setDialogOpen(true);
   };
 
@@ -60,28 +83,55 @@ const Requests: React.FC = () => {
     <>
       <Card className="panel">
         <CardHeader>
-          <CardTitle>Requisições interceptadas</CardTitle>
+          <CardTitle>Requisições</CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponseList
-            responses={pendingResponses}
-            onSelect={handleSelectResponse}
-            onIgnore={ignoreResponse}
-          />
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="intercepted">Interceptadas</TabsTrigger>
+              <TabsTrigger value="all">Todas</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="intercepted">
+              <CardDescription className="mb-4">
+                Requisições interceptadas que estão aguardando aprovação ou modificação antes de serem enviadas ao navegador.
+              </CardDescription>
+              <ResponseList
+                responses={pendingResponses}
+                onSelect={handleSelectResponse}
+                onIgnore={ignoreResponse}
+              />
+            </TabsContent>
+
+            <TabsContent value="all">
+              <CardDescription className="mb-4">
+                Todas as requisições capturadas enquanto o debugger estava ativo, incluindo as interceptadas e as apenas observadas.
+              </CardDescription>
+              <RequestTable
+                requests={filteredRequests}
+                onSelect={handleSelectResponse}
+                searchValue={filter}
+                onSearchChange={setFilter}
+                pauseAutoRefresh={pauseAutoRefresh}
+                autoRefreshEnabled={autoRefreshEnabled}
+              />
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
       <ResponseDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        response={currentResponse}
-        requestId={currentResponseId}
+        response={activeTab === 'intercepted' ? currentResponse : currentRequest}
+        requestId={activeTab === 'intercepted' ? currentResponseId : currentRequestId}
         onApprove={approveResponse}
         onIgnore={ignoreResponse}
         onMock={handleCreateMock}
         onEdit={handleEditResponse}
         onCancel={handleCancelEdit}
         isEditing={isEditing}
+        readOnly={activeTab === 'all'}
       />
     </>
   );
