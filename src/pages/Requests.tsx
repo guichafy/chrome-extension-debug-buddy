@@ -113,22 +113,7 @@ const Requests: React.FC = () => {
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     console.log('Aba alterada para:', value);
-
-    // Se a aba for alterada para "all" (Histórico), adicionar uma classe ao body
-    // para indicar que estamos na aba de histórico
-    if (value === 'all') {
-      document.body.classList.add('history-tab-active');
-    } else {
-      document.body.classList.remove('history-tab-active');
-    }
   };
-
-  // Remover a classe quando o componente for desmontado
-  useEffect(() => {
-    return () => {
-      document.body.classList.remove('history-tab-active');
-    };
-  }, []);
 
   const handleEditResponse = () => {
     setIsEditing(true);

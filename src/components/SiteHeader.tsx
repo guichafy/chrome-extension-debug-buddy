@@ -43,27 +43,7 @@ export function SiteHeader({
               <TooltipTrigger asChild>
                 <div
                   className="flex items-center gap-2 cursor-pointer"
-                  onClick={(e) => {
-                    // Verificar se a aba "Histórico" está ativa
-                    if (document.body.classList.contains('history-tab-active')) {
-                      // Forçar um hard reload da página
-                      e.preventDefault();
-
-                      // Emitir um evento para notificar outros componentes
-                      const event = new CustomEvent('history-tab-navigation', {
-                        detail: { path: '/requests' }
-                      });
-                      window.dispatchEvent(event);
-
-                      // Usar setTimeout para dar tempo aos componentes de reagirem
-                      setTimeout(() => {
-                        window.location.hash = '/requests';
-                        window.location.reload();
-                      }, 50);
-                    } else {
-                      navigate('/requests', { replace: true, state: { timestamp: Date.now() } });
-                    }
-                  }}
+                  onClick={() => navigate('/requests', { replace: true, state: { timestamp: Date.now() } })}
                 >
                   {/* <img src="images/icon_64px.png" alt="Logo" className="w-6 h-6" /> */}
                   <div className="flex items-center gap-2">

@@ -16,7 +16,7 @@ const Layout: React.FC = () => {
   const location = useLocation();
 
   // Usar o pathname completo como key para forçar remontagem total dos componentes
-  const routeKey = location.pathname;
+  const routeKey = location.pathname + '-' + Date.now();
 
   // Limpar qualquer estado persistente quando a rota muda
   useEffect(() => {
@@ -32,6 +32,15 @@ const Layout: React.FC = () => {
       detail: { pathname: location.pathname }
     });
     window.dispatchEvent(event);
+
+    // Forçar um foco no elemento principal para garantir que o React Router
+    // renderize corretamente o novo componente
+    setTimeout(() => {
+      const mainContent = document.querySelector('.main-content-container');
+      if (mainContent) {
+        (mainContent as HTMLElement).focus();
+      }
+    }, 0);
   }, [location.pathname]);
 
   // Listener para mensagens do background script
@@ -81,7 +90,7 @@ const Layout: React.FC = () => {
           onStopDebugging={() => stopDebugging()}
         />
 
-        <div className="main-content-container">
+        <div className="main-content-container" tabIndex={-1}>
           <div className="p-4 pb-8">
             <Outlet key={routeKey} />
           </div>

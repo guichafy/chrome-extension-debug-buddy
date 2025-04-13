@@ -143,14 +143,17 @@ const TabsTrigger: React.FC<TabsTriggerProps> = ({ value, children, className, o
 const TabsContent: React.FC<TabsContentProps> = ({ value, children, className }) => {
   const { activeTab } = React.useContext(TabsContext);
 
-  if (activeTab !== value) {
-    return null;
-  }
-
+  // Sempre renderizar o conteúdo, mas esconder quando não estiver ativo
+  // Isso garante que o componente esteja sempre presente no DOM
   return (
     <div
-      className={cn('custom-tabs-content mt-2', className)}
+      className={cn(
+        'custom-tabs-content mt-2',
+        activeTab !== value && 'hidden',
+        className
+      )}
       data-state={activeTab === value ? 'active' : 'inactive'}
+      data-tab-value={value}
     >
       {children}
     </div>
