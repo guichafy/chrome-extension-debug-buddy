@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+// import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import ResponseList from '../components/ResponseList';
 import RequestTable from '../components/RequestTable';
@@ -8,8 +8,9 @@ import ResponseDialog from '../components/ResponseDialog';
 import { useResponses } from '../hooks/useResponses';
 import { useAllRequests } from '../hooks/useAllRequests';
 import { useMocks } from '../hooks/useMocks';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { indexedDBService } from '../services/indexedDB';
+import CustomTabs from '../components/CustomTabs';
 
 const Requests: React.FC = () => {
   // Estado para controlar a inicialização do IndexedDB
@@ -58,17 +59,46 @@ const Requests: React.FC = () => {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('intercepted');
+  const location = useLocation();
+  const isInitialMount = useRef(true);
 
-  // Sempre inicializar com a aba "intercepted" quando o componente é montado
+  // Resetar estados quando o componente é montado
   useEffect(() => {
-    // Resetar estados quando o componente é montado
-    setActiveTab('intercepted');
+    // Resetar estados
     setIsEditing(false);
     setDialogOpen(false);
 
     // Limpar quaisquer seleções anteriores
-    clearCurrentResponse();
-  }, []); // Executar apenas na montagem do componente
+    if (!isInitialMount.current) {
+      clearCurrentResponse();
+    }
+    isInitialMount.current = false;
+  }, [clearCurrentResponse]); // Executar apenas na montagem do componente
+
+  // Ouvir o evento personalizado de mudança de rota
+  useEffect(() => {
+    const handleRouteChange = (event: Event) => {
+      // Resetar estados quando a rota muda
+      setActiveTab('intercepted');
+      setIsEditing(false);
+      setDialogOpen(false);
+      clearCurrentResponse();
+
+      console.log('Requests: Evento de mudança de rota detectado, resetando estado');
+    };
+
+    window.addEventListener('route-changed', handleRouteChange);
+
+    return () => {
+      window.removeEventListener('route-changed', handleRouteChange);
+    };
+  }, [clearCurrentResponse]);
+
+  // Função para lidar com a mudança de aba
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    console.log('Aba alterada para:', value);
+  };
 
   const handleEditResponse = () => {
     setIsEditing(true);
@@ -125,13 +155,13 @@ const Requests: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="intercepted" value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
-              <TabsTrigger value="intercepted">Interceptadas</TabsTrigger>
-              <TabsTrigger value="all">Histórico</TabsTrigger>
-            </TabsList>
+          <CustomTabs defaultValue="intercepted" onTabChange={handleTabChange} className="w-full">
+            <CustomTabs.List>
+              <CustomTabs.Trigger value="intercepted">Interceptadas</CustomTabs.Trigger>
+              <CustomTabs.Trigger value="all">Histórico</CustomTabs.Trigger>
+            </CustomTabs.List>
 
-            <TabsContent value="intercepted">
+            <CustomTabs.Content value="intercepted">
               <CardDescription className="mb-4">
                 Requisições interceptadas que estão aguardando aprovação ou modificação antes de serem enviadas ao navegador.
               </CardDescription>
@@ -140,9 +170,9 @@ const Requests: React.FC = () => {
                 onSelect={handleSelectResponse}
                 onIgnore={ignoreResponse}
               />
-            </TabsContent>
+            </CustomTabs.Content>
 
-            <TabsContent value="all">
+            <CustomTabs.Content value="all">
               <CardDescription className="mb-4">
                 Histórico de todas as requisições capturadas enquanto o debugger estava ativo, incluindo as interceptadas e as apenas observadas.
               </CardDescription>
@@ -155,8 +185,8 @@ const Requests: React.FC = () => {
                 enableAutoRefresh={enableAutoRefresh}
                 autoRefreshEnabled={autoRefreshEnabled}
               />
-            </TabsContent>
-          </Tabs>
+            </CustomTabs.Content>
+          </CustomTabs>
         </CardContent>
       </Card>
 

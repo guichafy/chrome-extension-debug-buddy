@@ -25,6 +25,13 @@ const Layout: React.FC = () => {
       console.clear();
       console.log('Rota alterada para:', location.pathname);
     }
+
+    // Emitir um evento personalizado quando a rota muda
+    // Isso permite que outros componentes reajam à mudança de rota
+    const event = new CustomEvent('route-changed', {
+      detail: { pathname: location.pathname }
+    });
+    window.dispatchEvent(event);
   }, [location.pathname]);
 
   // Listener para mensagens do background script
