@@ -92,8 +92,9 @@ const Requests: React.FC = () => {
     }
   };
 
-  const handleSelectResponse = async (requestId: string) => {
-    if (activeView === 'intercepted') {
+  const handleSelectResponse = async (requestId: string, view: 'intercepted' | 'all') => {
+    setActiveView(view);
+    if (view === 'intercepted') {
       await getResponseDetails(requestId);
     } else {
       await getRequestDetails(requestId);
@@ -115,8 +116,7 @@ const Requests: React.FC = () => {
           <ResponseList
             responses={pendingResponses}
             onSelect={(requestId) => {
-              setActiveView('intercepted');
-              handleSelectResponse(requestId);
+              handleSelectResponse(requestId, 'intercepted');
             }}
             onIgnore={ignoreResponse}
           />
@@ -136,8 +136,7 @@ const Requests: React.FC = () => {
             <RequestTable
               requests={filteredRequests}
               onSelect={(requestId) => {
-                setActiveView('all');
-                handleSelectResponse(requestId);
+                handleSelectResponse(requestId, 'all');
               }}
               searchValue={filter}
               onSearchChange={setFilter}
