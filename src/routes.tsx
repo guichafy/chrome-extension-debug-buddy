@@ -3,6 +3,7 @@ import { createHashRouter } from 'react-router-dom';
 import Layout from './pages/Layout';
 import Settings from './pages/Settings';
 import Requests from './pages/Requests';
+import RequestHistory from './pages/RequestHistory';
 import Mocks from './pages/Mocks';
 
 // Usamos HashRouter (via createHashRouter) em vez de BrowserRouter para extensões Chrome
@@ -19,6 +20,10 @@ const router = createHashRouter([
       {
         path: 'requests',
         element: <Requests />,
+      },
+      {
+        path: 'request-history',
+        element: <RequestHistory />,
       },
       {
         path: 'mocks',
