@@ -770,6 +770,14 @@ async function handleRequestPaused(params: any): Promise<void> {
     return;
   }
 
+  // Verificar se existe uma regra de breakpoint para essa requisição
+  const breakpointRule = await checkForBreakpoint(url, method);
+  if (breakpointRule) {
+    console.log(`Applying breakpoint for ${url}`);
+    // Não precisamos fazer nada especial aqui, pois o fluxo normal já vai interceptar a requisição
+    // e adicionar à lista de pendingResponses para o usuário interagir
+  }
+
   // Sempre obter o corpo da resposta para todas as requisições
   chrome.debugger.sendCommand(
     { tabId: attachedTabId as number },
@@ -1057,7 +1065,8 @@ function shouldInterceptUrl(url: string, request: any): boolean {
     if (!rule.action.enabled) return false;
 
     // Se todos os matchers corresponderem e a ação estiver habilitada, interceptar
-    return allMatchersMatch;
+    // Interceptamos tanto regras de mock quanto de breakpoint
+    return allMatchersMatch && (rule.action.type === 'mock' || rule.action.type === 'breakpoint');
   });
 }
 
@@ -1175,6 +1184,74 @@ async function checkForMock(url: string, method: string): Promise<MockConfig | u
 
       // Se não encontrou nenhum mock, retorna undefined
       resolve(undefined);
+    });
+  });
+}
+
+// Verifica se existe uma regra de breakpoint configurada para a URL
+async function checkForBreakpoint(url: string, method: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['rules'], (result: { rules?: Rule[] }) => {
+      const rules = result.rules || [];
+
+      // Procurar por uma regra com ação de breakpoint que corresponda à URL e método
+      for (const rule of rules) {
+        // Verificar se a regra está habilitada
+        if (!rule.enabled) continue;
+
+        // Verificar se a ação é do tipo breakpoint e está habilitada
+        if (rule.action.type !== 'breakpoint' || !rule.action.enabled) continue;
+
+        // Verificar se todos os matchers habilitados correspondem
+        const allMatchersMatch = rule.matchers.every(matcher => {
+          // Ignorar matchers desabilitados
+          if (!matcher.enabled) return true;
+
+          switch (matcher.type) {
+            case 'url':
+              if (!matcher.pattern) return false;
+
+              if (matcher.isRegex) {
+                try {
+                  const regex = new RegExp(matcher.pattern);
+                  return regex.test(url);
+                } catch (error) {
+                  console.error(`Erro ao processar expressão regular '${matcher.pattern}':`, error);
+                  return false;
+                }
+              } else {
+                return url.includes(matcher.pattern);
+              }
+
+            case 'method':
+              if (!matcher.method) return true; // Se não tiver método, considera como correspondente
+              return matcher.method === 'ANY' || matcher.method === method;
+
+            case 'header':
+              // Não podemos verificar headers neste ponto
+              // Sempre retorna true para não bloquear o breakpoint
+              return true;
+
+            case 'body':
+              // Não podemos verificar o corpo da requisição neste ponto
+              // Sempre retorna true para não bloquear o breakpoint
+              return true;
+
+            default:
+              return false;
+          }
+        });
+
+        // Se todos os matchers corresponderem, encontramos uma regra de breakpoint
+        if (allMatchersMatch) {
+          console.log(`Breakpoint encontrado para ${url} na regra: ${rule.name}`);
+          resolve(true);
+          return;
+        }
+      }
+
+      // Se não encontrou nenhuma regra de breakpoint, retorna false
+      resolve(false);
     });
   });
 }

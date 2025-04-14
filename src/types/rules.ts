@@ -42,7 +42,7 @@ export interface BodyMatcher extends BaseMatcher {
 export type Matcher = UrlMatcher | MethodMatcher | HeaderMatcher | BodyMatcher;
 
 // Tipos de ações disponíveis
-export type ActionType = 'mock' | 'delay' | 'modify';
+export type ActionType = 'mock' | 'delay' | 'modify' | 'breakpoint';
 
 // Interface base para todas as ações
 export interface BaseAction {
@@ -74,8 +74,14 @@ export interface ModifyAction extends BaseAction {
   replaceBody?: string;
 }
 
+// Ação para pausar a requisição e aguardar interação do usuário
+export interface BreakpointAction extends BaseAction {
+  type: 'breakpoint';
+  description?: string; // Descrição opcional para o usuário
+}
+
 // União de todos os tipos de ações
-export type Action = MockAction | DelayAction | ModifyAction;
+export type Action = MockAction | DelayAction | ModifyAction | BreakpointAction;
 
 // Interface para uma regra completa
 export interface Rule {

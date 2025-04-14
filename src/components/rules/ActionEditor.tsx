@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Action, MockAction } from '@/types/rules';
+import { Action, MockAction, BreakpointAction } from '@/types/rules';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface ActionEditorProps {
@@ -29,6 +29,8 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({
         return renderDelayActionEditor(action);
       case 'modify':
         return renderModifyActionEditor(action);
+      case 'breakpoint':
+        return renderBreakpointActionEditor(action as BreakpointAction);
       default:
         return null;
     }
@@ -39,17 +41,17 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({
     // Adicionar um novo header
     const addHeader = () => {
       if (!headerName.trim() || !headerValue.trim()) return;
-      
+
       const newHeaders = {
         ...mockAction.headers,
         [headerName.trim()]: headerValue.trim()
       };
-      
+
       onChange({
         ...mockAction,
         headers: newHeaders
       });
-      
+
       setHeaderName('');
       setHeaderValue('');
     };
@@ -58,7 +60,7 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({
     const removeHeader = (name: string) => {
       const newHeaders = { ...mockAction.headers };
       delete newHeaders[name];
-      
+
       onChange({
         ...mockAction,
         headers: newHeaders
@@ -71,11 +73,19 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({
           <Label className="font-medium">Tipo de Resposta</Label>
           <Select
             value={mockAction.type}
-            onValueChange={(value: 'mock') => {
-              onChange({
-                ...mockAction,
-                type: value
-              });
+            onValueChange={(value: 'mock' | 'breakpoint') => {
+              if (value === 'mock') {
+                onChange({
+                  ...mockAction,
+                  type: value
+                });
+              } else if (value === 'breakpoint') {
+                onChange({
+                  type: value,
+                  enabled: true,
+                  description: 'Pausar para inspeção manual'
+                });
+              }
             }}
           >
             <SelectTrigger>
@@ -83,6 +93,7 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="mock">Mock Response</SelectItem>
+              <SelectItem value="breakpoint">Breakpoint</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -213,15 +224,23 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({
         <Label className="font-medium">Tipo de Ação</Label>
         <Select
           value={delayAction.type}
-          onValueChange={(value: 'mock') => {
-            onChange({
-              type: value,
-              enabled: true,
-              status: 200,
-              headers: {},
-              body: '{"success": true, "message": "Resposta mockada"}',
-              contentType: 'application/json'
-            });
+          onValueChange={(value: 'mock' | 'breakpoint') => {
+            if (value === 'mock') {
+              onChange({
+                type: value,
+                enabled: true,
+                status: 200,
+                headers: {},
+                body: '{"success": true, "message": "Resposta mockada"}',
+                contentType: 'application/json'
+              });
+            } else if (value === 'breakpoint') {
+              onChange({
+                type: value,
+                enabled: true,
+                description: 'Pausar para inspeção manual'
+              });
+            }
           }}
         >
           <SelectTrigger>
@@ -229,6 +248,7 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="mock">Mock Response</SelectItem>
+            <SelectItem value="breakpoint">Breakpoint</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -245,15 +265,23 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({
         <Label className="font-medium">Tipo de Ação</Label>
         <Select
           value={modifyAction.type}
-          onValueChange={(value: 'mock') => {
-            onChange({
-              type: value,
-              enabled: true,
-              status: 200,
-              headers: {},
-              body: '{"success": true, "message": "Resposta mockada"}',
-              contentType: 'application/json'
-            });
+          onValueChange={(value: 'mock' | 'breakpoint') => {
+            if (value === 'mock') {
+              onChange({
+                type: value,
+                enabled: true,
+                status: 200,
+                headers: {},
+                body: '{"success": true, "message": "Resposta mockada"}',
+                contentType: 'application/json'
+              });
+            } else if (value === 'breakpoint') {
+              onChange({
+                type: value,
+                enabled: true,
+                description: 'Pausar para inspeção manual'
+              });
+            }
           }}
         >
           <SelectTrigger>
@@ -261,12 +289,73 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="mock">Mock Response</SelectItem>
+            <SelectItem value="breakpoint">Breakpoint</SelectItem>
           </SelectContent>
         </Select>
       </div>
       <p className="text-sm text-muted-foreground">
         Apenas o tipo "Mock Response" está disponível nesta versão.
       </p>
+    </div>
+  );
+
+  // Editor para ação de breakpoint
+  const renderBreakpointActionEditor = (breakpointAction: BreakpointAction) => (
+    <div className="space-y-4">
+      <div>
+        <Label className="font-medium">Tipo de Ação</Label>
+        <Select
+          value={breakpointAction.type}
+          onValueChange={(value: 'mock' | 'breakpoint') => {
+            if (value === 'mock') {
+              onChange({
+                type: value,
+                enabled: true,
+                status: 200,
+                headers: {},
+                body: '{"success": true, "message": "Resposta mockada"}',
+                contentType: 'application/json'
+              });
+            } else {
+              onChange({
+                ...breakpointAction,
+                type: value
+              });
+            }
+          }}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione o tipo de ação" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="mock">Mock Response</SelectItem>
+            <SelectItem value="breakpoint">Breakpoint</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label className="font-medium">Descrição (opcional)</Label>
+        <Textarea
+          value={breakpointAction.description || ''}
+          onChange={(e) => {
+            onChange({
+              ...breakpointAction,
+              description: e.target.value
+            });
+          }}
+          placeholder="Descrição para exibir quando a requisição for pausada"
+          className="h-24"
+        />
+      </div>
+
+      <div className="bg-blue-50 p-4 rounded-md border border-blue-200">
+        <h4 className="text-sm font-medium text-blue-800 mb-2">Sobre o Breakpoint</h4>
+        <p className="text-sm text-blue-700">
+          O breakpoint pausa a requisição e permite que você inspecione e modifique a resposta manualmente.
+          Quando uma requisição corresponder a esta regra, ela aparecerá na aba "Interceptação" aguardando sua ação.
+        </p>
+      </div>
     </div>
   );
 
