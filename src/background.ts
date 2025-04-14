@@ -80,10 +80,42 @@ interface MessageResponse {
   mocks?: MockConfig[];
 }
 
+// Tipos para as novas regras
+interface Rule {
+  id: string;
+  name: string;
+  enabled: boolean;
+  matchers: Matcher[];
+  action: Action;
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface Matcher {
+  type: string;
+  enabled: boolean;
+  pattern?: string;
+  isRegex?: boolean;
+  method?: string;
+  name?: string;
+  value?: string;
+  headerType?: 'request' | 'response';
+}
+
+interface Action {
+  type: string;
+  enabled: boolean;
+  status?: number;
+  headers?: Record<string, string>;
+  body?: string;
+  contentType?: string;
+}
+
 // Global variables
 let isDebugging: boolean = false;
 let attachedTabId: number | null = null;
 let urlPatterns: (string | UrlPattern)[] = [];
+let rules: Rule[] = [];
 let pendingResponses: Record<string, InterceptedResponse> = {}; // Store intercepted responses
 let allRequests: Record<string, InterceptedResponse> = {}; // Store all requests
 // Variáveis globais para rastrear abas
@@ -163,11 +195,13 @@ chrome.runtime.onMessage.addListener((message: any, _sender, sendResponse: (resp
     // Usa o tabId armazenado ou o fornecido pelo usuário
     const tabIdToUse = message.tabId || targetTabId;
     if (tabIdToUse) {
-      // Verificar se há padrões de URL configurados
-      chrome.storage.local.get(['urlPatterns'], function(result) {
+      // Verificar se há padrões de URL ou regras configuradas
+      chrome.storage.local.get(['urlPatterns', 'rules'], function(result) {
         const patterns = result.urlPatterns || [];
-        if (patterns.length === 0) {
-          sendResponse({ success: false, error: 'Nenhum padrão de URL configurado para interceptar. Adicione pelo menos um padrão.' });
+        const rules = result.rules || [];
+
+        if (patterns.length === 0 && rules.length === 0) {
+          sendResponse({ success: false, error: 'Nenhuma regra configurada para interceptar. Adicione pelo menos uma regra.' });
           return;
         }
 
@@ -209,13 +243,13 @@ chrome.runtime.onMessage.addListener((message: any, _sender, sendResponse: (resp
     sendResponse({ allRequests });
     return false; // Indicates we've responded synchronously
   }
-  
+
   else if (message.action === 'addToRequestHistory') {
     const { requestId, request } = message;
     if (requestId && request) {
       // Adicionar ao histórico de requisições
       allRequests[requestId] = request;
-      
+
       // Notificar o frontend sobre a nova requisição para atualizar a UI
       if (interceptorTabId) {
         chrome.tabs.sendMessage(interceptorTabId, {
@@ -227,7 +261,7 @@ chrome.runtime.onMessage.addListener((message: any, _sender, sendResponse: (resp
           console.log('Não foi possível enviar a requisição interceptada para o frontend');
         });
       }
-      
+
       console.log(`Requisição interceptada ${requestId} adicionada ao histórico`);
       sendResponse({ success: true });
     } else {
@@ -562,13 +596,17 @@ async function startDebugging(specificTabId: number | null = null): Promise<bool
     await stopDebugging();
   }
 
-  // Get URL patterns from storage
-  const result = await chrome.storage.local.get(['urlPatterns']);
+  // Get URL patterns and rules from storage
+  const result = await chrome.storage.local.get(['urlPatterns', 'rules']);
   urlPatterns = result.urlPatterns || [];
+  rules = result.rules || [];
 
-  if (urlPatterns.length === 0) {
-    throw new Error('No URL patterns to intercept');
+  // Check if we have any patterns or rules to intercept
+  if (urlPatterns.length === 0 && rules.length === 0) {
+    throw new Error('No URL patterns or rules to intercept');
   }
+
+  console.log(`Loaded ${urlPatterns.length} URL patterns and ${rules.length} rules for interception`);
 
   // Use o tabId especificado ou tente encontrar uma aba ativa
   let tabId = specificTabId;
@@ -809,7 +847,7 @@ async function handleRequestPaused(params: any): Promise<void> {
       } else {
         // This is not a URL we want to intercept, continue the request
         continueRequest(requestId);
-        
+
         // Notificar o frontend sobre a nova requisição para armazenamento no IndexedDB
         if (interceptorTabId) {
           chrome.tabs.sendMessage(interceptorTabId, {
@@ -910,7 +948,8 @@ function getResponseHeadersToAdd(url: string): { name: string, value: string }[]
 function shouldInterceptUrl(url: string, request: any): boolean {
   if (!url) return false;
 
-  return urlPatterns.some(pattern => {
+  // Primeiro, verificar as regras antigas (urlPatterns)
+  const matchesOldPattern = urlPatterns.some(pattern => {
     // Verificar se é um objeto de configuração ou uma string (compatibilidade)
     if (typeof pattern === 'string') {
       // String simples (contém)
@@ -957,13 +996,77 @@ function shouldInterceptUrl(url: string, request: any): boolean {
       return true;
     }
   });
+
+  // Se corresponder a um padrão antigo, interceptar
+  if (matchesOldPattern) {
+    return true;
+  }
+
+  // Verificar as novas regras
+  return rules.some(rule => {
+    // Verificar se a regra está habilitada
+    if (!rule.enabled) return false;
+
+    // Verificar se todos os matchers habilitados correspondem
+    const allMatchersMatch = rule.matchers.every(matcher => {
+      // Ignorar matchers desabilitados
+      if (!matcher.enabled) return true;
+
+      switch (matcher.type) {
+        case 'url':
+          if (!matcher.pattern) return false;
+
+          if (matcher.isRegex) {
+            try {
+              const regex = new RegExp(matcher.pattern);
+              return regex.test(url);
+            } catch (error) {
+              console.error(`Erro ao processar expressão regular '${matcher.pattern}':`, error);
+              return false;
+            }
+          } else {
+            return url.includes(matcher.pattern);
+          }
+
+        case 'method':
+          if (!matcher.method) return true; // Se não tiver método, considera como correspondente
+          return matcher.method === 'ANY' || matcher.method === request.method;
+
+        case 'header':
+          if (!matcher.name || !matcher.value || !matcher.headerType) return false;
+          if (matcher.headerType !== 'request') return true; // Ignorar headers de resposta neste ponto
+
+          // Verificar se o header na request corresponde
+          const headerValue = request.headers.find((h: { name: string, value: string }) =>
+            h.name.toLowerCase() === matcher.name.toLowerCase()
+          )?.value;
+
+          return !!headerValue && headerValue === matcher.value;
+
+        case 'body':
+          // Não podemos verificar o corpo da requisição neste ponto
+          // Sempre retorna true para não bloquear a interceptação
+          return true;
+
+        default:
+          return false;
+      }
+    });
+
+    // Verificar se a ação está habilitada
+    if (!rule.action.enabled) return false;
+
+    // Se todos os matchers corresponderem e a ação estiver habilitada, interceptar
+    return allMatchersMatch;
+  });
 }
 
 // Verifica se existe um mock configurado para a URL
 async function checkForMock(url: string, method: string): Promise<MockConfig | undefined> {
   return new Promise((resolve) => {
-    chrome.storage.local.get(['mocks'], (result: { mocks?: MockConfig[] }) => {
+    chrome.storage.local.get(['mocks', 'rules'], (result: { mocks?: MockConfig[], rules?: Rule[] }) => {
       const mocks = result.mocks || [];
+      const rules = result.rules || [];
 
       // Procura por um mock que corresponda à URL e método e esteja habilitado
       const mock = mocks.find(m => {
@@ -995,7 +1098,83 @@ async function checkForMock(url: string, method: string): Promise<MockConfig | u
         return urlMatches && methodMatches && isEnabled;
       });
 
-      resolve(mock);
+      // Se encontrou um mock antigo, retorna
+      if (mock) {
+        console.log(`Mock encontrado para ${url} no formato antigo`);
+        resolve(mock);
+        return;
+      }
+
+      // Procurar por uma regra com ação de mock que corresponda à URL e método
+      for (const rule of rules) {
+        // Verificar se a regra está habilitada
+        if (!rule.enabled) continue;
+
+        // Verificar se a ação é do tipo mock e está habilitada
+        if (rule.action.type !== 'mock' || !rule.action.enabled) continue;
+
+        // Verificar se todos os matchers habilitados correspondem
+        const allMatchersMatch = rule.matchers.every(matcher => {
+          // Ignorar matchers desabilitados
+          if (!matcher.enabled) return true;
+
+          switch (matcher.type) {
+            case 'url':
+              if (!matcher.pattern) return false;
+
+              if (matcher.isRegex) {
+                try {
+                  const regex = new RegExp(matcher.pattern);
+                  return regex.test(url);
+                } catch (error) {
+                  console.error(`Erro ao processar expressão regular '${matcher.pattern}':`, error);
+                  return false;
+                }
+              } else {
+                return url.includes(matcher.pattern);
+              }
+
+            case 'method':
+              if (!matcher.method) return true; // Se não tiver método, considera como correspondente
+              return matcher.method === 'ANY' || matcher.method === method;
+
+            case 'header':
+              // Não podemos verificar headers neste ponto
+              // Sempre retorna true para não bloquear o mock
+              return true;
+
+            case 'body':
+              // Não podemos verificar o corpo da requisição neste ponto
+              // Sempre retorna true para não bloquear o mock
+              return true;
+
+            default:
+              return false;
+          }
+        });
+
+        // Se todos os matchers corresponderem, criar um mock a partir da regra
+        if (allMatchersMatch) {
+          console.log(`Mock encontrado para ${url} no novo formato de regras`);
+
+          // Converter a ação de mock para o formato de MockConfig
+          const mockFromRule: MockConfig = {
+            urlPattern: rule.matchers.find(m => m.type === 'url')?.pattern || url,
+            method: rule.matchers.find(m => m.type === 'method')?.method || 'ANY',
+            status: rule.action.status || 200,
+            headers: rule.action.headers || {},
+            body: rule.action.body || '',
+            createdAt: rule.createdAt,
+            enabled: true
+          };
+
+          resolve(mockFromRule);
+          return;
+        }
+      }
+
+      // Se não encontrou nenhum mock, retorna undefined
+      resolve(undefined);
     });
   });
 }
