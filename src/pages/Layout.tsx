@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import SelectTabDialog from '../components/SelectTabDialog';
 import { AppSidebar } from '../components/AppSidebar';
 import { SiteHeader } from '../components/SiteHeader';
@@ -13,35 +13,6 @@ const Layout: React.FC = () => {
   const { pendingResponses } = useResponses();
   const { mocks } = useMocks();
   const [selectTabDialogOpen, setSelectTabDialogOpen] = useState(false);
-  const location = useLocation();
-
-  // Usar o pathname completo como key para forçar remontagem total dos componentes
-  const routeKey = location.pathname + '-' + Date.now();
-
-  // Limpar qualquer estado persistente quando a rota muda
-  useEffect(() => {
-    // Limpar o console para facilitar a depuração
-    if (process.env.NODE_ENV === 'development') {
-      console.clear();
-      console.log('Rota alterada para:', location.pathname);
-    }
-
-    // Emitir um evento personalizado quando a rota muda
-    // Isso permite que outros componentes reajam à mudança de rota
-    const event = new CustomEvent('route-changed', {
-      detail: { pathname: location.pathname }
-    });
-    window.dispatchEvent(event);
-
-    // Forçar um foco no elemento principal para garantir que o React Router
-    // renderize corretamente o novo componente
-    setTimeout(() => {
-      const mainContent = document.querySelector('.main-content-container');
-      if (mainContent) {
-        (mainContent as HTMLElement).focus();
-      }
-    }, 0);
-  }, [location.pathname]);
 
   // Listener para mensagens do background script
   useEffect(() => {
@@ -90,9 +61,9 @@ const Layout: React.FC = () => {
           onStopDebugging={() => stopDebugging()}
         />
 
-        <div className="main-content-container" tabIndex={-1}>
+        <div className="main-content-container">
           <div className="p-4 pb-8">
-            <Outlet key={routeKey} />
+            <Outlet />
           </div>
         </div>
       </SidebarInset>

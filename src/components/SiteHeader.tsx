@@ -43,7 +43,9 @@ export function SiteHeader({
               <TooltipTrigger asChild>
                 <div
                   className="flex items-center gap-2 cursor-pointer"
-                  onClick={() => navigate('/requests', { replace: true, state: { timestamp: Date.now() } })}
+                  onClick={() => {
+                    navigate('/requests');
+                  }}
                 >
                   {/* <img src="images/icon_64px.png" alt="Logo" className="w-6 h-6" /> */}
                   <div className="flex items-center gap-2">

@@ -1,7 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-// import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
 import ResponseList from '../components/ResponseList';
 import RequestTable from '../components/RequestTable';
 import ResponseDialog from '../components/ResponseDialog';
@@ -10,21 +8,23 @@ import { useAllRequests } from '../hooks/useAllRequests';
 import { useMocks } from '../hooks/useMocks';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { indexedDBService } from '../services/indexedDB';
-import CustomTabs from '../components/CustomTabs';
 
 const Requests: React.FC = () => {
-  // Estado para controlar a inicialização do IndexedDB
-  const [dbStatus, setDbStatus] = useState<'initializing' | 'ready' | 'error'>('initializing');
+  // Use location to force re-render when route changes
+  const location = useLocation();
 
-  // Inicializar o IndexedDB quando o componente for montado
+  // Log para debug
+  React.useEffect(() => {
+    console.log('Requests component rendered, path:', location.pathname);
+  }, [location]);
+  // Initialize IndexedDB when component mounts
   useEffect(() => {
     const initDB = async () => {
       try {
         await indexedDBService.init();
-        setDbStatus('ready');
+        // Database initialized successfully
       } catch (error) {
-        console.error('Erro ao inicializar IndexedDB:', error);
-        setDbStatus('error');
+        console.error('Error initializing IndexedDB:', error);
       }
     };
 
@@ -50,7 +50,7 @@ const Requests: React.FC = () => {
     pauseAutoRefresh,
     enableAutoRefresh,
     autoRefreshEnabled,
-    dbInitialized
+    // dbInitialized is not used
   } = useAllRequests();
 
   const { createMockFromResponse, saveMock } = useMocks();
@@ -58,62 +58,7 @@ const Requests: React.FC = () => {
   const navigate = useNavigate();
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('intercepted');
-  const location = useLocation();
-  const isInitialMount = useRef(true);
-
-  // Resetar estados quando o componente é montado
-  useEffect(() => {
-    // Resetar estados
-    setIsEditing(false);
-    setDialogOpen(false);
-
-    // Limpar quaisquer seleções anteriores
-    if (!isInitialMount.current) {
-      clearCurrentResponse();
-    }
-    isInitialMount.current = false;
-  }, [clearCurrentResponse]); // Executar apenas na montagem do componente
-
-  // Ouvir o evento personalizado de mudança de rota
-  useEffect(() => {
-    const handleRouteChange = (event: Event) => {
-      // Resetar estados quando a rota muda
-      setActiveTab('intercepted');
-      setIsEditing(false);
-      setDialogOpen(false);
-      clearCurrentResponse();
-
-      console.log('Requests: Evento de mudança de rota detectado, resetando estado');
-    };
-
-    const handleForceRemount = (event: Event) => {
-      // Resetar estados quando ocorre uma remontagem forçada
-      setActiveTab('intercepted');
-      setIsEditing(false);
-      setDialogOpen(false);
-      clearCurrentResponse();
-
-      console.log('Requests: Evento de remontagem forçada detectado, resetando estado');
-    };
-
-    window.addEventListener('route-changed', handleRouteChange);
-    window.addEventListener('force-remount', handleForceRemount);
-
-    // Resetar para a aba intercepted imediatamente após a montagem
-    setActiveTab('intercepted');
-
-    return () => {
-      window.removeEventListener('route-changed', handleRouteChange);
-      window.removeEventListener('force-remount', handleForceRemount);
-    };
-  }, [clearCurrentResponse]);
-
-  // Função para lidar com a mudança de aba
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
-    console.log('Aba alterada para:', value);
-  };
+  const [activeView, setActiveView] = useState<'intercepted' | 'all'>('intercepted');
 
   const handleEditResponse = () => {
     setIsEditing(true);
@@ -121,19 +66,19 @@ const Requests: React.FC = () => {
 
   const handleCancelEdit = () => {
     setIsEditing(false);
-    if (activeTab === 'intercepted') {
+    if (activeView === 'intercepted') {
       clearCurrentResponse();
     }
   };
 
   const handleCreateMock = () => {
-    const response = activeTab === 'intercepted' ? currentResponse : currentRequest;
+    const response = activeView === 'intercepted' ? currentResponse : currentRequest;
 
     if (response) {
-      // Criar um mock a partir da resposta atual
+      // Create a mock from the current response
       const mockData = createMockFromResponse(response);
 
-      // Adicionar o mock à lista de mocks
+      // Add the mock to the mocks list
       saveMock({
         urlPattern: mockData.urlPattern,
         method: mockData.method,
@@ -142,13 +87,13 @@ const Requests: React.FC = () => {
         body: mockData.body
       });
 
-      // Navegar para a página de mocks
+      // Navigate to the mocks page
       navigate('/mocks');
     }
   };
 
   const handleSelectResponse = async (requestId: string) => {
-    if (activeTab === 'intercepted') {
+    if (activeView === 'intercepted') {
       await getResponseDetails(requestId);
     } else {
       await getRequestDetails(requestId);
@@ -158,65 +103,68 @@ const Requests: React.FC = () => {
 
   return (
     <>
-      <Card className="panel">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>Requisições</CardTitle>
-            {/* {dbStatus === 'ready' && dbInitialized && (
-              <Badge variant="outline" className="ml-2">
-                Database - Ready
-              </Badge>
-            )} */}
-          </div>
+      {/* Intercepted requests card */}
+      <Card className="panel mb-6">
+        <CardHeader>
+          <CardTitle>Requisições Interceptadas</CardTitle>
+          <CardDescription>
+            Requisições interceptadas que estão aguardando aprovação ou modificação antes de serem enviadas ao navegador.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <CustomTabs defaultValue="intercepted" onTabChange={handleTabChange} className="w-full">
-            <CustomTabs.List>
-              <CustomTabs.Trigger value="intercepted">Interceptadas</CustomTabs.Trigger>
-              <CustomTabs.Trigger value="all">Histórico</CustomTabs.Trigger>
-            </CustomTabs.List>
+          <ResponseList
+            responses={pendingResponses}
+            onSelect={(requestId) => {
+              setActiveView('intercepted');
+              handleSelectResponse(requestId);
+            }}
+            onIgnore={ignoreResponse}
+          />
+        </CardContent>
+      </Card>
 
-            <CustomTabs.Content value="intercepted">
-              <CardDescription className="mb-4">
-                Requisições interceptadas que estão aguardando aprovação ou modificação antes de serem enviadas ao navegador.
-              </CardDescription>
-              <ResponseList
-                responses={pendingResponses}
-                onSelect={handleSelectResponse}
-                onIgnore={ignoreResponse}
-              />
-            </CustomTabs.Content>
-
-            <CustomTabs.Content value="all">
-              <CardDescription className="mb-4">
-                Histórico de todas as requisições capturadas enquanto o debugger estava ativo, incluindo as interceptadas e as apenas observadas.
-              </CardDescription>
-              <RequestTable
-                requests={filteredRequests}
-                onSelect={handleSelectResponse}
-                searchValue={filter}
-                onSearchChange={setFilter}
-                pauseAutoRefresh={pauseAutoRefresh}
-                enableAutoRefresh={enableAutoRefresh}
-                autoRefreshEnabled={autoRefreshEnabled}
-              />
-            </CustomTabs.Content>
-          </CustomTabs>
+      {/* Card de histórico de requisições - simplificado */}
+      <Card className="panel">
+        <CardHeader>
+          <CardTitle>Histórico de Requisições</CardTitle>
+          <CardDescription>
+            Histórico de todas as requisições capturadas enquanto o debugger estava ativo, incluindo as interceptadas e as apenas observadas.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {Object.keys(filteredRequests || {}).length > 0 ? (
+            <RequestTable
+              requests={filteredRequests}
+              onSelect={(requestId) => {
+                setActiveView('all');
+                handleSelectResponse(requestId);
+              }}
+              searchValue={filter}
+              onSearchChange={setFilter}
+              pauseAutoRefresh={pauseAutoRefresh}
+              enableAutoRefresh={enableAutoRefresh}
+              autoRefreshEnabled={autoRefreshEnabled}
+            />
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              Nenhuma requisição encontrada no histórico.
+            </div>
+          )}
         </CardContent>
       </Card>
 
       <ResponseDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        response={activeTab === 'intercepted' ? currentResponse : currentRequest}
-        requestId={activeTab === 'intercepted' ? currentResponseId : currentRequestId}
+        response={activeView === 'intercepted' ? currentResponse : currentRequest}
+        requestId={activeView === 'intercepted' ? currentResponseId : currentRequestId}
         onApprove={approveResponse}
         onIgnore={ignoreResponse}
         onMock={handleCreateMock}
         onEdit={handleEditResponse}
         onCancel={handleCancelEdit}
         isEditing={isEditing}
-        readOnly={activeTab === 'all'}
+        readOnly={activeView === 'all'}
       />
     </>
   );

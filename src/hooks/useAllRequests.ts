@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { InterceptedResponse } from './useResponses';
 import { indexedDBService } from '../services/indexedDB';
 
@@ -62,7 +62,7 @@ export function useAllRequests() {
         const hasChanges = hasDataChanged(allRequests, response.allRequests);
         if (hasChanges) {
           setAllRequests(response.allRequests);
-          
+
           // Salva as requisições no IndexedDB
           if (dbInitialized) {
             Object.entries(response.allRequests).forEach(([id, request]) => {
@@ -86,20 +86,20 @@ export function useAllRequests() {
     if (Object.keys(oldData).length !== Object.keys(newData).length) {
       return true;
     }
-    
+
     // Verificar se alguma requisição foi adicionada ou removida
     for (const id in oldData) {
       if (!newData[id]) {
         return true;
       }
     }
-    
+
     for (const id in newData) {
       if (!oldData[id]) {
         return true;
       }
     }
-    
+
     // Se chegou até aqui, não houve mudanças significativas
     return false;
   };
@@ -150,11 +150,16 @@ export function useAllRequests() {
 
   // Filtrar requisições por URL
   const filteredRequests = useCallback(() => {
+    // Verificar se allRequests é válido
+    if (!allRequests || typeof allRequests !== 'object') {
+      return {};
+    }
+
     if (!filter) return allRequests;
 
     const filtered: Record<string, InterceptedResponse> = {};
     Object.entries(allRequests).forEach(([id, request]) => {
-      if (request.url.toLowerCase().includes(filter.toLowerCase())) {
+      if (request && request.url && request.url.toLowerCase().includes(filter.toLowerCase())) {
         filtered[id] = request;
       }
     });
@@ -206,9 +211,12 @@ export function useAllRequests() {
     };
   }, [loadAllRequests, autoRefreshEnabled, dbInitialized]);
 
+  // Simplificado para evitar problemas de roteamento
+  const filteredRequestsResult = filteredRequests();
+
   return {
     allRequests,
-    filteredRequests: filteredRequests(),
+    filteredRequests: filteredRequestsResult,
     currentRequestId,
     currentRequest,
     loading,

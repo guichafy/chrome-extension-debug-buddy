@@ -81,34 +81,16 @@ export function DataTable<TData, TValue>({
     setGlobalFilter(searchValue)
   }, [searchValue])
 
-  // Define o estado de visibilidade das colunas com base no tamanho da tela
+  // Definir visibilidade inicial das colunas
   React.useEffect(() => {
-    const handleResize = () => {
-      // Em telas menores, ocultar algumas colunas menos importantes
-      if (window.innerWidth < 1200) {
-        setColumnVisibility({
-          ...columnVisibility,
-          mimeType: false,
-        })
-      } else {
-        setColumnVisibility({
-          ...columnVisibility,
-          mimeType: true,
-        })
-      }
+    // Em telas menores, ocultar algumas colunas menos importantes
+    if (typeof window !== 'undefined' && window.innerWidth < 1200) {
+      setColumnVisibility({
+        ...columnVisibility,
+        mimeType: false,
+      })
     }
-
-    // Verificar inicialmente
-    handleResize()
-
-    // Adicionar listener para redimensionamento da janela
-    window.addEventListener("resize", handleResize)
-
-    // Limpar listener ao desmontar
-    return () => {
-      window.removeEventListener("resize", handleResize)
-    }
-  }, [columnVisibility])
+  }, [])
 
   // Atualizar a ref quando a paginação mudar
   React.useEffect(() => {
@@ -170,22 +152,18 @@ export function DataTable<TData, TValue>({
     onGlobalFilterChange: setGlobalFilter,
   })
 
-  // Efeito para restaurar a paginação após o auto-refresh
+  // Simplificado para evitar problemas de roteamento
   React.useEffect(() => {
-    if (data.length > 0 && autoRefreshEnabled) {
-      // Verificar se a página atual ainda é válida
+    if (data.length > 0 && autoRefreshEnabled && pagination.pageIndex > 0) {
       const maxPageIndex = Math.max(0, Math.ceil(data.length / pagination.pageSize) - 1)
-      const validPageIndex = Math.min(paginationRef.current.pageIndex, maxPageIndex)
-
-      // Só atualiza se for diferente da paginação atual
-      if (validPageIndex !== pagination.pageIndex) {
+      if (pagination.pageIndex > maxPageIndex) {
         setPagination(prev => ({
           ...prev,
-          pageIndex: validPageIndex
+          pageIndex: maxPageIndex
         }))
       }
     }
-  }, [data, autoRefreshEnabled, pagination.pageSize])
+  }, [data.length, autoRefreshEnabled, pagination.pageIndex, pagination.pageSize])
 
   return (
     <div className="space-y-4">

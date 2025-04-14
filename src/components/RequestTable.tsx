@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { InterceptedResponse } from '../hooks/useResponses';
 import { DataTable } from './requests/data-table';
-import { columns, RequestRow } from './requests/columns';
+import { columns } from './requests/columns';
 
 interface RequestTableProps {
   requests: Record<string, InterceptedResponse>;
@@ -23,9 +23,9 @@ const RequestTable: React.FC<RequestTableProps> = ({
   autoRefreshEnabled
 }) => {
   // Converter o objeto de requisições para o formato esperado pelo DataTable
-  // Usando useMemo para evitar recriações desnecessárias dos dados
+  // Usando useMemo para evitar recriações desnecessárias
   const requestRows = useMemo(() => {
-    return Object.entries(requests).map(([id, request]) => ({
+    return Object.entries(requests || {}).map(([id, request]) => ({
       id,
       request
     }));

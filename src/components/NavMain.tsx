@@ -35,11 +35,10 @@ export function NavMain({ items, className }: NavMainProps) {
                 <NavLink
                   to={item.path}
                   className={({ isActive }) => cn(
-                    isActive && "text-primary font-medium"
+                    "transition-colors",
+                    isActive ? "text-primary font-medium" : "text-foreground"
                   )}
-                  // Adicionar replace e state para forçar remontagem completa
-                  replace
-                  state={{ timestamp: Date.now() }}
+                  end={item.path === '/'}
                 >
                   <Icon name={item.icon} className="mr-2" />
                   <span>{item.title}</span>
