@@ -129,6 +129,27 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log('Network Request Interceptor extension installed');
 });
 
+// Listener para mudanças no storage (para atualizar regras em tempo real)
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (namespace === 'local') {
+    // Verificar se as regras ou padrões de URL foram alterados
+    if (changes.rules || changes.urlPatterns) {
+      console.log('Regras ou padrões de URL foram alterados, atualizando...');
+
+      // Atualizar as regras e padrões em memória
+      if (changes.rules) {
+        rules = changes.rules.newValue || [];
+        console.log(`Regras atualizadas: ${rules.length} regras carregadas`);
+      }
+
+      if (changes.urlPatterns) {
+        urlPatterns = changes.urlPatterns.newValue || [];
+        console.log(`Padrões de URL atualizados: ${urlPatterns.length} padrões carregados`);
+      }
+    }
+  }
+});
+
 // Carregar informações da aba alvo do armazenamento quando o background script é iniciado
 chrome.storage.local.get(['targetTabInfo'], (result) => {
   if (result.targetTabInfo) {
@@ -195,23 +216,13 @@ chrome.runtime.onMessage.addListener((message: any, _sender, sendResponse: (resp
     // Usa o tabId armazenado ou o fornecido pelo usuário
     const tabIdToUse = message.tabId || targetTabId;
     if (tabIdToUse) {
-      // Verificar se há padrões de URL ou regras configuradas
-      chrome.storage.local.get(['urlPatterns', 'rules'], function(result) {
-        const patterns = result.urlPatterns || [];
-        const rules = result.rules || [];
-
-        if (patterns.length === 0 && rules.length === 0) {
-          sendResponse({ success: false, error: 'Nenhuma regra configurada para interceptar. Adicione pelo menos uma regra.' });
-          return;
-        }
-
-        startDebugging(tabIdToUse)
-          .then(() => sendResponse({ success: true }))
-          .catch(error => {
-            console.error('Error starting debugging:', error);
-            sendResponse({ success: false, error: error.message });
-          });
-      });
+      // Iniciar debugging diretamente sem verificar regras
+      startDebugging(tabIdToUse)
+        .then(() => sendResponse({ success: true }))
+        .catch(error => {
+          console.error('Error starting debugging:', error);
+          sendResponse({ success: false, error: error.message });
+        });
       return true; // Indicates we'll respond asynchronously
     } else {
       sendResponse({ success: false, error: 'Nenhuma aba selecionada. Selecione uma aba primeiro.' });
@@ -601,11 +612,7 @@ async function startDebugging(specificTabId: number | null = null): Promise<bool
   urlPatterns = result.urlPatterns || [];
   rules = result.rules || [];
 
-  // Check if we have any patterns or rules to intercept
-  if (urlPatterns.length === 0 && rules.length === 0) {
-    throw new Error('No URL patterns or rules to intercept');
-  }
-
+  // Log the loaded patterns and rules (even if there are none)
   console.log(`Loaded ${urlPatterns.length} URL patterns and ${rules.length} rules for interception`);
 
   // Use o tabId especificado ou tente encontrar uma aba ativa
@@ -956,8 +963,19 @@ function getResponseHeadersToAdd(url: string): { name: string, value: string }[]
 function shouldInterceptUrl(url: string, request: any): boolean {
   if (!url) return false;
 
+  // Obter as regras e padrões mais recentes do storage
+  // Isso garante que estamos sempre usando as regras mais atualizadas
+  const currentUrlPatterns = urlPatterns;
+  const currentRules = rules;
+
+  // Se não houver regras ou padrões configurados, não interceptamos nada
+  // Isso permite que o usuário inicie a interceptação sem regras
+  if (currentUrlPatterns.length === 0 && currentRules.length === 0) {
+    return false;
+  }
+
   // Primeiro, verificar as regras antigas (urlPatterns)
-  const matchesOldPattern = urlPatterns.some(pattern => {
+  const matchesOldPattern = currentUrlPatterns.some(pattern => {
     // Verificar se é um objeto de configuração ou uma string (compatibilidade)
     if (typeof pattern === 'string') {
       // String simples (contém)
@@ -1011,7 +1029,7 @@ function shouldInterceptUrl(url: string, request: any): boolean {
   }
 
   // Verificar as novas regras
-  return rules.some(rule => {
+  return currentRules.some(rule => {
     // Verificar se a regra está habilitada
     if (!rule.enabled) return false;
 
@@ -1073,12 +1091,16 @@ function shouldInterceptUrl(url: string, request: any): boolean {
 // Verifica se existe um mock configurado para a URL
 async function checkForMock(url: string, method: string): Promise<MockConfig | undefined> {
   return new Promise((resolve) => {
-    chrome.storage.local.get(['mocks', 'rules'], (result: { mocks?: MockConfig[], rules?: Rule[] }) => {
-      const mocks = result.mocks || [];
-      const rules = result.rules || [];
+    // Usar as regras e mocks em memória para resposta mais rápida
+    // Isso garante que estamos usando as regras mais atualizadas
+    const currentRules = rules;
+    const mocks = []; // Vamos buscar os mocks do storage para garantir que estão atualizados
+
+    chrome.storage.local.get(['mocks'], (result: { mocks?: MockConfig[] }) => {
+      const storageMocks = result.mocks || [];
 
       // Procura por um mock que corresponda à URL e método e esteja habilitado
-      const mock = mocks.find(m => {
+      const mock = storageMocks.find(m => {
         // Verificar se o mock está habilitado
         const isEnabled = m.enabled !== undefined ? m.enabled : true; // Se não tiver a propriedade, considera como habilitado
         if (!isEnabled) return false;
@@ -1115,7 +1137,7 @@ async function checkForMock(url: string, method: string): Promise<MockConfig | u
       }
 
       // Procurar por uma regra com ação de mock que corresponda à URL e método
-      for (const rule of rules) {
+      for (const rule of currentRules) {
         // Verificar se a regra está habilitada
         if (!rule.enabled) continue;
 
@@ -1191,68 +1213,68 @@ async function checkForMock(url: string, method: string): Promise<MockConfig | u
 // Verifica se existe uma regra de breakpoint configurada para a URL
 async function checkForBreakpoint(url: string, method: string): Promise<boolean> {
   return new Promise((resolve) => {
-    chrome.storage.local.get(['rules'], (result: { rules?: Rule[] }) => {
-      const rules = result.rules || [];
+    // Usar as regras em memória para resposta mais rápida
+    // Isso garante que estamos usando as regras mais atualizadas
+    const currentRules = rules;
 
-      // Procurar por uma regra com ação de breakpoint que corresponda à URL e método
-      for (const rule of rules) {
-        // Verificar se a regra está habilitada
-        if (!rule.enabled) continue;
+    // Procurar por uma regra com ação de breakpoint que corresponda à URL e método
+    for (const rule of currentRules) {
+      // Verificar se a regra está habilitada
+      if (!rule.enabled) continue;
 
-        // Verificar se a ação é do tipo breakpoint e está habilitada
-        if (rule.action.type !== 'breakpoint' || !rule.action.enabled) continue;
+      // Verificar se a ação é do tipo breakpoint e está habilitada
+      if (rule.action.type !== 'breakpoint' || !rule.action.enabled) continue;
 
-        // Verificar se todos os matchers habilitados correspondem
-        const allMatchersMatch = rule.matchers.every(matcher => {
-          // Ignorar matchers desabilitados
-          if (!matcher.enabled) return true;
+      // Verificar se todos os matchers habilitados correspondem
+      const allMatchersMatch = rule.matchers.every(matcher => {
+        // Ignorar matchers desabilitados
+        if (!matcher.enabled) return true;
 
-          switch (matcher.type) {
-            case 'url':
-              if (!matcher.pattern) return false;
+        switch (matcher.type) {
+          case 'url':
+            if (!matcher.pattern) return false;
 
-              if (matcher.isRegex) {
-                try {
-                  const regex = new RegExp(matcher.pattern);
-                  return regex.test(url);
-                } catch (error) {
-                  console.error(`Erro ao processar expressão regular '${matcher.pattern}':`, error);
-                  return false;
-                }
-              } else {
-                return url.includes(matcher.pattern);
+            if (matcher.isRegex) {
+              try {
+                const regex = new RegExp(matcher.pattern);
+                return regex.test(url);
+              } catch (error) {
+                console.error(`Erro ao processar expressão regular '${matcher.pattern}':`, error);
+                return false;
               }
+            } else {
+              return url.includes(matcher.pattern);
+            }
 
-            case 'method':
-              if (!matcher.method) return true; // Se não tiver método, considera como correspondente
-              return matcher.method === 'ANY' || matcher.method === method;
+          case 'method':
+            if (!matcher.method) return true; // Se não tiver método, considera como correspondente
+            return matcher.method === 'ANY' || matcher.method === method;
 
-            case 'header':
-              // Não podemos verificar headers neste ponto
-              // Sempre retorna true para não bloquear o breakpoint
-              return true;
+          case 'header':
+            // Não podemos verificar headers neste ponto
+            // Sempre retorna true para não bloquear o breakpoint
+            return true;
 
-            case 'body':
-              // Não podemos verificar o corpo da requisição neste ponto
-              // Sempre retorna true para não bloquear o breakpoint
-              return true;
+          case 'body':
+            // Não podemos verificar o corpo da requisição neste ponto
+            // Sempre retorna true para não bloquear o breakpoint
+            return true;
 
-            default:
-              return false;
-          }
-        });
-
-        // Se todos os matchers corresponderem, encontramos uma regra de breakpoint
-        if (allMatchersMatch) {
-          console.log(`Breakpoint encontrado para ${url} na regra: ${rule.name}`);
-          resolve(true);
-          return;
+          default:
+            return false;
         }
-      }
+      });
 
-      // Se não encontrou nenhuma regra de breakpoint, retorna false
-      resolve(false);
-    });
+      // Se todos os matchers corresponderem, encontramos uma regra de breakpoint
+      if (allMatchersMatch) {
+        console.log(`Breakpoint encontrado para ${url} na regra: ${rule.name}`);
+        resolve(true);
+        return;
+      }
+    }
+
+    // Se não encontrou nenhuma regra de breakpoint, retorna false
+    resolve(false);
   });
 }
 
