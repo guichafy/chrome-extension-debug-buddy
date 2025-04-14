@@ -4,14 +4,8 @@ import { RouterProvider } from 'react-router-dom';
 import './globals.css';
 import './custom.css';
 import router from './routes';
-import { isDevEnvironment } from '@/utils/chromeAPI';
 
 const MainApp: React.FC = () => {
-  // Mostrar uma mensagem se estiver em ambiente de desenvolvimento
-  if (isDevEnvironment()) {
-    console.log('Executando em ambiente de desenvolvimento com APIs do Chrome mockadas');
-  }
-
   return <RouterProvider router={router} />;
 };
 

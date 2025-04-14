@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { InterceptedResponse } from './useResponses';
 import { indexedDBService } from '../services/indexedDB';
-import { chromeAPI } from '@/utils/chromeAPI';
 
 export function useAllRequests() {
   const [allRequests, setAllRequests] = useState<Record<string, InterceptedResponse>>({});
@@ -57,7 +56,7 @@ export function useAllRequests() {
 
       // Se não houver dados no IndexedDB ou ele não estiver inicializado,
       // carrega do background script
-      const response = await chromeAPI.runtime.sendMessage({ action: 'getAllRequests' });
+      const response = await chrome.runtime.sendMessage({ action: 'getAllRequests' });
       if (response && response.allRequests) {
         // Verificar se há mudanças antes de atualizar o estado
         const hasChanges = hasDataChanged(allRequests, response.allRequests);
@@ -193,7 +192,7 @@ export function useAllRequests() {
       }
     };
 
-    chromeAPI.runtime.onMessage.addListener(messageListener);
+    chrome.runtime.onMessage.addListener(messageListener);
 
     // Configurar intervalo para verificar requisições periodicamente
     const interval = setInterval(() => {
@@ -208,7 +207,7 @@ export function useAllRequests() {
 
     return () => {
       clearInterval(interval);
-      chromeAPI.runtime.onMessage.removeListener(messageListener);
+      chrome.runtime.onMessage.removeListener(messageListener);
     };
   }, [loadAllRequests, autoRefreshEnabled, dbInitialized]);
 
