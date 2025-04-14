@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { InterceptedResponse } from './useResponses';
+import { chromeAPI } from '@/utils/chromeAPI';
 
 export interface MockConfig {
   urlPattern: string;
@@ -20,7 +21,7 @@ export function useMocks() {
   const loadMocks = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await chrome.storage.local.get(['mocks']);
+      const result = await chromeAPI.storage.local.get(['mocks']);
       setMocks(result.mocks || []);
     } catch (error) {
       console.error('Erro ao carregar mocks:', error);
@@ -39,7 +40,7 @@ export function useMocks() {
       };
 
       let newMocks: MockConfig[];
-      
+
       if (currentEditingMockIndex >= 0 && currentEditingMockIndex < mocks.length) {
         // Atualizar mock existente
         newMocks = [...mocks];
@@ -53,12 +54,12 @@ export function useMocks() {
       }
 
       // Salvar mocks atualizados
-      await chrome.storage.local.set({ mocks: newMocks });
-      
+      await chromeAPI.storage.local.set({ mocks: newMocks });
+
       // Atualizar o estado
       setMocks(newMocks);
       setCurrentEditingMockIndex(-1);
-      
+
       return true;
     } catch (error) {
       console.error('Erro ao salvar mock:', error);
@@ -72,16 +73,16 @@ export function useMocks() {
       if (index < 0 || index >= mocks.length) {
         return false;
       }
-      
+
       const newMocks = [...mocks];
       newMocks.splice(index, 1);
-      
+
       // Salvar mocks atualizados
-      await chrome.storage.local.set({ mocks: newMocks });
-      
+      await chromeAPI.storage.local.set({ mocks: newMocks });
+
       // Atualizar o estado
       setMocks(newMocks);
-      
+
       return true;
     } catch (error) {
       console.error('Erro ao remover mock:', error);
@@ -95,19 +96,19 @@ export function useMocks() {
       if (index < 0 || index >= mocks.length) {
         return false;
       }
-      
+
       const newMocks = [...mocks];
       newMocks[index] = {
         ...newMocks[index],
         enabled: !newMocks[index].enabled
       };
-      
+
       // Salvar mocks atualizados
-      await chrome.storage.local.set({ mocks: newMocks });
-      
+      await chromeAPI.storage.local.set({ mocks: newMocks });
+
       // Atualizar o estado
       setMocks(newMocks);
-      
+
       return true;
     } catch (error) {
       console.error('Erro ao alternar estado do mock:', error);

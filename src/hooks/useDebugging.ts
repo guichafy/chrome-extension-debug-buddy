@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { chromeAPI } from '@/utils/chromeAPI';
 
 export function useDebugging() {
   const [isDebugging, setIsDebugging] = useState(false);
@@ -9,7 +10,7 @@ export function useDebugging() {
   const checkDebuggingStatus = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await chrome.runtime.sendMessage({ action: 'getDebuggingStatus' });
+      const response = await chromeAPI.runtime.sendMessage({ action: 'getDebuggingStatus' });
       setIsDebugging(response && response.isDebugging);
     } catch (error) {
       console.error('Erro ao verificar status de debugging:', error);
@@ -21,7 +22,7 @@ export function useDebugging() {
   // Iniciar debugging
   const startDebugging = useCallback(async (): Promise<boolean> => {
     try {
-      const response = await chrome.runtime.sendMessage({ action: 'startDebugging' });
+      const response = await chromeAPI.runtime.sendMessage({ action: 'startDebugging' });
       if (response && response.success) {
         setIsDebugging(true);
         return true;
@@ -37,7 +38,7 @@ export function useDebugging() {
   // Parar debugging
   const stopDebugging = useCallback(async (): Promise<boolean> => {
     try {
-      const response = await chrome.runtime.sendMessage({ action: 'stopDebugging' });
+      const response = await chromeAPI.runtime.sendMessage({ action: 'stopDebugging' });
       if (response && response.success) {
         setIsDebugging(false);
         return true;
@@ -53,7 +54,7 @@ export function useDebugging() {
   // Selecionar aba alvo
   const selectTargetTab = useCallback(async (): Promise<boolean> => {
     try {
-      const response = await chrome.runtime.sendMessage({ action: 'selectTargetTab' });
+      const response = await chromeAPI.runtime.sendMessage({ action: 'selectTargetTab' });
       return response && response.success;
     } catch (error) {
       console.error('Erro ao selecionar aba alvo:', error);
@@ -64,7 +65,7 @@ export function useDebugging() {
   // Carregar informações da aba alvo do armazenamento
   const loadTargetTabInfo = useCallback(async () => {
     try {
-      const result = await chrome.storage.local.get(['targetTabInfo']);
+      const result = await chromeAPI.storage.local.get(['targetTabInfo']);
       if (result.targetTabInfo) {
         setTargetTab({
           id: result.targetTabInfo.id,
@@ -102,11 +103,11 @@ export function useDebugging() {
       }
     };
 
-    chrome.runtime.onMessage.addListener(messageListener);
+    chromeAPI.runtime.onMessage.addListener(messageListener);
 
     return () => {
       clearInterval(interval);
-      chrome.runtime.onMessage.removeListener(messageListener);
+      chromeAPI.runtime.onMessage.removeListener(messageListener);
     };
   }, [checkDebuggingStatus, loadTargetTabInfo]);
 

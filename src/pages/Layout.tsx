@@ -7,6 +7,7 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { useDebugging } from '../hooks/useDebugging';
 import { useResponses } from '../hooks/useResponses';
 import { useMocks } from '../hooks/useMocks';
+import { chromeAPI } from '@/utils/chromeAPI';
 
 const Layout: React.FC = () => {
   const { isDebugging, targetTab, startDebugging, stopDebugging } = useDebugging();
@@ -22,16 +23,16 @@ const Layout: React.FC = () => {
       }
     };
 
-    chrome.runtime.onMessage.addListener(messageListener);
+    chromeAPI.runtime.onMessage.addListener(messageListener);
 
     return () => {
-      chrome.runtime.onMessage.removeListener(messageListener);
+      chromeAPI.runtime.onMessage.removeListener(messageListener);
     };
   }, []);
 
   const handleSelectTab = (tabId: number, tabTitle: string, tabUrl: string) => {
     // Enviar mensagem para o background script com o ID da aba selecionada
-    chrome.runtime.sendMessage({
+    chromeAPI.runtime.sendMessage({
       action: 'setTargetTab',
       tabId,
       tabTitle,

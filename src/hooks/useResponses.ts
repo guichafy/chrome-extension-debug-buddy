@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { chromeAPI } from '@/utils/chromeAPI';
 
 export interface InterceptedResponse {
   url: string;
@@ -30,7 +31,7 @@ export function useResponses() {
   const loadPendingResponses = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await chrome.runtime.sendMessage({ action: 'getPendingResponses' });
+      const response = await chromeAPI.runtime.sendMessage({ action: 'getPendingResponses' });
       if (response && response.pendingResponses) {
         setPendingResponses(response.pendingResponses);
       }
@@ -44,7 +45,7 @@ export function useResponses() {
   // Obter detalhes de uma resposta específica
   const getResponseDetails = useCallback(async (requestId: string) => {
     try {
-      const result = await chrome.runtime.sendMessage({
+      const result = await chromeAPI.runtime.sendMessage({
         action: 'getResponseDetails',
         requestId
       });
@@ -75,7 +76,7 @@ export function useResponses() {
         console.log(`useResponses - Status code: ${modifications.status}, type: ${typeof modifications.status}`);
       }
 
-      const response = await chrome.runtime.sendMessage({
+      const response = await chromeAPI.runtime.sendMessage({
         action: 'approveResponse',
         requestId,
         modifications
@@ -109,7 +110,7 @@ export function useResponses() {
           };
 
           // Notificar o background script para adicionar ao histórico
-          chrome.runtime.sendMessage({
+          chromeAPI.runtime.sendMessage({
             action: 'addToRequestHistory',
             requestId,
             request: processedResponse
@@ -131,12 +132,12 @@ export function useResponses() {
   const ignoreResponse = useCallback(async (requestId: string): Promise<boolean> => {
     try {
       console.log(`Ignorando resposta: ${requestId}`);
-      
+
       // Obter a resposta atual antes de qualquer operação
       const currentPendingResponse = pendingResponses[requestId];
-      
+
       // Enviar para o background script sem modificações
-      const response = await chrome.runtime.sendMessage({
+      const response = await chromeAPI.runtime.sendMessage({
         action: 'approveResponse',
         requestId
         // Não enviamos modificações para continuar a requisição original
@@ -153,7 +154,7 @@ export function useResponses() {
           setCurrentResponseId(null);
           setCurrentResponse(null);
         }
-        
+
         // Adicionar ao histórico geral de requisições
         if (currentPendingResponse) {
           // Criar uma cópia da resposta com isWaiting=false
@@ -163,7 +164,7 @@ export function useResponses() {
           };
 
           // Notificar o background script para adicionar ao histórico
-          chrome.runtime.sendMessage({
+          chromeAPI.runtime.sendMessage({
             action: 'addToRequestHistory',
             requestId,
             request: processedResponse
@@ -229,7 +230,7 @@ export function useResponses() {
       }
     };
 
-    chrome.runtime.onMessage.addListener(messageListener);
+    chromeAPI.runtime.onMessage.addListener(messageListener);
 
     // Carregar respostas pendentes ao montar o componente
     loadPendingResponses();
@@ -242,7 +243,7 @@ export function useResponses() {
     }, 2000);
 
     return () => {
-      chrome.runtime.onMessage.removeListener(messageListener);
+      chromeAPI.runtime.onMessage.removeListener(messageListener);
       clearInterval(interval);
     };
   }, [loadPendingResponses, pendingResponses, currentResponseId, currentResponse]);

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { chromeAPI } from '@/utils/chromeAPI';
 
 export interface UrlPattern {
   url: string;
@@ -18,7 +19,7 @@ export function useUrlPatterns() {
   const loadUrlPatterns = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await chrome.storage.local.get(['urlPatterns']);
+      const result = await chromeAPI.storage.local.get(['urlPatterns']);
       const patterns = result.urlPatterns || [];
       setUrlPatterns(patterns);
     } catch (error) {
@@ -80,7 +81,7 @@ export function useUrlPatterns() {
       const newPatterns = [...urlPatterns, interceptConfig];
 
       // Salvar as configurações atualizadas
-      await chrome.storage.local.set({ urlPatterns: newPatterns });
+      await chromeAPI.storage.local.set({ urlPatterns: newPatterns });
 
       // Atualizar o estado
       setUrlPatterns(newPatterns);
@@ -103,7 +104,7 @@ export function useUrlPatterns() {
       }
 
       // Salvar os padrões atualizados
-      await chrome.storage.local.set({ urlPatterns: newPatterns });
+      await chromeAPI.storage.local.set({ urlPatterns: newPatterns });
 
       // Atualizar o estado
       setUrlPatterns(newPatterns);
@@ -143,7 +144,7 @@ export function useUrlPatterns() {
       }
 
       // Salvar os padrões atualizados
-      await chrome.storage.local.set({ urlPatterns: newPatterns });
+      await chromeAPI.storage.local.set({ urlPatterns: newPatterns });
 
       // Atualizar o estado
       setUrlPatterns(newPatterns);
@@ -169,7 +170,7 @@ export function useUrlPatterns() {
       newPatterns[index] = updatedPattern;
 
       // Salvar os padrões atualizados
-      await chrome.storage.local.set({ urlPatterns: newPatterns });
+      await chromeAPI.storage.local.set({ urlPatterns: newPatterns });
 
       // Atualizar o estado
       setUrlPatterns(newPatterns);
