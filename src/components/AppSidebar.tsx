@@ -85,7 +85,7 @@ export function AppSidebar({
             >
               <NavLink to="/">
                 <Icon name="code" className="h-5 w-5" />
-                <span className="text-base font-semibold">Network Interceptor</span>
+                <span className="text-base font-semibold">Debug Buddy</span>
               </NavLink>
             </SidebarMenuButton>
           </SidebarMenuItem>

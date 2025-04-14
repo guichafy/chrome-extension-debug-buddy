@@ -409,12 +409,36 @@ async function applyResponseModifications(requestId: string, modifications: Resp
             { tabId: attachedTabId as number },
             'Fetch.getResponseBody',
             { requestId },
-            (result) => {
+            (result: any) => {
+              // Verificar se houve erro ao buscar o corpo da resposta
               if (chrome.runtime.lastError) {
-                reject(chrome.runtime.lastError);
-              } else {
-                resolve(result as { body: string, base64Encoded: boolean });
+                console.warn(`Erro ao obter corpo da resposta para ${requestId}: ${chrome.runtime.lastError.message}`);
+                // Continuar a requisição original sem interceptar se não pudermos obter o corpo
+                // Ou podemos decidir interceptar com corpo vazio dependendo do caso de uso
+                // Neste caso, vamos continuar a requisição original para evitar inconsistências
+                continueRequest(requestId);
+                return;
               }
+
+              const responseBody = result as { body: string, base64Encoded: boolean } | undefined;
+              let body = ''; // Inicializar corpo como vazio
+
+              if (responseBody) {
+                try {
+                  body = responseBody.base64Encoded ?
+                    atob(responseBody.body) :
+                    responseBody.body;
+                } catch (e) {
+                  console.error(`Erro ao decodificar base64 para ${requestId}:`, e);
+                  // Tratar como corpo vazio ou logar erro
+                  body = ''; // Fallback para corpo vazio
+                }
+              } else {
+                // Corpo da resposta pode ser nulo ou vazio
+                console.log(`Corpo da resposta para ${requestId} está vazio ou nulo.`);
+              }
+
+              resolve({ body, base64Encoded: responseBody?.base64Encoded || false });
             }
           );
         });
@@ -714,71 +738,89 @@ async function handleRequestPaused(params: any): Promise<void> {
     'Fetch.getResponseBody',
     { requestId },
     (result: any) => {
-      const responseBody = result as { body: string, base64Encoded: boolean } | undefined;
-      if (responseBody) {
-        let body = responseBody.base64Encoded ?
-          atob(responseBody.body) :
-          responseBody.body;
+      // Verificar se houve erro ao buscar o corpo da resposta
+      if (chrome.runtime.lastError) {
+        console.warn(`Erro ao obter corpo da resposta para ${requestId}: ${chrome.runtime.lastError.message}`);
+        // Continuar a requisição original sem interceptar se não pudermos obter o corpo
+        // Ou podemos decidir interceptar com corpo vazio dependendo do caso de uso
+        // Neste caso, vamos continuar a requisição original para evitar inconsistências
+        continueRequest(requestId);
+        return;
+      }
 
-        // Criar objeto de resposta
-        const responseObj: InterceptedResponse = {
+      const responseBody = result as { body: string, base64Encoded: boolean } | undefined;
+      let body = ''; // Inicializar corpo como vazio
+
+      if (responseBody) {
+        try {
+          body = responseBody.base64Encoded ?
+            atob(responseBody.body) :
+            responseBody.body;
+        } catch (e) {
+          console.error(`Erro ao decodificar base64 para ${requestId}:`, e);
+          // Tratar como corpo vazio ou logar erro
+          body = ''; // Fallback para corpo vazio
+        }
+      } else {
+        // Corpo da resposta pode ser nulo ou vazio
+        console.log(`Corpo da resposta para ${requestId} está vazio ou nulo.`);
+      }
+
+      // Criar objeto de resposta
+      const responseObj: InterceptedResponse = {
+        url,
+        method,
+        status: responseStatusCode,
+        statusText: getStatusText(responseStatusCode),
+        headers: responseHeadersToObject(responseHeaders),
+        mimeType: getMimeTypeFromHeaders(responseHeaders),
+        type: resourceType,
+        timestamp: Date.now(),
+        body: body // Usa o corpo processado (ou vazio)
+      };
+
+      // Armazenar em allRequests
+      allRequests[requestId] = responseObj;
+
+      // Check if this URL should be intercepted based on our patterns
+      if (shouldInterceptUrl(url, request)) {
+        // This is a URL we want to intercept
+        console.log(`Intercepting response for ${url}`);
+
+        // Adicionar flag isWaiting para requisições interceptadas
+        pendingResponses[requestId] = {
+          ...responseObj,
+          isWaiting: true
+        };
+
+        // Notify popup about new pending response
+        chrome.runtime.sendMessage({
+          action: 'newPendingResponse',
+          requestId,
           url,
           method,
           status: responseStatusCode,
           statusText: getStatusText(responseStatusCode),
-          headers: responseHeadersToObject(responseHeaders),
-          mimeType: getMimeTypeFromHeaders(responseHeaders),
           type: resourceType,
-          timestamp: Date.now(),
-          body: body
-        };
+          mimeType: getMimeTypeFromHeaders(responseHeaders)
+        });
 
-        // Armazenar em allRequests
-        allRequests[requestId] = responseObj;
-
-        // Check if this URL should be intercepted based on our patterns
-        if (shouldInterceptUrl(url, request)) {
-          // This is a URL we want to intercept
-          console.log(`Intercepting response for ${url}`);
-
-          // Adicionar flag isWaiting para requisições interceptadas
-          pendingResponses[requestId] = {
-            ...responseObj,
-            isWaiting: true
-          };
-
-          // Notify popup about new pending response
-          chrome.runtime.sendMessage({
-            action: 'newPendingResponse',
-            requestId,
-            url,
-            method,
-            status: responseStatusCode,
-            statusText: getStatusText(responseStatusCode),
-            type: resourceType,
-            mimeType: getMimeTypeFromHeaders(responseHeaders)
-          });
-
-          console.log(`Response for ${url} is now pending user approval`);
-        } else {
-          // This is not a URL we want to intercept, continue the request
-          continueRequest(requestId);
-          
-          // Notificar o frontend sobre a nova requisição para armazenamento no IndexedDB
-          if (interceptorTabId) {
-            chrome.tabs.sendMessage(interceptorTabId, {
-              action: 'newRequest',
-              requestId,
-              request: responseObj
-            }).catch(() => {
-              // Ignora erros se a página principal não estiver aberta
-              console.log('Não foi possível enviar a nova requisição para o frontend');
-            });
-          }
-        }
+        console.log(`Response for ${url} is now pending user approval`);
       } else {
-        // If we can't get the response body, just continue the request
+        // This is not a URL we want to intercept, continue the request
         continueRequest(requestId);
+        
+        // Notificar o frontend sobre a nova requisição para armazenamento no IndexedDB
+        if (interceptorTabId) {
+          chrome.tabs.sendMessage(interceptorTabId, {
+            action: 'newRequest',
+            requestId,
+            request: responseObj
+          }).catch(() => {
+            // Ignora erros se a página principal não estiver aberta
+            console.log('Não foi possível enviar a nova requisição para o frontend');
+          });
+        }
       }
     }
   );
@@ -840,8 +882,6 @@ function getMimeTypeFromHeaders(headers: { name: string, value: string }[]): str
   }
   return 'text/plain';
 }
-
-
 
 // Obter headers de resposta para adicionar com base nas configurações
 function getResponseHeadersToAdd(url: string): { name: string, value: string }[] {

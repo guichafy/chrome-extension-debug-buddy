@@ -85,7 +85,7 @@ describe('AppSidebar Component', () => {
     expect(screen.getByTestId('nav-main')).toBeTruthy();
 
     // Verifica se o título está presente
-    expect(screen.getByText('Network Interceptor')).toBeTruthy();
+    expect(screen.getByText('DeBuddy')).toBeTruthy();
   });
 
   // Teste para verificar se o SidebarFooter está sendo renderizado corretamente

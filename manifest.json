@@ -1,6 +1,6 @@
 {
-  "name": "Network Request Interceptor",
-  "short_name": "NetReqInterceptor",
+  "name": "Debug Buddy",
+  "short_name": "DbgBuddy",
   "description": "Intercept and log network requests based on URL patterns. Modify responses and create mocks for web development.",
   "version": "1.0.0",
   "manifest_version": 3,

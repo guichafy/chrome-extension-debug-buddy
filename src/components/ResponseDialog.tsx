@@ -5,7 +5,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogClose
+  DialogClose,
+  DialogDescription
 } from './ui/dialog';
 import { Button } from './ui/button';
 import { Icon } from './ui/icon';
@@ -28,6 +29,16 @@ interface ResponseDialogProps {
   isEditing: boolean;
   readOnly?: boolean;
 }
+
+// Função auxiliar para truncar URLs longas
+const truncateUrl = (url: string, maxLength: number = 60): string => {
+  if (url.length <= maxLength) {
+    return url;
+  }
+  const startLength = Math.floor((maxLength - 3) / 2);
+  const endLength = Math.ceil((maxLength - 3) / 2);
+  return `${url.substring(0, startLength)}...${url.substring(url.length - endLength)}`;
+};
 
 // Função para detectar se o conteúdo é binário
 const isBinaryContent = (str: string): boolean => {
@@ -309,7 +320,25 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Detalhes da Requisição</DialogTitle>
+          <DialogTitle className="flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <Badge variant={response.status >= 400 ? 'destructive' : response.status >= 300 ? 'secondary' : 'default'} className="text-xs">
+                {response.method}
+              </Badge>
+              <span className="font-mono text-sm break-all" title={response.url}>{truncateUrl(response.url)}</span>
+              {isEditing && <Badge variant="outline" className="ml-2 text-xs">Modo de Edição</Badge>}
+              {readOnly && <Badge variant="outline" className="ml-2 text-xs">Somente Leitura</Badge>}
+            </span>
+            <DialogClose asChild>
+              <Button variant="ghost" size="icon" onClick={handleCancel}>
+                <Icon name="X" className="h-4 w-4" />
+                <span className="sr-only">Fechar</span>
+              </Button>
+            </DialogClose>
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            Visualize e manipule os detalhes da requisição {readOnly ? 'do histórico' : 'interceptada'}. Edite status, cabeçalhos e corpo antes de aprovar, ignorar ou criar um mock.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex justify-between items-start mb-4">

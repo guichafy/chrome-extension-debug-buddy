@@ -23,13 +23,13 @@ const Mocks: React.FC = () => {
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>Configuração de Mocks</CardTitle>
-            <Button
+            {/* <Button
               className="primary-button flex items-center gap-2"
               onClick={() => editMock(-1)}
             >
               <Icon name="add" />
               Adicionar Mock
-            </Button>
+            </Button> */}
           </div>
         </CardHeader>
         <CardContent>
