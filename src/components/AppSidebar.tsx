@@ -40,17 +40,11 @@ const navItems = [
     path: '/',
     icon: 'settings',
   },
-  {
-    title: 'Mocks',
-    path: '/mocks',
-    icon: 'build',
-    count: 0, // Será atualizado dinamicamente
-  },
 ];
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   pendingResponsesCount: number;
-  mocksCount: number;
+  mocksCount?: number; // Opcional agora que não usamos mais
 }
 
 export function AppSidebar({
@@ -67,12 +61,9 @@ export function AppSidebar({
       if (item.path === '/requests') {
         return { ...item, count: 0 };
       }
-      if (item.path === '/mocks') {
-        return { ...item, count: mocksCount };
-      }
       return item;
     });
-  }, [mocksCount]);
+  }, []);
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>

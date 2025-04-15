@@ -12,7 +12,8 @@ import ResponseDialog from './components/ResponseDialog';
 import { useUrlPatterns } from './hooks/useUrlPatterns';
 import { useDebugging } from './hooks/useDebugging';
 import { useResponses } from './hooks/useResponses';
-import { useMocks } from './hooks/useMocks';
+import { useRules } from './hooks/useRules';
+import { Matcher, MockAction } from './types/rules';
 
 const PopupApp: React.FC = () => {
   // Hooks para gerenciar o estado da aplicação
@@ -27,7 +28,7 @@ const PopupApp: React.FC = () => {
     ignoreResponse,
     clearCurrentResponse
   } = useResponses();
-  const { createMockFromResponse } = useMocks();
+  const { addRule } = useRules();
 
   // Estado local para controlar a edição de respostas e criação de regras
   const [isEditing, setIsEditing] = useState(false);
@@ -50,11 +51,54 @@ const PopupApp: React.FC = () => {
     clearCurrentResponse();
   };
 
-  const handleCreateMock = () => {
+  const handleCreateMock = async () => {
     if (currentResponse) {
-      const mockData = createMockFromResponse(currentResponse);
-      // Aqui você pode navegar para a página de mocks ou abrir um modal
-      alert('Mock criado com sucesso! Acesse a página principal para editá-lo.');
+      try {
+        // Extrair o URL base da requisição para o mock
+        const url = currentResponse.url;
+        const urlObj = new URL(url);
+        const urlPattern = urlObj.hostname + urlObj.pathname;
+
+        // Criar matchers para a regra
+        const matchers: Matcher[] = [
+          {
+            type: 'url',
+            enabled: true,
+            pattern: urlPattern,
+            isRegex: false
+          } as Matcher,
+          {
+            type: 'method',
+            enabled: true,
+            method: currentResponse.method || 'GET'
+          } as Matcher
+        ];
+
+        // Criar ação de mock
+        const mockAction: MockAction = {
+          type: 'mock',
+          enabled: true,
+          status: currentResponse.status,
+          headers: currentResponse.headers || {},
+          body: currentResponse.body || '',
+          contentType: currentResponse.mimeType || 'application/json'
+        };
+
+        // Adicionar a regra
+        const success = await addRule(
+          `Mock para ${urlPattern}`,
+          matchers,
+          mockAction
+        );
+
+        if (success) {
+          alert('Regra de mock criada com sucesso!');
+          setDialogOpen(false);
+        }
+      } catch (error) {
+        console.error('Erro ao criar regra de mock:', error);
+        alert('Erro ao criar regra de mock. Verifique o console para mais detalhes.');
+      }
     }
   };
 

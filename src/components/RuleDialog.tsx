@@ -7,6 +7,7 @@ import {
   DialogDescription,
   DialogFooter
 } from './ui/dialog';
+import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { Icon } from './ui/icon';
 import { Checkbox } from './ui/checkbox';
@@ -104,7 +105,7 @@ const RuleDialog: React.FC<RuleDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg md:max-w-2xl">
+      <DialogContent className="sm:max-w-lg md:max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{mode === 'create' ? 'Adicionar Nova Regra' : 'Editar Regra'}</DialogTitle>
           <DialogDescription>
@@ -114,7 +115,7 @@ const RuleDialog: React.FC<RuleDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">
+        <ScrollArea className="flex-1 overflow-y-auto pr-4">
           <div className="grid gap-4">
             <div>
               <div className="mb-1">
@@ -231,9 +232,9 @@ const RuleDialog: React.FC<RuleDialogProps> = ({
               )}
             </div>
           </div>
-        </div>
+        </ScrollArea>
 
-        <DialogFooter>
+        <DialogFooter className="mt-4">
           <Button
             type="button"
             variant="outline"

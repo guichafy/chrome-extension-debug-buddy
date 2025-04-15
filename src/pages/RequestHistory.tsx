@@ -4,8 +4,9 @@ import RequestTable from '../components/RequestTable';
 import ResponseDialog from '../components/ResponseDialog';
 import { useAllRequests } from '../hooks/useAllRequests';
 import { useResponses } from '../hooks/useResponses';
-import { useMocks } from '../hooks/useMocks';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useRules } from '../hooks/useRules';
+import { useLocation } from 'react-router-dom';
+import { Matcher, MockAction } from '../types/rules';
 import { indexedDBService } from '../services/indexedDB';
 import {
   AlertDialog,
@@ -59,9 +60,9 @@ const RequestHistory: React.FC = () => {
     clearAllRequests,
   } = useAllRequests();
 
-  const { createMockFromResponse, saveMock } = useMocks();
+  const { addRule } = useRules();
   const [isEditing, setIsEditing] = useState(false);
-  const navigate = useNavigate();
+  const [ruleCreated, setRuleCreated] = useState(false);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
@@ -88,22 +89,57 @@ const RequestHistory: React.FC = () => {
     }
   };
 
-  const handleCreateMock = () => {
+  const handleCreateMock = async () => {
     if (currentRequest) {
-      // Create a mock from the current response
-      const mockData = createMockFromResponse(currentRequest);
+      try {
+        // Extrair o URL base da requisição para o mock
+        const url = currentRequest.url;
+        const urlObj = new URL(url);
+        const urlPattern = urlObj.hostname + urlObj.pathname;
 
-      // Add the mock to the mocks list
-      saveMock({
-        urlPattern: mockData.urlPattern,
-        method: mockData.method,
-        status: mockData.status,
-        headers: mockData.headers,
-        body: mockData.body
-      });
+        // Criar matchers para a regra
+        const matchers: Matcher[] = [
+          {
+            type: 'url',
+            enabled: true,
+            pattern: urlPattern,
+            isRegex: false
+          },
+          {
+            type: 'method',
+            enabled: true,
+            method: currentRequest.method || 'GET'
+          }
+        ];
 
-      // Navigate to the mocks page
-      navigate('/mocks');
+        // Criar ação de mock
+        const mockAction: MockAction = {
+          type: 'mock',
+          enabled: true,
+          status: currentRequest.status,
+          headers: currentRequest.headers || {},
+          body: currentRequest.body || '',
+          contentType: currentRequest.mimeType || 'application/json'
+        };
+
+        // Adicionar a regra
+        const success = await addRule(
+          `Mock para ${urlPattern}`,
+          matchers,
+          mockAction
+        );
+
+        if (success) {
+          setRuleCreated(true);
+          // Fechar o diálogo após criar a regra
+          setTimeout(() => {
+            setDialogOpen(false);
+            setRuleCreated(false);
+          }, 1500);
+        }
+      } catch (error) {
+        console.error('Erro ao criar regra de mock:', error);
+      }
     }
   };
 
@@ -153,6 +189,7 @@ const RequestHistory: React.FC = () => {
         onCancel={handleCancelEdit}
         isEditing={isEditing}
         readOnly={true}
+        ruleCreated={ruleCreated}
       />
 
       <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>

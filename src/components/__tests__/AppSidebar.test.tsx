@@ -120,18 +120,15 @@ describe('AppSidebar Component', () => {
   // Teste para verificar se os contadores são passados corretamente para o NavMain
   test('passa os contadores corretamente para o NavMain', () => {
     render(
-      <AppSidebar pendingResponsesCount={5} mocksCount={3} />
+      <AppSidebar pendingResponsesCount={5} />
     );
 
     // Verifica se os itens de navegação estão presentes
     const navItems = screen.getAllByTestId('nav-item');
-    expect(navItems.length).toBe(3); // Configurações, Requisições, Mocks
+    expect(navItems.length).toBe(2); // Histórico, Configurações
 
-    // Verifica se apenas o contador de mocks está presente (o de requisições foi removido)
-    const counts = screen.getAllByTestId('nav-item-count');
-    expect(counts.length).toBe(1); // Deve haver apenas um contador (para mocks)
-
-    // Verifica se o valor do contador está correto
-    expect(counts[0].textContent).toBe('3'); // Mocks
+    // Verifica se não há contadores visíveis no sidebar
+    const counts = screen.queryAllByTestId('nav-item-count');
+    expect(counts.length).toBe(0); // Não deve haver contadores no sidebar
   });
 });

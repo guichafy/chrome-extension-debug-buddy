@@ -4,7 +4,6 @@ import Layout from './pages/Layout';
 import Settings from './pages/Settings';
 import Requests from './pages/Requests';
 import RequestHistory from './pages/RequestHistory';
-import Mocks from './pages/Mocks';
 
 // Usamos HashRouter (via createHashRouter) em vez de BrowserRouter para extensões Chrome
 // porque as extensões Chrome não suportam history API da mesma forma que aplicações web normais
@@ -25,10 +24,7 @@ const router = createHashRouter([
         path: 'request-history',
         element: <RequestHistory />,
       },
-      {
-        path: 'mocks',
-        element: <Mocks />,
-      },
+
     ],
   },
 ]);

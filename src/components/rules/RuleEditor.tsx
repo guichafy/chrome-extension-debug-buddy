@@ -7,6 +7,7 @@ import {
   DialogDescription,
   DialogFooter
 } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -79,7 +80,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   // Adicionar um novo matcher
   const addMatcher = (type: Matcher['type']) => {
     let newMatcher: Matcher;
-    
+
     switch (type) {
       case 'url':
         newMatcher = { type: 'url', enabled: true, pattern: '', isRegex: false };
@@ -96,7 +97,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       default:
         return;
     }
-    
+
     setMatchers([...matchers, newMatcher]);
   };
 
@@ -155,7 +156,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl md:max-w-4xl">
+      <DialogContent className="sm:max-w-2xl md:max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{mode === 'create' ? 'Adicionar Nova Regra' : 'Editar Regra'}</DialogTitle>
           <DialogDescription>
@@ -165,7 +166,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">
+        <ScrollArea className="flex-1 overflow-y-auto pr-4">
           <div className="mb-4">
             <Label htmlFor="ruleName">Nome da Regra</Label>
             <Input
@@ -264,9 +265,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             />
             <Label htmlFor="rule-enabled">Regra ativa</Label>
           </div>
-        </div>
+        </ScrollArea>
 
-        <DialogFooter>
+        <DialogFooter className="mt-4">
           <Button
             type="button"
             variant="outline"

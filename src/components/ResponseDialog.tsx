@@ -28,6 +28,7 @@ interface ResponseDialogProps {
   onCancel: () => void;
   isEditing: boolean;
   readOnly?: boolean;
+  ruleCreated?: boolean;
 }
 
 // Função auxiliar para truncar URLs longas
@@ -150,7 +151,8 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
   onEdit,
   onCancel,
   isEditing,
-  readOnly = false
+  readOnly = false,
+  ruleCreated = false
 }) => {
   const [status, setStatus] = useState('');
   const [headers, setHeaders] = useState('');
@@ -366,13 +368,23 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
           </div>
           <div className="flex space-x-2">
             <Button
-              variant="outline"
+              variant={ruleCreated ? "default" : "outline"}
               size="sm"
-              className="flex items-center gap-1"
+              className={`flex items-center gap-1 ${ruleCreated ? 'bg-green-500 hover:bg-green-600' : ''}`}
               onClick={handleMock}
+              disabled={ruleCreated}
             >
-              <Icon name="content_copy" className="h-4 w-4" />
-              <span className="hidden sm:inline">Criar Mock</span>
+              {ruleCreated ? (
+                <>
+                  <Icon name="check" className="h-4 w-4" />
+                  <span className="hidden sm:inline">Mock Criado</span>
+                </>
+              ) : (
+                <>
+                  <Icon name="content_copy" className="h-4 w-4" />
+                  <span className="hidden sm:inline">Criar Mock</span>
+                </>
+              )}
             </Button>
 
             {!readOnly && (
@@ -409,7 +421,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
               <TabsTrigger value="response">Response</TabsTrigger>
             </TabsList>
 
-            <div className="flex-1 overflow-y-auto">
+            <ScrollArea className="flex-1 pr-4">
               <TabsContent value="request" className="data-[state=active]:block">
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -641,7 +653,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
                   </div>
                 </div>
               </TabsContent>
-            </div>
+            </ScrollArea>
           </Tabs>
         </div>
 

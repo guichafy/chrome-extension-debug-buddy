@@ -3,15 +3,14 @@ import { render, screen } from '@testing-library/react';
 import Requests from '../Requests';
 import { useResponses } from '../../hooks/useResponses';
 import { useAllRequests } from '../../hooks/useAllRequests';
-import { useMocks } from '../../hooks/useMocks';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useRules } from '../../hooks/useRules';
+import { useLocation } from 'react-router-dom';
 
 // Mock the hooks
 jest.mock('../../hooks/useResponses');
 jest.mock('../../hooks/useAllRequests');
-jest.mock('../../hooks/useMocks');
+jest.mock('../../hooks/useRules');
 jest.mock('react-router-dom', () => ({
-  useNavigate: jest.fn(),
   useLocation: jest.fn().mockReturnValue({ pathname: '/requests' })
 }));
 jest.mock('../../services/indexedDB', () => ({
@@ -69,12 +68,9 @@ describe('Requests Component', () => {
       autoRefreshEnabled: true
     });
 
-    (useMocks as jest.Mock).mockReturnValue({
-      createMockFromResponse: jest.fn(),
-      saveMock: jest.fn()
+    (useRules as jest.Mock).mockReturnValue({
+      addRule: jest.fn().mockResolvedValue(true)
     });
-
-    (useNavigate as jest.Mock).mockReturnValue(jest.fn());
   });
 
   it('renders both cards without tabs', () => {

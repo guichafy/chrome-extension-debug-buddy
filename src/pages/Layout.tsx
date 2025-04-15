@@ -6,12 +6,10 @@ import { SiteHeader } from '../components/SiteHeader';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { useDebugging } from '../hooks/useDebugging';
 import { useResponses } from '../hooks/useResponses';
-import { useMocks } from '../hooks/useMocks';
 
 const Layout: React.FC = () => {
   const { isDebugging, targetTab, startDebugging, stopDebugging } = useDebugging();
   const { pendingResponses } = useResponses();
-  const { mocks } = useMocks();
   const [selectTabDialogOpen, setSelectTabDialogOpen] = useState(false);
 
   // Listener para mensagens do background script
@@ -44,7 +42,6 @@ const Layout: React.FC = () => {
       <AppSidebar
         variant="inset"
         pendingResponsesCount={Object.keys(pendingResponses).length}
-        mocksCount={mocks.length}
       />
       <SidebarInset>
         <SelectTabDialog
