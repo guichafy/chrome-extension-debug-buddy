@@ -11,6 +11,7 @@ interface RequestTableProps {
   pauseAutoRefresh?: () => void;
   enableAutoRefresh?: () => void;
   autoRefreshEnabled?: boolean;
+  onClearHistory?: () => void;
 }
 
 const RequestTable: React.FC<RequestTableProps> = ({
@@ -20,7 +21,8 @@ const RequestTable: React.FC<RequestTableProps> = ({
   onSearchChange,
   pauseAutoRefresh,
   enableAutoRefresh,
-  autoRefreshEnabled
+  autoRefreshEnabled,
+  onClearHistory
 }) => {
   // Converter o objeto de requisições para o formato esperado pelo DataTable
   // Usando useMemo para evitar recriações desnecessárias
@@ -41,6 +43,7 @@ const RequestTable: React.FC<RequestTableProps> = ({
       pauseAutoRefresh={pauseAutoRefresh}
       enableAutoRefresh={enableAutoRefresh}
       autoRefreshEnabled={autoRefreshEnabled}
+      onClearHistory={onClearHistory}
     />
   );
 };

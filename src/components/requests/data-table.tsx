@@ -42,6 +42,7 @@ interface DataTableProps<TData, TValue> {
   pauseAutoRefresh?: () => void
   enableAutoRefresh?: () => void
   autoRefreshEnabled?: boolean
+  onClearHistory?: () => void
 }
 
 export function DataTable<TData, TValue>({
@@ -52,7 +53,8 @@ export function DataTable<TData, TValue>({
   onSearchChange,
   pauseAutoRefresh,
   enableAutoRefresh,
-  autoRefreshEnabled
+  autoRefreshEnabled,
+  onClearHistory
 }: DataTableProps<TData, TValue>) {
   // Estados para a tabela
   const [sorting, setSorting] = React.useState<SortingState>([
@@ -196,6 +198,17 @@ export function DataTable<TData, TValue>({
             >
               <Icon name="refresh" className="h-4 w-4 mr-1" />
               Ativar Auto-Refresh
+            </Button>
+          )}
+          {onClearHistory && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onClearHistory}
+              className="text-xs bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+            >
+              <Icon name="delete" className="h-4 w-4 mr-1" />
+              Limpar Histórico
             </Button>
           )}
           <DropdownMenu>

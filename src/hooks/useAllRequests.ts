@@ -148,6 +148,22 @@ export function useAllRequests() {
     setCurrentRequest(null);
   }, []);
 
+  // Limpar todas as requisições
+  const clearAllRequests = useCallback(async () => {
+    try {
+      if (dbInitialized) {
+        await indexedDBService.clearAllRequests();
+        setAllRequests({});
+        clearCurrentRequest();
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Erro ao limpar todas as requisições:', error);
+      return false;
+    }
+  }, [dbInitialized, clearCurrentRequest]);
+
   // Filtrar requisições por URL
   const filteredRequests = useCallback(() => {
     // Verificar se allRequests é válido
@@ -223,6 +239,7 @@ export function useAllRequests() {
     loadAllRequests,
     getRequestDetails,
     clearCurrentRequest,
+    clearAllRequests,
     filter,
     setFilter,
     pauseAutoRefresh,
