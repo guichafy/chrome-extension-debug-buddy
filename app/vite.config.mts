@@ -33,7 +33,6 @@ export default defineConfig({
       targets: [
         { src: 'manifest.json', dest: '.' },
         { src: 'images', dest: '.' },
-        { src: 'styles.css', dest: '.' },
         { src: 'lib', dest: '.' },
       ],
     }),
