@@ -5,9 +5,9 @@ const webpack = require('webpack');
 module.exports = {
   mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
   entry: {
-    background: './src/background.ts',
+    background: './src/backend/background.ts',
     popup: './src/popup.tsx',
-    main: './src/main.tsx'
+    main: './src/ui/main.tsx'
   },
   output: {
     path: path.resolve(__dirname, 'dist'),

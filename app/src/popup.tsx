@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
-import './globals.css';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Icon } from '@/components/ui/icon';
-import RuleDialog from './components/RuleDialog';
-import RuleList from './components/RuleList';
-import ResponseList from './components/ResponseList';
-import ResponseDialog from './components/ResponseDialog';
-import { useUrlPatterns } from './hooks/useUrlPatterns';
-import { useDebugging } from './hooks/useDebugging';
-import { useResponses } from './hooks/useResponses';
-import { useRules } from './hooks/useRules';
-import { Matcher, MockAction } from './types/rules';
+import './ui/globals.css';
+import { Button } from './ui/components/shadcn/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/components/shadcn/tabs';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/components/shadcn/card';
+import { Icon } from './ui/components/shadcn/icon';
+import RuleDialog from './ui/components/RuleDialog';
+import RuleList from './ui/components/RuleList';
+import ResponseList from './ui/components/ResponseList';
+import ResponseDialog from './ui/components/ResponseDialog';
+import { useUrlPatterns } from './ui/hooks/useUrlPatterns';
+import { useDebugging } from './ui/hooks/useDebugging';
+import { useResponses } from './ui/hooks/useResponses';
+import { useRules } from '@/ui/hooks/useRules';
+import { Matcher, MockAction } from './backend/types/rules';
 
 const PopupApp: React.FC = () => {
   // Hooks para gerenciar o estado da aplicação
