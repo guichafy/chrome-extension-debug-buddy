@@ -168,7 +168,7 @@ if (process.env.NODE_ENV !== 'production') {
 // Abrir a janela do interceptor quando o usuário clicar no ícone da extensão
 chrome.action.onClicked.addListener(() => {
   chrome.tabs.create({
-    url: chrome.runtime.getURL('main.html')
+    url: chrome.runtime.getURL('index.html')
   }, (tab) => {
     // Guardar o ID da aba do interceptor
     if (tab && tab.id) {
