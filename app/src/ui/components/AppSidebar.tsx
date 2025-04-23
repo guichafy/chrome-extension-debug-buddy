@@ -140,6 +140,20 @@ export function AppSidebar({
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem> */}
+          <SidebarMenuItem>
+            <div className="flex flex-col items-start px-3 py-2">
+              <span className="text-xs text-muted-foreground">Desenvolvido por</span>
+              <a
+                href="https://github.com/guichafy/chrome-extension-debug-buddy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-semibold hover:underline text-primary"
+              >
+                Guilherme Chafy
+              </a>
+              <span className="text-xs text-muted-foreground">© 2025 - Todos os direitos reservados</span>
+            </div>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>

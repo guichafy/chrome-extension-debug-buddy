@@ -98,7 +98,7 @@ export const columns: ColumnDef<Rule>[] = [
       
       return (
         <Badge variant="outline" className="bg-primary/10">
-          {matcherCount} {matcherCount === 1 ? 'condição' : 'condições'}
+          {matcherCount}
         </Badge>
       );
     },

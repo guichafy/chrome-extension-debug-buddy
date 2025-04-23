@@ -12,7 +12,6 @@ export default defineConfig({
       input: {
         index: path.resolve(__dirname, 'index.html'),
         background: path.resolve(__dirname, 'src/backend/background.ts'),
-        popup: path.resolve(__dirname, 'src/popup.tsx'),
         main: path.resolve(__dirname, 'src/ui/main.tsx'),
       },
       output: {
