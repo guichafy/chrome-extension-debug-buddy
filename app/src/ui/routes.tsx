@@ -8,25 +8,24 @@ import RequestHistory from './pages/RequestHistory';
 // Usamos HashRouter (via createHashRouter) em vez de BrowserRouter para extensões Chrome
 // porque as extensões Chrome não suportam history API da mesma forma que aplicações web normais
 const router = createHashRouter([
-  {
-    path: '/',
-    element: <Layout />,
-    children: [
-      {
-        index: true,
-        element: <Settings />,
-      },
-      {
-        path: 'requests',
-        element: <Requests />,
-      },
-      {
-        path: 'request-history',
-        element: <RequestHistory />,
-      },
-
-    ],
-  },
+	{
+		path: '/',
+		element: <Layout />,
+		children: [
+			{
+				index: true,
+				element: <Settings />,
+			},
+			{
+				path: 'requests',
+				element: <Requests />,
+			},
+			{
+				path: 'request-history',
+				element: <RequestHistory />,
+			},
+		],
+	},
 ]);
 
 export default router;
