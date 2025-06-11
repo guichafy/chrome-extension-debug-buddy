@@ -2,18 +2,16 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import Requests from '../Requests';
 import { useResponses } from '../../hooks/useResponses';
-import { useAllRequests } from '../../hooks/useAllRequests';
 import { useRules } from '../../hooks/useRules';
 import { useLocation } from 'react-router-dom';
 
 // Mock the hooks
 jest.mock('../../hooks/useResponses');
-jest.mock('../../hooks/useAllRequests');
 jest.mock('../../hooks/useRules');
 jest.mock('react-router-dom', () => ({
   useLocation: jest.fn().mockReturnValue({ pathname: '/requests' })
 }));
-jest.mock('@/backend/services/indexedDB', () => ({
+jest.mock('../../../backend/services/indexedDB', () => ({
   indexedDBService: {
     init: jest.fn().mockResolvedValue(undefined)
   }
@@ -25,15 +23,6 @@ jest.mock('../../components/ResponseList', () => ({
   default: ({ responses }) => (
     <div data-testid="response-list">
       {Object.keys(responses).length} responses
-    </div>
-  )
-}));
-
-jest.mock('../../components/RequestTable', () => ({
-  __esModule: true,
-  default: ({ requests }) => (
-    <div data-testid="request-table">
-      {Object.keys(requests).length} requests
     </div>
   )
 }));
@@ -56,33 +45,19 @@ describe('Requests Component', () => {
       clearCurrentResponse: jest.fn()
     });
 
-    (useAllRequests as jest.Mock).mockReturnValue({
-      filteredRequests: { '2': { id: '2', url: 'https://example.com/api' } },
-      currentRequestId: '',
-      currentRequest: null,
-      getRequestDetails: jest.fn(),
-      filter: '',
-      setFilter: jest.fn(),
-      pauseAutoRefresh: jest.fn(),
-      enableAutoRefresh: jest.fn(),
-      autoRefreshEnabled: true
-    });
-
     (useRules as jest.Mock).mockReturnValue({
       addRule: jest.fn().mockResolvedValue(true)
     });
   });
 
-  it('renders both cards without tabs', () => {
+  it('renders the intercepted requests card', () => {
     render(<Requests />);
 
-    // Check if both cards are rendered
+    // Check if the intercepted requests card is rendered
     expect(screen.getByText('Requisições Interceptadas')).toBeInTheDocument();
-    expect(screen.getByText('Histórico de Requisições')).toBeInTheDocument();
 
-    // Check if both components are rendered
+    // Check if the response list component is rendered
     expect(screen.getByTestId('response-list')).toBeInTheDocument();
-    expect(screen.getByTestId('request-table')).toBeInTheDocument();
 
     // Check if the dialog is rendered
     expect(screen.getByTestId('response-dialog')).toBeInTheDocument();

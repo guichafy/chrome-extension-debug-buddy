@@ -9,25 +9,46 @@ jest.mock('react-router-dom', () => ({
 }));
 
 // Mock para os componentes do shadcn-ui
-jest.mock('@/ui/components/shadcn/separator', () => ({
+jest.mock('../shadcn/separator', () => ({
   Separator: ({ orientation, className }) => (
     <div data-testid="separator" data-orientation={orientation} className={className}></div>
   )
 }));
 
-jest.mock('@/ui/components/shadcn/sidebar', () => ({
+jest.mock('../shadcn/sidebar', () => ({
   SidebarTrigger: ({ className }) => (
     <button data-testid="sidebar-trigger" className={className}>Toggle</button>
   )
 }));
 
-jest.mock('@/ui/components/shadcn/badge', () => ({
+jest.mock('../shadcn/badge', () => ({
   Badge: ({ children, variant, className }) => (
     <span data-testid="badge" data-variant={variant} className={className}>{children}</span>
   )
 }));
 
-jest.mock('@/ui/components/shadcn/tooltip', () => ({
+jest.mock('../shadcn/button', () => ({
+  Button: ({ children, onClick, variant, size, className, disabled }) => (
+    <button
+      data-testid="button"
+      data-variant={variant}
+      data-size={size}
+      className={className}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  )
+}));
+
+jest.mock('../shadcn/icon', () => ({
+  Icon: ({ name, className }) => (
+    <span data-testid="icon" data-name={name} className={className}>{name}</span>
+  )
+}));
+
+jest.mock('../shadcn/tooltip', () => ({
   Tooltip: ({ children }) => <div data-testid="tooltip">{children}</div>,
   TooltipTrigger: ({ asChild, children }) => <div data-testid="tooltip-trigger">{children}</div>,
   TooltipContent: ({ side, children }) => <div data-testid="tooltip-content" data-side={side}>{children}</div>,
@@ -109,10 +130,8 @@ describe('SiteHeader Component', () => {
     // Verificar se o texto dinâmico está presente
     expect(screen.getByText('5 requisições aguardando')).toBeTruthy();
 
-    // Verificar se o badge está presente
-    const badges = screen.getAllByTestId('badge');
-    expect(badges.length).toBeGreaterThan(0);
-    expect(badges[0].textContent).toBe('5');
+    // Note: O componente SiteHeader não usa Badge - apenas mostra o contador no texto h1
+    // Removendo a verificação incorreta de badge
   });
 
   // Teste para verificar se o texto correto é exibido quando há apenas uma requisição pendente
@@ -135,11 +154,11 @@ describe('SiteHeader Component', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/requests');
   });
 
-  // Teste para verificar se o badge é exibido apenas quando há requisições pendentes
-  test('não exibe o badge quando não há requisições pendentes', () => {
+  // Teste para verificar se não há badge quando não há requisições pendentes (porque não usa badge)
+  test('não exibe badge quando não há requisições pendentes', () => {
     render(<SiteHeader {...mockProps} />); // pendingResponsesCount é 0
 
-    // Não deve encontrar nenhum badge
+    // Não deve encontrar nenhum badge porque o componente não usa Badge
     const badges = screen.queryAllByTestId('badge');
     expect(badges.length).toBe(0);
   });
