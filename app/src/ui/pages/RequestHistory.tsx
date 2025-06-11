@@ -158,18 +158,17 @@ const RequestHistory: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {Object.keys(filteredRequests || {}).length > 0 ? (
-            <RequestTable
-              requests={filteredRequests}
-              onSelect={handleSelectRequest}
-              searchValue={filter}
-              onSearchChange={setFilter}
-              pauseAutoRefresh={pauseAutoRefresh}
-              enableAutoRefresh={enableAutoRefresh}
-              autoRefreshEnabled={autoRefreshEnabled}
-              onClearHistory={() => setClearDialogOpen(true)}
-            />
-          ) : (
+          <RequestTable
+            requests={filteredRequests}
+            onSelect={handleSelectRequest}
+            searchValue={filter}
+            onSearchChange={setFilter}
+            pauseAutoRefresh={pauseAutoRefresh}
+            enableAutoRefresh={enableAutoRefresh}
+            autoRefreshEnabled={autoRefreshEnabled}
+            onClearHistory={() => setClearDialogOpen(true)}
+          />
+          {Object.keys(filteredRequests || {}).length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               Nenhuma requisição encontrada no histórico.
             </div>

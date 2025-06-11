@@ -13,7 +13,7 @@ jest.mock('../../hooks/useRules');
 jest.mock('react-router-dom', () => ({
   useLocation: jest.fn().mockReturnValue({ pathname: '/requests' })
 }));
-jest.mock('../../services/indexedDB', () => ({
+jest.mock('@/backend/services/indexedDB', () => ({
   indexedDBService: {
     init: jest.fn().mockResolvedValue(undefined)
   }

@@ -85,36 +85,18 @@ describe('AppSidebar Component', () => {
     expect(screen.getByTestId('nav-main')).toBeTruthy();
 
     // Verifica se o título está presente
-    expect(screen.getByText('DeBuddy')).toBeTruthy();
+    expect(screen.getByText('Debug Buddy')).toBeTruthy();
   });
 
-  // Teste para verificar se o SidebarFooter está sendo renderizado corretamente
-  test('renderiza o SidebarFooter com o dropdown menu', () => {
+  // Teste para verificar se o SidebarFooter exibe informações do desenvolvedor
+  test('renderiza o SidebarFooter com informações do desenvolvedor', () => {
     render(
       <AppSidebar pendingResponsesCount={0} mocksCount={0} />
     );
 
-    // Verifica se o dropdown menu está presente
-    expect(screen.getByTestId('dropdown-menu')).toBeTruthy();
-
-    // Verifica se os avatares estão presentes
-    expect(screen.getAllByTestId('avatar').length).toBe(2);
-
-    // Verifica se o texto do usuário está presente
-    expect(screen.getAllByText('Usuário').length).toBe(2);
-    expect(screen.getAllByText('Desenvolvedor').length).toBe(2);
-
-    // Verifica se os ícones estão presentes
-    expect(screen.getAllByTestId('icon-user').length).toBe(2);
-    expect(screen.getAllByTestId('icon-chevrons-updown').length).toBe(1);
-    expect(screen.getAllByTestId('icon-settings').length).toBe(1);
-    expect(screen.getAllByTestId('icon-logout').length).toBe(1);
-
-    // Verifica se os itens do dropdown menu estão presentes
-    // Verifica se há pelo menos um item de menu com o texto 'Configurações' dentro do dropdown
-    const dropdownContent = screen.getByTestId('dropdown-menu-content');
-    expect(within(dropdownContent).getByText('Configurações')).toBeTruthy();
-    expect(within(dropdownContent).getByText('Sair')).toBeTruthy();
+    // Verifica se a mensagem de autoria está presente
+    expect(screen.getByText('Desenvolvido por')).toBeTruthy();
+    expect(screen.getByText('Guilherme Chafy')).toBeTruthy();
   });
 
   // Teste para verificar se os contadores são passados corretamente para o NavMain
