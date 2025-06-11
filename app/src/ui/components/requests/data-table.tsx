@@ -204,7 +204,10 @@ export function DataTable<TData, TValue>({
             <Button
               variant="outline"
               size="sm"
-              onClick={onClearHistory}
+              onClick={() => {
+                handlePauseAutoRefresh()
+                onClearHistory()
+              }}
               className="text-xs bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
             >
               <Icon name="delete" className="h-4 w-4 mr-1" />

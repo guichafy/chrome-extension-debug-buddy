@@ -49,10 +49,13 @@ type MessageAction =
   | 'stopDebugging'
   | 'getDebuggingStatus'
   | 'getPendingResponses'
+  | 'getAllRequests'
+  | 'clearAllRequests'
+  | 'addToRequestHistory'
   | 'getResponseDetails'
   | 'approveResponse'
   | 'newPendingResponse'
-  | 'responseBodyReady'
+  | 'responseBodyReady'  
   | 'hot_reload'
   | 'selectTargetTab'
   | 'setTargetTab';
@@ -338,6 +341,14 @@ chrome.runtime.onMessage.addListener((message: any, _sender, sendResponse: (resp
     } else {
       sendResponse({ success: false, error: 'ID da aba não fornecido' });
     }
+    return false; // Indicates we've responded synchronously
+  }
+
+  else if (message.action === 'clearAllRequests') {
+    // Limpar todas as requisições armazenadas no background script
+    allRequests = {};
+    console.log('Todas as requisições foram limpas do background script');
+    sendResponse({ success: true });
     return false; // Indicates we've responded synchronously
   }
 

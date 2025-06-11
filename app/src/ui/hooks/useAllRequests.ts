@@ -152,7 +152,18 @@ export function useAllRequests() {
   const clearAllRequests = useCallback(async () => {
     try {
       if (dbInitialized) {
+        // Limpar do IndexedDB
         await indexedDBService.clearAllRequests();
+        
+        // Notificar o background script para limpar suas requisições também
+        try {
+          await chrome.runtime.sendMessage({ action: 'clearAllRequests' });
+        } catch (bgError) {
+          console.warn('Erro ao limpar requisições do background script:', bgError);
+          // Continua mesmo se o background script falhar
+        }
+        
+        // Limpar o estado local
         setAllRequests({});
         clearCurrentRequest();
         return true;
