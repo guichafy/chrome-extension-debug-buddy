@@ -81,6 +81,11 @@ export function DataTable<TData, TValue>({
   // Atualizar o filtro global quando o valor de pesquisa mudar
   React.useEffect(() => {
     setGlobalFilter(searchValue)
+    // Voltar para a primeira página ao iniciar uma nova busca
+    setPagination(prev => ({
+      ...prev,
+      pageIndex: 0
+    }))
   }, [searchValue])
 
   // Definir visibilidade inicial das colunas
@@ -120,6 +125,7 @@ export function DataTable<TData, TValue>({
     onRowSelectionChange: setRowSelection,
     onPaginationChange: setPagination,
     columnResizeMode: "onChange",
+    autoResetPageIndex: false,
     state: {
       sorting,
       columnFilters,
