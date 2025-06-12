@@ -4,90 +4,80 @@ import { ChevronsUpDown, LogOut, Settings, User } from 'lucide-react';
 import { Icon } from '@/ui/components/shadcn/icon';
 import { NavMain } from '@/ui/components/NavMain';
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  useSidebar,
+	Sidebar,
+	SidebarContent,
+	SidebarFooter,
+	SidebarHeader,
+	SidebarMenu,
+	SidebarMenuItem,
+	SidebarMenuButton,
+	useSidebar,
 } from '@/ui/components/shadcn/sidebar';
+import { Avatar, AvatarFallback } from '@/ui/components/shadcn/avatar';
 import {
-  Avatar,
-  AvatarFallback,
-} from '@/ui/components/shadcn/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuGroup,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
 } from '@/ui/components/shadcn/dropdown-menu';
 
 // Dados de navegação
 const navItems = [
-  {
-    title: 'Histórico',
-    path: '/request-history',
-    icon: 'history',
-    count: 0,
-  },
-  {
-    title: 'Configurações',
-    path: '/',
-    icon: 'settings',
-  },
+	{
+		title: 'Histórico',
+		path: '/request-history',
+		icon: 'history',
+		count: 0,
+	},
+	{
+		title: 'Configurações',
+		path: '/',
+		icon: 'settings',
+	},
 ];
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  pendingResponsesCount: number;
-  mocksCount?: number; // Opcional agora que não usamos mais
+	pendingResponsesCount: number;
+	mocksCount?: number; // Opcional agora que não usamos mais
 }
 
-export function AppSidebar({
-  pendingResponsesCount,
-  mocksCount,
-  ...props
-}: AppSidebarProps) {
-  const { isMobile } = useSidebar();
+export function AppSidebar({ pendingResponsesCount, mocksCount, ...props }: AppSidebarProps) {
+	const { isMobile } = useSidebar();
 
-  // Atualizar contadores
-  const items = React.useMemo(() => {
-    return navItems.map(item => {
-      // Não mostrar contador para requisições no sidebar, pois já está no header
-      if (item.path === '/requests') {
-        return { ...item, count: 0 };
-      }
-      return item;
-    });
-  }, []);
+	// Atualizar contadores
+	const items = React.useMemo(() => {
+		return navItems.map((item) => {
+			// Não mostrar contador para requisições no sidebar, pois já está no header
+			if (item.path === '/requests') {
+				return { ...item, count: 0 };
+			}
+			return item;
+		});
+	}, []);
 
-  return (
-    <Sidebar collapsible="offcanvas" {...props}>
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              className="data-[slot=sidebar-menu-button]:!p-1.5"
-            >
-              <NavLink to="/">
-                <img src="/images/icon_32px.png" alt="Logo" className="h-5 w-5" />
-                <span className="text-base font-semibold">Debug Buddy</span>
-              </NavLink>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
-      <SidebarContent>
-        <NavMain items={items} />
-      </SidebarContent>
-      <SidebarFooter>
-        <SidebarMenu>
-          {/* <SidebarMenuItem>
+	return (
+		<Sidebar collapsible="offcanvas" {...props}>
+			<SidebarHeader>
+				<SidebarMenu>
+					<SidebarMenuItem>
+						<SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5">
+							<NavLink to="/">
+								<img src="/images/icon_32px.png" alt="Logo" className="h-5 w-5" />
+								<span className="text-base font-semibold">Debug Buddy</span>
+							</NavLink>
+						</SidebarMenuButton>
+					</SidebarMenuItem>
+				</SidebarMenu>
+			</SidebarHeader>
+			<SidebarContent>
+				<NavMain items={items} />
+			</SidebarContent>
+			<SidebarFooter>
+				<SidebarMenu>
+					{/* <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
@@ -140,22 +130,24 @@ export function AppSidebar({
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem> */}
-          <SidebarMenuItem>
-            <div className="flex flex-col items-start px-3 py-2">
-              <span className="text-xs text-muted-foreground">Desenvolvido por</span>
-              <a
-                href="https://github.com/guichafy/chrome-extension-debug-buddy"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm font-semibold hover:underline text-primary"
-              >
-                Guilherme Chafy
-              </a>
-              <span className="text-xs text-muted-foreground">© 2025 - Todos os direitos reservados</span>
-            </div>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
-    </Sidebar>
-  );
+					<SidebarMenuItem>
+						<div className="flex flex-col items-start px-3 py-2">
+							<span className="text-xs text-muted-foreground">Desenvolvido por</span>
+							<a
+								href="https://github.com/guichafy/chrome-extension-debug-buddy"
+								target="_blank"
+								rel="noopener noreferrer"
+								className="text-sm font-semibold hover:underline text-primary"
+							>
+								Guilherme Chafy
+							</a>
+							<span className="text-xs text-muted-foreground">
+								© 2025 - Todos os direitos reservados
+							</span>
+						</div>
+					</SidebarMenuItem>
+				</SidebarMenu>
+			</SidebarFooter>
+		</Sidebar>
+	);
 }

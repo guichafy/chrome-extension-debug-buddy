@@ -3,259 +3,269 @@ import { InterceptedResponse } from './useResponses';
 import { indexedDBService } from '@/backend/services/indexedDB';
 
 export function useAllRequests() {
-  const [allRequests, setAllRequests] = useState<Record<string, InterceptedResponse>>({});
-  const [currentRequestId, setCurrentRequestId] = useState<string | null>(null);
-  const [currentRequest, setCurrentRequest] = useState<InterceptedResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('');
-  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
-  const [dbInitialized, setDbInitialized] = useState(false);
+	const [allRequests, setAllRequests] = useState<Record<string, InterceptedResponse>>({});
+	const [currentRequestId, setCurrentRequestId] = useState<string | null>(null);
+	const [currentRequest, setCurrentRequest] = useState<InterceptedResponse | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [filter, setFilter] = useState('');
+	const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+	const [dbInitialized, setDbInitialized] = useState(false);
 
-  // Inicializar o banco de dados
-  useEffect(() => {
-    const initDB = async () => {
-      try {
-        await indexedDBService.init();
-        setDbInitialized(true);
-        console.log('IndexedDB inicializado com sucesso');
-      } catch (error) {
-        console.error('Erro ao inicializar IndexedDB:', error);
-      }
-    };
+	// Inicializar o banco de dados
+	useEffect(() => {
+		const initDB = async () => {
+			try {
+				await indexedDBService.init();
+				setDbInitialized(true);
+				console.log('IndexedDB inicializado com sucesso');
+			} catch (error) {
+				console.error('Erro ao inicializar IndexedDB:', error);
+			}
+		};
 
-    initDB();
-  }, []);
+		initDB();
+	}, []);
 
-  // Função para desativar o auto-refresh
-  const pauseAutoRefresh = useCallback(() => {
-    setAutoRefreshEnabled(false);
-  }, []);
+	// Função para desativar o auto-refresh
+	const pauseAutoRefresh = useCallback(() => {
+		setAutoRefreshEnabled(false);
+	}, []);
 
-  // Função para reativar o auto-refresh
-  const enableAutoRefresh = useCallback(() => {
-    setAutoRefreshEnabled(true);
-  }, []);
+	// Função para reativar o auto-refresh
+	const enableAutoRefresh = useCallback(() => {
+		setAutoRefreshEnabled(true);
+	}, []);
 
-  // Carregar todas as requisições
-  const loadAllRequests = useCallback(async () => {
-    setLoading(true);
-    try {
-      // Primeiro, tenta carregar do IndexedDB
-      if (dbInitialized) {
-        const dbRequests = await indexedDBService.getAllRequests();
-        if (Object.keys(dbRequests).length > 0) {
-          // Verificar se há mudanças antes de atualizar o estado
-          const hasChanges = hasDataChanged(allRequests, dbRequests);
-          if (hasChanges) {
-            setAllRequests(dbRequests);
-          }
-          setLoading(false);
-          return;
-        }
-      }
+	// Carregar todas as requisições
+	const loadAllRequests = useCallback(async () => {
+		setLoading(true);
+		try {
+			// Primeiro, tenta carregar do IndexedDB
+			if (dbInitialized) {
+				const dbRequests = await indexedDBService.getAllRequests();
+				if (Object.keys(dbRequests).length > 0) {
+					// Verificar se há mudanças antes de atualizar o estado
+					const hasChanges = hasDataChanged(allRequests, dbRequests);
+					if (hasChanges) {
+						setAllRequests(dbRequests);
+					}
+					setLoading(false);
+					return;
+				}
+			}
 
-      // Se não houver dados no IndexedDB ou ele não estiver inicializado,
-      // carrega do background script
-      const response = await chrome.runtime.sendMessage({ action: 'getAllRequests' });
-      if (response && response.allRequests) {
-        // Verificar se há mudanças antes de atualizar o estado
-        const hasChanges = hasDataChanged(allRequests, response.allRequests);
-        if (hasChanges) {
-          setAllRequests(response.allRequests);
+			// Se não houver dados no IndexedDB ou ele não estiver inicializado,
+			// carrega do background script
+			const response = await chrome.runtime.sendMessage({ action: 'getAllRequests' });
+			if (response && response.allRequests) {
+				// Verificar se há mudanças antes de atualizar o estado
+				const hasChanges = hasDataChanged(allRequests, response.allRequests);
+				if (hasChanges) {
+					setAllRequests(response.allRequests);
 
-          // Salva as requisições no IndexedDB
-          if (dbInitialized) {
-            Object.entries(response.allRequests).forEach(([id, request]) => {
-              indexedDBService.saveRequest(id, request as InterceptedResponse).catch(err => {
-                console.error('Erro ao salvar requisição no IndexedDB:', err);
-              });
-            });
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao carregar todas as requisições:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [dbInitialized, allRequests]);
+					// Salva as requisições no IndexedDB
+					if (dbInitialized) {
+						Object.entries(response.allRequests).forEach(([id, request]) => {
+							indexedDBService.saveRequest(id, request as InterceptedResponse).catch((err) => {
+								console.error('Erro ao salvar requisição no IndexedDB:', err);
+							});
+						});
+					}
+				}
+			}
+		} catch (error) {
+			console.error('Erro ao carregar todas as requisições:', error);
+		} finally {
+			setLoading(false);
+		}
+	}, [dbInitialized, allRequests]);
 
-  // Função auxiliar para verificar se os dados mudaram
-  const hasDataChanged = (oldData: Record<string, InterceptedResponse>, newData: Record<string, InterceptedResponse>): boolean => {
-    // Verificar se o número de requisições mudou
-    if (Object.keys(oldData).length !== Object.keys(newData).length) {
-      return true;
-    }
+	// Função auxiliar para verificar se os dados mudaram
+	const hasDataChanged = (
+		oldData: Record<string, InterceptedResponse>,
+		newData: Record<string, InterceptedResponse>,
+	): boolean => {
+		// Verificar se o número de requisições mudou
+		if (Object.keys(oldData).length !== Object.keys(newData).length) {
+			return true;
+		}
 
-    // Verificar se alguma requisição foi adicionada ou removida
-    for (const id in oldData) {
-      if (!newData[id]) {
-        return true;
-      }
-    }
+		// Verificar se alguma requisição foi adicionada ou removida
+		for (const id in oldData) {
+			if (!newData[id]) {
+				return true;
+			}
+		}
 
-    for (const id in newData) {
-      if (!oldData[id]) {
-        return true;
-      }
-    }
+		for (const id in newData) {
+			if (!oldData[id]) {
+				return true;
+			}
+		}
 
-    // Se chegou até aqui, não houve mudanças significativas
-    return false;
-  };
+		// Se chegou até aqui, não houve mudanças significativas
+		return false;
+	};
 
-  // Obter detalhes de uma requisição específica
-  const getRequestDetails = useCallback(async (requestId: string) => {
-    // Se a requisição já estiver no estado, não precisamos fazer uma nova chamada
-    if (allRequests[requestId]) {
-      setCurrentRequestId(requestId);
-      setCurrentRequest(allRequests[requestId]);
-      return allRequests[requestId];
-    }
+	// Obter detalhes de uma requisição específica
+	const getRequestDetails = useCallback(
+		async (requestId: string) => {
+			// Se a requisição já estiver no estado, não precisamos fazer uma nova chamada
+			if (allRequests[requestId]) {
+				setCurrentRequestId(requestId);
+				setCurrentRequest(allRequests[requestId]);
+				return allRequests[requestId];
+			}
 
-    // Tenta obter do IndexedDB primeiro
-    if (dbInitialized) {
-      try {
-        const request = await indexedDBService.getRequest(requestId);
-        if (request) {
-          setCurrentRequestId(requestId);
-          setCurrentRequest(request);
-          return request;
-        }
-      } catch (error) {
-        console.error('Erro ao obter requisição do IndexedDB:', error);
-      }
-    }
+			// Tenta obter do IndexedDB primeiro
+			if (dbInitialized) {
+				try {
+					const request = await indexedDBService.getRequest(requestId);
+					if (request) {
+						setCurrentRequestId(requestId);
+						setCurrentRequest(request);
+						return request;
+					}
+				} catch (error) {
+					console.error('Erro ao obter requisição do IndexedDB:', error);
+				}
+			}
 
-    // Caso contrário, carregamos todas as requisições novamente
-    try {
-      await loadAllRequests();
-      if (allRequests[requestId]) {
-        setCurrentRequestId(requestId);
-        setCurrentRequest(allRequests[requestId]);
-        return allRequests[requestId];
-      }
-      return null;
-    } catch (error) {
-      console.error('Erro ao obter detalhes da requisição:', error);
-      return null;
-    }
-  }, [allRequests, loadAllRequests, dbInitialized]);
+			// Caso contrário, carregamos todas as requisições novamente
+			try {
+				await loadAllRequests();
+				if (allRequests[requestId]) {
+					setCurrentRequestId(requestId);
+					setCurrentRequest(allRequests[requestId]);
+					return allRequests[requestId];
+				}
+				return null;
+			} catch (error) {
+				console.error('Erro ao obter detalhes da requisição:', error);
+				return null;
+			}
+		},
+		[allRequests, loadAllRequests, dbInitialized],
+	);
 
-  // Limpar a requisição atual
-  const clearCurrentRequest = useCallback(() => {
-    setCurrentRequestId(null);
-    setCurrentRequest(null);
-  }, []);
+	// Limpar a requisição atual
+	const clearCurrentRequest = useCallback(() => {
+		setCurrentRequestId(null);
+		setCurrentRequest(null);
+	}, []);
 
-  // Limpar todas as requisições
-  const clearAllRequests = useCallback(async () => {
-    try {
-      if (dbInitialized) {
-        // Limpar do IndexedDB
-        await indexedDBService.clearAllRequests();
-        
-        // Notificar o background script para limpar suas requisições também
-        try {
-          await chrome.runtime.sendMessage({ action: 'clearAllRequests' });
-        } catch (bgError) {
-          console.warn('Erro ao limpar requisições do background script:', bgError);
-          // Continua mesmo se o background script falhar
-        }
-        
-        // Limpar o estado local
-        setAllRequests({});
-        clearCurrentRequest();
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('Erro ao limpar todas as requisições:', error);
-      return false;
-    }
-  }, [dbInitialized, clearCurrentRequest]);
+	// Limpar todas as requisições
+	const clearAllRequests = useCallback(async () => {
+		try {
+			if (dbInitialized) {
+				// Limpar do IndexedDB
+				await indexedDBService.clearAllRequests();
 
-  // Filtrar requisições por URL
-  const filteredRequests = useCallback(() => {
-    // Verificar se allRequests é válido
-    if (!allRequests || typeof allRequests !== 'object') {
-      return {};
-    }
+				// Notificar o background script para limpar suas requisições também
+				try {
+					await chrome.runtime.sendMessage({ action: 'clearAllRequests' });
+				} catch (bgError) {
+					console.warn('Erro ao limpar requisições do background script:', bgError);
+					// Continua mesmo se o background script falhar
+				}
 
-    if (!filter) return allRequests;
+				// Limpar o estado local
+				setAllRequests({});
+				clearCurrentRequest();
+				return true;
+			}
+			return false;
+		} catch (error) {
+			console.error('Erro ao limpar todas as requisições:', error);
+			return false;
+		}
+	}, [dbInitialized, clearCurrentRequest]);
 
-    const filtered: Record<string, InterceptedResponse> = {};
-    Object.entries(allRequests).forEach(([id, request]) => {
-      if (request && request.url && request.url.toLowerCase().includes(filter.toLowerCase())) {
-        filtered[id] = request;
-      }
-    });
-    return filtered;
-  }, [allRequests, filter]);
+	// Filtrar requisições por URL
+	const filteredRequests = useCallback(() => {
+		// Verificar se allRequests é válido
+		if (!allRequests || typeof allRequests !== 'object') {
+			return {};
+		}
 
-  // Configurar listener para novas requisições
-  useEffect(() => {
-    // Carregar requisições ao montar o componente
-    loadAllRequests();
+		if (!filter) return allRequests;
 
-    // Armazenar o último timestamp para evitar atualizações muito frequentes
-    let lastUpdateTime = Date.now();
+		const filtered: Record<string, InterceptedResponse> = {};
+		Object.entries(allRequests).forEach(([id, request]) => {
+			if (request && request.url && request.url.toLowerCase().includes(filter.toLowerCase())) {
+				filtered[id] = request;
+			}
+		});
+		return filtered;
+	}, [allRequests, filter]);
 
-    // Listener para novas requisições do background script
-    const messageListener = (message: any) => {
-      if (message.action === 'newRequest' && message.requestId && message.request) {
-        // Adicionar à lista de requisições
-        setAllRequests(prev => ({
-          ...prev,
-          [message.requestId]: message.request
-        }));
+	// Configurar listener para novas requisições
+	useEffect(() => {
+		// Carregar requisições ao montar o componente
+		loadAllRequests();
 
-        // Salvar no IndexedDB
-        if (dbInitialized) {
-          indexedDBService.saveRequest(message.requestId, message.request).catch(err => {
-            console.error('Erro ao salvar nova requisição no IndexedDB:', err);
-          });
-        }
-      }
-    };
+		// Armazenar o último timestamp para evitar atualizações muito frequentes
+		let lastUpdateTime = Date.now();
 
-    chrome.runtime.onMessage.addListener(messageListener);
+		// Listener para novas requisições do background script
+		const messageListener = (message: any) => {
+			if (message.action === 'newRequest' && message.requestId && message.request) {
+				// Adicionar à lista de requisições
+				setAllRequests((prev) => ({
+					...prev,
+					[message.requestId]: message.request,
+				}));
 
-    // Configurar intervalo para verificar requisições periodicamente
-    const interval = setInterval(() => {
-      // Só atualiza se o auto-refresh estiver habilitado, a página estiver visível
-      // e se passaram pelo menos 10 segundos desde a última atualização
-      const now = Date.now();
-      if (autoRefreshEnabled && document.visibilityState === 'visible' && now - lastUpdateTime >= 10000) {
-        lastUpdateTime = now;
-        loadAllRequests();
-      }
-    }, 10000); // Aumentar o intervalo para 10 segundos
+				// Salvar no IndexedDB
+				if (dbInitialized) {
+					indexedDBService.saveRequest(message.requestId, message.request).catch((err) => {
+						console.error('Erro ao salvar nova requisição no IndexedDB:', err);
+					});
+				}
+			}
+		};
 
-    return () => {
-      clearInterval(interval);
-      chrome.runtime.onMessage.removeListener(messageListener);
-    };
-  }, [loadAllRequests, autoRefreshEnabled, dbInitialized]);
+		chrome.runtime.onMessage.addListener(messageListener);
 
-  // Simplificado para evitar problemas de roteamento
-  const filteredRequestsResult = filteredRequests();
+		// Configurar intervalo para verificar requisições periodicamente
+		const interval = setInterval(() => {
+			// Só atualiza se o auto-refresh estiver habilitado, a página estiver visível
+			// e se passaram pelo menos 10 segundos desde a última atualização
+			const now = Date.now();
+			if (
+				autoRefreshEnabled &&
+				document.visibilityState === 'visible' &&
+				now - lastUpdateTime >= 10000
+			) {
+				lastUpdateTime = now;
+				loadAllRequests();
+			}
+		}, 10000); // Aumentar o intervalo para 10 segundos
 
-  return {
-    allRequests,
-    filteredRequests: filteredRequestsResult,
-    currentRequestId,
-    currentRequest,
-    loading,
-    loadAllRequests,
-    getRequestDetails,
-    clearCurrentRequest,
-    clearAllRequests,
-    filter,
-    setFilter,
-    pauseAutoRefresh,
-    enableAutoRefresh,
-    autoRefreshEnabled,
-    dbInitialized
-  };
+		return () => {
+			clearInterval(interval);
+			chrome.runtime.onMessage.removeListener(messageListener);
+		};
+	}, [loadAllRequests, autoRefreshEnabled, dbInitialized]);
+
+	// Simplificado para evitar problemas de roteamento
+	const filteredRequestsResult = filteredRequests();
+
+	return {
+		allRequests,
+		filteredRequests: filteredRequestsResult,
+		currentRequestId,
+		currentRequest,
+		loading,
+		loadAllRequests,
+		getRequestDetails,
+		clearCurrentRequest,
+		clearAllRequests,
+		filter,
+		setFilter,
+		pauseAutoRefresh,
+		enableAutoRefresh,
+		autoRefreshEnabled,
+		dbInitialized,
+	};
 }

@@ -1,76 +1,76 @@
 // Tipos para padrões de URL
 export interface UrlPattern {
-  url: string;
-  method: string;
-  headerType?: string;
-  headerName?: string;
-  headerValue?: string;
-  enabled?: boolean;
-  isRegex?: boolean;
+	url: string;
+	method: string;
+	headerType?: string;
+	headerName?: string;
+	headerValue?: string;
+	enabled?: boolean;
+	isRegex?: boolean;
 }
 
 // Tipos para respostas interceptadas
 export interface InterceptedResponse {
-  url: string;
-  status: number;
-  statusText: string;
-  headers: Record<string, string>;
-  mimeType: string;
-  type: string;
-  timestamp: number;
-  body: string;
-  isWaiting?: boolean;
-  isMocked?: boolean;
+	url: string;
+	status: number;
+	statusText: string;
+	headers: Record<string, string>;
+	mimeType: string;
+	type: string;
+	timestamp: number;
+	body: string;
+	isWaiting?: boolean;
+	isMocked?: boolean;
 }
 
 // Tipos para modificações de resposta
 export interface ResponseModifications {
-  status?: number;
-  headers?: Record<string, string>;
-  body?: string;
+	status?: number;
+	headers?: Record<string, string>;
+	body?: string;
 }
 
 // Tipos para mocks
 export interface MockConfig {
-  urlPattern: string;
-  method: string;
-  status: number;
-  headers: Record<string, string>;
-  body: string;
-  createdAt: number;
-  enabled: boolean;
+	urlPattern: string;
+	method: string;
+	status: number;
+	headers: Record<string, string>;
+	body: string;
+	createdAt: number;
+	enabled: boolean;
 }
 
 // Tipos para mensagens entre scripts
 export type MessageAction =
-  | 'getMocks'
-  | 'startDebugging'
-  | 'stopDebugging'
-  | 'getDebuggingStatus'
-  | 'getPendingResponses'
-  | 'getResponseDetails'
-  | 'approveResponse'
-  | 'newPendingResponse'
-  | 'responseBodyReady';
+	| 'getMocks'
+	| 'startDebugging'
+	| 'stopDebugging'
+	| 'getDebuggingStatus'
+	| 'getPendingResponses'
+	| 'getResponseDetails'
+	| 'approveResponse'
+	| 'newPendingResponse'
+	| 'responseBodyReady';
 
 export interface Message {
-  action: MessageAction;
-  tabId?: number;
-  requestId?: string;
-  url?: string;
-  status?: number;
-  statusText?: string;
-  type?: string;
-  mimeType?: string;
-  body?: string;
-  modifications?: ResponseModifications;
+	action: MessageAction;
+	tabId?: number;
+	requestId?: string;
+	url?: string;
+	status?: number;
+	statusText?: string;
+	type?: string;
+	mimeType?: string;
+	body?: string;
+	modifications?: ResponseModifications;
 }
 
 export interface MessageResponse {
-  success?: boolean;
-  error?: string;
-  isDebugging?: boolean;
-  pendingResponses?: Record<string, InterceptedResponse>;
-  response?: InterceptedResponse;
-  mocks?: MockConfig[];
+	success?: boolean;
+	error?: string;
+	isDebugging?: boolean;
+	pendingResponses?: Record<string, InterceptedResponse>;
+	response?: InterceptedResponse;
+	mocks?: MockConfig[];
 }
