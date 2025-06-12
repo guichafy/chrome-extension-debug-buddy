@@ -1,33 +1,42 @@
+import globals from 'globals';
 import js from '@eslint/js';
-import tseslint from '@typescript-eslint/eslint-plugin';
-import tsParser from '@typescript-eslint/parser';
-import google from 'eslint-config-google';
-import prettier from 'eslint-config-prettier';
-import eslintPluginPrettier from 'eslint-plugin-prettier';
+import tseslint from 'typescript-eslint';
+import prettier from 'eslint-plugin-prettier/recommended';
 
 export default [
+  {
+    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'vite.config.mts', 'jest.config.cjs', 'postcss.config.cjs', 'tailwind.config.cjs', 'eslint.config.js', 'jest.setup.js'],
+  },
   js.configs.recommended,
+  ...tseslint.configs.recommended,
+  prettier,
   {
     files: ['src/**/*.{ts,tsx,js,jsx}'],
     languageOptions: {
-      parser: tsParser,
+      parser: tseslint.parser,
       parserOptions: {
-        ecmaVersion: 2020,
-        sourceType: 'module',
         project: './tsconfig.json',
       },
-    },
-    plugins: {
-      '@typescript-eslint': tseslint,
-      prettier: eslintPluginPrettier,
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+        chrome: 'readonly',
+      },
     },
     rules: {
-      ...google.rules,
-      ...prettier.rules,
-      'prettier/prettier': 'error',
-      'require-jsdoc': 'off',
-      'valid-jsdoc': 'off',
-      '@typescript-eslint/explicit-module-boundary-types': 'off',
+       'no-unused-vars': 'off',
+       '@typescript-eslint/no-unused-vars': 'off',
+       '@typescript-eslint/no-explicit-any': 'off',
+       'no-undef': 'error',
+       'require-jsdoc': 'off'
     },
   },
-]; 
+  {
+    files: ['src/**/*.test.{ts,tsx}'],
+    languageOptions: {
+      globals: {
+        ...globals.jest,
+      },
+    },
+  },
+];

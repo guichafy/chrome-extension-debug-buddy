@@ -8,64 +8,61 @@ import { useDebugging } from '../hooks/useDebugging';
 import { useResponses } from '../hooks/useResponses';
 
 const Layout: React.FC = () => {
-  const { isDebugging, targetTab, startDebugging, stopDebugging } = useDebugging();
-  const { pendingResponses } = useResponses();
-  const [selectTabDialogOpen, setSelectTabDialogOpen] = useState(false);
+	const { isDebugging, targetTab, startDebugging, stopDebugging } = useDebugging();
+	const { pendingResponses } = useResponses();
+	const [selectTabDialogOpen, setSelectTabDialogOpen] = useState(false);
 
-  // Listener para mensagens do background script
-  useEffect(() => {
-    const messageListener = (message: any) => {
-      if (message.action === 'openSelectTabDialog') {
-        setSelectTabDialogOpen(true);
-      }
-    };
+	// Listener para mensagens do background script
+	useEffect(() => {
+		const messageListener = (message: any) => {
+			if (message.action === 'openSelectTabDialog') {
+				setSelectTabDialogOpen(true);
+			}
+		};
 
-    chrome.runtime.onMessage.addListener(messageListener);
+		chrome.runtime.onMessage.addListener(messageListener);
 
-    return () => {
-      chrome.runtime.onMessage.removeListener(messageListener);
-    };
-  }, []);
+		return () => {
+			chrome.runtime.onMessage.removeListener(messageListener);
+		};
+	}, []);
 
-  const handleSelectTab = (tabId: number, tabTitle: string, tabUrl: string) => {
-    // Enviar mensagem para o background script com o ID da aba selecionada
-    chrome.runtime.sendMessage({
-      action: 'setTargetTab',
-      tabId,
-      tabTitle,
-      tabUrl
-    });
-  };
+	const handleSelectTab = (tabId: number, tabTitle: string, tabUrl: string) => {
+		// Enviar mensagem para o background script com o ID da aba selecionada
+		chrome.runtime.sendMessage({
+			action: 'setTargetTab',
+			tabId,
+			tabTitle,
+			tabUrl,
+		});
+	};
 
-  return (
-    <SidebarProvider>
-      <AppSidebar
-        variant="inset"
-        pendingResponsesCount={Object.keys(pendingResponses).length}
-      />
-      <SidebarInset>
-        <SelectTabDialog
-          open={selectTabDialogOpen}
-          onOpenChange={setSelectTabDialogOpen}
-          onSelectTab={handleSelectTab}
-        />
-        <SiteHeader
-          targetTab={targetTab}
-          isDebugging={isDebugging}
-          pendingResponsesCount={Object.keys(pendingResponses).length}
-          onSelectTabClick={() => setSelectTabDialogOpen(true)}
-          onStartDebugging={() => startDebugging()}
-          onStopDebugging={() => stopDebugging()}
-        />
+	return (
+		<SidebarProvider>
+			<AppSidebar variant="inset" pendingResponsesCount={Object.keys(pendingResponses).length} />
+			<SidebarInset>
+				<SelectTabDialog
+					open={selectTabDialogOpen}
+					onOpenChange={setSelectTabDialogOpen}
+					onSelectTab={handleSelectTab}
+				/>
+				<SiteHeader
+					targetTab={targetTab}
+					isDebugging={isDebugging}
+					pendingResponsesCount={Object.keys(pendingResponses).length}
+					onSelectTabClick={() => setSelectTabDialogOpen(true)}
+					onStartDebugging={() => startDebugging()}
+					onStopDebugging={() => stopDebugging()}
+				/>
 
-        <div className="main-content-container">
-          <div className="p-4 pb-8">
-            <Outlet />
-          </div>
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
-  );
+				<div className="main-content-container">
+					<div className="p-4 pb-8">
+						<Outlet />
+					</div>
+				</div>
+			</SidebarInset>
+		</SidebarProvider>
+	);
 };
 
 export default Layout;
