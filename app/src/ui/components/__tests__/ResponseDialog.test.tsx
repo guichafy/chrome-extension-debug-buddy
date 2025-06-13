@@ -182,6 +182,31 @@ describe('ResponseDialog Component', () => {
 		expect(buttons.length).toBeGreaterThan(0);
 	});
 
+	test('exibe o corpo da requisição quando presente', () => {
+		const responseWithBody: InterceptedResponse = {
+			...mockResponse,
+			request: { postData: 'foo=bar' },
+		};
+
+		render(
+			<ResponseDialog
+				open={true}
+				onOpenChange={mockOnOpenChange}
+				response={responseWithBody}
+				requestId={mockRequestId}
+				onApprove={mockOnApprove}
+				onIgnore={mockOnIgnore}
+				onMock={mockOnMock}
+				onEdit={mockOnEdit}
+				onCancel={mockOnCancel}
+				isEditing={false}
+			/>,
+		);
+
+		const textarea = screen.getByDisplayValue('foo=bar');
+		expect(textarea).toBeInTheDocument();
+	});
+
 	test('não renderiza nada quando open é false', () => {
 		render(
 			<ResponseDialog

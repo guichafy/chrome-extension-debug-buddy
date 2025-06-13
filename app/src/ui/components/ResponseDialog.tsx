@@ -506,6 +506,21 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 											</div>
 										</ScrollArea>
 									</div>
+									{response.request?.postData && (
+										<div>
+											<label htmlFor="requestPostData" className="block text-sm font-medium mb-1">
+												Request Body
+											</label>
+											<ScrollArea className="h-[200px] border rounded-md">
+												<textarea
+													id="requestPostData"
+													value={response.request.postData}
+													readOnly
+													className="w-full p-3 font-mono text-sm min-h-[200px] focus:outline-none"
+												/>
+											</ScrollArea>
+										</div>
+									)}
 								</div>
 							</TabsContent>
 
