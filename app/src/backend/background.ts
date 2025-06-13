@@ -781,6 +781,7 @@ async function handleRequestPaused(params: any): Promise<void> {
 	const { requestId, request, responseStatusCode, responseHeaders, resourceType } = params;
 	const url = request.url;
 	const method = request.method || 'GET';
+	const postData = request.postData || '';
 
 	console.log(`🟡 REQUEST PAUSED: ${url}`);
 	console.log('Request ID:', requestId);
@@ -791,7 +792,7 @@ async function handleRequestPaused(params: any): Promise<void> {
 	const mockResult = await checkForMock(url, method);
 	if (mockResult) {
 		console.log(`Applying mock for ${url}`);
-		applyMockResponse(requestId, mockResult);
+		applyMockResponse(requestId, mockResult, request);
 		return;
 	}
 
@@ -848,6 +849,7 @@ async function handleRequestPaused(params: any): Promise<void> {
 				type: resourceType,
 				timestamp: Date.now(),
 				body: body, // Usa o corpo processado (ou vazio)
+				request: { postData },
 			};
 
 			// Armazenar em allRequests
@@ -1308,7 +1310,11 @@ async function checkForBreakpoint(url: string, method: string): Promise<boolean>
 }
 
 // Aplica um mock como resposta para uma requisição
-async function applyMockResponse(requestId: string, mock: MockConfig): Promise<void> {
+async function applyMockResponse(
+	requestId: string,
+	mock: MockConfig,
+	originalRequest?: any,
+): Promise<void> {
 	if (!attachedTabId || !mock) return;
 
 	try {
@@ -1351,6 +1357,7 @@ async function applyMockResponse(requestId: string, mock: MockConfig): Promise<v
 			timestamp: Date.now(),
 			body: mock.body,
 			isMocked: true,
+			request: { postData: originalRequest?.postData || '' },
 		};
 
 		// Armazenar em allRequests

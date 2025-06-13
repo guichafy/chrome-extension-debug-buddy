@@ -3,6 +3,10 @@ import { useState, useEffect, useCallback } from 'react';
 export interface InterceptedResponse {
 	url: string;
 	method?: string;
+	/** Dados enviados no corpo da requisição original */
+	request?: {
+		postData?: string;
+	};
 	status: number;
 	statusText: string;
 	headers: Record<string, string>;

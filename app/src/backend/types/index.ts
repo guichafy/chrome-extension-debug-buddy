@@ -12,6 +12,10 @@ export interface UrlPattern {
 // Tipos para respostas interceptadas
 export interface InterceptedResponse {
 	url: string;
+	/** Dados enviados no corpo da requisição original */
+	request?: {
+		postData?: string;
+	};
 	status: number;
 	statusText: string;
 	headers: Record<string, string>;
