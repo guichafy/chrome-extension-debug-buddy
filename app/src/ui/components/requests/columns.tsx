@@ -71,31 +71,14 @@ export const columns: ColumnDef<RequestRow>[] = [
 				</Button>
 			);
 		},
-		sortingFn: (rowA, rowB) => {
-			const requestIdA = rowA.original.id;
-			const requestIdB = rowB.original.id;
-
-			// Gerar valores de tempo de resposta simulados com base nos IDs
-			const hashA = requestIdA.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-			const hashB = requestIdB.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-
-			const responseTimeA = 50 + (hashA % 1950);
-			const responseTimeB = 50 + (hashB % 1950);
-
-			return responseTimeA - responseTimeB;
-		},
-		cell: ({ row }) => {
-			const request = row.original.request;
-			const requestId = row.original.id;
-
-			// Gerar um tempo de resposta simulado com base no ID da requisição
-			// Isso garante que o mesmo ID sempre terá o mesmo tempo de resposta
-			const hash = requestId.split('').reduce((acc, char) => {
-				return acc + char.charCodeAt(0);
-			}, 0);
-
-			// Gerar um valor entre 50ms e 2000ms
-			const responseTime = 50 + (hash % 1950);
+                sortingFn: (rowA, rowB) => {
+                        const a = rowA.original.request.duration ?? 0;
+                        const b = rowB.original.request.duration ?? 0;
+                        return a - b;
+                },
+                cell: ({ row }) => {
+                        const request = row.original.request;
+                        const responseTime = request.duration ?? 0;
 
 			// Formatar o tempo de resposta
 			let formattedTime = '';

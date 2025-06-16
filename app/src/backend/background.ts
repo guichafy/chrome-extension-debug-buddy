@@ -11,17 +11,19 @@ interface UrlPattern {
 
 // Tipos para respostas interceptadas
 interface InterceptedResponse {
-	url: string;
-	method?: string;
-	status: number;
-	statusText: string;
-	headers: Record<string, string>;
-	mimeType: string;
-	type: string;
-	timestamp: number;
-	body: string;
-	isWaiting?: boolean;
-	isMocked?: boolean;
+        url: string;
+        method?: string;
+        status: number;
+        statusText: string;
+        headers: Record<string, string>;
+        mimeType: string;
+        type: string;
+        timestamp: number;
+        /** Tempo de resposta em milissegundos */
+        duration?: number;
+        body: string;
+        isWaiting?: boolean;
+        isMocked?: boolean;
 }
 
 // Tipos para modificações de resposta
@@ -121,6 +123,8 @@ let urlPatterns: (string | UrlPattern)[] = [];
 let rules: Rule[] = [];
 let pendingResponses: Record<string, InterceptedResponse> = {}; // Store intercepted responses
 let allRequests: Record<string, InterceptedResponse> = {}; // Store all requests
+// Armazena o timestamp de início de cada requisição
+let requestTimestamps: Record<string, number> = {};
 // Variáveis globais para rastrear abas
 let interceptorTabId: number | null = null;
 let targetTabId: number | null = null;
@@ -679,24 +683,22 @@ async function startDebugging(specificTabId: number | null = null): Promise<bool
 
 		// Enable Fetch domain for request interception
 		// This is the key part - we're intercepting ALL requests at the Response stage
-		await chrome.debugger.sendCommand({ tabId }, 'Fetch.enable', {
-			patterns: [
-				{
-					urlPattern: '*',
-					requestStage: 'Response',
-					// Removed invalid resourceType: '*'
-				},
-			],
-		});
-		console.log('Fetch domain enabled for response interception');
+                await chrome.debugger.sendCommand({ tabId }, 'Fetch.enable', {
+                        patterns: [
+                                { urlPattern: '*', requestStage: 'Request' },
+                                { urlPattern: '*', requestStage: 'Response' },
+                        ],
+                });
+                console.log('Fetch domain enabled for request and response interception');
 
 		// Set up event listeners for debugger events
 		chrome.debugger.onEvent.addListener(debuggerEventListener);
 
 		// Set global state
-		isDebugging = true;
-		attachedTabId = tabId;
-		pendingResponses = {};
+                isDebugging = true;
+                attachedTabId = tabId;
+                pendingResponses = {};
+                requestTimestamps = {};
 
 		console.log('Debugging started successfully');
 		return true;
@@ -745,8 +747,9 @@ async function stopDebugging(): Promise<boolean> {
 		// Reset global state
 		isDebugging = false;
 		attachedTabId = null;
-		pendingResponses = {};
-		allRequests = {};
+                pendingResponses = {};
+                allRequests = {};
+                requestTimestamps = {};
 
 		console.log('Debugging stopped successfully');
 		return true;
@@ -778,17 +781,24 @@ function debuggerEventListener(
 
 // Handle paused request
 async function handleRequestPaused(params: any): Promise<void> {
-	const { requestId, request, responseStatusCode, responseHeaders, resourceType } = params;
-	const url = request.url;
-	const method = request.method || 'GET';
-	const postData = request.postData || '';
+        const { requestId, request, responseStatusCode, responseHeaders, resourceType } = params;
+        const url = request.url;
+        const method = request.method || 'GET';
+        const postData = request.postData || '';
 
 	console.log(`🟡 REQUEST PAUSED: ${url}`);
 	console.log('Request ID:', requestId);
 	console.log('Method:', method);
 	console.log('Resource Type:', resourceType);
 
-	// Verificar se existe um mock configurado para essa requisição
+        // Se ainda não possuímos o status da resposta, estamos no estágio de Request
+        if (typeof responseStatusCode === 'undefined') {
+                requestTimestamps[requestId] = Date.now();
+                continueRequest(requestId);
+                return;
+        }
+
+        // Verificar se existe um mock configurado para essa requisição
 	const mockResult = await checkForMock(url, method);
 	if (mockResult) {
 		console.log(`Applying mock for ${url}`);
@@ -839,18 +849,24 @@ async function handleRequestPaused(params: any): Promise<void> {
 			}
 
 			// Criar objeto de resposta
-			const responseObj: InterceptedResponse = {
-				url,
-				method,
-				status: responseStatusCode,
-				statusText: getStatusText(responseStatusCode),
-				headers: responseHeadersToObject(responseHeaders),
-				mimeType: getMimeTypeFromHeaders(responseHeaders),
-				type: resourceType,
-				timestamp: Date.now(),
-				body: body, // Usa o corpo processado (ou vazio)
-				request: { postData },
-			};
+                        const duration = requestTimestamps[requestId]
+                                ? Date.now() - requestTimestamps[requestId]
+                                : undefined;
+                        delete requestTimestamps[requestId];
+
+                        const responseObj: InterceptedResponse = {
+                                url,
+                                method,
+                                status: responseStatusCode,
+                                statusText: getStatusText(responseStatusCode),
+                                headers: responseHeadersToObject(responseHeaders),
+                                mimeType: getMimeTypeFromHeaders(responseHeaders),
+                                type: resourceType,
+                                timestamp: Date.now(),
+                                duration,
+                                body: body, // Usa o corpo processado (ou vazio)
+                                request: { postData },
+                        };
 
 			// Armazenar em allRequests
 			allRequests[requestId] = responseObj;
@@ -867,16 +883,17 @@ async function handleRequestPaused(params: any): Promise<void> {
 				};
 
 				// Notify popup about new pending response
-				chrome.runtime.sendMessage({
-					action: 'newPendingResponse',
-					requestId,
-					url,
-					method,
-					status: responseStatusCode,
-					statusText: getStatusText(responseStatusCode),
-					type: resourceType,
-					mimeType: getMimeTypeFromHeaders(responseHeaders),
-				});
+                                chrome.runtime.sendMessage({
+                                        action: 'newPendingResponse',
+                                        requestId,
+                                        url,
+                                        method,
+                                        status: responseStatusCode,
+                                        statusText: getStatusText(responseStatusCode),
+                                        type: resourceType,
+                                        mimeType: getMimeTypeFromHeaders(responseHeaders),
+                                        duration,
+                                });
 
 				console.log(`Response for ${url} is now pending user approval`);
 			} else {
@@ -1346,19 +1363,25 @@ async function applyMockResponse(
 		const statusPhrase = getStatusText(mock.status);
 
 		// Criar objeto de resposta para armazenar no histórico
-		const responseObj: InterceptedResponse = {
-			url: mock.urlPattern, // Usamos o padrão de URL do mock
-			method: mock.method,
-			status: mock.status,
-			statusText: statusPhrase,
-			headers: mock.headers,
-			mimeType: getMimeTypeFromHeaders(headerArray),
-			type: 'mock',
-			timestamp: Date.now(),
-			body: mock.body,
-			isMocked: true,
-			request: { postData: originalRequest?.postData || '' },
-		};
+                const duration = requestTimestamps[requestId]
+                        ? Date.now() - requestTimestamps[requestId]
+                        : undefined;
+                delete requestTimestamps[requestId];
+
+                const responseObj: InterceptedResponse = {
+                        url: mock.urlPattern, // Usamos o padrão de URL do mock
+                        method: mock.method,
+                        status: mock.status,
+                        statusText: statusPhrase,
+                        headers: mock.headers,
+                        mimeType: getMimeTypeFromHeaders(headerArray),
+                        type: 'mock',
+                        timestamp: Date.now(),
+                        duration,
+                        body: mock.body,
+                        isMocked: true,
+                        request: { postData: originalRequest?.postData || '' },
+                };
 
 		// Armazenar em allRequests
 		allRequests[requestId] = responseObj;

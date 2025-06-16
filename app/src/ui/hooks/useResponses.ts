@@ -1,21 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
 
 export interface InterceptedResponse {
-	url: string;
-	method?: string;
-	/** Dados enviados no corpo da requisição original */
-	request?: {
-		postData?: string;
-	};
-	status: number;
-	statusText: string;
-	headers: Record<string, string>;
-	mimeType: string;
-	type: string;
-	timestamp: number;
-	body: string;
-	isWaiting?: boolean;
-	isMocked?: boolean;
+        url: string;
+        method?: string;
+        /** Dados enviados no corpo da requisição original */
+        request?: {
+                postData?: string;
+        };
+        status: number;
+        statusText: string;
+        headers: Record<string, string>;
+        mimeType: string;
+        type: string;
+        timestamp: number;
+        /** Tempo de resposta em milissegundos */
+        duration?: number;
+        body: string;
+        isWaiting?: boolean;
+        isMocked?: boolean;
 }
 
 export interface ResponseModifications {
@@ -201,21 +203,22 @@ export function useResponses() {
 		const messageListener = (message: any) => {
 			if (message.action === 'newPendingResponse') {
 				// Adicionar à lista de respostas pendentes
-				setPendingResponses((prev) => ({
-					...prev,
-					[message.requestId]: {
-						url: message.url,
-						method: message.method || 'GET',
-						status: message.status,
-						statusText: message.statusText,
-						type: message.type,
-						mimeType: message.mimeType,
-						body: '',
-						headers: {},
-						timestamp: Date.now(),
-						isWaiting: true,
-					},
-				}));
+                                setPendingResponses((prev) => ({
+                                        ...prev,
+                                        [message.requestId]: {
+                                                url: message.url,
+                                                method: message.method || 'GET',
+                                                status: message.status,
+                                                statusText: message.statusText,
+                                                type: message.type,
+                                                mimeType: message.mimeType,
+                                                body: '',
+                                                headers: {},
+                                                timestamp: Date.now(),
+                                                duration: message.duration,
+                                                isWaiting: true,
+                                        },
+                                }));
 			} else if (message.action === 'responseBodyReady') {
 				// Atualizar o corpo da resposta
 				if (pendingResponses[message.requestId]) {

@@ -11,20 +11,22 @@ export interface UrlPattern {
 
 // Tipos para respostas interceptadas
 export interface InterceptedResponse {
-	url: string;
-	/** Dados enviados no corpo da requisição original */
-	request?: {
-		postData?: string;
-	};
-	status: number;
-	statusText: string;
-	headers: Record<string, string>;
-	mimeType: string;
-	type: string;
-	timestamp: number;
-	body: string;
-	isWaiting?: boolean;
-	isMocked?: boolean;
+        url: string;
+        /** Dados enviados no corpo da requisição original */
+        request?: {
+                postData?: string;
+        };
+        status: number;
+        statusText: string;
+        headers: Record<string, string>;
+        mimeType: string;
+        type: string;
+        timestamp: number;
+        /** Tempo de resposta em milissegundos */
+        duration?: number;
+        body: string;
+        isWaiting?: boolean;
+        isMocked?: boolean;
 }
 
 // Tipos para modificações de resposta
