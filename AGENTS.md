@@ -18,13 +18,14 @@ npm install              # install deps
 npm run dev              # vite dev server (mostly used for type/build feedback; see "Loading the extension")
 npm run build            # production build → app/dist/
 npm run watch            # vite build --watch (rebuild on save while extension is loaded from dist/)
-npm run lint             # eslint src --ext .ts,.tsx,.js,.jsx
-npm run lint:fix
-npm test                 # jest (jsdom + ts-jest)
-npm run test:watch
-npm run test:coverage
-npx jest path/to/file.test.tsx          # run a single test file
-npx jest -t "name pattern"              # filter by test name
+npm run lint             # biome check src
+npm run lint:fix         # biome check --apply src
+npm run format           # biome format --write src
+npm test                 # vitest run (jsdom)
+npm run test:watch       # vitest (interactive)
+npm run test:coverage    # vitest run --coverage (v8)
+npx vitest path/to/file.test.tsx        # run a single test file
+npx vitest -t "name pattern"            # filter by test name
 ```
 
 CI runs `lint`, `build`, `test` (in that order) on PRs to `main` — keep all three green.
@@ -123,14 +124,14 @@ Output `entryFileNames: '[name].js'` is required so `manifest.json`'s `service_w
 
 ## TypeScript & lint
 
-- **TS is intentionally non-strict** (`strict: false`, `noImplicitAny: false`, `strictNullChecks: false`, etc. — see `app/tsconfig.json`). Don't tighten globally without coordinating; lots of code relies on the looseness (e.g. `message: any` in the background listener).
-- ESLint flat config (`app/eslint.config.js`) **disables** `no-unused-vars`, `@typescript-eslint/no-unused-vars`, and `@typescript-eslint/no-explicit-any`; only `no-undef` is enforced. Prettier runs as an ESLint plugin.
-- Files ignored by lint: `dist`, `node_modules`, `coverage`, all root configs.
+- **TS is intentionally non-strict** (`strict: false`, `noImplicitAny: false`, `strictNullChecks: false`, etc. — see `app/tsconfig.json`). Don't tighten globally without coordinating; lots of code relies on the looseness (e.g. `message: any` in the background listener). Phase 4 of the refactor will revisit this.
+- **Biome** (`app/biome.json`) is the single linter+formatter. Recommended rules with project-specific disables (`noExplicitAny`, `noUnusedVariables`, `noUnusedImports`, `noConsoleLog`, `useOptionalChain`, `noForEach`, etc.). Test files (`**/__tests__/**`) further disable `useButtonType` and `useValidAnchor`.
+- Files ignored by Biome: `dist`, `node_modules`, `coverage`, `lib`, `images`, `package-lock.json`, `**/codemirror.d.ts`. Plus everything in `.gitignore` via `vcs.useIgnoreFile: true`.
 
 ## Code style
 
-- **Indentation: tabs (size 2)** per `.editorconfig`. Don't switch to spaces — diffs will be huge.
-- Prettier: single quotes, trailing commas everywhere, print width 100.
+- **Indentation: tabs (size 2)** per `.editorconfig` and Biome config. Don't switch to spaces — diffs will be huge.
+- Biome formatter: single quotes, trailing commas everywhere, semicolons always, print width 100, JSX double quotes.
 - UI strings, comments, and console logs are written in Portuguese-BR — match that when editing existing files.
 - Functional React + hooks. Classes only for the two service wrappers: `IndexedDBServiceImpl` (`app/src/backend/services/indexedDB.ts`) and `NetworkTimingTracker` (`app/src/backend/services/networkTiming.ts`).
 
@@ -148,7 +149,15 @@ When writing or auditing code:
 
 ## Tests
 
-Jest with `ts-jest` and `jsdom`. `app/jest.setup.js` mocks the `chrome` global (`runtime`, `storage.local`, `tabs.query`); add to that mock when a new test needs an API beyond what's there. Test files live next to the code in `__tests__/` directories. `moduleNameMapper` maps `@/*` → `src/*`.
+**Vitest** with `jsdom` environment and `globals: true` (no per-file `import { describe, test, expect, vi } from 'vitest'` needed). `app/vitest.setup.ts` imports `@testing-library/jest-dom/vitest` for DOM matchers and mocks the `chrome` global (`runtime`, `storage.local`, `tabs.query`); add to that mock when a new test needs an API beyond what's there. Test files live next to the code in `__tests__/` directories. Path alias `@/*` → `src/*` is configured in `vitest.config.ts`.
+
+## Commit hooks
+
+**Husky 9** at the repo root (`.husky/`) wires two hooks:
+- `pre-commit` runs `cd app && npx lint-staged`, which invokes `biome check --apply --no-errors-on-unmatched` on staged `src/**/*.{ts,tsx,js,jsx,json}` files.
+- `commit-msg` runs `cd app && npx --no -- commitlint --edit "$1"`, which validates against `@commitlint/config-conventional` (Conventional Commits: `feat:`, `fix:`, `chore:`, etc.).
+
+The `prepare` script in `app/package.json` (`cd .. && husky`) reinstalls the hooks after every `npm install` from `app/`. Don't run `npm install` from the repo root — husky won't find the right git directory.
 
 ## Quirks worth remembering
 
