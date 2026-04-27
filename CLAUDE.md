@@ -109,7 +109,7 @@ When you add a new action, update both the union in `app/src/backend/types/index
 - `main.tsx` + `routes.tsx` — React 19 + `react-router-dom` `createHashRouter` (hash routing because `chrome-extension://` URLs don't play with HTML5 history). Three routes under `Layout`: `/` (Settings/rules), `/requests` (pending intercepts), `/request-history` (IndexedDB-backed history).
 - `pages/Layout.tsx` — sidebar + header shell, owns the `SelectTabDialog`.
 - `hooks/` — one hook per concern: `useDebugging`, `useResponses` (pending), `useAllRequests` (history), `useRules`, `useUrlPatterns` (legacy edits).
-- `components/shadcn/` — vendored shadcn-ui components. Add new ones via `npm run shadcn:add <name>` (configured in `app/components.json`). Tailwind config in `app/tailwind.config.cjs`; global styles in `app/src/ui/globals.css`.
+- `components/shadcn/` — vendored shadcn-ui components. Add new ones via `npm run shadcn:add <name>` (configured in `app/components.json`). Tailwind v4 with config in CSS — `@theme` block in `app/src/ui/globals.css` declares `--color-*` design tokens; `tw-animate-css` provides the Radix-targeted animation utilities (`animate-in/out`, `fade-in-0`, `zoom-in-95`, `slide-in-from-*`).
 - `components/requests/duration.ts` — pure helpers (`formatDuration`, `getDurationColorClass`, `compareDurations`) used by the "Tempo" column. Co-located tests in `__tests__/duration.test.ts`.
 
 ## Build pipeline (Vite)
