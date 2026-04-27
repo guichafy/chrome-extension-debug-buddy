@@ -72,21 +72,15 @@ The debugger only attaches to `targetTabId`. Closing `interceptorTabId` automati
 
 The tracker filters Network events to a 4-event allowlist (`requestWillBeSent`/`responseReceived`/`loadingFinished`/`loadingFailed`) and caps internal entries at 2000 (FIFO eviction) to bound memory in long debugging sessions.
 
-### 3. Two coexisting rule formats
+### 3. Single rule format
 
-The codebase carries two rule schemas. **New code should use `Rule`**, but interception logic must keep handling both until legacy data is fully migrated.
+The codebase uses a single rule schema (`Rule[]` from `app/src/backend/types/rules.ts`). Earlier versions had separate `urlPatterns`/`mocks` storage keys; those are migrated one-shot at extension install/update via `app/src/backend/services/legacyMigration.ts` and removed from runtime code paths. A backup is kept at `chrome.storage.local.legacy_backup_v1` for one release as a safety net.
 
-| Format | Storage key | Type | Used by |
-|---|---|---|---|
-| Legacy | `urlPatterns` | `UrlPattern[]` (or `string[]`) | `useUrlPatterns`, legacy branch in `shouldInterceptUrl` |
-| Legacy | `mocks` | `MockConfig[]` | legacy branch in `checkForMock` |
-| Current | `rules` | `Rule[]` (matchers + action) | `useRules`, primary branch in `shouldInterceptUrl`/`checkForMock`/`checkForBreakpoint` |
-
-`Rule.action.type` is one of `'mock' | 'delay' | 'modify' | 'breakpoint'` (`app/src/backend/types/rules.ts`). On UI mount, `useRules` auto-migrates any remaining `urlPatterns` entries into `rules` via `migrateOldRules` and clears the old key.
+`Rule.action.type` is one of `'mock' | 'delay' | 'modify' | 'breakpoint'`. On UI mount, `useRules` is a pure reader — the background owns migration; the UI only adds/updates/deletes rules through `chrome.storage.local` writes.
 
 ### 4. Persistence split
 
-- **`chrome.storage.local`** — `rules`, `urlPatterns` (legacy), `mocks` (legacy), `targetTabInfo`. The background subscribes to `chrome.storage.onChanged` to keep its in-memory `rules`/`urlPatterns` arrays in sync (so changes apply without restart).
+- **`chrome.storage.local`** — `rules`, `targetTabInfo`, plus `legacy_migrated_at` (timestamp) and `legacy_backup_v1` (one-release safety net containing the pre-migration `urlPatterns`/`mocks`). The background subscribes to `chrome.storage.onChanged` to keep its in-memory `rules` array in sync (so changes apply without restart).
 - **In-memory (background)** — `pendingResponses`, `allRequests`, `isDebugging`, `attachedTabId`. The in-memory `allRequests` is a fast cache; the durable copy is in IndexedDB.
 - **IndexedDB (shared by background and UI)** — `debugger-extension-db` v1, store `requests` (keyPath `id`, indexes on `data.url`/`data.timestamp`/`data.method`/`data.status`). The same `IndexedDBServiceImpl` (`app/src/backend/services/indexedDB.ts`) is imported by both the service worker and the UI; each context opens its own connection to the same database (IndexedDB allows concurrent connections).
 - **Background is the writer**, frontend is the reader. Two helpers in `background.ts` enforce this:
@@ -100,7 +94,7 @@ UI → background: `chrome.runtime.sendMessage({action, ...})`. Action names liv
 
 Background → UI: `chrome.tabs.sendMessage(interceptorTabId, {action, ...})` via the `broadcastToUI` helper for events targeted at the React app (`newRequest`, `requestUpdated`, `targetTabSelected`, `openSelectTabDialog`), or `chrome.runtime.sendMessage(...)` broadcasts (`newPendingResponse`, `responseBodyReady`). `requestUpdated` carries `{ requestId, updates }` for partial merges (e.g. duration arriving asynchronously after `loadingFinished`, or `isWaiting: false` after dialog approval).
 
-When you add a new action, update both the union in `app/src/backend/types/index.ts` *and* the inline one in `background.ts` (they have drifted — see "Quirks" below).
+When you add a new action, edit `app/src/backend/types/messages.ts` — that file is the single source of truth, imported by `background.ts` and the UI hooks alike.
 
 ## Frontend layout
 
@@ -108,7 +102,7 @@ When you add a new action, update both the union in `app/src/backend/types/index
 
 - `main.tsx` + `routes.tsx` — React 19 + `react-router-dom` `createHashRouter` (hash routing because `chrome-extension://` URLs don't play with HTML5 history). Three routes under `Layout`: `/` (Settings/rules), `/requests` (pending intercepts), `/request-history` (IndexedDB-backed history).
 - `pages/Layout.tsx` — sidebar + header shell, owns the `SelectTabDialog`.
-- `hooks/` — one hook per concern: `useDebugging`, `useResponses` (pending), `useAllRequests` (history), `useRules`, `useUrlPatterns` (legacy edits).
+- `hooks/` — one hook per concern: `useDebugging`, `useResponses` (pending), `useAllRequests` (history), `useRules` (rule CRUD).
 - `components/shadcn/` — vendored shadcn-ui components. Add new ones via `npm run shadcn:add <name>` (configured in `app/components.json`). Tailwind v4 with config in CSS — `@theme` block in `app/src/ui/globals.css` declares `--color-*` design tokens; `tw-animate-css` provides the Radix-targeted animation utilities (`animate-in/out`, `fade-in-0`, `zoom-in-95`, `slide-in-from-*`).
 - `components/requests/duration.ts` — pure helpers (`formatDuration`, `getDurationColorClass`, `compareDurations`) used by the "Tempo" column. Co-located tests in `__tests__/duration.test.ts`.
 
@@ -161,8 +155,6 @@ The `prepare` script in `app/package.json` (`cd .. && husky`) reinstalls the hoo
 
 ## Quirks worth remembering
 
-- **The `Message`/`MessageAction` types in `app/src/backend/types/index.ts` are stale** — the inline declarations at the top of `background.ts` are the source of truth. Reconcile cautiously: production code reads from the inline list.
-- **Request body for the original request is on `InterceptedResponse.request.postData`** (added recently — commit `0bb0778`). The field exists on the frontend `InterceptedResponse` type (`useResponses.ts`) but not on the inline backend interface — another type drift case.
 - **Request *headers* are not stored separately from response headers** (issue #19) — `InterceptedResponse.headers` always holds response headers. Anything claiming to show "request headers" in `ResponseDialog` is currently misleading.
 
 ## Known open issues (April 2026)
