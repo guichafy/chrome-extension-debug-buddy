@@ -13,8 +13,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "lint": "eslint src --ext .ts,.tsx,.js,.jsx",
-    "lint:fix": "eslint src --ext .ts,.tsx,.js,.jsx --fix"
+    "lint": "biome check src",
+    "lint:fix": "biome check --apply src",
+    "format": "biome format --write src"
   },
   "keywords": [
     "chrome",

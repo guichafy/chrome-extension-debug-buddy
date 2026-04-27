@@ -11,7 +11,7 @@ vi.mock('react-router-dom', () => ({
 // Mock para os componentes do shadcn-ui
 vi.mock('../shadcn/separator', () => ({
 	Separator: ({ orientation, className }) => (
-		<div data-testid="separator" data-orientation={orientation} className={className}></div>
+		<div data-testid="separator" data-orientation={orientation} className={className} />
 	),
 }));
 

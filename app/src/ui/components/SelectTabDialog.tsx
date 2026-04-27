@@ -80,7 +80,7 @@ const SelectTabDialog: React.FC<SelectTabDialogProps> = ({ open, onOpenChange, o
 				>
 					{loading ? (
 						<div className="flex justify-center items-center h-40">
-							<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+							<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
 						</div>
 					) : tabs.length === 0 ? (
 						<div className="p-4 border rounded bg-muted text-center">

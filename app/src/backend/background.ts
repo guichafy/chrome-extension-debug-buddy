@@ -126,7 +126,7 @@ interface Action {
 }
 
 // Global variables
-let isDebugging: boolean = false;
+let isDebugging = false;
 let attachedTabId: number | null = null;
 let urlPatterns: (string | UrlPattern)[] = [];
 let rules: Rule[] = [];
@@ -135,8 +135,8 @@ let allRequests: Record<string, InterceptedResponse> = {}; // Store all requests
 // Variáveis globais para rastrear abas
 let interceptorTabId: number | null = null;
 let targetTabId: number | null = null;
-let targetTabTitle: string = '';
-let targetTabUrl: string = '';
+let targetTabTitle = '';
+let targetTabUrl = '';
 
 // Background é a fonte de verdade da persistência. `persistRequest` grava
 // no in-memory cache + IndexedDB e broadcasta `newRequest` para a UI; quando
@@ -269,7 +269,7 @@ chrome.runtime.onMessage.addListener(
 		}
 
 		if (message.action === 'getMocks') {
-			chrome.storage.local.get(['mocks'], function (result: { mocks?: MockConfig[] }) {
+			chrome.storage.local.get(['mocks'], (result: { mocks?: MockConfig[] }) => {
 				sendResponse({ success: true, mocks: result.mocks || [] });
 			});
 			return true; // Indicates we'll respond asynchronously
@@ -452,7 +452,7 @@ chrome.runtime.onMessage.addListener(
 function encodeBodyToBase64(body: string): string {
 	return btoa(
 		encodeURIComponent(body).replace(/%([0-9A-F]{2})/g, (_, p1) =>
-			String.fromCharCode(parseInt(p1, 16)),
+			String.fromCharCode(Number.parseInt(p1, 16)),
 		),
 	);
 }
