@@ -86,14 +86,18 @@ The codebase carries two rule schemas. **New code should use `Rule`**, but inter
 ### 4. Persistence split
 
 - **`chrome.storage.local`** — `rules`, `urlPatterns` (legacy), `mocks` (legacy), `targetTabInfo`. The background subscribes to `chrome.storage.onChanged` to keep its in-memory `rules`/`urlPatterns` arrays in sync (so changes apply without restart).
-- **In-memory only (background)** — `pendingResponses`, `allRequests`, `isDebugging`, `attachedTabId`. Reset on service-worker restart.
-- **IndexedDB (frontend)** — `debugger-extension-db` v1, store `requests` (keyPath `id`, indexes on `data.url`/`data.timestamp`/`data.method`/`data.status`). Implemented in `app/src/backend/services/indexedDB.ts` and used by `useAllRequests` for the persistent request history (the in-memory `allRequests` in background is short-lived).
+- **In-memory (background)** — `pendingResponses`, `allRequests`, `isDebugging`, `attachedTabId`. The in-memory `allRequests` is a fast cache; the durable copy is in IndexedDB.
+- **IndexedDB (shared by background and UI)** — `debugger-extension-db` v1, store `requests` (keyPath `id`, indexes on `data.url`/`data.timestamp`/`data.method`/`data.status`). The same `IndexedDBServiceImpl` (`app/src/backend/services/indexedDB.ts`) is imported by both the service worker and the UI; each context opens its own connection to the same database (IndexedDB allows concurrent connections).
+- **Background is the writer**, frontend is the reader. Two helpers in `background.ts` enforce this:
+  - `persistRequest(id, response)` — writes to `allRequests`, IndexedDB, and broadcasts `newRequest` to the UI. Called from `handleRequestPaused` (intercepted/passthrough), `applyMockResponse`, and any other point that creates a request.
+  - `patchRequest(id, updates)` — merges into existing `allRequests[id]`, persists, and broadcasts `requestUpdated`. Called from the `NetworkTimingTracker` callback (when `duration` arrives) and from `approveResponse` finalization (when `isWaiting: false` plus modifications are committed).
+- **`useAllRequests` is a pure reader**: loads the snapshot from IndexedDB on mount, listens to `newRequest`/`requestUpdated` to keep state reactive while mounted, polls IndexedDB every 10s as resync. It does **not** write to IndexedDB anymore — eliminates data loss when the user navigates away from `/request-history` during interception (the original cause of "intercepted request disappears from history" and issue #4).
 
 ### 5. Messaging
 
 UI → background: `chrome.runtime.sendMessage({action, ...})`. Action names live as a union type at the top of `background.ts` (e.g. `startDebugging`, `getDebuggingStatus`, `getPendingResponses`, `getAllRequests`, `approveResponse`, `setTargetTab`, `clearAllRequests`).
 
-Background → UI: `chrome.tabs.sendMessage(interceptorTabId, {action, ...})` for events targeted at the React app (`newRequest`, `requestUpdated`, `targetTabSelected`, `openSelectTabDialog`), or `chrome.runtime.sendMessage(...)` broadcasts (`newPendingResponse`, `responseBodyReady`). `requestUpdated` carries `{ requestId, updates }` for partial merges (e.g. duration arriving asynchronously after `loadingFinished`).
+Background → UI: `chrome.tabs.sendMessage(interceptorTabId, {action, ...})` via the `broadcastToUI` helper for events targeted at the React app (`newRequest`, `requestUpdated`, `targetTabSelected`, `openSelectTabDialog`), or `chrome.runtime.sendMessage(...)` broadcasts (`newPendingResponse`, `responseBodyReady`). `requestUpdated` carries `{ requestId, updates }` for partial merges (e.g. duration arriving asynchronously after `loadingFinished`, or `isWaiting: false` after dialog approval).
 
 When you add a new action, update both the union in `app/src/backend/types/index.ts` *and* the inline one in `background.ts` (they have drifted — see "Quirks" below).
 
@@ -158,7 +162,6 @@ Jest with `ts-jest` and `jsdom`. `app/jest.setup.js` mocks the `chrome` global (
 Run `gh issue list --state open` for the live list. Active items as of last sync:
 
 - **#3** — i18n (PT-BR / EN) integration with Vite.
-- **#4** — `RequestHistory` doesn't store multiple visits to the same monitored page (likely an ID-collision/dedupe bug in `useAllRequests` + IndexedDB `put` on same key).
 - **#6** — Display `package.json` version in `AppSidebar` footer.
 - **#19** — Capture and store request headers separately in the background script.
 

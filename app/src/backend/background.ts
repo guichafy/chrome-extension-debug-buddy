@@ -1,3 +1,4 @@
+import { indexedDBService } from './services/indexedDB';
 import { NetworkTimingTracker } from './services/networkTiming';
 
 // Tipos para padrões de URL
@@ -58,11 +59,11 @@ type MessageAction =
 	| 'getPendingResponses'
 	| 'getAllRequests'
 	| 'clearAllRequests'
-	| 'addToRequestHistory'
 	| 'getResponseDetails'
 	| 'approveResponse'
 	| 'newPendingResponse'
 	| 'responseBodyReady'
+	| 'newRequest'
 	| 'requestUpdated'
 	| 'hot_reload'
 	| 'selectTargetTab'
@@ -135,23 +136,49 @@ let targetTabId: number | null = null;
 let targetTabTitle: string = '';
 let targetTabUrl: string = '';
 
-// Captura tempos de cada requisição via Network domain do CDP. Quando duration
-// fica disponível (após Network.loadingFinished, que tipicamente chega depois
-// do Fetch.requestPaused), atualiza allRequests e notifica a UI.
-const timingTracker = new NetworkTimingTracker((fetchRequestId, duration) => {
-	const existing = allRequests[fetchRequestId];
-	if (existing) existing.duration = duration;
-	if (interceptorTabId !== null) {
-		chrome.tabs
-			.sendMessage(interceptorTabId, {
-				action: 'requestUpdated',
-				requestId: fetchRequestId,
-				updates: { duration },
-			})
-			.catch(() => {
-				// UI fechada — atualização perdida; in-memory já foi atualizado
-			});
+// Background é a fonte de verdade da persistência. `persistRequest` grava
+// no in-memory cache + IndexedDB e broadcasta `newRequest` para a UI; quando
+// updates parciais chegam (ex.: duration assíncrono ou aprovação após dialog),
+// `patchRequest` mescla, persiste e broadcasta `requestUpdated`. Não dependemos
+// mais da UI estar montada para persistir — assim, navegar entre rotas durante
+// interceptação não perde dado (era a causa raiz do "request interceptada some
+// do histórico" e do issue #4).
+
+function broadcastToUI(action: string, payload: Record<string, unknown>): void {
+	if (interceptorTabId === null) return;
+	chrome.tabs.sendMessage(interceptorTabId, { action, ...payload }).catch(() => {
+		// UI fechada ou navegando — sem problema; o IndexedDB já tem o dado.
+	});
+}
+
+async function persistRequest(requestId: string, request: InterceptedResponse): Promise<void> {
+	allRequests[requestId] = request;
+	try {
+		await indexedDBService.saveRequest(requestId, request);
+	} catch (err) {
+		console.error(`Erro ao salvar requisição ${requestId} no IndexedDB:`, err);
 	}
+	broadcastToUI('newRequest', { requestId, request });
+}
+
+async function patchRequest(
+	requestId: string,
+	updates: Partial<InterceptedResponse>,
+): Promise<void> {
+	const existing = allRequests[requestId];
+	if (!existing) return;
+	const merged = { ...existing, ...updates };
+	allRequests[requestId] = merged;
+	try {
+		await indexedDBService.saveRequest(requestId, merged);
+	} catch (err) {
+		console.error(`Erro ao atualizar requisição ${requestId} no IndexedDB:`, err);
+	}
+	broadcastToUI('requestUpdated', { requestId, updates });
+}
+
+const timingTracker = new NetworkTimingTracker((fetchRequestId, duration) => {
+	patchRequest(fetchRequestId, { duration });
 });
 
 // Initialize when the extension is installed or updated
@@ -280,32 +307,6 @@ chrome.runtime.onMessage.addListener(
 		} else if (message.action === 'getAllRequests') {
 			sendResponse({ allRequests });
 			return false; // Indicates we've responded synchronously
-		} else if (message.action === 'addToRequestHistory') {
-			const { requestId, request } = message;
-			if (requestId && request) {
-				// Adicionar ao histórico de requisições
-				allRequests[requestId] = request;
-
-				// Notificar o frontend sobre a nova requisição para atualizar a UI
-				if (interceptorTabId) {
-					chrome.tabs
-						.sendMessage(interceptorTabId, {
-							action: 'newRequest',
-							requestId,
-							request,
-						})
-						.catch(() => {
-							// Ignora erros se a página principal não estiver aberta
-							console.log('Não foi possível enviar a requisição interceptada para o frontend');
-						});
-				}
-
-				console.log(`Requisição interceptada ${requestId} adicionada ao histórico`);
-				sendResponse({ success: true });
-			} else {
-				sendResponse({ success: false, error: 'ID de requisição ou dados inválidos' });
-			}
-			return false; // Indica que respondemos de forma síncrona
 		} else if (message.action === 'getResponseDetails') {
 			const { requestId } = message;
 			if (requestId && pendingResponses[requestId]) {
@@ -368,11 +369,15 @@ chrome.runtime.onMessage.addListener(
 			}
 			return false; // Indicates we've responded synchronously
 		} else if (message.action === 'clearAllRequests') {
-			// Limpar todas as requisições armazenadas no background script
 			allRequests = {};
-			console.log('Todas as requisições foram limpas do background script');
-			sendResponse({ success: true });
-			return false; // Indicates we've responded synchronously
+			indexedDBService
+				.clearAllRequests()
+				.then(() => sendResponse({ success: true }))
+				.catch((err) => {
+					console.error('Erro ao limpar IndexedDB:', err);
+					sendResponse({ success: false, error: String(err) });
+				});
+			return true; // resposta assíncrona
 		} else if (message.action === 'approveResponse') {
 			const { requestId, modifications } = message;
 
@@ -400,10 +405,14 @@ chrome.runtime.onMessage.addListener(
 
 				applyResponseModifications(requestId, modifications)
 					.then(() => {
-						// Remove from pending responses
-						if (requestId) {
-							delete pendingResponses[requestId];
-						}
+						delete pendingResponses[requestId];
+						// Filtra undefined: spread cego do `modifications` poderia apagar
+						// `headers`/`body` originais se o usuário só alterou `status`.
+						const finalUpdates: Partial<InterceptedResponse> = { isWaiting: false };
+						if (modifications.status !== undefined) finalUpdates.status = modifications.status;
+						if (modifications.headers !== undefined) finalUpdates.headers = modifications.headers;
+						if (modifications.body !== undefined) finalUpdates.body = modifications.body;
+						patchRequest(requestId, finalUpdates);
 						sendResponse({ success: true });
 					})
 					.catch((error) => {
@@ -416,6 +425,11 @@ chrome.runtime.onMessage.addListener(
 				console.log(
 					`Ignoring response for request ${requestId} - continuing without modifications`,
 				);
+				const finalize = () => {
+					delete pendingResponses[requestId];
+					patchRequest(requestId, { isWaiting: false });
+					sendResponse({ success: true });
+				};
 				if (attachedTabId !== null) {
 					chrome.debugger.sendCommand(
 						{ tabId: attachedTabId },
@@ -423,20 +437,12 @@ chrome.runtime.onMessage.addListener(
 						{ requestId },
 						() => {
 							console.log(`Request ${requestId} continued without modifications`);
-							// Remove from pending responses
-							if (requestId) {
-								delete pendingResponses[requestId];
-							}
-							sendResponse({ success: true });
+							finalize();
 						},
 					);
 					return true; // Indicates we'll respond asynchronously
 				} else {
-					// No active debugging session
-					if (requestId) {
-						delete pendingResponses[requestId];
-					}
-					sendResponse({ success: true });
+					finalize();
 					return false;
 				}
 			}
@@ -883,25 +889,20 @@ async function handleRequestPaused(params: any): Promise<void> {
 				request: { postData },
 			};
 
-			// Armazenar em allRequests
-			allRequests[requestId] = responseObj;
-
 			// Quando Network.loadingFinished chegar (tipicamente depois do paused),
-			// o tracker emitirá `requestUpdated` para a UI com a duration final.
+			// o tracker emitirá `requestUpdated` com a duration final.
 			timingTracker.linkFetchId(networkId, requestId);
 
-			// Check if this URL should be intercepted based on our patterns
-			if (shouldInterceptUrl(url, request)) {
-				// This is a URL we want to intercept
+			const willIntercept = shouldInterceptUrl(url, request);
+			const persistedRequest: InterceptedResponse = willIntercept
+				? { ...responseObj, isWaiting: true }
+				: responseObj;
+
+			persistRequest(requestId, persistedRequest);
+
+			if (willIntercept) {
 				console.log(`Intercepting response for ${url}`);
-
-				// Adicionar flag isWaiting para requisições interceptadas
-				pendingResponses[requestId] = {
-					...responseObj,
-					isWaiting: true,
-				};
-
-				// Notify popup about new pending response
+				pendingResponses[requestId] = persistedRequest;
 				chrome.runtime.sendMessage({
 					action: 'newPendingResponse',
 					requestId,
@@ -912,25 +913,9 @@ async function handleRequestPaused(params: any): Promise<void> {
 					type: resourceType,
 					mimeType: getMimeTypeFromHeaders(responseHeaders),
 				});
-
 				console.log(`Response for ${url} is now pending user approval`);
 			} else {
-				// This is not a URL we want to intercept, continue the request
 				continueRequest(requestId);
-
-				// Notificar o frontend sobre a nova requisição para armazenamento no IndexedDB
-				if (interceptorTabId) {
-					chrome.tabs
-						.sendMessage(interceptorTabId, {
-							action: 'newRequest',
-							requestId,
-							request: responseObj,
-						})
-						.catch(() => {
-							// Ignora erros se a página principal não estiver aberta
-							console.log('Não foi possível enviar a nova requisição para o frontend');
-						});
-				}
 			}
 		},
 	);
@@ -1395,22 +1380,7 @@ async function applyMockResponse(
 			request: { postData: originalRequest?.postData || '' },
 		};
 
-		// Armazenar em allRequests
-		allRequests[requestId] = responseObj;
-
-		// Notificar o frontend sobre a nova requisição mockada
-		if (interceptorTabId) {
-			chrome.tabs
-				.sendMessage(interceptorTabId, {
-					action: 'newRequest',
-					requestId,
-					request: responseObj,
-				})
-				.catch(() => {
-					// Ignora erros se a página principal não estiver aberta
-					console.log('Não foi possível enviar a requisição mockada para o frontend');
-				});
-		}
+		persistRequest(requestId, responseObj);
 
 		// Envia a resposta mockada com o body corretamente codificado
 		await chrome.debugger.sendCommand({ tabId: attachedTabId }, 'Fetch.fulfillRequest', {

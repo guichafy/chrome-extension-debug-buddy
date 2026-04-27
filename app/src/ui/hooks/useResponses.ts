@@ -88,40 +88,16 @@ export function useResponses() {
 				});
 
 				if (response && response.success) {
-					// Obter a resposta atual antes de removê-la
-					const currentPendingResponse = pendingResponses[requestId];
-
-					// Remover da lista de respostas pendentes
+					// Background já persistiu a versão final no IndexedDB e fez broadcast
+					// `requestUpdated` com isWaiting=false. Aqui só limpamos o pending local.
 					const newPendingResponses = { ...pendingResponses };
 					delete newPendingResponses[requestId];
 					setPendingResponses(newPendingResponses);
 
-					// Limpar resposta atual
 					if (currentResponseId === requestId) {
 						setCurrentResponseId(null);
 						setCurrentResponse(null);
 					}
-
-					// Adicionar ao histórico geral de requisições
-					if (currentPendingResponse) {
-						// Criar uma cópia da resposta com isWaiting=false para indicar que foi processada
-						const processedResponse: InterceptedResponse = {
-							...currentPendingResponse,
-							isWaiting: false, // Indica que não está mais aguardando
-							// Aplicar modificações, se houver
-							status: modifications.status || currentPendingResponse.status,
-							headers: modifications.headers || currentPendingResponse.headers,
-							body: modifications.body || currentPendingResponse.body,
-						};
-
-						// Notificar o background script para adicionar ao histórico
-						chrome.runtime.sendMessage({
-							action: 'addToRequestHistory',
-							requestId,
-							request: processedResponse,
-						});
-					}
-
 					return true;
 				} else {
 					alert('Falha ao aprovar resposta: ' + (response ? response.error : 'Erro desconhecido'));
@@ -141,44 +117,21 @@ export function useResponses() {
 			try {
 				console.log(`Ignorando resposta: ${requestId}`);
 
-				// Obter a resposta atual antes de qualquer operação
-				const currentPendingResponse = pendingResponses[requestId];
-
-				// Enviar para o background script sem modificações
 				const response = await chrome.runtime.sendMessage({
 					action: 'approveResponse',
 					requestId,
-					// Não enviamos modificações para continuar a requisição original
+					// Sem modifications: background continua a request original.
 				});
 
 				if (response && response.success) {
-					// Remover da lista de respostas pendentes
 					const newPendingResponses = { ...pendingResponses };
 					delete newPendingResponses[requestId];
 					setPendingResponses(newPendingResponses);
 
-					// Limpar resposta atual
 					if (currentResponseId === requestId) {
 						setCurrentResponseId(null);
 						setCurrentResponse(null);
 					}
-
-					// Adicionar ao histórico geral de requisições
-					if (currentPendingResponse) {
-						// Criar uma cópia da resposta com isWaiting=false
-						const processedResponse: InterceptedResponse = {
-							...currentPendingResponse,
-							isWaiting: false, // Indica que não está mais aguardando
-						};
-
-						// Notificar o background script para adicionar ao histórico
-						chrome.runtime.sendMessage({
-							action: 'addToRequestHistory',
-							requestId,
-							request: processedResponse,
-						});
-					}
-
 					return true;
 				} else {
 					alert('Falha ao ignorar resposta: ' + (response ? response.error : 'Erro desconhecido'));

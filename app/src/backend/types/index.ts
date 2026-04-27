@@ -58,6 +58,7 @@ export type MessageAction =
 	| 'approveResponse'
 	| 'newPendingResponse'
 	| 'responseBodyReady'
+	| 'newRequest'
 	| 'requestUpdated';
 
 export interface Message {
