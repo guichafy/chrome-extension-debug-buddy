@@ -153,7 +153,6 @@ Jest with `ts-jest` and `jsdom`. `app/jest.setup.js` mocks the `chrome` global (
 ## Quirks worth remembering
 
 - **The `Message`/`MessageAction` types in `app/src/backend/types/index.ts` are stale** — the inline declarations at the top of `background.ts` are the source of truth. Reconcile cautiously: production code reads from the inline list.
-- **`extension-reloader.ts` and `hot-reload.ts`** use MV2 APIs (`getBackgroundPage`, `getPackageDirectoryEntry`) and aren't wired into the build. Treat them as dead code unless you're explicitly resurrecting hot reload.
 - **Request body for the original request is on `InterceptedResponse.request.postData`** (added recently — commit `0bb0778`). The field exists on the frontend `InterceptedResponse` type (`useResponses.ts`) but not on the inline backend interface — another type drift case.
 - **Request *headers* are not stored separately from response headers** (issue #19) — `InterceptedResponse.headers` always holds response headers. Anything claiming to show "request headers" in `ResponseDialog` is currently misleading.
 
