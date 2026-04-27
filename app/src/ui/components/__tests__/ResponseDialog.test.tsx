@@ -4,7 +4,7 @@ import ResponseDialog from '../ResponseDialog';
 import { InterceptedResponse } from '../../hooks/useResponses';
 
 // Mock para os componentes do shadcn-ui
-jest.mock('../shadcn/dialog', () => ({
+vi.mock('../shadcn/dialog', () => ({
 	Dialog: ({ children, open }) => (open ? <div data-testid="dialog">{children}</div> : null),
 	DialogContent: ({ children, className }) => (
 		<div data-testid="dialog-content" className={className}>
@@ -22,7 +22,7 @@ jest.mock('../shadcn/dialog', () => ({
 	DialogDescription: ({ children }) => <div data-testid="dialog-description">{children}</div>,
 }));
 
-jest.mock('../shadcn/card', () => ({
+vi.mock('../shadcn/card', () => ({
 	Card: ({ children, className }) => (
 		<div data-testid="card" className={className}>
 			{children}
@@ -35,7 +35,7 @@ jest.mock('../shadcn/card', () => ({
 	),
 }));
 
-jest.mock('../shadcn/badge', () => ({
+vi.mock('../shadcn/badge', () => ({
 	Badge: ({ children, variant, className }) => (
 		<span data-testid="badge" data-variant={variant} className={className}>
 			{children}
@@ -43,7 +43,7 @@ jest.mock('../shadcn/badge', () => ({
 	),
 }));
 
-jest.mock('../shadcn/button', () => ({
+vi.mock('../shadcn/button', () => ({
 	Button: ({ children, onClick, variant, size, className, disabled }) => (
 		<button
 			data-testid="button"
@@ -58,7 +58,7 @@ jest.mock('../shadcn/button', () => ({
 	),
 }));
 
-jest.mock('../shadcn/input', () => ({
+vi.mock('../shadcn/input', () => ({
 	Input: ({ id, value, onChange, disabled, className, type }) => (
 		<input
 			data-testid="input"
@@ -72,7 +72,7 @@ jest.mock('../shadcn/input', () => ({
 	),
 }));
 
-jest.mock('../shadcn/icon', () => ({
+vi.mock('../shadcn/icon', () => ({
 	Icon: ({ name, className }) => (
 		<span data-testid="icon" data-name={name} className={className}>
 			{name}
@@ -80,7 +80,7 @@ jest.mock('../shadcn/icon', () => ({
 	),
 }));
 
-jest.mock('../shadcn/tabs', () => ({
+vi.mock('../shadcn/tabs', () => ({
 	Tabs: ({ children, defaultValue, className }) => (
 		<div data-testid="tabs" data-default-value={defaultValue} className={className}>
 			{children}
@@ -103,7 +103,7 @@ jest.mock('../shadcn/tabs', () => ({
 	),
 }));
 
-jest.mock('../shadcn/scroll-area', () => ({
+vi.mock('../shadcn/scroll-area', () => ({
 	ScrollArea: ({ children, className }) => (
 		<div data-testid="scroll-area" className={className}>
 			{children}
@@ -125,15 +125,15 @@ describe('ResponseDialog Component', () => {
 	};
 
 	const mockRequestId = 'req1';
-	const mockOnApprove = jest.fn().mockResolvedValue(true);
-	const mockOnIgnore = jest.fn().mockResolvedValue(true);
-	const mockOnMock = jest.fn();
-	const mockOnEdit = jest.fn();
-	const mockOnCancel = jest.fn();
-	const mockOnOpenChange = jest.fn();
+	const mockOnApprove = vi.fn().mockResolvedValue(true);
+	const mockOnIgnore = vi.fn().mockResolvedValue(true);
+	const mockOnMock = vi.fn();
+	const mockOnEdit = vi.fn();
+	const mockOnCancel = vi.fn();
+	const mockOnOpenChange = vi.fn();
 
 	beforeEach(() => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 	});
 
 	test('renderiza o diálogo quando open é true', () => {
