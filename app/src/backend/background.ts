@@ -1,129 +1,16 @@
 import { indexedDBService } from './services/indexedDB';
 import { NetworkTimingTracker } from './services/networkTiming';
-
-// Tipos para padrões de URL
-interface UrlPattern {
-	url: string;
-	method: string;
-	headerType?: string;
-	headerName?: string;
-	headerValue?: string;
-	enabled?: boolean;
-	isRegex?: boolean;
-}
-
-// Tipos para respostas interceptadas
-interface InterceptedResponse {
-	url: string;
-	method?: string;
-	request?: {
-		postData?: string;
-	};
-	status: number;
-	statusText: string;
-	headers: Record<string, string>;
-	mimeType: string;
-	type: string;
-	timestamp: number;
-	body?: string;
-	isWaiting?: boolean;
-	isMocked?: boolean;
-	captureError?: string;
-	bodyUnavailableReason?: string;
-	/** Tempo total da requisição em milissegundos (capturado via Network domain do CDP) */
-	duration?: number;
-}
-
-// Tipos para modificações de resposta
-interface ResponseModifications {
-	status?: number;
-	headers?: Record<string, string>;
-	body?: string;
-}
-
-// Tipos para mocks
-interface MockConfig {
-	urlPattern: string;
-	method: string;
-	status: number;
-	headers: Record<string, string>;
-	body: string;
-	createdAt: number;
-	enabled: boolean;
-}
-
-// Tipos para mensagens entre scripts
-type MessageAction =
-	| 'getMocks'
-	| 'startDebugging'
-	| 'stopDebugging'
-	| 'getDebuggingStatus'
-	| 'getPendingResponses'
-	| 'getAllRequests'
-	| 'clearAllRequests'
-	| 'getResponseDetails'
-	| 'approveResponse'
-	| 'newPendingResponse'
-	| 'responseBodyReady'
-	| 'newRequest'
-	| 'requestUpdated'
-	| 'hot_reload'
-	| 'selectTargetTab'
-	| 'setTargetTab';
-
-interface Message {
-	action: MessageAction;
-	tabId?: number;
-	requestId?: string;
-	url?: string;
-	status?: number;
-	statusText?: string;
-	type?: string;
-	mimeType?: string;
-	body?: string;
-	modifications?: ResponseModifications;
-}
-
-interface MessageResponse {
-	success?: boolean;
-	error?: string;
-	isDebugging?: boolean;
-	pendingResponses?: Record<string, InterceptedResponse>;
-	allRequests?: Record<string, InterceptedResponse>;
-	response?: InterceptedResponse;
-	mocks?: MockConfig[];
-}
-
-// Tipos para as novas regras
-interface Rule {
-	id: string;
-	name: string;
-	enabled: boolean;
-	matchers: Matcher[];
-	action: Action;
-	createdAt: number;
-	updatedAt: number;
-}
-
-interface Matcher {
-	type: string;
-	enabled: boolean;
-	pattern?: string;
-	isRegex?: boolean;
-	method?: string;
-	name?: string;
-	value?: string;
-	headerType?: 'request' | 'response';
-}
-
-interface Action {
-	type: string;
-	enabled: boolean;
-	status?: number;
-	headers?: Record<string, string>;
-	body?: string;
-	contentType?: string;
-}
+import type {
+	Action,
+	InterceptedResponse,
+	Matcher,
+	Message,
+	MessageAction,
+	MessageResponse,
+	ResponseModifications,
+	Rule,
+} from './types';
+import type { MockConfig, UrlPattern } from './types/legacy';
 
 // Global variables
 let isDebugging = false;
