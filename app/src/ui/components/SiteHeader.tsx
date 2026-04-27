@@ -85,7 +85,7 @@ export function SiteHeader({
 							<TooltipTrigger asChild>
 								<Button
 									variant="outline"
-									className={`flex items-center gap-2 max-w-[200px] ${targetTab.id ? 'text-black' : 'text-black'}`}
+									className="flex items-center gap-2 max-w-[200px]"
 									onClick={onSelectTabClick}
 								>
 									<Icon name="tab" className="flex-shrink-0" />
