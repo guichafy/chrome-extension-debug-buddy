@@ -2,6 +2,75 @@ import { useState, useEffect, useCallback } from 'react';
 import { Rule, Matcher, Action } from '@/backend/types/rules';
 import { v4 as uuidv4 } from 'uuid';
 
+type LegacyUrlPattern =
+	| string
+	| {
+			url: string;
+			method?: string;
+			headerName?: string;
+			headerValue?: string;
+			headerType?: 'request' | 'response';
+			enabled?: boolean;
+			isRegex?: boolean;
+	  };
+
+export function createRuleFromLegacyUrlPattern(
+	pattern: LegacyUrlPattern,
+	now: number,
+	createId: () => string = uuidv4,
+): Rule {
+	const matchers: Matcher[] = [];
+	const url = typeof pattern === 'string' ? pattern : pattern.url;
+
+	if (!url) {
+		throw new Error('Padrão legado sem URL não pode ser migrado');
+	}
+
+	matchers.push({
+		type: 'url',
+		enabled: true,
+		pattern: url,
+		isRegex: typeof pattern === 'string' ? false : pattern.isRegex === true,
+	});
+
+	if (typeof pattern !== 'string' && pattern.method) {
+		matchers.push({
+			type: 'method',
+			enabled: true,
+			method: pattern.method,
+		});
+	}
+
+	if (
+		typeof pattern !== 'string' &&
+		pattern.headerName &&
+		pattern.headerValue &&
+		pattern.headerType
+	) {
+		matchers.push({
+			type: 'header',
+			enabled: true,
+			name: pattern.headerName,
+			value: pattern.headerValue,
+			headerType: pattern.headerType,
+		});
+	}
+
+	return {
+		id: createId(),
+		name: `Regra migrada: ${url}`,
+		enabled: typeof pattern === 'string' ? true : pattern.enabled !== false,
+		matchers,
+		action: {
+			type: 'breakpoint',
+			enabled: true,
+			description: 'Regra migrada de padrões de URL legados',
+		},
+		createdAt: now,
+		updatedAt: now,
+	};
+}
+
 export function useRules() {
 	const [rules, setRules] = useState<Rule[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -145,90 +214,25 @@ export function useRules() {
 	// Migrar regras antigas para o novo formato
 	const migrateOldRules = useCallback(async (): Promise<boolean> => {
 		try {
-			// Obter padrões de URL antigos
-			const result = await chrome.storage.local.get(['urlPatterns']);
+			// Obter padrões antigos e regras atuais juntos para não depender do estado React.
+			const result = await chrome.storage.local.get(['rules', 'urlPatterns']);
 			const oldPatterns = result.urlPatterns || [];
+			const existingRules = result.rules || [];
 
 			if (oldPatterns.length === 0) {
 				return true; // Nada para migrar
 			}
 
 			const now = Date.now();
-			const newRules: Rule[] = [];
-
-			// Converter cada padrão antigo para uma nova regra
-			for (const pattern of oldPatterns) {
-				const matchers: Matcher[] = [];
-
-				// Adicionar matcher de URL
-				if (typeof pattern === 'string') {
-					matchers.push({
-						type: 'url',
-						enabled: true,
-						pattern,
-						isRegex: false,
-					});
-
-					matchers.push({
-						type: 'method',
-						enabled: true,
-						method: 'ANY',
-					});
-				} else {
-					matchers.push({
-						type: 'url',
-						enabled: true,
-						pattern: pattern.url,
-						isRegex: pattern.isRegex || false,
-					});
-
-					matchers.push({
-						type: 'method',
-						enabled: true,
-						method: pattern.method || 'ANY',
-					});
-
-					// Adicionar matcher de header se existir
-					if (pattern.headerName && pattern.headerValue) {
-						matchers.push({
-							type: 'header',
-							enabled: true,
-							name: pattern.headerName,
-							value: pattern.headerValue,
-							headerType: (pattern.headerType as 'request' | 'response') || 'request',
-						});
-					}
-				}
-
-				// Criar uma nova regra com ação de mock básica
-				const newRule: Rule = {
-					id: uuidv4(),
-					name: `Regra migrada: ${typeof pattern === 'string' ? pattern : pattern.url}`,
-					enabled: typeof pattern === 'string' ? true : pattern.enabled !== false,
-					matchers,
-					action: {
-						type: 'mock',
-						enabled: true,
-						status: 200,
-						headers: {},
-						body: '{"success": true, "message": "Resposta mockada"}',
-						contentType: 'application/json',
-					},
-					createdAt: now,
-					updatedAt: now,
-				};
-
-				newRules.push(newRule);
-			}
+			const newRules = oldPatterns.map((pattern: LegacyUrlPattern) =>
+				createRuleFromLegacyUrlPattern(pattern, now),
+			);
 
 			// Combinar com regras existentes
-			const combinedRules = [...rules, ...newRules];
+			const combinedRules = [...existingRules, ...newRules];
 
-			// Salvar regras atualizadas
-			await chrome.storage.local.set({ rules: combinedRules });
-
-			// Limpar padrões antigos
-			await chrome.storage.local.set({ urlPatterns: [] });
+			// Salvar regras atualizadas e limpar padrões antigos em uma única escrita.
+			await chrome.storage.local.set({ rules: combinedRules, urlPatterns: [] });
 
 			// Atualizar o estado
 			setRules(combinedRules);
@@ -238,7 +242,7 @@ export function useRules() {
 			console.error('Erro ao migrar regras antigas:', error);
 			return false;
 		}
-	}, [rules]);
+	}, []);
 
 	// Carregar regras ao montar o componente
 	useEffect(() => {

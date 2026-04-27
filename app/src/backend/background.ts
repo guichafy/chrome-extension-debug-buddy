@@ -452,6 +452,14 @@ chrome.runtime.onMessage.addListener(
 	},
 );
 
+function encodeBodyToBase64(body: string): string {
+	return btoa(
+		encodeURIComponent(body).replace(/%([0-9A-F]{2})/g, (_, p1) =>
+			String.fromCharCode(parseInt(p1, 16)),
+		),
+	);
+}
+
 // Apply modifications to a response
 async function applyResponseModifications(
 	requestId: string,
@@ -495,73 +503,17 @@ async function applyResponseModifications(
 			console.log('Modifications detected, attempting to apply changes');
 
 			try {
-				// Get original response body format
-				const responseBodyResult = await new Promise<{ body: string; base64Encoded: boolean }>(
-					(resolve, reject) => {
-						chrome.debugger.sendCommand(
-							{ tabId: attachedTabId as number },
-							'Fetch.getResponseBody',
-							{ requestId },
-							(result: any) => {
-								// Verificar se houve erro ao buscar o corpo da resposta
-								if (chrome.runtime.lastError) {
-									console.warn(
-										`Erro ao obter corpo da resposta para ${requestId}: ${chrome.runtime.lastError.message}`,
-									);
-									// Continuar a requisição original sem interceptar se não pudermos obter o corpo
-									// Ou podemos decidir interceptar com corpo vazio dependendo do caso de uso
-									// Neste caso, vamos continuar a requisição original para evitar inconsistências
-									continueRequest(requestId);
-									return;
-								}
-
-								const responseBody = result as { body: string; base64Encoded: boolean } | undefined;
-								let body = ''; // Inicializar corpo como vazio
-
-								if (responseBody) {
-									try {
-										body = responseBody.base64Encoded ? atob(responseBody.body) : responseBody.body;
-									} catch (e) {
-										console.error(`Erro ao decodificar base64 para ${requestId}:`, e);
-										// Tratar como corpo vazio ou logar erro
-										body = ''; // Fallback para corpo vazio
-									}
-								} else {
-									// Corpo da resposta pode ser nulo ou vazio
-									console.log(`Corpo da resposta para ${requestId} está vazio ou nulo.`);
-								}
-
-								resolve({ body, base64Encoded: responseBody?.base64Encoded || false });
-							},
-						);
-					},
-				);
-
-				// Determine if the original response was base64 encoded
-				let base64Encoded = responseBodyResult.base64Encoded;
-
 				// Prepare the modified body in the correct format
-				let modifiedBody: string;
+				let modifiedBody: string | undefined;
 
 				// Se o body foi modificado, use o novo body
-				if (modifications.body && modifications.body !== pendingResponse.body) {
+				if (modifications.body !== undefined && modifications.body !== pendingResponse.body) {
 					try {
-						// Codifica o corpo como base64 independente do original
-						modifiedBody = btoa(
-							encodeURIComponent(modifications.body).replace(/%([0-9A-F]{2})/g, (_, p1) =>
-								String.fromCharCode(parseInt(p1, 16)),
-							),
-						);
-						// Força base64 para evitar problemas de codificação
-						base64Encoded = true;
+						modifiedBody = encodeBodyToBase64(modifications.body);
 					} catch (e) {
 						console.error('Error encoding body to base64:', e);
-						// Se falhar, tenta usar o corpo original
-						modifiedBody = responseBodyResult.body;
+						throw new Error(`Erro ao codificar corpo modificado para ${requestId}`);
 					}
-				} else {
-					// Se o body não foi modificado, use o body original
-					modifiedBody = responseBodyResult.body;
 				}
 
 				// Prepare response headers
@@ -595,14 +547,22 @@ async function applyResponseModifications(
 				}
 
 				// Preparar os parâmetros para o comando
-				const fulfillParams = {
+				const fulfillParams: {
+					requestId: string;
+					responseCode: number;
+					responsePhrase: string;
+					responseHeaders: { name: string; value: string }[];
+					body?: string;
+				} = {
 					requestId,
 					responseCode: statusCode,
 					responsePhrase: statusPhrase,
 					responseHeaders: headersArray,
-					body: modifiedBody,
-					base64Encoded: base64Encoded,
 				};
+
+				if (modifiedBody !== undefined) {
+					fulfillParams.body = modifiedBody;
+				}
 
 				console.log('Fetch.fulfillRequest params:', JSON.stringify(fulfillParams));
 
@@ -617,14 +577,7 @@ async function applyResponseModifications(
 				return true;
 			} catch (modError) {
 				console.error('Error modifying response:', modError);
-				// If modification fails, fall back to continuing the request
-				await chrome.debugger.sendCommand(
-					{ tabId: attachedTabId as number },
-					'Fetch.continueRequest',
-					{ requestId },
-				);
-				console.log('Continued request after modification error');
-				return true;
+				throw modError;
 			}
 		} else {
 			// No modifications, just continue the request
@@ -638,19 +591,6 @@ async function applyResponseModifications(
 		}
 	} catch (error) {
 		console.error('Error in applyResponseModifications:', error);
-
-		// If there's an error, try to continue the request anyway to prevent hanging
-		try {
-			await chrome.debugger.sendCommand(
-				{ tabId: attachedTabId as number },
-				'Fetch.continueRequest',
-				{ requestId },
-			);
-			console.log(`Request ${requestId} continued despite error`);
-		} catch (continueError) {
-			console.error('Error continuing request:', continueError);
-		}
-
 		throw error;
 	}
 }
