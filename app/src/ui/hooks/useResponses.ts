@@ -1,32 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
+import type { InterceptedResponse, ResponseModifications } from '@/backend/types/intercepted';
 
-export interface InterceptedResponse {
-	url: string;
-	method?: string;
-	/** Dados enviados no corpo da requisição original */
-	request?: {
-		postData?: string;
-	};
-	status: number;
-	statusText: string;
-	headers: Record<string, string>;
-	mimeType: string;
-	type: string;
-	timestamp: number;
-	body?: string;
-	isWaiting?: boolean;
-	isMocked?: boolean;
-	captureError?: string;
-	bodyUnavailableReason?: string;
-	/** Tempo total da requisição em milissegundos (capturado via Network domain do CDP) */
-	duration?: number;
-}
-
-export interface ResponseModifications {
-	status?: number;
-	headers?: Record<string, string>;
-	body?: string;
-}
+export type { InterceptedResponse, ResponseModifications };
 
 export function useResponses() {
 	const [pendingResponses, setPendingResponses] = useState<Record<string, InterceptedResponse>>({});
