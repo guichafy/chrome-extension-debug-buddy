@@ -190,7 +190,7 @@ export function DataTable<TData, TValue>({
 							variant="outline"
 							size="sm"
 							onClick={pauseAutoRefresh}
-							className="text-xs bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+							className="text-xs bg-green-500/10 border-green-500/30 text-green-300 hover:bg-green-500/20"
 						>
 							<Icon
 								name="fiber_manual_record"
@@ -205,7 +205,7 @@ export function DataTable<TData, TValue>({
 								variant="outline"
 								size="sm"
 								onClick={enableAutoRefresh}
-								className="text-xs bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"
+								className="text-xs bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20"
 							>
 								<Icon name="refresh" className="h-4 w-4 mr-1" />
 								Ativar Auto-Refresh
@@ -220,7 +220,7 @@ export function DataTable<TData, TValue>({
 								handlePauseAutoRefresh();
 								onClearHistory();
 							}}
-							className="text-xs bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+							className="text-xs bg-red-500/10 border-red-500/30 text-red-300 hover:bg-red-500/20"
 						>
 							<Icon name="delete" className="h-4 w-4 mr-1" />
 							Limpar Histórico
