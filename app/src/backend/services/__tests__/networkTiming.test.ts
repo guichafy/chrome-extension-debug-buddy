@@ -87,4 +87,74 @@ describe('NetworkTimingTracker', () => {
 		tracker.linkFetchId('n9', 'fetch-9');
 		expect(emitted).toEqual([{ fetchId: 'fetch-9', duration: 1 }]);
 	});
+
+	it('emite duration do hop 301 quando o redirect chega via requestWillBeSent.redirectResponse', () => {
+		// Trace típico de um 301 → 200:
+		//   1. requestWillBeSent (inicial) — start do 301
+		//   2. Fetch.requestPaused (301) → linkFetchId(networkId, fetch-301)
+		//   3. requestWillBeSent (com redirectResponse) — fim do 301 / início do destino
+		//   4. Fetch.requestPaused (destino) → linkFetchId(networkId, fetch-final)
+		//   5. loadingFinished — fim do destino
+		tracker.handleNetworkEvent('Network.requestWillBeSent', { requestId: 'r1', timestamp: 1.0 });
+		tracker.linkFetchId('r1', 'fetch-301');
+
+		tracker.handleNetworkEvent('Network.requestWillBeSent', {
+			requestId: 'r1',
+			timestamp: 1.2,
+			redirectResponse: { status: 301 },
+		});
+		expect(emitted).toEqual([{ fetchId: 'fetch-301', duration: 200 }]);
+
+		tracker.linkFetchId('r1', 'fetch-final');
+		tracker.handleNetworkEvent('Network.loadingFinished', { requestId: 'r1', timestamp: 1.5 });
+		expect(emitted).toEqual([
+			{ fetchId: 'fetch-301', duration: 200 },
+			{ fetchId: 'fetch-final', duration: 300 },
+		]);
+	});
+
+	it('emite duration para cada hop em uma cadeia de redirects', () => {
+		tracker.handleNetworkEvent('Network.requestWillBeSent', { requestId: 'r2', timestamp: 1.0 });
+		tracker.linkFetchId('r2', 'hop-a');
+
+		tracker.handleNetworkEvent('Network.requestWillBeSent', {
+			requestId: 'r2',
+			timestamp: 1.1,
+			redirectResponse: { status: 301 },
+		});
+		tracker.linkFetchId('r2', 'hop-b');
+
+		tracker.handleNetworkEvent('Network.requestWillBeSent', {
+			requestId: 'r2',
+			timestamp: 1.3,
+			redirectResponse: { status: 302 },
+		});
+		tracker.linkFetchId('r2', 'hop-c');
+
+		tracker.handleNetworkEvent('Network.loadingFinished', { requestId: 'r2', timestamp: 1.6 });
+
+		expect(emitted).toEqual([
+			{ fetchId: 'hop-a', duration: 100 },
+			{ fetchId: 'hop-b', duration: 200 },
+			{ fetchId: 'hop-c', duration: 300 },
+		]);
+	});
+
+	it('redirect sem fetchRequestId associado ao hop anterior não emite (defensivo)', () => {
+		// Cenário improvável: requestWillBeSent inicial, depois redirect, sem que o
+		// Fetch.requestPaused do primeiro hop tenha chegado para linkar o fetchId.
+		tracker.handleNetworkEvent('Network.requestWillBeSent', { requestId: 'r3', timestamp: 1.0 });
+		tracker.handleNetworkEvent('Network.requestWillBeSent', {
+			requestId: 'r3',
+			timestamp: 1.2,
+			redirectResponse: { status: 301 },
+		});
+		expect(emitted).toEqual([]);
+
+		// O hop seguinte deve continuar funcionando normalmente, com start
+		// reiniciado no momento do redirect.
+		tracker.linkFetchId('r3', 'fetch-final');
+		tracker.handleNetworkEvent('Network.loadingFinished', { requestId: 'r3', timestamp: 1.5 });
+		expect(emitted).toEqual([{ fetchId: 'fetch-final', duration: 300 }]);
+	});
 });

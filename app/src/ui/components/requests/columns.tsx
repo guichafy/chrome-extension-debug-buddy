@@ -106,6 +106,7 @@ export const columns: ColumnDef<RequestRow>[] = [
 
 			// Definir prioridade para ordenação
 			const getPriority = (request: InterceptedResponse) => {
+				if (request.captureError) return 0; // Falha de captura
 				if (request.isWaiting) return 1; // Aguardando
 				if (request.isWaiting === false) return 2; // Interceptado
 				if (request.isMocked) return 3; // Mockado
@@ -119,12 +120,17 @@ export const columns: ColumnDef<RequestRow>[] = [
 			const isIntercepted = !!request.isWaiting;
 			const wasIntercepted = request.isWaiting === false;
 			const isMocked = request.isMocked === true;
+			const hasCaptureError = !!request.captureError;
 
 			let variant: 'destructive' | 'default' | 'outline' | 'secondary' = 'outline';
 			let label = 'Proxy';
 			let icon = null;
 
-			if (isIntercepted) {
+			if (hasCaptureError) {
+				variant = 'destructive';
+				label = 'Falha';
+				icon = 'error';
+			} else if (isIntercepted) {
 				variant = 'destructive';
 				label = 'Aguardando';
 				icon = 'hourglass_empty';
@@ -197,10 +203,13 @@ export const columns: ColumnDef<RequestRow>[] = [
 			const isIntercepted = !!request.isWaiting;
 			const wasIntercepted = request.isWaiting === false;
 			const isMocked = request.isMocked === true;
+			const hasCaptureError = !!request.captureError;
 
 			// Adicionar uma classe de borda à esquerda para indicar o status
 			let borderClass = '';
-			if (isIntercepted) {
+			if (hasCaptureError) {
+				borderClass = 'border-l-2 border-l-red-500 pl-2';
+			} else if (isIntercepted) {
 				borderClass = 'border-l-2 border-l-red-500 pl-2';
 			} else if (wasIntercepted) {
 				borderClass = 'border-l-2 border-l-blue-500 pl-2';

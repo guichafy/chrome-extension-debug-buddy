@@ -324,4 +324,69 @@ describe('ResponseDialog Component', () => {
 		// Verificar se o componente não renderizou nada
 		expect(container.firstChild).toBeNull();
 	});
+
+	test('desabilita Criar Mock e ignora cliques quando a resposta tem captureError', () => {
+		const responseWithCaptureError: InterceptedResponse = {
+			...mockResponse,
+			body: undefined,
+			captureError: 'CDP não retornou corpo da resposta',
+		};
+
+		render(
+			<ResponseDialog
+				open={true}
+				onOpenChange={mockOnOpenChange}
+				response={responseWithCaptureError}
+				requestId={mockRequestId}
+				onApprove={mockOnApprove}
+				onIgnore={mockOnIgnore}
+				onMock={mockOnMock}
+				onEdit={mockOnEdit}
+				onCancel={mockOnCancel}
+				isEditing={false}
+			/>,
+		);
+
+		const mockButton = screen
+			.getAllByTestId('button')
+			.find((button) => button.textContent.includes('Criar Mock'));
+		expect(mockButton).toBeTruthy();
+		expect(mockButton).toBeDisabled();
+
+		fireEvent.click(mockButton);
+		expect(mockOnMock).not.toHaveBeenCalled();
+	});
+
+	test('desabilita Criar Mock quando o body é indisponível (ex.: redirect 301)', () => {
+		const redirectResponse: InterceptedResponse = {
+			...mockResponse,
+			status: 301,
+			statusText: 'Moved Permanently',
+			body: undefined,
+			bodyUnavailableReason: 'Redirect 301 não possui corpo disponível para captura.',
+		};
+
+		render(
+			<ResponseDialog
+				open={true}
+				onOpenChange={mockOnOpenChange}
+				response={redirectResponse}
+				requestId={mockRequestId}
+				onApprove={mockOnApprove}
+				onIgnore={mockOnIgnore}
+				onMock={mockOnMock}
+				onEdit={mockOnEdit}
+				onCancel={mockOnCancel}
+				isEditing={false}
+			/>,
+		);
+
+		const mockButton = screen
+			.getAllByTestId('button')
+			.find((button) => button.textContent.includes('Criar Mock'));
+		expect(mockButton).toBeDisabled();
+
+		fireEvent.click(mockButton);
+		expect(mockOnMock).not.toHaveBeenCalled();
+	});
 });

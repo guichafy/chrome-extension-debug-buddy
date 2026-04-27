@@ -34,26 +34,52 @@ export class NetworkTimingTracker {
 		this.onDurationReady = onDurationReady;
 	}
 
-	handleNetworkEvent(message: string, params: { requestId?: string; timestamp?: number }): void {
+	handleNetworkEvent(
+		message: string,
+		params: { requestId?: string; timestamp?: number; redirectResponse?: unknown },
+	): void {
 		if (!NETWORK_EVENTS.has(message)) return;
 		const networkId = params.requestId;
 		if (!networkId) return;
+		const ts = (params.timestamp ?? 0) * 1000;
 
 		switch (message) {
 			case 'Network.requestWillBeSent':
-				this.recordStart(networkId, (params.timestamp ?? 0) * 1000);
+				// Para redirects (3xx), o Chrome reusa o mesmo networkId e dispara
+				// `requestWillBeSent` novamente com `redirectResponse` preenchido.
+				// O timestamp deste evento é, simultaneamente, o fim do hop anterior
+				// (ex.: 301) e o início do próximo hop (ex.: 200 do destino do redirect).
+				// Sem este tratamento, recordStart sobrescreveria o start original e
+				// o 301 nunca teria duration emitida.
+				if (params.redirectResponse) {
+					this.handleRedirect(networkId, ts);
+				} else {
+					this.recordStart(networkId, ts);
+				}
 				break;
 			case 'Network.responseReceived':
 				// Apenas marca end provisório (TTFB); loadingFinished sobrescreve depois.
-				this.recordEnd(networkId, (params.timestamp ?? 0) * 1000, false);
+				this.recordEnd(networkId, ts, false);
 				break;
 			case 'Network.loadingFinished':
-				this.recordEnd(networkId, (params.timestamp ?? 0) * 1000, true);
+				this.recordEnd(networkId, ts, true);
 				break;
 			case 'Network.loadingFailed':
 				this.discardByNetworkId(networkId);
 				break;
 		}
+	}
+
+	private handleRedirect(networkId: string, redirectTs: number): void {
+		const entry = this.entries.get(networkId);
+		if (entry?.start != null && entry.fetchRequestId) {
+			const duration = Math.max(0, Math.round(redirectTs - entry.start));
+			this.onDurationReady(entry.fetchRequestId, duration);
+		}
+		// Reseta a entrada para o próximo hop: novo start = momento do redirect, sem
+		// fetchRequestId nem end (serão preenchidos pelo próximo Fetch.requestPaused
+		// e pelo loadingFinished/responseReceived seguinte).
+		this.set(networkId, { start: redirectTs });
 	}
 
 	linkFetchId(networkId: string | undefined, fetchRequestId: string): void {
