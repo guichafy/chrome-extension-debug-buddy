@@ -6,26 +6,26 @@ import { useRules } from '../../hooks/useRules';
 import { useLocation } from 'react-router-dom';
 
 // Mock the hooks
-jest.mock('../../hooks/useResponses');
-jest.mock('../../hooks/useRules');
-jest.mock('react-router-dom', () => ({
-	useLocation: jest.fn().mockReturnValue({ pathname: '/requests' }),
+vi.mock('../../hooks/useResponses');
+vi.mock('../../hooks/useRules');
+vi.mock('react-router-dom', () => ({
+	useLocation: vi.fn().mockReturnValue({ pathname: '/requests' }),
 }));
-jest.mock('../../../backend/services/indexedDB', () => ({
+vi.mock('../../../backend/services/indexedDB', () => ({
 	indexedDBService: {
-		init: jest.fn().mockResolvedValue(undefined),
+		init: vi.fn().mockResolvedValue(undefined),
 	},
 }));
 
 // Mock the components
-jest.mock('../../components/ResponseList', () => ({
+vi.mock('../../components/ResponseList', () => ({
 	__esModule: true,
 	default: ({ responses }) => (
 		<div data-testid="response-list">{Object.keys(responses).length} responses</div>
 	),
 }));
 
-jest.mock('../../components/ResponseDialog', () => ({
+vi.mock('../../components/ResponseDialog', () => ({
 	__esModule: true,
 	default: () => <div data-testid="response-dialog" />,
 }));
@@ -33,18 +33,18 @@ jest.mock('../../components/ResponseDialog', () => ({
 describe('Requests Component', () => {
 	beforeEach(() => {
 		// Setup mock return values
-		(useResponses as jest.Mock).mockReturnValue({
+		vi.mocked(useResponses).mockReturnValue({
 			pendingResponses: { '1': { id: '1', url: 'https://example.com' } },
 			currentResponseId: '',
 			currentResponse: null,
-			getResponseDetails: jest.fn(),
-			approveResponse: jest.fn(),
-			ignoreResponse: jest.fn(),
-			clearCurrentResponse: jest.fn(),
+			getResponseDetails: vi.fn(),
+			approveResponse: vi.fn(),
+			ignoreResponse: vi.fn(),
+			clearCurrentResponse: vi.fn(),
 		});
 
-		(useRules as jest.Mock).mockReturnValue({
-			addRule: jest.fn().mockResolvedValue(true),
+		vi.mocked(useRules).mockReturnValue({
+			addRule: vi.fn().mockResolvedValue(true),
 		});
 	});
 

@@ -4,7 +4,7 @@ import ResponseList from '../ResponseList';
 import { InterceptedResponse } from '../../hooks/useResponses';
 
 // Mock para os componentes do shadcn-ui
-jest.mock('@/ui/components/shadcn/scroll-area', () => ({
+vi.mock('@/ui/components/shadcn/scroll-area', () => ({
 	ScrollArea: ({ children, className }) => (
 		<div data-testid="scroll-area" className={className}>
 			{children}
@@ -12,7 +12,7 @@ jest.mock('@/ui/components/shadcn/scroll-area', () => ({
 	),
 }));
 
-jest.mock('@/ui/components/shadcn/card', () => ({
+vi.mock('@/ui/components/shadcn/card', () => ({
 	Card: ({ children, className }) => (
 		<div data-testid="card" className={className}>
 			{children}
@@ -25,7 +25,7 @@ jest.mock('@/ui/components/shadcn/card', () => ({
 	),
 }));
 
-jest.mock('@/ui/components/shadcn/badge', () => ({
+vi.mock('@/ui/components/shadcn/badge', () => ({
 	Badge: ({ children, variant, className }) => (
 		<span data-testid="badge" data-variant={variant} className={className}>
 			{children}
@@ -33,7 +33,7 @@ jest.mock('@/ui/components/shadcn/badge', () => ({
 	),
 }));
 
-jest.mock('@/ui/components/shadcn/button', () => ({
+vi.mock('@/ui/components/shadcn/button', () => ({
 	Button: ({ children, onClick, variant, size, className, title }) => (
 		<button
 			data-testid="button"
@@ -48,7 +48,7 @@ jest.mock('@/ui/components/shadcn/button', () => ({
 	),
 }));
 
-jest.mock('@/ui/components/shadcn/icon', () => ({
+vi.mock('@/ui/components/shadcn/icon', () => ({
 	Icon: ({ name, className }) => (
 		<span data-testid="icon" data-name={name} className={className}>
 			{name}
@@ -84,11 +84,11 @@ describe('ResponseList Component', () => {
 		},
 	};
 
-	const mockOnSelect = jest.fn();
-	const mockOnIgnore = jest.fn().mockResolvedValue(true);
+	const mockOnSelect = vi.fn();
+	const mockOnIgnore = vi.fn().mockResolvedValue(true);
 
 	beforeEach(() => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 	});
 
 	test('renderiza a lista de respostas corretamente', () => {

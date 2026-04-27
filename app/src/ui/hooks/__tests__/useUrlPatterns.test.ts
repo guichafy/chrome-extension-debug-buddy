@@ -2,8 +2,8 @@ import { renderHook, act } from '@testing-library/react';
 import { useUrlPatterns } from '../useUrlPatterns';
 
 // Mock do chrome.storage.local
-const mockGet = jest.fn();
-const mockSet = jest.fn();
+const mockGet = vi.fn();
+const mockSet = vi.fn();
 
 beforeEach(() => {
 	// Limpar mocks antes de cada teste
@@ -16,18 +16,18 @@ beforeEach(() => {
 		get: mockGet,
 		set: mockSet,
 		QUOTA_BYTES: 5242880,
-		getBytesInUse: jest.fn(),
-		clear: jest.fn(),
-		remove: jest.fn(),
-		setAccessLevel: jest.fn(),
+		getBytesInUse: vi.fn(),
+		clear: vi.fn(),
+		remove: vi.fn(),
+		setAccessLevel: vi.fn(),
 		onChanged: {
-			addListener: jest.fn(),
-			getRules: jest.fn(),
-			hasListener: jest.fn(),
-			removeRules: jest.fn(),
-			addRules: jest.fn(),
-			removeListener: jest.fn(),
-			hasListeners: jest.fn(),
+			addListener: vi.fn(),
+			getRules: vi.fn(),
+			hasListener: vi.fn(),
+			removeRules: vi.fn(),
+			addRules: vi.fn(),
+			removeListener: vi.fn(),
+			hasListeners: vi.fn(),
 		},
 	};
 
@@ -44,13 +44,13 @@ beforeEach(() => {
 				TRUSTED_CONTEXTS: 'trusted_contexts',
 			},
 			onChanged: {
-				addListener: jest.fn(),
-				getRules: jest.fn(),
-				hasListener: jest.fn(),
-				removeRules: jest.fn(),
-				addRules: jest.fn(),
-				removeListener: jest.fn(),
-				hasListeners: jest.fn(),
+				addListener: vi.fn(),
+				getRules: vi.fn(),
+				hasListener: vi.fn(),
+				removeRules: vi.fn(),
+				addRules: vi.fn(),
+				removeListener: vi.fn(),
+				hasListeners: vi.fn(),
 			},
 		},
 	} as any;

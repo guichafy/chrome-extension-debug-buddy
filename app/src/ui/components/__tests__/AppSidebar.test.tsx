@@ -3,12 +3,12 @@ import { render, screen, within } from '@testing-library/react';
 import { AppSidebar } from '../AppSidebar';
 
 // Mock para o react-router-dom
-jest.mock('react-router-dom', () => ({
+vi.mock('react-router-dom', () => ({
 	NavLink: ({ children }) => <a href="#">{children}</a>,
 }));
 
 // Mock para os componentes do shadcn-ui sidebar
-jest.mock('@/ui/components/shadcn/sidebar', () => ({
+vi.mock('@/ui/components/shadcn/sidebar', () => ({
 	Sidebar: ({ children, className }) => (
 		<div data-testid="shadcn-sidebar" className={className}>
 			{children}
@@ -31,7 +31,7 @@ jest.mock('@/ui/components/shadcn/sidebar', () => ({
 }));
 
 // Mock para o componente NavMain
-jest.mock('../NavMain', () => ({
+vi.mock('../NavMain', () => ({
 	NavMain: ({ items }) => (
 		<div data-testid="nav-main">
 			{items.map((item) => (
@@ -45,7 +45,7 @@ jest.mock('../NavMain', () => ({
 }));
 
 // Mock para os componentes lucide-react
-jest.mock('lucide-react', () => ({
+vi.mock('lucide-react', () => ({
 	ChevronsUpDown: () => <span data-testid="icon-chevrons-updown">ChevronsUpDown</span>,
 	LogOut: () => <span data-testid="icon-logout">LogOut</span>,
 	Settings: () => <span data-testid="icon-settings">Settings</span>,
@@ -53,7 +53,7 @@ jest.mock('lucide-react', () => ({
 }));
 
 // Mock para os componentes Avatar
-jest.mock('@/ui/components/shadcn/avatar', () => ({
+vi.mock('@/ui/components/shadcn/avatar', () => ({
 	Avatar: ({ children, className }) => (
 		<div data-testid="avatar" className={className}>
 			{children}
@@ -67,7 +67,7 @@ jest.mock('@/ui/components/shadcn/avatar', () => ({
 }));
 
 // Mock para os componentes DropdownMenu
-jest.mock('@/ui/components/shadcn/dropdown-menu', () => ({
+vi.mock('@/ui/components/shadcn/dropdown-menu', () => ({
 	DropdownMenu: ({ children }) => <div data-testid="dropdown-menu">{children}</div>,
 	DropdownMenuTrigger: ({ children, asChild }) => (
 		<div data-testid="dropdown-menu-trigger" data-asChild={asChild}>

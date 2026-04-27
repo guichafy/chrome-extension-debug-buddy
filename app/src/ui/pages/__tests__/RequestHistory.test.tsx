@@ -6,20 +6,20 @@ import { useResponses } from '../../hooks/useResponses';
 import { useRules } from '../../hooks/useRules';
 import { useLocation } from 'react-router-dom';
 
-jest.mock('../../hooks/useAllRequests');
-jest.mock('../../hooks/useResponses');
-jest.mock('../../hooks/useRules');
-jest.mock('react-router-dom', () => ({
-	useLocation: jest.fn().mockReturnValue({ pathname: '/request-history' }),
+vi.mock('../../hooks/useAllRequests');
+vi.mock('../../hooks/useResponses');
+vi.mock('../../hooks/useRules');
+vi.mock('react-router-dom', () => ({
+	useLocation: vi.fn().mockReturnValue({ pathname: '/request-history' }),
 }));
-jest.mock('@/backend/services/indexedDB', () => ({
+vi.mock('@/backend/services/indexedDB', () => ({
 	indexedDBService: {
-		init: jest.fn().mockResolvedValue(undefined),
+		init: vi.fn().mockResolvedValue(undefined),
 	},
 }));
 
 // Simplified RequestTable mock with search input
-jest.mock('../../components/RequestTable', () => ({
+vi.mock('../../components/RequestTable', () => ({
 	__esModule: true,
 	default: ({ searchValue, onSearchChange }) => (
 		<div data-testid="request-table">
@@ -33,35 +33,35 @@ jest.mock('../../components/RequestTable', () => ({
 	),
 }));
 
-jest.mock('../../components/ResponseDialog', () => ({
+vi.mock('../../components/ResponseDialog', () => ({
 	__esModule: true,
 	default: () => <div data-testid="response-dialog" />,
 }));
 
 describe('RequestHistory Component', () => {
 	beforeEach(() => {
-		(useResponses as jest.Mock).mockReturnValue({
-			ignoreResponse: jest.fn(),
-			clearCurrentResponse: jest.fn(),
+		vi.mocked(useResponses).mockReturnValue({
+			ignoreResponse: vi.fn(),
+			clearCurrentResponse: vi.fn(),
 		});
 
-		(useRules as jest.Mock).mockReturnValue({
-			addRule: jest.fn().mockResolvedValue(true),
+		vi.mocked(useRules).mockReturnValue({
+			addRule: vi.fn().mockResolvedValue(true),
 		});
 	});
 
 	it('keeps search input visible when there are no results', () => {
-		(useAllRequests as jest.Mock).mockReturnValue({
+		vi.mocked(useAllRequests).mockReturnValue({
 			filteredRequests: {},
 			currentRequestId: '',
 			currentRequest: null,
-			getRequestDetails: jest.fn(),
+			getRequestDetails: vi.fn(),
 			filter: '',
-			setFilter: jest.fn(),
-			pauseAutoRefresh: jest.fn(),
-			enableAutoRefresh: jest.fn(),
+			setFilter: vi.fn(),
+			pauseAutoRefresh: vi.fn(),
+			enableAutoRefresh: vi.fn(),
 			autoRefreshEnabled: true,
-			clearAllRequests: jest.fn(),
+			clearAllRequests: vi.fn(),
 		});
 
 		render(<RequestHistory />);
@@ -71,17 +71,17 @@ describe('RequestHistory Component', () => {
 	});
 
 	it('shows results table when there are requests', () => {
-		(useAllRequests as jest.Mock).mockReturnValue({
+		vi.mocked(useAllRequests).mockReturnValue({
 			filteredRequests: { '1': { id: '1', url: 'https://example.com' } },
 			currentRequestId: '',
 			currentRequest: null,
-			getRequestDetails: jest.fn(),
+			getRequestDetails: vi.fn(),
 			filter: '',
-			setFilter: jest.fn(),
-			pauseAutoRefresh: jest.fn(),
-			enableAutoRefresh: jest.fn(),
+			setFilter: vi.fn(),
+			pauseAutoRefresh: vi.fn(),
+			enableAutoRefresh: vi.fn(),
 			autoRefreshEnabled: true,
-			clearAllRequests: jest.fn(),
+			clearAllRequests: vi.fn(),
 		});
 
 		render(<RequestHistory />);

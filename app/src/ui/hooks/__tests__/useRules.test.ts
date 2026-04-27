@@ -2,14 +2,14 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { createRuleFromLegacyUrlPattern, useRules } from '../useRules';
 import { Rule } from '@/backend/types/rules';
 
-const mockGet = jest.fn();
-const mockSet = jest.fn();
+const mockGet = vi.fn();
+const mockSet = vi.fn();
 
 beforeEach(() => {
 	mockGet.mockReset();
 	mockSet.mockReset();
 	mockSet.mockResolvedValue(undefined);
-	jest.spyOn(Date, 'now').mockReturnValue(123456);
+	vi.spyOn(Date, 'now').mockReturnValue(123456);
 
 	global.chrome = {
 		...global.chrome,
@@ -25,7 +25,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-	jest.restoreAllMocks();
+	vi.restoreAllMocks();
 });
 
 describe('createRuleFromLegacyUrlPattern', () => {

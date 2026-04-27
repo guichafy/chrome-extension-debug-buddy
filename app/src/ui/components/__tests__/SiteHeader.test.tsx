@@ -3,19 +3,19 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { SiteHeader } from '../SiteHeader';
 
 // Mock para react-router-dom
-const mockNavigate = jest.fn();
-jest.mock('react-router-dom', () => ({
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', () => ({
 	useNavigate: () => mockNavigate,
 }));
 
 // Mock para os componentes do shadcn-ui
-jest.mock('../shadcn/separator', () => ({
+vi.mock('../shadcn/separator', () => ({
 	Separator: ({ orientation, className }) => (
 		<div data-testid="separator" data-orientation={orientation} className={className}></div>
 	),
 }));
 
-jest.mock('../shadcn/sidebar', () => ({
+vi.mock('../shadcn/sidebar', () => ({
 	SidebarTrigger: ({ className }) => (
 		<button data-testid="sidebar-trigger" className={className}>
 			Toggle
@@ -23,7 +23,7 @@ jest.mock('../shadcn/sidebar', () => ({
 	),
 }));
 
-jest.mock('../shadcn/badge', () => ({
+vi.mock('../shadcn/badge', () => ({
 	Badge: ({ children, variant, className }) => (
 		<span data-testid="badge" data-variant={variant} className={className}>
 			{children}
@@ -31,7 +31,7 @@ jest.mock('../shadcn/badge', () => ({
 	),
 }));
 
-jest.mock('../shadcn/button', () => ({
+vi.mock('../shadcn/button', () => ({
 	Button: ({ children, onClick, variant, size, className, disabled }) => (
 		<button
 			data-testid="button"
@@ -46,7 +46,7 @@ jest.mock('../shadcn/button', () => ({
 	),
 }));
 
-jest.mock('../shadcn/icon', () => ({
+vi.mock('../shadcn/icon', () => ({
 	Icon: ({ name, className }) => (
 		<span data-testid="icon" data-name={name} className={className}>
 			{name}
@@ -54,7 +54,7 @@ jest.mock('../shadcn/icon', () => ({
 	),
 }));
 
-jest.mock('../shadcn/tooltip', () => ({
+vi.mock('../shadcn/tooltip', () => ({
 	Tooltip: ({ children }) => <div data-testid="tooltip">{children}</div>,
 	TooltipTrigger: ({ asChild, children }) => <div data-testid="tooltip-trigger">{children}</div>,
 	TooltipContent: ({ side, children }) => (
@@ -70,9 +70,9 @@ describe('SiteHeader Component', () => {
 		targetTab: { id: 123, title: 'Test Tab', url: 'https://example.com' },
 		isDebugging: false,
 		pendingResponsesCount: 0,
-		onSelectTabClick: jest.fn(),
-		onStartDebugging: jest.fn(),
-		onStopDebugging: jest.fn(),
+		onSelectTabClick: vi.fn(),
+		onStartDebugging: vi.fn(),
+		onStopDebugging: vi.fn(),
 	};
 
 	// Teste básico de renderização
