@@ -1,0 +1,158 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project
+
+**Debug Buddy** — Manifest V3 Chrome extension (`app/manifest.json` lists name `Debug Buddy`, slug `chrome-interceptor` in `package.json`) that intercepts and modifies network responses via the `chrome.debugger` Fetch domain. Used to inject failures, mock responses, and pause requests for inspection while developing web apps.
+
+GitHub repo: `guichafy/chrome-extension-debug-buddy`. Issues track known bugs and feature requests — read them with `gh issue list` before changing related code.
+
+## Working directory
+
+All npm/build/lint/test commands run from the `app/` subdirectory, **not** from the repo root. CI (`.github/workflows`) sets `working-directory: app` for this reason.
+
+```bash
+cd app
+npm install              # install deps
+npm run dev              # vite dev server (mostly used for type/build feedback; see "Loading the extension")
+npm run build            # production build → app/dist/
+npm run watch            # vite build --watch (rebuild on save while extension is loaded from dist/)
+npm run lint             # eslint src --ext .ts,.tsx,.js,.jsx
+npm run lint:fix
+npm test                 # jest (jsdom + ts-jest)
+npm run test:watch
+npm run test:coverage
+npx jest path/to/file.test.tsx          # run a single test file
+npx jest -t "name pattern"              # filter by test name
+```
+
+CI runs `lint`, `build`, `test` (in that order) on PRs to `main` — keep all three green.
+
+## Loading the extension
+
+1. `cd app && npm run build` (or `npm run watch` for iterative dev)
+2. `chrome://extensions` → Developer mode → "Load unpacked" → select `app/dist/`
+3. Click the extension's toolbar icon to open the interceptor tab (the React app — `app/index.html` is both `options_page` and what `chrome.action.onClicked` opens via `chrome.tabs.create`)
+4. In the interceptor UI, pick a **target tab** (the page the debugger attaches to), then "Start Debugging"
+
+The "Start Debugging" warning bar in Chrome appears on the target tab — that's expected (`chrome.debugger.attach`).
+
+## Architecture overview
+
+Four moving parts you must understand before changing anything substantial:
+
+### 1. Two-tab model (background.ts)
+
+`app/src/backend/background.ts` is the service worker and the **authority for runtime state**. It tracks two distinct tab IDs:
+
+- `interceptorTabId` — the tab where the React UI runs (set when user clicks the action icon)
+- `targetTabId` — the tab the user picked to debug (persisted in `chrome.storage.local.targetTabInfo`)
+
+The debugger only attaches to `targetTabId`. Closing `interceptorTabId` automatically stops debugging (`chrome.tabs.onRemoved` listener). Don't conflate the two — most bugs in this area come from messaging the wrong tab.
+
+### 2. Interception flow
+
+`startDebugging()` calls `chrome.debugger.attach({tabId}, '1.3')` and enables `Fetch.enable` with `patterns: [{urlPattern: '*', requestStage: 'Response'}]` — meaning **every** request is paused at the response stage. The `Fetch.requestPaused` event then runs `handleRequestPaused`, which:
+
+1. Checks for mocks (`checkForMock`) → if matched, calls `Fetch.fulfillRequest` with the mock and stops.
+2. Checks breakpoint rules (`checkForBreakpoint`) — informational; flow continues.
+3. Always calls `Fetch.getResponseBody`, builds an `InterceptedResponse`, and stores it in the in-memory `allRequests` map.
+4. If `shouldInterceptUrl` matches → adds to `pendingResponses` with `isWaiting: true`, notifies the UI via `chrome.runtime.sendMessage({action: 'newPendingResponse', ...})`. The UI shows a dialog; user approves/modifies/ignores → background calls `Fetch.fulfillRequest` (with mods) or `Fetch.continueRequest`.
+5. Otherwise → `Fetch.continueRequest` and notifies the UI to persist the request to IndexedDB.
+
+`stopDebugging()` continues all pending requests before detaching. Anything left in `pendingResponses` would hang the page otherwise.
+
+### 3. Two coexisting rule formats
+
+The codebase carries two rule schemas. **New code should use `Rule`**, but interception logic must keep handling both until legacy data is fully migrated.
+
+| Format | Storage key | Type | Used by |
+|---|---|---|---|
+| Legacy | `urlPatterns` | `UrlPattern[]` (or `string[]`) | `useUrlPatterns`, legacy branch in `shouldInterceptUrl` |
+| Legacy | `mocks` | `MockConfig[]` | legacy branch in `checkForMock` |
+| Current | `rules` | `Rule[]` (matchers + action) | `useRules`, primary branch in `shouldInterceptUrl`/`checkForMock`/`checkForBreakpoint` |
+
+`Rule.action.type` is one of `'mock' | 'delay' | 'modify' | 'breakpoint'` (`app/src/backend/types/rules.ts`). On UI mount, `useRules` auto-migrates any remaining `urlPatterns` entries into `rules` via `migrateOldRules` and clears the old key.
+
+### 4. Persistence split
+
+- **`chrome.storage.local`** — `rules`, `urlPatterns` (legacy), `mocks` (legacy), `targetTabInfo`. The background subscribes to `chrome.storage.onChanged` to keep its in-memory `rules`/`urlPatterns` arrays in sync (so changes apply without restart).
+- **In-memory only (background)** — `pendingResponses`, `allRequests`, `isDebugging`, `attachedTabId`. Reset on service-worker restart.
+- **IndexedDB (frontend)** — `debugger-extension-db` v1, store `requests` (keyPath `id`, indexes on `data.url`/`data.timestamp`/`data.method`/`data.status`). Implemented in `app/src/backend/services/indexedDB.ts` and used by `useAllRequests` for the persistent request history (the in-memory `allRequests` in background is short-lived).
+
+### 5. Messaging
+
+UI → background: `chrome.runtime.sendMessage({action, ...})`. Action names live as a union type at the top of `background.ts` (e.g. `startDebugging`, `getDebuggingStatus`, `getPendingResponses`, `getAllRequests`, `approveResponse`, `setTargetTab`, `clearAllRequests`).
+
+Background → UI: `chrome.tabs.sendMessage(interceptorTabId, {action, ...})` for events targeted at the React app (`newRequest`, `targetTabSelected`, `openSelectTabDialog`), or `chrome.runtime.sendMessage(...)` broadcasts (`newPendingResponse`, `responseBodyReady`).
+
+When you add a new action, update both the union in `app/src/backend/types/index.ts` *and* the inline one in `background.ts` (they have drifted — see "Quirks" below).
+
+## Frontend layout
+
+`app/src/ui/`:
+
+- `main.tsx` + `routes.tsx` — React 19 + `react-router-dom` `createHashRouter` (hash routing because `chrome-extension://` URLs don't play with HTML5 history). Three routes under `Layout`: `/` (Settings/rules), `/requests` (pending intercepts), `/request-history` (IndexedDB-backed history).
+- `pages/Layout.tsx` — sidebar + header shell, owns the `SelectTabDialog`.
+- `hooks/` — one hook per concern: `useDebugging`, `useResponses` (pending), `useAllRequests` (history), `useRules`, `useUrlPatterns` (legacy edits).
+- `components/shadcn/` — vendored shadcn-ui components. Add new ones via `npm run shadcn:add <name>` (configured in `app/components.json`). Tailwind config in `app/tailwind.config.cjs`; global styles in `app/src/ui/globals.css`.
+
+## Build pipeline (Vite)
+
+`app/vite.config.mts` declares three Rollup entry points so the extension's flat-file layout works:
+
+- `index` → `index.html` (the UI)
+- `background` → `src/backend/background.ts` (service worker; manifest references `background.js`)
+- `main` → `src/ui/main.tsx`
+
+Output `entryFileNames: '[name].js'` is required so `manifest.json`'s `service_worker: "background.js"` resolves. `vite-plugin-static-copy` ships `manifest.json`, `images/`, and `lib/` (jsonlint, codemirror, prettier — used by rule editors) into `dist/`. Path alias `@` → `app/src/`.
+
+## TypeScript & lint
+
+- **TS is intentionally non-strict** (`strict: false`, `noImplicitAny: false`, `strictNullChecks: false`, etc. — see `app/tsconfig.json`). Don't tighten globally without coordinating; lots of code relies on the looseness (e.g. `message: any` in the background listener).
+- ESLint flat config (`app/eslint.config.js`) **disables** `no-unused-vars`, `@typescript-eslint/no-unused-vars`, and `@typescript-eslint/no-explicit-any`; only `no-undef` is enforced. Prettier runs as an ESLint plugin.
+- Files ignored by lint: `dist`, `node_modules`, `coverage`, all root configs.
+
+## Code style
+
+- **Indentation: tabs (size 2)** per `.editorconfig`. Don't switch to spaces — diffs will be huge.
+- Prettier: single quotes, trailing commas everywhere, print width 100.
+- UI strings, comments, and console logs are written in Portuguese-BR — match that when editing existing files.
+- Functional React + hooks. No classes except the IndexedDB service wrapper.
+
+## No fallbacks / no default values (project-wide rule)
+
+**Implementations must not silently return fallback or default values.** If a code path is currently producing placeholder data when something fails (empty string instead of decoded body, `'Unknown'` instead of a real status phrase, hash-derived "duration" instead of real timing, `Fetch.continueRequest` after a modification error, `m.method || 'ANY'` when a method is required, etc.), the correct behavior is to **surface an error** to the caller — not to fabricate a plausible-looking value.
+
+Why this matters here: this is a debugging tool. Fake-but-valid data is the worst possible output — it hides the bug being investigated. Errors must remain visible.
+
+When writing or auditing code:
+- Don't add `try { ... } catch { return defaultValue }` to swallow failures. Let errors bubble up (or convert to a typed error result) and let the UI / message handler decide how to surface them.
+- Don't introduce `||` / `??` defaults on fields that are required by the contract — validate and fail instead.
+- When refactoring near an existing fallback site, flag it for the user; don't silently preserve it.
+- Only add a default when the user explicitly approves it for that specific case.
+
+## Tests
+
+Jest with `ts-jest` and `jsdom`. `app/jest.setup.js` mocks the `chrome` global (`runtime`, `storage.local`, `tabs.query`); add to that mock when a new test needs an API beyond what's there. Test files live next to the code in `__tests__/` directories. `moduleNameMapper` maps `@/*` → `src/*`.
+
+## Quirks worth remembering
+
+- **The `Message`/`MessageAction` types in `app/src/backend/types/index.ts` are stale** — the inline declarations at the top of `background.ts` are the source of truth. Reconcile cautiously: production code reads from the inline list.
+- **`extension-reloader.ts` and `hot-reload.ts`** use MV2 APIs (`getBackgroundPage`, `getPackageDirectoryEntry`) and aren't wired into the build. Treat them as dead code unless you're explicitly resurrecting hot reload.
+- **The "duration" column on the requests table is fake** — `app/src/ui/components/requests/columns.tsx` derives it from a hash of the request ID (tracked in issue #14). Don't trust it; don't extend it; replace with real timing data when fixing.
+- **Request body for the original request is on `InterceptedResponse.request.postData`** (added recently — commit `0bb0778`). The field exists on the frontend `InterceptedResponse` type (`useResponses.ts`) but not on the inline backend interface — another type drift case.
+- **Request *headers* are not stored separately from response headers** (issue #19) — `InterceptedResponse.headers` always holds response headers. Anything claiming to show "request headers" in `ResponseDialog` is currently misleading.
+
+## Known open issues (April 2026)
+
+Run `gh issue list --state open` for the live list. Active items as of last sync:
+
+- **#3** — i18n (PT-BR / EN) integration with Vite.
+- **#4** — `RequestHistory` doesn't store multiple visits to the same monitored page (likely an ID-collision/dedupe bug in `useAllRequests` + IndexedDB `put` on same key).
+- **#6** — Display `package.json` version in `AppSidebar` footer.
+- **#14** — "Tempo de resposta" column is mocked (see Quirks).
+- **#19** — Capture and store request headers separately in the background script.
+
+When fixing one of these, link the PR with `Closes #<n>` and update the issue if scope changes.
