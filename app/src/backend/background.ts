@@ -1,22 +1,11 @@
 import { indexedDBService } from './services/indexedDB';
 import { runLegacyMigration } from './services/legacyMigration';
 import { NetworkTimingTracker } from './services/networkTiming';
-import type {
-	Action,
-	InterceptedResponse,
-	Matcher,
-	Message,
-	MessageAction,
-	MessageResponse,
-	ResponseModifications,
-	Rule,
-} from './types';
-import type { MockConfig, UrlPattern } from './types/legacy';
+import type { InterceptedResponse, MessageResponse, ResponseModifications, Rule } from './types';
 
 // Global variables
 let isDebugging = false;
 let attachedTabId: number | null = null;
-let urlPatterns: (string | UrlPattern)[] = [];
 let rules: Rule[] = [];
 let pendingResponses: Record<string, InterceptedResponse> = {}; // Store intercepted responses
 let allRequests: Record<string, InterceptedResponse> = {}; // Store all requests
@@ -89,22 +78,9 @@ chrome.runtime.onStartup.addListener(async () => {
 
 // Listener para mudanças no storage (para atualizar regras em tempo real)
 chrome.storage.onChanged.addListener((changes, namespace) => {
-	if (namespace === 'local') {
-		// Verificar se as regras ou padrões de URL foram alterados
-		if (changes.rules || changes.urlPatterns) {
-			console.log('Regras ou padrões de URL foram alterados, atualizando...');
-
-			// Atualizar as regras e padrões em memória
-			if (changes.rules) {
-				rules = changes.rules.newValue || [];
-				console.log(`Regras atualizadas: ${rules.length} regras carregadas`);
-			}
-
-			if (changes.urlPatterns) {
-				urlPatterns = changes.urlPatterns.newValue || [];
-				console.log(`Padrões de URL atualizados: ${urlPatterns.length} padrões carregados`);
-			}
-		}
+	if (namespace === 'local' && changes.rules) {
+		rules = changes.rules.newValue || [];
+		console.log(`Regras atualizadas: ${rules.length} regras carregadas`);
 	}
 });
 
@@ -167,12 +143,7 @@ chrome.runtime.onMessage.addListener(
 			return false;
 		}
 
-		if (message.action === 'getMocks') {
-			chrome.storage.local.get(['mocks'], (result: { mocks?: MockConfig[] }) => {
-				sendResponse({ success: true, mocks: result.mocks || [] });
-			});
-			return true; // Indicates we'll respond asynchronously
-		} else if (message.action === 'startDebugging') {
+		if (message.action === 'startDebugging') {
 			// Usa o tabId armazenado ou o fornecido pelo usuário
 			const tabIdToUse = message.tabId || targetTabId;
 			if (tabIdToUse) {
@@ -447,21 +418,6 @@ async function applyResponseModifications(
 		throw new Error('Response not found');
 	}
 
-	// Verificar se precisamos adicionar headers de resposta conforme configurações
-	const url = pendingResponse.url;
-	const addResponseHeaders = getResponseHeadersToAdd(url);
-	if (addResponseHeaders.length > 0) {
-		if (!modifications.headers) {
-			modifications.headers = pendingResponse.headers;
-		}
-
-		addResponseHeaders.forEach((header) => {
-			if (modifications.headers) {
-				modifications.headers[header.name] = header.value;
-			}
-		});
-	}
-
 	try {
 		// Verificar se há alguma modificação (status, headers ou body)
 		// Nota: Sempre tratamos como modificação se houver status, headers ou body definidos
@@ -567,15 +523,12 @@ async function startDebugging(specificTabId: number | null = null): Promise<bool
 		await stopDebugging();
 	}
 
-	// Get URL patterns and rules from storage
-	const result = await chrome.storage.local.get(['urlPatterns', 'rules']);
-	urlPatterns = result.urlPatterns || [];
+	// Get rules from storage
+	const result = await chrome.storage.local.get(['rules']);
 	rules = result.rules || [];
 
-	// Log the loaded patterns and rules (even if there are none)
-	console.log(
-		`Loaded ${urlPatterns.length} URL patterns and ${rules.length} rules for interception`,
-	);
+	// Log the loaded rules (even if there are none)
+	console.log(`Loaded ${rules.length} rules for interception`);
 
 	// Use o tabId especificado ou tente encontrar uma aba ativa
 	let tabId = specificTabId;
@@ -911,100 +864,18 @@ function getMimeTypeFromHeaders(headers: { name: string; value: string }[]): str
 	return 'text/plain';
 }
 
-// Obter headers de resposta para adicionar com base nas configurações
-function getResponseHeadersToAdd(url: string): { name: string; value: string }[] {
-	const responseHeaders: { name: string; value: string }[] = [];
-
-	// Procurar por configurações que correspondam a esta URL e tenham headers de resposta
-	urlPatterns.forEach((pattern) => {
-		if (typeof pattern !== 'string' && pattern.url && url.includes(pattern.url)) {
-			// Verificar se a regra está habilitada
-			if (pattern.enabled === false) return;
-
-			// Se for uma configuração com header de resposta
-			if (pattern.headerName && pattern.headerValue && pattern.headerType === 'response') {
-				responseHeaders.push({
-					name: pattern.headerName,
-					value: pattern.headerValue,
-				});
-			}
-		}
-	});
-
-	return responseHeaders;
-}
-
 // Check if a URL should be intercepted based on our patterns
 function shouldInterceptUrl(url: string, request: any): boolean {
 	if (!url) return false;
 
-	// Obter as regras e padrões mais recentes do storage
-	// Isso garante que estamos sempre usando as regras mais atualizadas
-	const currentUrlPatterns = urlPatterns;
 	const currentRules = rules;
 
-	// Se não houver regras ou padrões configurados, não interceptamos nada
-	// Isso permite que o usuário inicie a interceptação sem regras
-	if (currentUrlPatterns.length === 0 && currentRules.length === 0) {
+	// Se não houver regras configuradas, não interceptamos nada — assim o
+	// usuário pode iniciar a interceptação e ir adicionando regras gradativamente.
+	if (currentRules.length === 0) {
 		return false;
 	}
 
-	// Primeiro, verificar as regras antigas (urlPatterns)
-	const matchesOldPattern = currentUrlPatterns.some((pattern) => {
-		// Verificar se é um objeto de configuração ou uma string (compatibilidade)
-		if (typeof pattern === 'string') {
-			// String simples (contém)
-			return url.includes(pattern);
-		} else {
-			// Verificar se a regra está habilitada
-			if (pattern.enabled === false) return false;
-
-			// Verificar se a URL corresponde
-			let urlMatches = false;
-
-			if (pattern.isRegex) {
-				// Usar expressão regular para verificar a correspondência
-				try {
-					const regex = new RegExp(pattern.url);
-					urlMatches = regex.test(url);
-				} catch (error) {
-					console.error(`Erro ao processar expressão regular '${pattern.url}':`, error);
-					return false; // Se a expressão regular for inválida, não intercepta
-				}
-			} else {
-				// Usar método includes para verificação simples
-				urlMatches = url.includes(pattern.url);
-			}
-
-			if (!urlMatches) return false;
-
-			// Verificar o método HTTP, se especificado
-			if (pattern.method && pattern.method !== 'ANY') {
-				if (request.method !== pattern.method) return false;
-			}
-
-			// Verificar headers na request, se especificados
-			if (pattern.headerName && pattern.headerValue && pattern.headerType === 'request') {
-				// Verificar se o header na request corresponde
-				const headerValue = request.headers.find(
-					(h: { name: string; value: string }) =>
-						h.name.toLowerCase() === pattern.headerName?.toLowerCase(),
-				)?.value;
-
-				if (!headerValue || headerValue !== pattern.headerValue) return false;
-			}
-
-			// Todos os critérios foram satisfeitos
-			return true;
-		}
-	});
-
-	// Se corresponder a um padrão antigo, interceptar
-	if (matchesOldPattern) {
-		return true;
-	}
-
-	// Verificar as novas regras
 	return currentRules.some((rule) => {
 		// Verificar se a regra está habilitada
 		if (!rule.enabled) return false;
@@ -1066,130 +937,76 @@ function shouldInterceptUrl(url: string, request: any): boolean {
 	});
 }
 
+/**
+ * Forma resolvida de um mock após resolução da regra. Compartilhada com
+ * `applyMockResponse`, que materializa a resposta no Chrome via Fetch domain.
+ */
+interface ResolvedMock {
+	urlPattern: string;
+	method: string;
+	status: number;
+	headers: Record<string, string>;
+	body: string;
+	createdAt: number;
+	enabled: boolean;
+}
+
 // Verifica se existe um mock configurado para a URL
-async function checkForMock(url: string, method: string): Promise<MockConfig | undefined> {
-	return new Promise((resolve) => {
-		// Usar as regras e mocks em memória para resposta mais rápida
-		// Isso garante que estamos usando as regras mais atualizadas
-		const currentRules = rules;
-		const mocks = []; // Vamos buscar os mocks do storage para garantir que estão atualizados
+async function checkForMock(url: string, method: string): Promise<ResolvedMock | undefined> {
+	const currentRules = rules;
 
-		chrome.storage.local.get(['mocks'], (result: { mocks?: MockConfig[] }) => {
-			const storageMocks = result.mocks || [];
+	for (const rule of currentRules) {
+		if (!rule.enabled) continue;
+		if (rule.action.type !== 'mock' || !rule.action.enabled) continue;
 
-			// Procura por um mock que corresponda à URL e método e esteja habilitado
-			const mock = storageMocks.find((m) => {
-				// Verificar se o mock está habilitado
-				const isEnabled = m.enabled !== undefined ? m.enabled : true; // Se não tiver a propriedade, considera como habilitado
-				if (!isEnabled) return false;
+		const allMatchersMatch = rule.matchers.every((matcher) => {
+			if (!matcher.enabled) return true;
 
-				// Verificar se o método corresponde
-				const methodMatches = m.method === 'ANY' || m.method === method;
-				if (!methodMatches) return false;
-
-				// Verificar se a URL corresponde
-				let urlMatches = false;
-
-				// Verificar se o padrão de URL é uma expressão regular
-				if (
-					m.urlPattern.startsWith('^') ||
-					m.urlPattern.includes('.*') ||
-					m.urlPattern.endsWith('$')
-				) {
-					try {
-						const regex = new RegExp(m.urlPattern);
-						urlMatches = regex.test(url);
-					} catch (error) {
-						console.error(`Erro ao processar expressão regular '${m.urlPattern}' no mock:`, error);
-						return false;
-					}
-				} else {
-					// Usar método includes para verificação simples
-					urlMatches = url.includes(m.urlPattern);
-				}
-
-				return urlMatches && methodMatches && isEnabled;
-			});
-
-			// Se encontrou um mock antigo, retorna
-			if (mock) {
-				console.log(`Mock encontrado para ${url} no formato antigo`);
-				resolve(mock);
-				return;
-			}
-
-			// Procurar por uma regra com ação de mock que corresponda à URL e método
-			for (const rule of currentRules) {
-				// Verificar se a regra está habilitada
-				if (!rule.enabled) continue;
-
-				// Verificar se a ação é do tipo mock e está habilitada
-				if (rule.action.type !== 'mock' || !rule.action.enabled) continue;
-
-				// Verificar se todos os matchers habilitados correspondem
-				const allMatchersMatch = rule.matchers.every((matcher) => {
-					// Ignorar matchers desabilitados
-					if (!matcher.enabled) return true;
-
-					switch (matcher.type) {
-						case 'url':
-							if (!matcher.pattern) return false;
-
-							if (matcher.isRegex) {
-								try {
-									const regex = new RegExp(matcher.pattern);
-									return regex.test(url);
-								} catch (error) {
-									console.error(`Erro ao processar expressão regular '${matcher.pattern}':`, error);
-									return false;
-								}
-							} else {
-								return url.includes(matcher.pattern);
-							}
-
-						case 'method':
-							if (!matcher.method) return true; // Se não tiver método, considera como correspondente
-							return matcher.method === 'ANY' || matcher.method === method;
-
-						case 'header':
-							// Não podemos verificar headers neste ponto
-							// Sempre retorna true para não bloquear o mock
-							return true;
-
-						case 'body':
-							// Não podemos verificar o corpo da requisição neste ponto
-							// Sempre retorna true para não bloquear o mock
-							return true;
-
-						default:
+			switch (matcher.type) {
+				case 'url':
+					if (!matcher.pattern) return false;
+					if (matcher.isRegex) {
+						try {
+							return new RegExp(matcher.pattern).test(url);
+						} catch (error) {
+							console.error(`Erro ao processar expressão regular '${matcher.pattern}':`, error);
 							return false;
+						}
 					}
-				});
+					return url.includes(matcher.pattern);
 
-				// Se todos os matchers corresponderem, criar um mock a partir da regra
-				if (allMatchersMatch) {
-					console.log(`Mock encontrado para ${url} no novo formato de regras`);
+				case 'method':
+					if (!matcher.method) return true;
+					return matcher.method === 'ANY' || matcher.method === method;
 
-					// Converter a ação de mock para o formato de MockConfig
-					const mockFromRule: MockConfig = {
-						urlPattern: rule.matchers.find((m) => m.type === 'url')?.pattern || url,
-						method: rule.matchers.find((m) => m.type === 'method')?.method || 'ANY',
-						status: rule.action.status || 200,
-						headers: rule.action.headers || {},
-						body: rule.action.body || '',
-						createdAt: rule.createdAt,
-						enabled: true,
-					};
+				case 'header':
+					// Headers não podem ser verificados neste ponto — não bloqueia o mock.
+					return true;
 
-					resolve(mockFromRule);
-					return;
-				}
+				case 'body':
+					// Body não pode ser verificado neste ponto — não bloqueia o mock.
+					return true;
+
+				default:
+					return false;
 			}
-
-			// Se não encontrou nenhum mock, retorna undefined
-			resolve(undefined);
 		});
-	});
+
+		if (allMatchersMatch) {
+			console.log(`Mock encontrado para ${url} (regra: ${rule.name})`);
+			return {
+				urlPattern: rule.matchers.find((m) => m.type === 'url')?.pattern || url,
+				method: rule.matchers.find((m) => m.type === 'method')?.method || 'ANY',
+				status: rule.action.status || 200,
+				headers: rule.action.headers || {},
+				body: rule.action.body || '',
+				createdAt: rule.createdAt,
+				enabled: true,
+			};
+		}
+	}
+
+	return undefined;
 }
 
 // Verifica se existe uma regra de breakpoint configurada para a URL
@@ -1263,7 +1080,7 @@ async function checkForBreakpoint(url: string, method: string): Promise<boolean>
 // Aplica um mock como resposta para uma requisição
 async function applyMockResponse(
 	requestId: string,
-	mock: MockConfig,
+	mock: ResolvedMock,
 	originalRequest: {
 		url: string;
 		method: string;
