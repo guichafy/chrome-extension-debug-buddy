@@ -536,7 +536,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 													id="requestPostData"
 													value={response.request.postData}
 													readOnly
-													className="w-full p-3 font-mono text-sm min-h-[200px] focus:outline-none"
+													className="w-full p-3 font-mono text-sm min-h-[200px] focus:outline-hidden"
 												/>
 											</ScrollArea>
 										</div>
@@ -599,7 +599,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 														id="responseHeaders"
 														value={headers}
 														onChange={(e) => setHeaders(e.target.value)}
-														className="w-full p-3 font-mono text-sm min-h-[200px] focus:outline-none"
+														className="w-full p-3 font-mono text-sm min-h-[200px] focus:outline-hidden"
 														disabled={!isEditing || readOnly}
 													/>
 												</ScrollArea>
@@ -692,7 +692,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 														</div>
 													)}
 												</div>
-												<div className="flex-1 overflow-auto p-2 flex items-center justify-center bg-[#f5f5f5] dark:bg-[#1a1a1a]">
+												<div className="flex-1 overflow-auto p-2 flex items-center justify-center bg-[#1a1a1a]">
 													{imageData ? (
 														<>
 															<img
@@ -743,7 +743,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 													id="responseBody"
 													value={body}
 													onChange={(e) => setBody(e.target.value)}
-													className="w-full p-3 font-mono text-sm min-h-[300px] focus:outline-none"
+													className="w-full p-3 font-mono text-sm min-h-[300px] focus:outline-hidden"
 													disabled={!isEditing || readOnly}
 												/>
 											</ScrollArea>
