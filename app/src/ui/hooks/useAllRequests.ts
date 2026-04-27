@@ -207,21 +207,30 @@ export function useAllRequests() {
 		// Armazenar o último timestamp para evitar atualizações muito frequentes
 		let lastUpdateTime = Date.now();
 
-		// Listener para novas requisições do background script
-		const messageListener = (message: any) => {
-			if (message.action === 'newRequest' && message.requestId && message.request) {
-				// Adicionar à lista de requisições
-				setAllRequests((prev) => ({
-					...prev,
-					[message.requestId]: message.request,
-				}));
-
-				// Salvar no IndexedDB
+		const upsertRequest = (
+			requestId: string,
+			compute: (existing: InterceptedResponse | undefined) => InterceptedResponse | null,
+		) => {
+			setAllRequests((prev) => {
+				const next = compute(prev[requestId]);
+				if (next === null || next === prev[requestId]) return prev;
 				if (dbInitialized) {
-					indexedDBService.saveRequest(message.requestId, message.request).catch((err) => {
-						console.error('Erro ao salvar nova requisição no IndexedDB:', err);
+					indexedDBService.saveRequest(requestId, next).catch((err) => {
+						console.error('Erro ao salvar requisição no IndexedDB:', err);
 					});
 				}
+				return { ...prev, [requestId]: next };
+			});
+		};
+
+		const messageListener = (message: any) => {
+			if (message.action === 'newRequest' && message.requestId && message.request) {
+				upsertRequest(message.requestId, () => message.request);
+			} else if (message.action === 'requestUpdated' && message.requestId && message.updates) {
+				upsertRequest(message.requestId, (existing) => {
+					if (!existing) return null;
+					return { ...existing, ...message.updates };
+				});
 			}
 		};
 

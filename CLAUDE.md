@@ -53,7 +53,7 @@ The debugger only attaches to `targetTabId`. Closing `interceptorTabId` automati
 
 ### 2. Interception flow
 
-`startDebugging()` calls `chrome.debugger.attach({tabId}, '1.3')` and enables `Fetch.enable` with `patterns: [{urlPattern: '*', requestStage: 'Response'}]` — meaning **every** request is paused at the response stage. The `Fetch.requestPaused` event then runs `handleRequestPaused`, which:
+`startDebugging()` calls `chrome.debugger.attach({tabId}, '1.3')` and enables both `Network.enable` (for timing capture) and `Fetch.enable` with `patterns: [{urlPattern: '*', requestStage: 'Response'}]` — meaning **every** request is paused at the response stage. The `Fetch.requestPaused` event then runs `handleRequestPaused`, which:
 
 1. Checks for mocks (`checkForMock`) → if matched, calls `Fetch.fulfillRequest` with the mock and stops.
 2. Checks breakpoint rules (`checkForBreakpoint`) — informational; flow continues.
@@ -62,6 +62,14 @@ The debugger only attaches to `targetTabId`. Closing `interceptorTabId` automati
 5. Otherwise → `Fetch.continueRequest` and notifies the UI to persist the request to IndexedDB.
 
 `stopDebugging()` continues all pending requests before detaching. Anything left in `pendingResponses` would hang the page otherwise.
+
+### 2a. Real-time duration capture
+
+`Fetch` and `Network` are different CDP domains with **different `requestId` namespaces**. Correlation uses the `networkId` field on `Fetch.requestPaused` (when both domains are enabled, it equals `Network.requestWillBeSent.requestId`).
+
+`Fetch.requestPaused` (Response stage) fires *before* `Network.responseReceived`/`loadingFinished` get delivered to the listener — so duration cannot be read synchronously. `app/src/backend/services/networkTiming.ts` exposes a `NetworkTimingTracker` class that buffers `start` (`requestWillBeSent.timestamp`) and `end` (`loadingFinished.timestamp`, with `responseReceived` as TTFB fallback) and emits `onDurationReady(fetchRequestId, durationMs)` once both sides plus `linkFetchId` (called from `handleRequestPaused`) are present. The background's emit callback updates `allRequests[fetchId].duration` and broadcasts a `requestUpdated` message; `useAllRequests` merges the partial update into state and IndexedDB.
+
+The tracker filters Network events to a 4-event allowlist (`requestWillBeSent`/`responseReceived`/`loadingFinished`/`loadingFailed`) and caps internal entries at 2000 (FIFO eviction) to bound memory in long debugging sessions.
 
 ### 3. Two coexisting rule formats
 
@@ -85,7 +93,7 @@ The codebase carries two rule schemas. **New code should use `Rule`**, but inter
 
 UI → background: `chrome.runtime.sendMessage({action, ...})`. Action names live as a union type at the top of `background.ts` (e.g. `startDebugging`, `getDebuggingStatus`, `getPendingResponses`, `getAllRequests`, `approveResponse`, `setTargetTab`, `clearAllRequests`).
 
-Background → UI: `chrome.tabs.sendMessage(interceptorTabId, {action, ...})` for events targeted at the React app (`newRequest`, `targetTabSelected`, `openSelectTabDialog`), or `chrome.runtime.sendMessage(...)` broadcasts (`newPendingResponse`, `responseBodyReady`).
+Background → UI: `chrome.tabs.sendMessage(interceptorTabId, {action, ...})` for events targeted at the React app (`newRequest`, `requestUpdated`, `targetTabSelected`, `openSelectTabDialog`), or `chrome.runtime.sendMessage(...)` broadcasts (`newPendingResponse`, `responseBodyReady`). `requestUpdated` carries `{ requestId, updates }` for partial merges (e.g. duration arriving asynchronously after `loadingFinished`).
 
 When you add a new action, update both the union in `app/src/backend/types/index.ts` *and* the inline one in `background.ts` (they have drifted — see "Quirks" below).
 
@@ -97,6 +105,7 @@ When you add a new action, update both the union in `app/src/backend/types/index
 - `pages/Layout.tsx` — sidebar + header shell, owns the `SelectTabDialog`.
 - `hooks/` — one hook per concern: `useDebugging`, `useResponses` (pending), `useAllRequests` (history), `useRules`, `useUrlPatterns` (legacy edits).
 - `components/shadcn/` — vendored shadcn-ui components. Add new ones via `npm run shadcn:add <name>` (configured in `app/components.json`). Tailwind config in `app/tailwind.config.cjs`; global styles in `app/src/ui/globals.css`.
+- `components/requests/duration.ts` — pure helpers (`formatDuration`, `getDurationColorClass`, `compareDurations`) used by the "Tempo" column. Co-located tests in `__tests__/duration.test.ts`.
 
 ## Build pipeline (Vite)
 
@@ -119,7 +128,7 @@ Output `entryFileNames: '[name].js'` is required so `manifest.json`'s `service_w
 - **Indentation: tabs (size 2)** per `.editorconfig`. Don't switch to spaces — diffs will be huge.
 - Prettier: single quotes, trailing commas everywhere, print width 100.
 - UI strings, comments, and console logs are written in Portuguese-BR — match that when editing existing files.
-- Functional React + hooks. No classes except the IndexedDB service wrapper.
+- Functional React + hooks. Classes only for the two service wrappers: `IndexedDBServiceImpl` (`app/src/backend/services/indexedDB.ts`) and `NetworkTimingTracker` (`app/src/backend/services/networkTiming.ts`).
 
 ## No fallbacks / no default values (project-wide rule)
 
@@ -141,7 +150,6 @@ Jest with `ts-jest` and `jsdom`. `app/jest.setup.js` mocks the `chrome` global (
 
 - **The `Message`/`MessageAction` types in `app/src/backend/types/index.ts` are stale** — the inline declarations at the top of `background.ts` are the source of truth. Reconcile cautiously: production code reads from the inline list.
 - **`extension-reloader.ts` and `hot-reload.ts`** use MV2 APIs (`getBackgroundPage`, `getPackageDirectoryEntry`) and aren't wired into the build. Treat them as dead code unless you're explicitly resurrecting hot reload.
-- **The "duration" column on the requests table is fake** — `app/src/ui/components/requests/columns.tsx` derives it from a hash of the request ID (tracked in issue #14). Don't trust it; don't extend it; replace with real timing data when fixing.
 - **Request body for the original request is on `InterceptedResponse.request.postData`** (added recently — commit `0bb0778`). The field exists on the frontend `InterceptedResponse` type (`useResponses.ts`) but not on the inline backend interface — another type drift case.
 - **Request *headers* are not stored separately from response headers** (issue #19) — `InterceptedResponse.headers` always holds response headers. Anything claiming to show "request headers" in `ResponseDialog` is currently misleading.
 
@@ -152,7 +160,6 @@ Run `gh issue list --state open` for the live list. Active items as of last sync
 - **#3** — i18n (PT-BR / EN) integration with Vite.
 - **#4** — `RequestHistory` doesn't store multiple visits to the same monitored page (likely an ID-collision/dedupe bug in `useAllRequests` + IndexedDB `put` on same key).
 - **#6** — Display `package.json` version in `AppSidebar` footer.
-- **#14** — "Tempo de resposta" column is mocked (see Quirks).
 - **#19** — Capture and store request headers separately in the background script.
 
 When fixing one of these, link the PR with `Closes #<n>` and update the issue if scope changes.

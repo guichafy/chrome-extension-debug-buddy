@@ -1,3 +1,5 @@
+import { NetworkTimingTracker } from './services/networkTiming';
+
 // Tipos para padrões de URL
 interface UrlPattern {
 	url: string;
@@ -13,6 +15,9 @@ interface UrlPattern {
 interface InterceptedResponse {
 	url: string;
 	method?: string;
+	request?: {
+		postData?: string;
+	};
 	status: number;
 	statusText: string;
 	headers: Record<string, string>;
@@ -22,6 +27,8 @@ interface InterceptedResponse {
 	body: string;
 	isWaiting?: boolean;
 	isMocked?: boolean;
+	/** Tempo total da requisição em milissegundos (capturado via Network domain do CDP) */
+	duration?: number;
 }
 
 // Tipos para modificações de resposta
@@ -56,6 +63,7 @@ type MessageAction =
 	| 'approveResponse'
 	| 'newPendingResponse'
 	| 'responseBodyReady'
+	| 'requestUpdated'
 	| 'hot_reload'
 	| 'selectTargetTab'
 	| 'setTargetTab';
@@ -126,6 +134,25 @@ let interceptorTabId: number | null = null;
 let targetTabId: number | null = null;
 let targetTabTitle: string = '';
 let targetTabUrl: string = '';
+
+// Captura tempos de cada requisição via Network domain do CDP. Quando duration
+// fica disponível (após Network.loadingFinished, que tipicamente chega depois
+// do Fetch.requestPaused), atualiza allRequests e notifica a UI.
+const timingTracker = new NetworkTimingTracker((fetchRequestId, duration) => {
+	const existing = allRequests[fetchRequestId];
+	if (existing) existing.duration = duration;
+	if (interceptorTabId !== null) {
+		chrome.tabs
+			.sendMessage(interceptorTabId, {
+				action: 'requestUpdated',
+				requestId: fetchRequestId,
+				updates: { duration },
+			})
+			.catch(() => {
+				// UI fechada — atualização perdida; in-memory já foi atualizado
+			});
+	}
+});
 
 // Initialize when the extension is installed or updated
 chrome.runtime.onInstalled.addListener(() => {
@@ -674,8 +701,10 @@ async function startDebugging(specificTabId: number | null = null): Promise<bool
 		await chrome.debugger.attach({ tabId }, '1.3');
 		console.log(`Debugger attached to tab ${tabId}`);
 
-		// First disable Network domain to avoid conflicts
-		await chrome.debugger.sendCommand({ tabId }, 'Network.disable');
+		// Habilita Network primeiro para que o requestId seja compartilhado com Fetch
+		// e a gente consiga casar timing real de início/fim com a requisição interceptada.
+		await chrome.debugger.sendCommand({ tabId }, 'Network.enable');
+		console.log('Network domain enabled for timing capture');
 
 		// Enable Fetch domain for request interception
 		// This is the key part - we're intercepting ALL requests at the Response stage
@@ -697,6 +726,7 @@ async function startDebugging(specificTabId: number | null = null): Promise<bool
 		isDebugging = true;
 		attachedTabId = tabId;
 		pendingResponses = {};
+		timingTracker.reset();
 
 		console.log('Debugging started successfully');
 		return true;
@@ -747,6 +777,7 @@ async function stopDebugging(): Promise<boolean> {
 		attachedTabId = null;
 		pendingResponses = {};
 		allRequests = {};
+		timingTracker.reset();
 
 		console.log('Debugging stopped successfully');
 		return true;
@@ -756,29 +787,27 @@ async function stopDebugging(): Promise<boolean> {
 	}
 }
 
-// Debugger event listener
 function debuggerEventListener(
 	debuggeeId: chrome.debugger.Debuggee,
 	message: string,
 	params: any,
 ): void {
-	if (debuggeeId.tabId !== attachedTabId) {
+	if (debuggeeId.tabId !== attachedTabId) return;
+
+	if (message.startsWith('Network.')) {
+		timingTracker.handleNetworkEvent(message, params);
 		return;
 	}
 
-	// Handle fetch events
-	if (message.startsWith('Fetch.')) {
-		switch (message) {
-			case 'Fetch.requestPaused':
-				handleRequestPaused(params);
-				break;
-		}
+	if (message === 'Fetch.requestPaused') {
+		handleRequestPaused(params);
 	}
 }
 
 // Handle paused request
 async function handleRequestPaused(params: any): Promise<void> {
-	const { requestId, request, responseStatusCode, responseHeaders, resourceType } = params;
+	const { requestId, request, responseStatusCode, responseHeaders, resourceType, networkId } =
+		params;
 	const url = request.url;
 	const method = request.method || 'GET';
 	const postData = request.postData || '';
@@ -792,6 +821,8 @@ async function handleRequestPaused(params: any): Promise<void> {
 	const mockResult = await checkForMock(url, method);
 	if (mockResult) {
 		console.log(`Applying mock for ${url}`);
+		// Mock não viaja na rede; descarta o timing pendente.
+		timingTracker.discardByNetworkId(networkId);
 		applyMockResponse(requestId, mockResult, request);
 		return;
 	}
@@ -854,6 +885,10 @@ async function handleRequestPaused(params: any): Promise<void> {
 
 			// Armazenar em allRequests
 			allRequests[requestId] = responseObj;
+
+			// Quando Network.loadingFinished chegar (tipicamente depois do paused),
+			// o tracker emitirá `requestUpdated` para a UI com a duration final.
+			timingTracker.linkFetchId(networkId, requestId);
 
 			// Check if this URL should be intercepted based on our patterns
 			if (shouldInterceptUrl(url, request)) {

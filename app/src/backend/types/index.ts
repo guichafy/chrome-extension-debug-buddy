@@ -25,6 +25,8 @@ export interface InterceptedResponse {
 	body: string;
 	isWaiting?: boolean;
 	isMocked?: boolean;
+	/** Tempo total da requisição em milissegundos (capturado via Network domain do CDP) */
+	duration?: number;
 }
 
 // Tipos para modificações de resposta
@@ -55,7 +57,8 @@ export type MessageAction =
 	| 'getResponseDetails'
 	| 'approveResponse'
 	| 'newPendingResponse'
-	| 'responseBodyReady';
+	| 'responseBodyReady'
+	| 'requestUpdated';
 
 export interface Message {
 	action: MessageAction;

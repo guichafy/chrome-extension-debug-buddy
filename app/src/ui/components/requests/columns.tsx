@@ -13,6 +13,7 @@ import {
 	DropdownMenuTrigger,
 } from '@/ui/components/shadcn/dropdown-menu';
 import { InterceptedResponse } from '../../hooks/useResponses';
+import { compareDurations, formatDuration, getDurationColorClass } from './duration';
 
 // Tipo para representar uma requisição
 export type RequestRow = {
@@ -72,54 +73,14 @@ export const columns: ColumnDef<RequestRow>[] = [
 			);
 		},
 		sortingFn: (rowA, rowB) => {
-			const requestIdA = rowA.original.id;
-			const requestIdB = rowB.original.id;
-
-			// Gerar valores de tempo de resposta simulados com base nos IDs
-			const hashA = requestIdA.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-			const hashB = requestIdB.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-
-			const responseTimeA = 50 + (hashA % 1950);
-			const responseTimeB = 50 + (hashB % 1950);
-
-			return responseTimeA - responseTimeB;
+			return compareDurations(rowA.original.request.duration, rowB.original.request.duration);
 		},
 		cell: ({ row }) => {
-			const request = row.original.request;
-			const requestId = row.original.id;
-
-			// Gerar um tempo de resposta simulado com base no ID da requisição
-			// Isso garante que o mesmo ID sempre terá o mesmo tempo de resposta
-			const hash = requestId.split('').reduce((acc, char) => {
-				return acc + char.charCodeAt(0);
-			}, 0);
-
-			// Gerar um valor entre 50ms e 2000ms
-			const responseTime = 50 + (hash % 1950);
-
-			// Formatar o tempo de resposta
-			let formattedTime = '';
-			if (responseTime < 1000) {
-				// Menos de 1 segundo
-				formattedTime = `${responseTime}ms`;
-			} else {
-				// Mais de 1 segundo
-				const seconds = Math.floor(responseTime / 1000);
-				const ms = responseTime % 1000;
-				formattedTime = `${seconds}s ${ms}ms`;
-			}
-
-			// Adicionar classe de cor com base no tempo de resposta
-			let colorClass = 'text-green-600';
-			if (responseTime > 1000) {
-				colorClass = 'text-amber-600';
-			} else if (responseTime > 500) {
-				colorClass = 'text-yellow-600';
-			}
-
+			const duration = row.original.request.duration;
+			const colorClass = getDurationColorClass(duration);
 			return (
 				<span className={`text-xs font-medium ${colorClass} whitespace-nowrap`}>
-					{formattedTime}
+					{formatDuration(duration)}
 				</span>
 			);
 		},

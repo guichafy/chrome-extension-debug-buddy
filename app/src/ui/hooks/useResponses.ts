@@ -16,6 +16,8 @@ export interface InterceptedResponse {
 	body: string;
 	isWaiting?: boolean;
 	isMocked?: boolean;
+	/** Tempo total da requisição em milissegundos (capturado via Network domain do CDP) */
+	duration?: number;
 }
 
 export interface ResponseModifications {
