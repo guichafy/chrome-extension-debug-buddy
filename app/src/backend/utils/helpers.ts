@@ -9,8 +9,8 @@ export function parseHeaders(headersText: string): Record<string, string> {
 	const headers: Record<string, string> = {};
 	const lines = headersText.split('\n');
 
-	lines.forEach((line) => {
-		line = line.trim();
+	lines.forEach((rawLine) => {
+		const line = rawLine.trim();
 		if (!line) return;
 
 		const colonIndex = line.indexOf(':');
@@ -27,8 +27,8 @@ export function parseHeaders(headersText: string): Record<string, string> {
 /**
  * Detecta o tipo de conteúdo com base no texto
  */
-export function detectContentType(content: string): 'json' | 'html' | 'text' {
-	content = content.trim();
+export function detectContentType(rawContent: string): 'json' | 'html' | 'text' {
+	const content = rawContent.trim();
 
 	// Tentar detectar JSON
 	if (

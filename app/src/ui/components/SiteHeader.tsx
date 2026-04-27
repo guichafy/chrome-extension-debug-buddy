@@ -59,7 +59,7 @@ export function SiteHeader({
 														: 'bg-green-500'
 													: 'bg-gray-400'
 											}`}
-										></span>
+										/>
 										<h1 className="text-base font-medium">
 											{pendingResponsesCount > 0
 												? `${pendingResponsesCount} ${pendingResponsesCount === 1 ? 'requisição' : 'requisições'} aguardando`

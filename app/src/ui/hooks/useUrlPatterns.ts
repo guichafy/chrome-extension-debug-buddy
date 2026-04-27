@@ -36,7 +36,7 @@ export function useUrlPatterns() {
 			headerName: string,
 			headerValue: string,
 			headerType: string,
-			isRegex: boolean = false,
+			isRegex = false,
 		): Promise<boolean> => {
 			if (!urlPattern) {
 				alert('Por favor, insira um padrão de URL');

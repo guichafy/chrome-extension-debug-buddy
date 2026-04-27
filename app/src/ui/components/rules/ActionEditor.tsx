@@ -122,8 +122,8 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange }) 
 									type="number"
 									value={mockAction.status}
 									onChange={(e) => {
-										const status = parseInt(e.target.value);
-										if (!isNaN(status)) {
+										const status = Number.parseInt(e.target.value);
+										if (!Number.isNaN(status)) {
 											onChange({
 												...mockAction,
 												status,

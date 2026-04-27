@@ -32,7 +32,7 @@ interface ResponseDialogProps {
 }
 
 // Função auxiliar para truncar URLs longas
-const truncateUrl = (url: string, maxLength: number = 60): string => {
+const truncateUrl = (url: string, maxLength = 60): string => {
 	if (url.length <= maxLength) {
 		return url;
 	}
@@ -273,8 +273,8 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 			// Adicionar modificações se estiver editando
 			// Garantir que o status code seja um número válido
 			if (status && status.trim() !== '') {
-				const statusNumber = parseInt(status, 10);
-				if (!isNaN(statusNumber)) {
+				const statusNumber = Number.parseInt(status, 10);
+				if (!Number.isNaN(statusNumber)) {
 					modifications.status = statusNumber;
 				} else {
 					alert('Status code inválido. Deve ser um número.');
@@ -514,7 +514,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 									</div>
 
 									<div>
-										<label className="block text-sm font-medium mb-1">Request Headers</label>
+										<div className="block text-sm font-medium mb-1">Request Headers</div>
 										<ScrollArea className="h-[200px] border rounded-md">
 											<div className="p-3 font-mono text-sm">
 												{/* Exibir todos os headers, pois não temos uma distinção clara entre request e response headers */}
@@ -578,7 +578,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 									</div>
 
 									<div>
-										<label className="block text-sm font-medium mb-1">Response Headers</label>
+										<div className="block text-sm font-medium mb-1">Response Headers</div>
 										<ScrollArea className="h-[200px] border rounded-md">
 											<div className="p-3 font-mono text-sm">
 												{Object.entries(response.headers || {}).map(([key, value]) => (
@@ -669,7 +669,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 																className="flex items-center gap-1 h-7 px-2"
 																onClick={() => {
 																	// Criar um link para download da imagem
-																	let url;
+																	let url: string;
 																	if (imageData.startsWith('blob-url:')) {
 																		// Já é uma URL de Blob
 																		url = imageData.substring(9);
@@ -701,7 +701,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 																		? imageData.substring(9) // Remover o prefixo 'blob-url:'
 																		: createImageDataUrl(imageData, response.mimeType)
 																}
-																alt="Response Image"
+																alt="Response"
 																style={{
 																	transform: `scale(${imageZoom / 100})`,
 																	transformOrigin: 'center center',
