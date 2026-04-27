@@ -15,7 +15,13 @@
     "test:coverage": "vitest run --coverage",
     "lint": "biome check src",
     "lint:fix": "biome check --apply src",
-    "format": "biome format --write src"
+    "format": "biome format --write src",
+    "prepare": "cd .. && husky"
+  },
+  "lint-staged": {
+    "src/**/*.{ts,tsx,js,jsx,json}": [
+      "biome check --apply --no-errors-on-unmatched"
+    ]
   },
   "keywords": [
     "chrome",
@@ -55,6 +61,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@types/chrome": "^0.0.254",
@@ -63,7 +71,9 @@
     "@vitejs/plugin-react": "^4.2.0",
     "@vitest/ui": "^1.6.1",
     "autoprefixer": "^10.4.19",
+    "husky": "^9.1.7",
     "jsdom": "^24.1.3",
+    "lint-staged": "^15.5.2",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.3.3",
