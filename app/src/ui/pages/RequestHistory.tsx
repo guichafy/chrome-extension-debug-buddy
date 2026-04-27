@@ -94,6 +94,11 @@ const RequestHistory: React.FC = () => {
 
 	const handleCreateMock = async () => {
 		if (currentRequest) {
+			if (currentRequest.captureError || currentRequest.body === undefined) {
+				alert('Não é possível criar mock a partir de uma resposta com falha de captura.');
+				return;
+			}
+
 			try {
 				// Extrair o URL base da requisição para o mock
 				const url = currentRequest.url;
@@ -121,7 +126,7 @@ const RequestHistory: React.FC = () => {
 					enabled: true,
 					status: currentRequest.status,
 					headers: currentRequest.headers || {},
-					body: currentRequest.body || '',
+					body: currentRequest.body,
 					contentType: currentRequest.mimeType || 'application/json',
 				};
 

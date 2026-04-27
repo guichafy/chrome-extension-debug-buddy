@@ -289,7 +289,9 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 				return;
 			}
 
-			modifications.body = body;
+			if (response.body !== undefined) {
+				modifications.body = body;
+			}
 		}
 
 		const success = await onApprove(requestId, modifications);
@@ -307,7 +309,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 	};
 
 	const handleMock = () => {
-		if (!response) return;
+		if (!response || response.captureError || response.body === undefined) return;
 		onMock(response);
 		onOpenChange(false);
 	};
@@ -402,7 +404,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 							size="sm"
 							className={`flex items-center gap-1 ${ruleCreated ? 'bg-green-500 hover:bg-green-600' : ''}`}
 							onClick={handleMock}
-							disabled={ruleCreated}
+							disabled={ruleCreated || !!response.captureError || response.body === undefined}
 						>
 							{ruleCreated ? (
 								<>
@@ -443,6 +445,24 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 						)}
 					</div>
 				</div>
+
+				{response.captureError && (
+					<div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+						<div className="flex items-start gap-2">
+							<Icon name="error" className="mt-0.5 h-4 w-4" />
+							<span className="break-words">Falha na captura: {response.captureError}</span>
+						</div>
+					</div>
+				)}
+
+				{response.bodyUnavailableReason && (
+					<div className="mb-4 rounded-md border border-muted bg-muted/40 p-3 text-sm text-muted-foreground">
+						<div className="flex items-start gap-2">
+							<Icon name="info" className="mt-0.5 h-4 w-4" />
+							<span className="break-words">{response.bodyUnavailableReason}</span>
+						</div>
+					</div>
+				)}
 
 				<div className="flex-1 overflow-y-auto pr-2">
 					<Tabs defaultValue="request" className="w-full h-full flex flex-col">
@@ -600,7 +620,11 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 											</div>
 										</div>
 
-										{isImageResponse ? (
+										{response.body === undefined ? (
+											<div className="h-[120px] rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground">
+												{response.bodyUnavailableReason || 'Corpo da resposta indisponível.'}
+											</div>
+										) : isImageResponse ? (
 											<div className="border rounded-md h-[400px] overflow-hidden flex flex-col">
 												<div className="bg-muted p-2 flex justify-between items-center border-b">
 													<div className="text-sm font-medium">Visualização de Imagem</div>

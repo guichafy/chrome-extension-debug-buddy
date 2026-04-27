@@ -25,9 +25,11 @@ interface InterceptedResponse {
 	mimeType: string;
 	type: string;
 	timestamp: number;
-	body: string;
+	body?: string;
 	isWaiting?: boolean;
 	isMocked?: boolean;
+	captureError?: string;
+	bodyUnavailableReason?: string;
 	/** Tempo total da requisição em milissegundos (capturado via Network domain do CDP) */
 	duration?: number;
 }
@@ -430,21 +432,16 @@ chrome.runtime.onMessage.addListener(
 					patchRequest(requestId, { isWaiting: false });
 					sendResponse({ success: true });
 				};
-				if (attachedTabId !== null) {
-					chrome.debugger.sendCommand(
-						{ tabId: attachedTabId },
-						'Fetch.continueRequest',
-						{ requestId },
-						() => {
-							console.log(`Request ${requestId} continued without modifications`);
-							finalize();
-						},
-					);
-					return true; // Indicates we'll respond asynchronously
-				} else {
-					finalize();
-					return false;
-				}
+				continueRequest(requestId)
+					.then(() => {
+						console.log(`Request ${requestId} continued without modifications`);
+						finalize();
+					})
+					.catch((error) => {
+						console.error(`Erro ao ignorar resposta ${requestId}:`, error);
+						sendResponse({ success: false, error: getErrorMessage(error) });
+					});
+				return true; // Indicates we'll respond asynchronously
 			}
 		}
 
@@ -458,6 +455,83 @@ function encodeBodyToBase64(body: string): string {
 			String.fromCharCode(parseInt(p1, 16)),
 		),
 	);
+}
+
+function getErrorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
+function sendDebuggerCommand<T = unknown>(
+	method: string,
+	params?: Record<string, unknown>,
+): Promise<T> {
+	if (attachedTabId === null) {
+		return Promise.reject(new Error('Nenhuma sessão de depuração ativa'));
+	}
+
+	const tabId = attachedTabId;
+	return new Promise((resolve, reject) => {
+		const callback = (result?: T) => {
+			const lastError = chrome.runtime.lastError;
+			if (lastError) {
+				reject(new Error(`${method} falhou: ${lastError.message}`));
+				return;
+			}
+
+			resolve(result as T);
+		};
+
+		if (params === undefined) {
+			chrome.debugger.sendCommand({ tabId }, method, callback);
+		} else {
+			chrome.debugger.sendCommand({ tabId }, method, params, callback);
+		}
+	});
+}
+
+async function getDecodedResponseBody(requestId: string): Promise<string> {
+	const responseBody = await sendDebuggerCommand<{ body: string; base64Encoded: boolean }>(
+		'Fetch.getResponseBody',
+		{ requestId },
+	);
+
+	if (
+		!responseBody ||
+		typeof responseBody.body !== 'string' ||
+		typeof responseBody.base64Encoded !== 'boolean'
+	) {
+		throw new Error(`CDP não retornou corpo da resposta para ${requestId}`);
+	}
+
+	if (!responseBody.base64Encoded) {
+		return responseBody.body;
+	}
+
+	try {
+		return atob(responseBody.body);
+	} catch (error) {
+		throw new Error(`Erro ao decodificar base64 para ${requestId}: ${getErrorMessage(error)}`);
+	}
+}
+
+function getBodyUnavailableReason(method: string, statusCode: number): string | undefined {
+	if (method === 'HEAD') {
+		return 'Requisições HEAD não possuem corpo de resposta.';
+	}
+
+	if (statusCode >= 100 && statusCode < 200) {
+		return `Respostas informativas ${statusCode} não possuem corpo disponível para captura.`;
+	}
+
+	if (statusCode === 204 || statusCode === 205 || statusCode === 304) {
+		return `Resposta ${statusCode} não possui corpo disponível para captura.`;
+	}
+
+	if (statusCode >= 300 && statusCode < 400) {
+		return `Redirect ${statusCode} não possui corpo disponível para captura via Fetch.getResponseBody.`;
+	}
+
+	return undefined;
 }
 
 // Apply modifications to a response
@@ -567,11 +641,7 @@ async function applyResponseModifications(
 				console.log('Fetch.fulfillRequest params:', JSON.stringify(fulfillParams));
 
 				// Fulfill the request with modified response
-				await chrome.debugger.sendCommand(
-					{ tabId: attachedTabId as number },
-					'Fetch.fulfillRequest',
-					fulfillParams,
-				);
+				await sendDebuggerCommand('Fetch.fulfillRequest', fulfillParams);
 
 				console.log('Successfully applied modified response');
 				return true;
@@ -581,11 +651,7 @@ async function applyResponseModifications(
 			}
 		} else {
 			// No modifications, just continue the request
-			await chrome.debugger.sendCommand(
-				{ tabId: attachedTabId as number },
-				'Fetch.continueRequest',
-				{ requestId },
-			);
+			await continueRequest(requestId);
 			console.log(`Request ${requestId} continued without modifications`);
 			return true;
 		}
@@ -694,9 +760,7 @@ async function stopDebugging(): Promise<boolean> {
 		const pendingRequestIds = Object.keys(pendingResponses);
 		for (const requestId of pendingRequestIds) {
 			try {
-				await chrome.debugger.sendCommand({ tabId: attachedTabId }, 'Fetch.continueRequest', {
-					requestId,
-				});
+				await continueRequest(requestId);
 				console.log(`Continued pending request ${requestId} before stopping`);
 			} catch (error) {
 				console.error(`Error continuing request ${requestId}:`, error);
@@ -769,7 +833,14 @@ async function handleRequestPaused(params: any): Promise<void> {
 		console.log(`Applying mock for ${url}`);
 		// Mock não viaja na rede; descarta o timing pendente.
 		timingTracker.discardByNetworkId(networkId);
-		applyMockResponse(requestId, mockResult, request);
+		await applyMockResponse(requestId, mockResult, {
+			url,
+			method,
+			postData,
+			responseStatusCode,
+			responseHeaders,
+			resourceType,
+		});
 		return;
 	}
 
@@ -781,42 +852,33 @@ async function handleRequestPaused(params: any): Promise<void> {
 		// e adicionar à lista de pendingResponses para o usuário interagir
 	}
 
-	// Sempre obter o corpo da resposta para todas as requisições
-	chrome.debugger.sendCommand(
-		{ tabId: attachedTabId as number },
-		'Fetch.getResponseBody',
-		{ requestId },
-		(result: any) => {
-			// Verificar se houve erro ao buscar o corpo da resposta
-			if (chrome.runtime.lastError) {
-				console.warn(
-					`Erro ao obter corpo da resposta para ${requestId}: ${chrome.runtime.lastError.message}`,
+	// Nem toda resposta possui corpo disponível para captura (ex.: redirect/204/HEAD).
+	let body: string | undefined;
+	const bodyUnavailableReason = getBodyUnavailableReason(method, responseStatusCode);
+	if (!bodyUnavailableReason) {
+		try {
+			body = await getDecodedResponseBody(requestId);
+		} catch (error) {
+			const captureError = getErrorMessage(error);
+			console.error(`Falha ao capturar corpo da resposta para ${requestId}:`, error);
+
+			// Network não pode esperar IndexedDB: continua a request antes de persistir.
+			let continueErrorMessage: string | undefined;
+			try {
+				await continueRequest(requestId);
+			} catch (continueError) {
+				continueErrorMessage = getErrorMessage(continueError);
+				console.error(
+					`Falha ao continuar request ${requestId} após erro de captura:`,
+					continueError,
 				);
-				// Continuar a requisição original sem interceptar se não pudermos obter o corpo
-				// Ou podemos decidir interceptar com corpo vazio dependendo do caso de uso
-				// Neste caso, vamos continuar a requisição original para evitar inconsistências
-				continueRequest(requestId);
-				return;
 			}
 
-			const responseBody = result as { body: string; base64Encoded: boolean } | undefined;
-			let body = ''; // Inicializar corpo como vazio
+			// linkFetchId após continueRequest: garante que o tracker sabe quem é o fetchId
+			// caso o end (loadingFinished) ainda chegue mesmo sem corpo capturado.
+			timingTracker.linkFetchId(networkId, requestId);
 
-			if (responseBody) {
-				try {
-					body = responseBody.base64Encoded ? atob(responseBody.body) : responseBody.body;
-				} catch (e) {
-					console.error(`Erro ao decodificar base64 para ${requestId}:`, e);
-					// Tratar como corpo vazio ou logar erro
-					body = ''; // Fallback para corpo vazio
-				}
-			} else {
-				// Corpo da resposta pode ser nulo ou vazio
-				console.log(`Corpo da resposta para ${requestId} está vazio ou nulo.`);
-			}
-
-			// Criar objeto de resposta
-			const responseObj: InterceptedResponse = {
+			const failedCaptureRequest: InterceptedResponse = {
 				url,
 				method,
 				status: responseStatusCode,
@@ -825,54 +887,84 @@ async function handleRequestPaused(params: any): Promise<void> {
 				mimeType: getMimeTypeFromHeaders(responseHeaders),
 				type: resourceType,
 				timestamp: Date.now(),
-				body: body, // Usa o corpo processado (ou vazio)
 				request: { postData },
+				captureError: continueErrorMessage
+					? `${captureError}; falha ao continuar request: ${continueErrorMessage}`
+					: captureError,
 			};
 
-			// Quando Network.loadingFinished chegar (tipicamente depois do paused),
-			// o tracker emitirá `requestUpdated` com a duration final.
-			timingTracker.linkFetchId(networkId, requestId);
+			persistRequest(requestId, failedCaptureRequest).catch((persistError) => {
+				console.error(`Falha ao persistir erro de captura para ${requestId}:`, persistError);
+			});
+			return;
+		}
+	}
 
-			const willIntercept = shouldInterceptUrl(url, request);
-			const persistedRequest: InterceptedResponse = willIntercept
-				? { ...responseObj, isWaiting: true }
-				: responseObj;
+	// Criar objeto de resposta
+	const responseObj: InterceptedResponse = {
+		url,
+		method,
+		status: responseStatusCode,
+		statusText: getStatusText(responseStatusCode),
+		headers: responseHeadersToObject(responseHeaders),
+		mimeType: getMimeTypeFromHeaders(responseHeaders),
+		type: resourceType,
+		timestamp: Date.now(),
+		request: { postData },
+	};
+	if (body !== undefined) responseObj.body = body;
+	if (bodyUnavailableReason) responseObj.bodyUnavailableReason = bodyUnavailableReason;
 
-			persistRequest(requestId, persistedRequest);
+	// Quando Network.loadingFinished chegar (tipicamente depois do paused),
+	// o tracker emitirá `requestUpdated` com a duration final.
+	timingTracker.linkFetchId(networkId, requestId);
 
-			if (willIntercept) {
-				console.log(`Intercepting response for ${url}`);
-				pendingResponses[requestId] = persistedRequest;
-				chrome.runtime.sendMessage({
-					action: 'newPendingResponse',
-					requestId,
-					url,
-					method,
-					status: responseStatusCode,
-					statusText: getStatusText(responseStatusCode),
-					type: resourceType,
-					mimeType: getMimeTypeFromHeaders(responseHeaders),
-				});
-				console.log(`Response for ${url} is now pending user approval`);
-			} else {
-				continueRequest(requestId);
-			}
-		},
-	);
+	const willIntercept = shouldInterceptUrl(url, request);
+	const persistedRequest: InterceptedResponse = willIntercept
+		? { ...responseObj, isWaiting: true }
+		: responseObj;
+
+	if (willIntercept) {
+		await persistRequest(requestId, persistedRequest);
+		console.log(`Intercepting response for ${url}`);
+		pendingResponses[requestId] = persistedRequest;
+		chrome.runtime.sendMessage({
+			action: 'newPendingResponse',
+			requestId,
+			url,
+			method,
+			status: responseStatusCode,
+			statusText: getStatusText(responseStatusCode),
+			type: resourceType,
+			mimeType: getMimeTypeFromHeaders(responseHeaders),
+		});
+		console.log(`Response for ${url} is now pending user approval`);
+	} else {
+		// Pass-through: a rede tem prioridade sobre IndexedDB. Continua a request primeiro
+		// e só depois dispara persistência (fire-and-forget) — assim páginas com muitas
+		// requests/IndexedDB lento não acumulam latência artificial no tráfego não-interceptado.
+		let continueErrorMessage: string | undefined;
+		try {
+			await continueRequest(requestId);
+		} catch (error) {
+			continueErrorMessage = getErrorMessage(error);
+			console.error(`Falha ao continuar request ${requestId}:`, error);
+		}
+
+		const toPersist: InterceptedResponse = continueErrorMessage
+			? { ...persistedRequest, captureError: continueErrorMessage }
+			: persistedRequest;
+
+		persistRequest(requestId, toPersist).catch((persistError) => {
+			console.error(`Falha ao persistir request ${requestId}:`, persistError);
+		});
+	}
 }
 
 // Helper function to continue a request
-function continueRequest(requestId: string): void {
-	if (attachedTabId !== null) {
-		chrome.debugger.sendCommand(
-			{ tabId: attachedTabId },
-			'Fetch.continueRequest',
-			{ requestId },
-			() => {
-				console.log(`Continued request ${requestId}`);
-			},
-		);
-	}
+async function continueRequest(requestId: string): Promise<void> {
+	await sendDebuggerCommand('Fetch.continueRequest', { requestId });
+	console.log(`Continued request ${requestId}`);
 }
 
 // Helper function to get status text from status code
@@ -1273,9 +1365,18 @@ async function checkForBreakpoint(url: string, method: string): Promise<boolean>
 async function applyMockResponse(
 	requestId: string,
 	mock: MockConfig,
-	originalRequest?: any,
+	originalRequest: {
+		url: string;
+		method: string;
+		postData?: string;
+		responseStatusCode: number;
+		responseHeaders: { name: string; value: string }[];
+		resourceType: string;
+	},
 ): Promise<void> {
-	if (!attachedTabId || !mock) return;
+	if (!mock) {
+		throw new Error(`Mock não informado para ${requestId}`);
+	}
 
 	try {
 		// Converte headers de objeto para array (formato esperado pelo API Fetch)
@@ -1289,17 +1390,11 @@ async function applyMockResponse(
 		let base64Body: string;
 		try {
 			// Tenta codificar o corpo como base64
-			base64Body = btoa(
-				encodeURIComponent(mock.body).replace(/%([0-9A-F]{2})/g, (_, p1) =>
-					String.fromCharCode(parseInt(p1, 16)),
-				),
-			);
+			base64Body = encodeBodyToBase64(mock.body);
 			console.log('Body codificado em base64:', base64Body);
 		} catch (encodeError) {
 			console.error('Erro ao codificar corpo em base64:', encodeError);
-			// Se falhar, tenta um fallback seguro
-			const fallbackBody = JSON.stringify({ message: 'Mock body error - could not encode' });
-			base64Body = btoa(fallbackBody);
+			throw new Error(`Erro ao codificar corpo do mock para ${requestId}`);
 		}
 
 		// Obter o texto do status para o código
@@ -1307,8 +1402,8 @@ async function applyMockResponse(
 
 		// Criar objeto de resposta para armazenar no histórico
 		const responseObj: InterceptedResponse = {
-			url: mock.urlPattern, // Usamos o padrão de URL do mock
-			method: mock.method,
+			url: originalRequest.url,
+			method: originalRequest.method,
 			status: mock.status,
 			statusText: statusPhrase,
 			headers: mock.headers,
@@ -1317,32 +1412,48 @@ async function applyMockResponse(
 			timestamp: Date.now(),
 			body: mock.body,
 			isMocked: true,
-			request: { postData: originalRequest?.postData || '' },
+			request: { postData: originalRequest.postData },
 		};
 
-		persistRequest(requestId, responseObj);
-
 		// Envia a resposta mockada com o body corretamente codificado
-		await chrome.debugger.sendCommand({ tabId: attachedTabId }, 'Fetch.fulfillRequest', {
+		await sendDebuggerCommand('Fetch.fulfillRequest', {
 			requestId,
 			responseCode: mock.status,
 			responsePhrase: statusPhrase,
 			responseHeaders: headerArray,
 			body: base64Body,
-			base64Encoded: true, // Importante! Indica que o body está em base64
 		});
 
+		await persistRequest(requestId, responseObj);
 		console.log(`Mock aplicado com sucesso para ${requestId}`);
 	} catch (error) {
-		console.error('Erro ao aplicar mock:', error);
+		const captureError = `Falha ao aplicar mock: ${getErrorMessage(error)}`;
+		console.error(captureError, error);
+
+		const failedMockRequest: InterceptedResponse = {
+			url: originalRequest.url,
+			method: originalRequest.method,
+			status: originalRequest.responseStatusCode,
+			statusText: getStatusText(originalRequest.responseStatusCode),
+			headers: responseHeadersToObject(originalRequest.responseHeaders),
+			mimeType: getMimeTypeFromHeaders(originalRequest.responseHeaders),
+			type: originalRequest.resourceType,
+			timestamp: Date.now(),
+			request: { postData: originalRequest.postData },
+			captureError,
+		};
+
+		await persistRequest(requestId, failedMockRequest);
 
 		// Em caso de erro, tenta continuar a requisição original
 		try {
-			await chrome.debugger.sendCommand({ tabId: attachedTabId }, 'Fetch.continueRequest', {
-				requestId,
-			});
+			await continueRequest(requestId);
 		} catch (continueError) {
+			const continueMessage = getErrorMessage(continueError);
 			console.error('Erro ao continuar requisição após falha do mock:', continueError);
+			await patchRequest(requestId, {
+				captureError: `${captureError}; falha ao continuar request: ${continueMessage}`,
+			});
 		}
 	}
 }

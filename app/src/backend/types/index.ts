@@ -22,9 +22,11 @@ export interface InterceptedResponse {
 	mimeType: string;
 	type: string;
 	timestamp: number;
-	body: string;
+	body?: string;
 	isWaiting?: boolean;
 	isMocked?: boolean;
+	captureError?: string;
+	bodyUnavailableReason?: string;
 	/** Tempo total da requisição em milissegundos (capturado via Network domain do CDP) */
 	duration?: number;
 }
