@@ -6,7 +6,6 @@ import type { InterceptedResponse, ResponseModifications } from './intercepted';
 import type { MockConfig } from './legacy';
 
 export type MessageAction =
-	| 'getMocks'
 	| 'startDebugging'
 	| 'stopDebugging'
 	| 'getDebuggingStatus'
