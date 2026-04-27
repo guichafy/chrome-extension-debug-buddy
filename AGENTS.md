@@ -19,7 +19,7 @@ npm run dev              # vite dev server (mostly used for type/build feedback;
 npm run build            # production build → app/dist/
 npm run watch            # vite build --watch (rebuild on save while extension is loaded from dist/)
 npm run lint             # biome check src
-npm run lint:fix         # biome check --apply src
+npm run lint:fix         # biome check --write src
 npm run format           # biome format --write src
 npm test                 # vitest run (jsdom)
 npm run test:watch       # vitest (interactive)
