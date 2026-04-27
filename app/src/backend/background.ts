@@ -1,4 +1,5 @@
 import { indexedDBService } from './services/indexedDB';
+import { runLegacyMigration } from './services/legacyMigration';
 import { NetworkTimingTracker } from './services/networkTiming';
 import type {
 	Action,
@@ -71,8 +72,19 @@ const timingTracker = new NetworkTimingTracker((fetchRequestId, duration) => {
 });
 
 // Initialize when the extension is installed or updated
-chrome.runtime.onInstalled.addListener(() => {
-	console.log('Network Request Interceptor extension installed');
+chrome.runtime.onInstalled.addListener(async (details) => {
+	console.log(`[background] onInstalled: ${details.reason}`);
+	const result = await runLegacyMigration();
+	if (result.migrated) {
+		console.log('[background] Legacy storage migrated to rules format.');
+	}
+});
+
+// Roda a migração também no startup do navegador (extensão já instalada).
+// Idempotente — runLegacyMigration() checa legacy_migrated_at antes de agir.
+chrome.runtime.onStartup.addListener(async () => {
+	console.log('[background] onStartup');
+	await runLegacyMigration();
 });
 
 // Listener para mudanças no storage (para atualizar regras em tempo real)
