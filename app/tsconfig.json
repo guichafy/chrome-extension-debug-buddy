@@ -28,7 +28,7 @@
     "paths": {
       "@/*": ["*"]
     },
-    "types": ["jest", "@testing-library/jest-dom", "chrome"]
+    "types": ["vitest/globals", "@testing-library/jest-dom", "chrome"]
   },
   "include": ["./**/*"],
   "exclude": ["node_modules", "dist"]
