@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LucideIcon } from '@/components/ui/lucide-icon';
@@ -26,6 +27,15 @@ const RulesLab: React.FC = () => {
 	const [editingRule, setEditingRule] = useState<Rule | null>(null);
 	const [creatingFromPreset, setCreatingFromPreset] = useState<RulePresetId | null>(null);
 	const [isCreating, setIsCreating] = useState(false);
+	const [searchParams] = useSearchParams();
+
+	// Abrir automaticamente o editor quando a URL contém ?rule=<id>
+	const focusRuleId = searchParams.get('rule');
+	useEffect(() => {
+		if (!focusRuleId) return;
+		const target = rules.find((r) => r.id === focusRuleId);
+		if (target) setEditingRule(target);
+	}, [focusRuleId, rules]);
 
 	const presetDraft = creatingFromPreset ? createPresetRule(creatingFromPreset) : undefined;
 
@@ -91,12 +101,12 @@ const RulesLab: React.FC = () => {
 					}
 				}}
 				onSave={async (newRule) => {
-					const ok = await addRule(newRule.name, newRule.matchers, newRule.action);
-					if (ok) {
+					const created = await addRule(newRule.name, newRule.matchers, newRule.action);
+					if (created) {
 						setIsCreating(false);
 						setCreatingFromPreset(null);
 					}
-					return ok;
+					return created !== null;
 				}}
 			/>
 

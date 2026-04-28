@@ -21,7 +21,7 @@ export function useRules() {
 
 	// Adicionar uma nova regra
 	const addRule = useCallback(
-		async (name: string, matchers: Matcher[], action: Action): Promise<boolean> => {
+		async (name: string, matchers: Matcher[], action: Action): Promise<Rule | null> => {
 			try {
 				const now = Date.now();
 				const newRule: Rule = {
@@ -37,10 +37,10 @@ export function useRules() {
 				const newRules = [...rules, newRule];
 				await chrome.storage.local.set({ rules: newRules });
 				setRules(newRules);
-				return true;
+				return newRule;
 			} catch (error) {
 				console.error('Erro ao adicionar regra:', error);
-				return false;
+				return null;
 			}
 		},
 		[rules],
@@ -123,8 +123,17 @@ export function useRules() {
 	// Carregar regras ao montar o componente. A migração de dados legados
 	// (urlPatterns/mocks) é responsabilidade do background — ver
 	// app/src/lib/legacyMigration.ts.
+	// Também subscreve chrome.storage.onChanged para refletir escritas externas
+	// (ex: importação de regras via RulesImportExport) sem precisar recarregar.
 	useEffect(() => {
 		loadRules();
+
+		const onChanged = (changes: Record<string, chrome.storage.StorageChange>, ns: string) => {
+			if (ns !== 'local' || !changes.rules) return;
+			setRules((changes.rules.newValue as Rule[] | undefined) ?? []);
+		};
+		chrome.storage.onChanged.addListener(onChanged);
+		return () => chrome.storage.onChanged.removeListener(onChanged);
 	}, [loadRules]);
 
 	return {

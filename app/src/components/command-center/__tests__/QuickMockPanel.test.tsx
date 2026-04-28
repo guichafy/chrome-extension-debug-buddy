@@ -21,10 +21,20 @@ const baseRequest = {
 };
 
 describe('QuickMockPanel', () => {
+	const mockCreatedRule = {
+		id: 'r-mock',
+		name: 'Mock para api.example.com/users',
+		enabled: true,
+		matchers: [],
+		action: { type: 'mock' as const, enabled: true, status: 200, headers: {} },
+		createdAt: 1,
+		updatedAt: 1,
+	};
+
 	beforeEach(() => {
 		vi.mocked(useRules).mockReturnValue({
 			rules: [],
-			addRule: vi.fn().mockResolvedValue(true),
+			addRule: vi.fn().mockResolvedValue(mockCreatedRule),
 		} as any);
 	});
 
@@ -37,7 +47,7 @@ describe('QuickMockPanel', () => {
 	});
 
 	test('clica salvar chama addRule com matchers default', async () => {
-		const addRule = vi.fn().mockResolvedValue(true);
+		const addRule = vi.fn().mockResolvedValue(mockCreatedRule);
 		vi.mocked(useRules).mockReturnValue({ rules: [], addRule } as any);
 		render(
 			<QuickMockPanel open onOpenChange={vi.fn()} request={baseRequest as any} requestId="r1" />,
@@ -69,7 +79,7 @@ describe('QuickMockPanel', () => {
 		expect(checkbox!.getAttribute('data-state')).toBe('unchecked');
 	});
 
-	test('chama onCreated após salvar com o nome da regra', async () => {
+	test('chama onCreated após salvar com a regra criada', async () => {
 		const onCreated = vi.fn();
 		render(
 			<QuickMockPanel
@@ -81,6 +91,6 @@ describe('QuickMockPanel', () => {
 			/>,
 		);
 		fireEvent.click(screen.getByRole('button', { name: /Salvar mock/i }));
-		await waitFor(() => expect(onCreated).toHaveBeenCalledWith('Mock para api.example.com/users'));
+		await waitFor(() => expect(onCreated).toHaveBeenCalledWith(mockCreatedRule));
 	});
 });

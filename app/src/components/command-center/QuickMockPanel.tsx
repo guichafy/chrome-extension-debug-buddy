@@ -13,6 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { LucideIcon } from '@/components/ui/lucide-icon';
 import { Badge } from '@/components/ui/badge';
 import type { InterceptedResponse } from '@/types/intercepted';
+import type { Rule } from '@/types/rules';
 import {
 	buildQuickMockDraft,
 	type QuickMockHeaderSelection,
@@ -26,7 +27,7 @@ interface QuickMockPanelProps {
 	onOpenChange: (open: boolean) => void;
 	request: InterceptedResponse;
 	requestId: string;
-	onCreated?: (ruleName: string) => void;
+	onCreated?: (rule: Rule) => void;
 }
 
 interface HeaderRow {
@@ -99,16 +100,16 @@ export function QuickMockPanel({
 		setSaving(true);
 		setErrorMessage(null);
 		try {
-			const success = await addRule(
+			const created = await addRule(
 				draftResult.draft.name,
 				draftResult.draft.matchers,
 				draftResult.draft.action,
 			);
-			if (!success) {
+			if (!created) {
 				setErrorMessage('Falha ao gravar a regra em chrome.storage.local.');
 				return;
 			}
-			onCreated?.(draftResult.draft.name);
+			onCreated?.(created);
 			onOpenChange(false);
 		} finally {
 			setSaving(false);

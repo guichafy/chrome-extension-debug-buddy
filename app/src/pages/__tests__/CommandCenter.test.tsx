@@ -80,4 +80,55 @@ describe('CommandCenter', () => {
 		expect(screen.getAllByText(/api.example.com/).length).toBeGreaterThan(0);
 		expect(document.querySelector('[role="dialog"]')).toBeNull();
 	});
+
+	test('alternar entre duas requests reflete o conteúdo correto no inspector', () => {
+		vi.mocked(useAllRequests).mockReturnValue({
+			allRequests: {},
+			filteredRequests: {
+				r1: {
+					url: 'https://api.example.com/r1',
+					method: 'GET',
+					status: 200,
+					statusText: 'OK',
+					headers: {},
+					type: 'XHR',
+					timestamp: 1,
+				},
+				r2: {
+					url: 'https://api.example.com/r2',
+					method: 'POST',
+					status: 201,
+					statusText: 'Created',
+					headers: {},
+					type: 'XHR',
+					timestamp: 2,
+				},
+			},
+			filter: '',
+			setFilter: vi.fn(),
+			pauseAutoRefresh: vi.fn(),
+			enableAutoRefresh: vi.fn(),
+			autoRefreshEnabled: true,
+			clearAllRequests: vi.fn(),
+			getRequestDetails: vi.fn(),
+			currentRequest: null,
+			currentRequestId: null,
+			loading: false,
+			loadAllRequests: vi.fn(),
+			clearCurrentRequest: vi.fn(),
+			dbInitialized: true,
+		} as any);
+
+		render(
+			<MemoryRouter>
+				<CommandCenter />
+			</MemoryRouter>,
+		);
+
+		fireEvent.click(screen.getByText('https://api.example.com/r1'));
+		expect(screen.getAllByText('GET').length).toBeGreaterThan(0);
+
+		fireEvent.click(screen.getByText('https://api.example.com/r2'));
+		expect(screen.getAllByText('POST').length).toBeGreaterThan(0);
+	});
 });

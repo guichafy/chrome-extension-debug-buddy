@@ -42,6 +42,10 @@ if (typeof globalThis.TextDecoder === 'undefined') {
 			get: vi.fn(),
 			set: vi.fn(),
 		},
+		onChanged: {
+			addListener: vi.fn(),
+			removeListener: vi.fn(),
+		},
 	},
 	tabs: {
 		query: vi.fn(),
