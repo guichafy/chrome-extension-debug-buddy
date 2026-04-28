@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+# Skip the release run if the push was made by semantic-release itself
+# (defense in depth on top of the [skip ci] token in its commit message).
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  release:
+    name: Cut release
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]' && !contains(github.event.head_commit.message, '[skip ci]')
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: app/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Build (so semantic-release runs against a known-good tree)
+        run: npm run build
+      - name: Lint extension shape
+        run: npm run lint:ext
+      - name: Run semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: npx semantic-release
