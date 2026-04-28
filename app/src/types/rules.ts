@@ -106,3 +106,17 @@ export interface Rule {
 	createdAt: number;
 	updatedAt: number;
 }
+
+// Forma serializada de uma regra antes de receber id/timestamps do storage.
+export type RuleDraft = Omit<Rule, 'id' | 'createdAt' | 'updatedAt'>;
+
+// Identificadores estáveis para presets de Rules Lab.
+export type RulePresetId =
+	| 'http_error_500'
+	| 'http_error_404'
+	| 'http_error_401'
+	| 'http_error_403'
+	| 'latency_fixed'
+	| 'latency_range'
+	| 'empty_response'
+	| 'broken_json';
