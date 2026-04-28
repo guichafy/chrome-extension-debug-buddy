@@ -1,6 +1,6 @@
 {
   "name": "chrome-interceptor",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "type": "module",
   "description": "Chrome extension to intercept and modify network requests",
   "main": "background.js",
