@@ -2,7 +2,7 @@
   "name": "Debug Buddy",
   "short_name": "DbgBuddy",
   "description": "Intercept and log network requests based on URL patterns. Modify responses and create mocks for web development.",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "manifest_version": 3,
   "icons": {
     "16": "images/icon_16px.png",
@@ -40,8 +40,13 @@
   "options_page": "options.html",
   "web_accessible_resources": [
     {
-      "resources": ["styles.css", "images/*"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "styles.css",
+        "images/*"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "author": "Chafy Studio",

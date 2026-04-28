@@ -1,44 +1,52 @@
 # Releasing Debug Buddy
 
-This doc describes how a new version of Debug Buddy reaches the Chrome Web Store. Tools involved: **release-please** (versioning + changelog), **chrome-webstore-upload-cli** (ZIP upload via the CWS API), and a custom **`lint:ext`** validator (Chrome MV3 manifest sanity check).
+This doc describes how a new version of Debug Buddy reaches the Chrome Web Store. Tools involved: **semantic-release** (automatic versioning + changelog + GitHub Release on every merge to `main`), **chrome-webstore-upload-cli** (ZIP upload via the CWS API), and a custom **`lint:ext`** validator (Chrome MV3 manifest sanity check).
 
 ## TL;DR
 
 1. Land Conventional Commits on `main` (`feat:`, `fix:`, `feat!:`, etc.).
-2. release-please opens a release PR titled `chore(main): release debug-buddy x.y.z` whenever there are unreleased changes. Review and merge it.
-3. After merge, release-please creates a GitHub Release tagged `vx.y.z` and bumps `app/package.json` + `app/manifest.json` in lockstep.
-4. Trigger the **Publish to Chrome Web Store** GitHub Action (Actions tab → Run workflow). Or run `npm run publish:cws` locally with secrets set.
-5. Confirm the new version is live on the Web Store.
+2. The `Release` GitHub Action runs automatically on every push to `main`. If there are release-worthy commits since the last tag, it:
+   - bumps `app/package.json` and `app/manifest.json` versions in lockstep,
+   - regenerates `app/CHANGELOG.md`,
+   - commits the bump back to `main` with `[skip ci]` (no recursion),
+   - creates the git tag `vx.y.z`,
+   - publishes a GitHub Release with auto-generated notes.
+3. Trigger the **Publish to Chrome Web Store** GitHub Action (Actions tab → Run workflow). Or run `npm run publish:cws` locally with secrets set.
+4. Confirm the new version is live on the Web Store.
+
+There is **no intermediate release PR** to review. Conventional commit messages on the merging PR ARE the source of truth.
 
 ## Step-by-step
 
-### 1. Conventional Commits → release PR
+### 1. Conventional Commits → automatic release
 
-Every commit on `main` must follow [Conventional Commits](https://www.conventionalcommits.org/). Husky's `commit-msg` hook enforces this locally; CI doesn't separately check.
+Every commit on `main` must follow [Conventional Commits](https://www.conventionalcommits.org/). Husky's `commit-msg` hook enforces this locally. If you squash-merge a PR, edit the squashed commit message to follow the convention before merging.
 
-release-please watches `main` and opens a release PR aggregating all commits since the last tag. Mapping:
+semantic-release decides whether to release based on the commits since the last `vx.y.z` tag. Mapping (configured in `app/.releaserc.json`):
 
 | Commit type | Bump |
 |---|---|
-| `fix:` | patch (`1.0.0` → `1.0.1`) |
-| `feat:` | minor (`1.0.0` → `1.1.0`) |
-| `feat!:` or `BREAKING CHANGE:` footer | minor while in pre-1.x bump policy, major after 2.0.0 cutover |
-| `chore:`, `docs:`, `style:`, `refactor:`, `test:`, `ci:`, `build:` | no bump |
+| `fix:`, `perf:`, `refactor:`, `revert:` | patch (`0.0.1` → `0.0.2`) |
+| `feat:` | minor (`0.0.1` → `0.1.0`) |
+| `feat!:` or `BREAKING CHANGE:` footer | major (`0.0.1` → `1.0.0`) |
+| `docs:`, `style:`, `test:`, `build:`, `ci:`, `chore:` | no release |
 
-The release PR contains:
-- Updated `app/CHANGELOG.md` (auto-generated)
-- Bumped `version` in `app/package.json`
-- Bumped `version` in `app/manifest.json` (via release-please's `extra-files` config)
-- Updated `app/.release-please-manifest.json`
+If the commits since the last tag include only no-release types, the workflow exits cleanly with "no release published" — no version bump, no tag, no GitHub Release.
 
-Review the diff. If wrong, push corrections to `main` (e.g. amend changelog notes by editing the relevant commit's body) and release-please will update the PR.
+### 2. What the Release workflow does
 
-### 2. Merge the release PR
+When a release-worthy push lands on `main`:
 
-Squash- or rebase-merge to `main`. release-please then:
-1. Creates the git tag `vx.y.z`.
-2. Creates the GitHub Release with the auto-generated notes.
-3. Stops. **It does NOT publish to the Chrome Web Store.**
+1. **Checkout, npm ci, build, lint:ext.** Same gates as the PR CI. If any fail, the release aborts.
+2. **`npx semantic-release`** runs:
+   - **commit-analyzer** scans commits since the last tag and computes the next version.
+   - **release-notes-generator** builds the changelog entry.
+   - **changelog plugin** prepends it to `app/CHANGELOG.md`.
+   - **exec plugin** runs `node scripts/sync-manifest-version.mjs <version>` to mirror the version into `app/manifest.json`.
+   - **git plugin** commits `package.json`, `package-lock.json`, `manifest.json`, `CHANGELOG.md` with message `chore(release): x.y.z [skip ci]\n\n<notes>` and pushes to `main`. The `[skip ci]` token + the workflow's `if: github.actor != 'github-actions[bot]'` guard ensure the bot's commit doesn't re-trigger the workflow.
+   - **github plugin** creates the `vx.y.z` git tag and the GitHub Release with the auto-generated notes.
+
+The whole flow runs in one workflow execution (~2 min). No intermediate PR.
 
 ### 3. (One-time setup) Configure CWS secrets
 
@@ -55,11 +63,13 @@ Step-by-step token setup: see [chrome-webstore-upload-cli docs](https://github.c
 
 Add each secret via GitHub → repo settings → Secrets and variables → Actions → New repository secret.
 
-### 4. Publish
+### 4. Publish to Chrome Web Store
+
+The Release workflow only creates the GitHub Release. **It does NOT push to the Chrome Web Store** (intentional — gives a maintainer the chance to review what's about to ship).
 
 **Option A — GitHub Actions (recommended for production releases):**
 1. Actions tab → "Publish to Chrome Web Store" → "Run workflow".
-2. Branch: `main`.
+2. Branch: `main` (the tagged version is what's checked out).
 3. Toggle "Auto-publish to all users":
    - **Off (default):** Uploads as a draft. Visit the CWS dashboard to review and click "Publish" manually.
    - **On:** Goes live to all users immediately after Google's review (typically 1–48h).
@@ -77,12 +87,13 @@ Produces `app/debug-buddy-x.y.z.zip` and exits. Useful for testing the ZIP conte
 
 ### 5. Verify
 
+- The GitHub Release at `https://github.com/<owner>/<repo>/releases` shows the new tag and notes.
 - https://chrome.google.com/webstore/detail/<id> shows the new version (may take minutes to propagate).
 - Reload the extension locally (`chrome://extensions` → toggle off/on) and confirm the new version number in `chrome://extensions`.
 
 ## What the validator checks
 
-`npm run lint:ext` (defined in `app/scripts/validate-extension.mjs`) runs in CI on every PR after `npm run build`, and the publish script re-runs it as defense in depth before any upload. It validates:
+`npm run lint:ext` (defined in `app/scripts/validate-extension.mjs`) runs in CI on every PR after `npm run build`, in the Release workflow before semantic-release runs, and in the publish script as defense in depth before any upload. It validates:
 
 - `dist/manifest.json` parses as JSON.
 - `manifest_version === 3`.
@@ -96,24 +107,35 @@ Produces `app/debug-buddy-x.y.z.zip` and exits. Useful for testing the ZIP conte
 
 It exits 0 on success (even with warnings) and 1 on errors. **Why custom?** Mozilla's `web-ext lint` only knows the Firefox WebExtensions schema and flags Chrome-only fields like `background.service_worker` as invalid. Google doesn't ship a Chrome-aware equivalent.
 
+## Avoiding workflow recursion
+
+The Release workflow pushes a commit back to `main` (the version bump). Two safeguards prevent that commit from re-triggering the same workflow:
+
+1. **`[skip ci]` in the commit message** — GitHub Actions natively respects this token and skips workflow runs for commits containing it.
+2. **`if: github.actor != 'github-actions[bot]'` guard** in the workflow — defense in depth in case the token is stripped by some intermediate tool.
+
+The PR CI (`ci.yml`) only triggers on `pull_request`, not `push`, so the bot's commit doesn't trigger it either.
+
 ## Troubleshooting
 
-- **release-please didn't open a PR:** Check that at least one Conventional Commit landed on `main` since the last tag. `chore:`/`docs:`/etc. don't trigger a release.
-- **`lint:ext` fails on publish:** The CI step would have caught it; if it slipped through, fix the manifest issue and reland on a new patch version.
+- **Release workflow ran but didn't tag/release:** The push had only no-release commits (docs, chore, style, etc.). Check the workflow log for "no release published". To force a release, land a `fix:` or `feat:` commit (even a trivial one).
+- **Release workflow failed at `git push`:** The bot doesn't have permission. Check `permissions: contents: write` is set in the workflow YAML (should be).
+- **`lint:ext` fails on release:** The PR CI step would have caught it; if it slipped through, fix the manifest issue and reland on a new fix commit.
 - **CWS upload fails with `invalid_grant`:** The refresh token expired. Regenerate via `npx chrome-webstore-upload-cli token` and update the `CWS_REFRESH_TOKEN` secret.
-- **Version mismatch between `package.json` and `manifest.json`:** Should never happen — release-please's `extra-files` keeps them in sync. If they diverge, manually patch and reland on a new patch version.
+- **Version mismatch between `package.json` and `manifest.json`:** Should never happen — `sync-manifest-version.mjs` keeps them in sync via the exec plugin. If they diverge, manually patch and reland on a new fix commit.
 - **Need to roll back a release:** Chrome Web Store doesn't support deleting a published version. Best path: bump a patch version with the rollback as a `fix:` commit and republish. The bad version stays in the store but new installs get the patched one.
 - **`workflow_dispatch` button doesn't appear:** Only repo collaborators with `Actions` write permission can trigger it. Ask a maintainer.
+- **Two release workflow runs queued:** The `concurrency` group `release-${{ github.ref }}` ensures they serialize, not cancel. The second one will see no new commits and exit cleanly.
 
 ## File map
 
 | File | Purpose |
 |---|---|
-| `.github/workflows/release-please.yml` | Watches `main`, opens release PRs |
+| `.github/workflows/release.yml` | Auto-release on push to `main` |
 | `.github/workflows/publish-cws.yml` | Manual upload to Chrome Web Store |
 | `.github/workflows/ci.yml` | Lint/typecheck/build/lint:ext/test on PRs |
-| `app/release-please-config.json` | release-please config (paths, version sources) |
-| `app/.release-please-manifest.json` | release-please state (current version) |
+| `app/.releaserc.json` | semantic-release config |
+| `app/scripts/sync-manifest-version.mjs` | Mirrors package.json version into manifest.json |
 | `app/scripts/validate-extension.mjs` | Chrome MV3 manifest validator |
 | `app/scripts/publish-cws.mjs` | Build + ZIP + upload pipeline |
-| `app/CHANGELOG.md` | Auto-generated by release-please |
+| `app/CHANGELOG.md` | Auto-generated by semantic-release |
