@@ -112,6 +112,10 @@ describe('AppSidebar Component', () => {
 
 		// Verifica se o título está presente
 		expect(screen.getByText('Debug Buddy')).toBeTruthy();
+
+		// Verifica se os labels da navegação estão presentes
+		expect(screen.getByText('Command Center')).toBeInTheDocument();
+		expect(screen.getByText('Rules Lab')).toBeInTheDocument();
 	});
 
 	// Teste para verificar se o SidebarFooter exibe informações do desenvolvedor
@@ -129,7 +133,7 @@ describe('AppSidebar Component', () => {
 
 		// Verifica se os itens de navegação estão presentes
 		const navItems = screen.getAllByTestId('nav-item');
-		expect(navItems.length).toBe(2); // Histórico, Configurações
+		expect(navItems.length).toBe(2); // Command Center, Rules Lab
 
 		// Verifica se não há contadores visíveis no sidebar
 		const counts = screen.queryAllByTestId('nav-item-count');

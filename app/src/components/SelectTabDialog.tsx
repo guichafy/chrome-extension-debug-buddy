@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Button } from './ui/button';
-import { Icon } from './ui/icon';
+import { LucideIcon } from './ui/lucide-icon';
 import { ScrollArea } from './ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 
@@ -167,7 +167,7 @@ const SelectTabDialog: React.FC<SelectTabDialogProps> = ({ open, onOpenChange, o
 													className="flex-shrink-0 ml-2"
 													style={{ flexShrink: 0, width: '32px', minWidth: '32px' }}
 												>
-													<Icon name="arrow_forward" />
+													<LucideIcon name="chevron-right" className="h-4 w-4" />
 												</Button>
 											</div>
 										</div>

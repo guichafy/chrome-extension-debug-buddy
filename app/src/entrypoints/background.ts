@@ -114,7 +114,7 @@ chrome.storage.local.get(['targetTabInfo'], (result) => {
 });
 
 // Support for hot reload during development
-if (process.env.NODE_ENV !== 'production') {
+if (import.meta.env.MODE !== 'production') {
 	console.log('Running in development mode with hot reload support');
 }
 
@@ -577,18 +577,19 @@ async function startDebugging(specificTabId: number | null = null): Promise<bool
 		await chrome.debugger.sendCommand({ tabId }, 'Network.enable');
 		console.log('Network domain enabled for timing capture');
 
-		// Enable Fetch domain for request interception
-		// This is the key part - we're intercepting ALL requests at the Response stage
+		// Enable Fetch domain for request interception.
+		// Dois stages são necessários:
+		// - Request: permite aplicar mocks com latência *antes* de a request sair para a rede,
+		//   fazendo o Chrome DevTools registrar o delay total na coluna "Time". Mocks sem
+		//   latência e requests normais são continuadas imediatamente neste stage.
+		// - Response: intercepta todas as respostas para captura, breakpoints e mocks sem latência.
 		await chrome.debugger.sendCommand({ tabId }, 'Fetch.enable', {
 			patterns: [
-				{
-					urlPattern: '*',
-					requestStage: 'Response',
-					// Removed invalid resourceType: '*'
-				},
+				{ urlPattern: '*', requestStage: 'Request' },
+				{ urlPattern: '*', requestStage: 'Response' },
 			],
 		});
-		console.log('Fetch domain enabled for response interception');
+		console.log('Fetch domain enabled for request+response interception');
 
 		// Set up event listeners for debugger events
 		chrome.debugger.onEvent.addListener(debuggerEventListener);
@@ -698,17 +699,59 @@ async function handleRequestPaused(params: any): Promise<void> {
 	if (!method) {
 		throw new Error(`CDP nao informou metodo HTTP para ${requestId}`);
 	}
-	if (typeof responseStatusCode !== 'number') {
-		throw new Error(`CDP nao informou status de resposta para ${requestId}`);
-	}
 	if (!resourceType) {
 		throw new Error(`CDP nao informou resourceType para ${requestId}`);
 	}
 
+	// Request stage: responseStatusCode é undefined (a request ainda não foi para a rede).
+	// Response stage: responseStatusCode é sempre um número.
+	const isResponseStage = typeof responseStatusCode === 'number';
+
 	const requestHeaders = requestHeadersToRecord(request.headers);
+	const postData = typeof request.postData === 'string' ? request.postData : undefined;
+
+	if (!isResponseStage) {
+		// Request stage: só intercepta mocks com latência aqui.
+		// Motivo: Fetch.fulfillRequest no Response stage reusa o timing de rede original —
+		// o Chrome DevTools exibe o TTFB real, ignorando qualquer `await wait(latencyMs)`
+		// aplicado depois. Interceptando no Request stage, antes de a request sair para a rede,
+		// o Chrome contabiliza os 5s de delay na coluna "Time" do Network panel.
+		const matchedAction = findMatchingRuleAction(rules, {
+			url,
+			method,
+			headers: requestHeaders,
+		});
+
+		if (matchedAction?.type === 'mock' && matchedAction.action.latency) {
+			console.log(`Aplicando mock com latência via Request stage: ${url}`);
+			// Não haverá Network.loadingFinished para esta request — descarta o tracker.
+			timingTracker.discardByNetworkId(networkId);
+			await applyMockResponse(requestId, matchedAction.action, {
+				url,
+				method,
+				requestHeaders,
+				postData,
+				responseStatusCode: 0,
+				responseStatusText: '',
+				responseHeaders: [],
+				resourceType,
+			});
+			return;
+		}
+
+		// Demais casos (sem mock ou mock sem latência): deixa a request seguir normalmente.
+		// O Response stage irá interceptá-la depois.
+		await continueRequest(requestId);
+		return;
+	}
+
+	// A partir daqui: Response stage. responseStatusCode é garantidamente um número.
+	if (typeof responseStatusCode !== 'number') {
+		throw new Error(`CDP nao informou status de resposta para ${requestId}`);
+	}
+
 	const responseHeaderArray = responseHeaders ?? [];
 	const responseHeadersRecord = headersArrayToRecord(responseHeaderArray);
-	const postData = typeof request.postData === 'string' ? request.postData : undefined;
 	const statusText = getHttpStatusPhrase(responseStatusCode, responseStatusText);
 	const mimeType = getOptionalMimeTypeFromHeaders(responseHeadersRecord);
 	const requestInfo: InterceptedResponse['request'] = {
@@ -719,7 +762,7 @@ async function handleRequestPaused(params: any): Promise<void> {
 		headers: responseHeadersRecord,
 	};
 
-	console.log(`🟡 REQUEST PAUSED: ${url}`);
+	console.log(`🟡 REQUEST PAUSED (Response stage): ${url}`);
 	console.log('Request ID:', requestId);
 	console.log('Method:', method);
 	console.log('Resource Type:', resourceType);
@@ -732,7 +775,8 @@ async function handleRequestPaused(params: any): Promise<void> {
 
 	if (matchedAction?.type === 'mock') {
 		console.log(`Applying mock for ${url}`);
-		// Mock não viaja na rede; descarta o timing pendente.
+		// Mock sem latência no Response stage (latência já foi tratada no Request stage).
+		// Descarta o timing pendente — mock não viaja na rede.
 		timingTracker.discardByNetworkId(networkId);
 		await applyMockResponse(requestId, matchedAction.action, {
 			url,
@@ -900,6 +944,9 @@ async function applyMockResponse(
 		const headerArray = headersRecordToArray(responseHeaders);
 		const bodyValidation = validateMockBody(originalRequest.method, mock.status, mock.body);
 		const latencyMs = resolveMockLatencyMs(mock.latency);
+		// Mocks com `latency` são roteados para o Request stage (ver handleRequestPaused),
+		// onde o `await wait(latencyMs)` ocorre antes do Fetch.fulfillRequest e é refletido
+		// pelo Chrome DevTools na coluna "Time".
 		await wait(latencyMs);
 
 		// Obter o texto do status para o código

@@ -18,7 +18,7 @@
     "paths": {
       "@/*": ["*"]
     },
-    "types": ["vitest/globals", "@testing-library/jest-dom", "chrome"]
+    "types": ["vitest/globals", "@testing-library/jest-dom", "chrome", "vite/client"]
   },
   "include": ["./src/**/*"],
   "exclude": ["node_modules", "dist", "coverage", "lib", "vite.config.mts", "vitest.config.ts", "vitest.setup.ts"]

@@ -1,0 +1,176 @@
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, expect, test, vi } from 'vitest';
+import type { InterceptedResponse } from '@/types/intercepted';
+import { RequestInspector } from '../RequestInspector';
+
+const baseRequest = (overrides: Partial<InterceptedResponse> = {}): InterceptedResponse => ({
+	url: 'https://api.example.com/users/42?token=abc',
+	method: 'GET',
+	status: 200,
+	statusText: 'OK',
+	headers: { 'content-type': 'application/json' },
+	type: 'XHR',
+	timestamp: 1,
+	mimeType: 'application/json',
+	body: '{"id":42}',
+	response: { headers: { 'content-type': 'application/json' }, body: '{"id":42}' },
+	request: { headers: { authorization: 'Bearer secret' } },
+	...overrides,
+});
+
+const selectTab = async (name: string) => {
+	const tab = screen.getByRole('tab', { name });
+	fireEvent.mouseDown(tab, { button: 0, ctrlKey: false });
+	await waitFor(() => expect(tab).toHaveAttribute('data-state', 'active'));
+};
+
+const noopHandlers = {
+	onApprove: vi.fn(),
+	onIgnore: vi.fn(),
+	onCreateMock: vi.fn(),
+	onOpenInRulesLab: vi.fn(),
+	onClose: vi.fn(),
+};
+
+describe('RequestInspector', () => {
+	test('mostra estado vazio quando nenhuma request está selecionada', () => {
+		render(<RequestInspector request={null} requestId={null} rules={[]} {...noopHandlers} />);
+		expect(screen.getByText(/Selecione uma requisição/)).toBeInTheDocument();
+	});
+
+	test('renderiza header com método, URL truncada, status e duração', () => {
+		render(
+			<RequestInspector
+				request={baseRequest({ duration: 123 })}
+				requestId="r1"
+				rules={[]}
+				{...noopHandlers}
+			/>,
+		);
+		expect(screen.getByText('GET')).toBeInTheDocument();
+		expect(screen.getByText(/api.example.com/)).toBeInTheDocument();
+		expect(screen.getByText('200')).toBeInTheDocument();
+		expect(screen.getAllByText(/123/).length).toBeGreaterThan(0);
+	});
+
+	test('mostra captureError quando presente', () => {
+		render(
+			<RequestInspector
+				request={baseRequest({ captureError: 'Net::ERR_FAILED' })}
+				requestId="r1"
+				rules={[]}
+				{...noopHandlers}
+			/>,
+		);
+		expect(screen.getByText(/Net::ERR_FAILED/)).toBeInTheDocument();
+	});
+
+	test('mostra body indisponível quando bodyUnavailableReason presente', () => {
+		const req = baseRequest({ bodyUnavailableReason: 'Body too large to capture' });
+		(req as { body?: string }).body = undefined;
+		(req as { response?: { headers: Record<string, string>; body?: string } }).response = {
+			headers: { 'content-type': 'application/json' },
+			body: undefined,
+		};
+		render(<RequestInspector request={req} requestId="r1" rules={[]} {...noopHandlers} />);
+		// aviso global no topo do inspector
+		expect(screen.getByText(/Body too large to capture/)).toBeInTheDocument();
+	});
+
+	test('mostra ações de pendente quando isWaiting=true', () => {
+		render(
+			<RequestInspector
+				request={baseRequest({ isWaiting: true })}
+				requestId="r1"
+				rules={[]}
+				{...noopHandlers}
+			/>,
+		);
+		expect(screen.getByRole('button', { name: /Aprovar/i })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /Ignorar/i })).toBeInTheDocument();
+	});
+
+	test('esconde ações de pendente quando isWaiting!=true', () => {
+		render(
+			<RequestInspector
+				request={baseRequest({ isWaiting: false })}
+				requestId="r1"
+				rules={[]}
+				{...noopHandlers}
+			/>,
+		);
+		expect(screen.queryByRole('button', { name: /Aprovar/i })).toBeNull();
+	});
+
+	test('aba Request mostra headers e body unidos', async () => {
+		render(
+			<RequestInspector
+				request={baseRequest({
+					request: { headers: { 'x-trace': 'abc' }, postData: 'POST_BODY' },
+				})}
+				requestId="r1"
+				rules={[]}
+				{...noopHandlers}
+			/>,
+		);
+		await selectTab('Request');
+		expect(screen.getByText('x-trace')).toBeInTheDocument();
+		expect(screen.getByText('POST_BODY')).toBeInTheDocument();
+	});
+
+	test('aba Response mostra headers e body unidos', async () => {
+		render(
+			<RequestInspector request={baseRequest()} requestId="r1" rules={[]} {...noopHandlers} />,
+		);
+		await selectTab('Response');
+		expect(screen.getByText('content-type')).toBeInTheDocument();
+		// JSON é pretty-printed pelo BodyViewer — checa partes do conteúdo no <pre>
+		const pre = document.querySelector('pre');
+		expect(pre?.textContent).toContain('"id"');
+		expect(pre?.textContent).toContain('42');
+	});
+
+	test('aba Response mostra comparação quando há regra mock ativa', async () => {
+		const rule = {
+			id: 'r-mock',
+			name: 'Mock teste',
+			enabled: true,
+			matchers: [
+				{ type: 'url', enabled: true, pattern: 'api.example.com/users', isRegex: false },
+				{ type: 'method', enabled: true, method: 'GET' },
+			],
+			action: {
+				type: 'mock',
+				enabled: true,
+				status: 503,
+				statusPhrase: 'Service Unavailable',
+				headers: {},
+				body: '{"err":"x"}',
+			},
+			createdAt: 1,
+			updatedAt: 1,
+		} as any;
+		render(
+			<RequestInspector request={baseRequest()} requestId="r1" rules={[rule]} {...noopHandlers} />,
+		);
+		await selectTab('Response');
+		expect(screen.getByText(/Mock ativo aplicado/)).toBeInTheDocument();
+		expect(screen.getByText(/503 Service Unavailable/)).toBeInTheDocument();
+	});
+
+	test('não renderiza aba Replay nem botão Replay', () => {
+		render(
+			<RequestInspector request={baseRequest()} requestId="r1" rules={[]} {...noopHandlers} />,
+		);
+		expect(screen.queryByRole('tab', { name: /Replay/i })).toBeNull();
+		expect(screen.queryByRole('button', { name: /^Replay$/i })).toBeNull();
+	});
+
+	test('aba Body não existe mais', () => {
+		render(
+			<RequestInspector request={baseRequest()} requestId="r1" rules={[]} {...noopHandlers} />,
+		);
+		expect(screen.queryByRole('tab', { name: /^Body$/i })).toBeNull();
+	});
+});

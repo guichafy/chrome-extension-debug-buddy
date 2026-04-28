@@ -4,7 +4,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { ArrowUpDown, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Icon } from '@/components/ui/icon';
+import { LucideIcon, type LucideIconName } from '@/components/ui/lucide-icon';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -13,7 +13,7 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { InterceptedResponse } from '../../hooks/useResponses';
-import { compareDurations, formatDuration, getDurationColorClass } from './duration';
+import { compareDurations, formatDurationWithMock, getDurationColorClass } from './duration';
 
 // Tipo para representar uma requisição
 export type RequestRow = {
@@ -77,10 +77,11 @@ export const columns: ColumnDef<RequestRow>[] = [
 		},
 		cell: ({ row }) => {
 			const duration = row.original.request.duration;
+			const mockLatencyMs = row.original.request.mockLatencyMs;
 			const colorClass = getDurationColorClass(duration);
 			return (
 				<span className={`text-xs font-medium ${colorClass} whitespace-nowrap`}>
-					{formatDuration(duration)}
+					{formatDurationWithMock(duration, mockLatencyMs)}
 				</span>
 			);
 		},
@@ -124,30 +125,32 @@ export const columns: ColumnDef<RequestRow>[] = [
 
 			let variant: 'destructive' | 'default' | 'outline' | 'secondary' = 'outline';
 			let label = 'Proxy';
-			let icon = null;
+			let iconName: LucideIconName = 'check-circle';
 
 			if (hasCaptureError) {
 				variant = 'destructive';
 				label = 'Falha';
-				icon = 'error';
+				iconName = 'alert-triangle';
 			} else if (isIntercepted) {
 				variant = 'destructive';
 				label = 'Aguardando';
-				icon = 'hourglass_empty';
+				iconName = 'hourglass';
 			} else if (wasIntercepted) {
 				variant = 'default';
 				label = 'Modificado';
-				icon = 'edit';
+				iconName = 'edit';
 			} else if (isMocked) {
 				variant = 'secondary';
 				label = 'Mockado';
-				icon = 'content_copy';
-			} else {
-				icon = 'check_circle';
+				iconName = 'copy';
 			}
 
 			return (
-				<Badge variant={variant} className="text-xs whitespace-nowrap">
+				<Badge
+					variant={variant}
+					className="text-xs whitespace-nowrap inline-flex items-center gap-1"
+				>
+					<LucideIcon name={iconName} className="h-3 w-3" />
 					{label}
 				</Badge>
 			);

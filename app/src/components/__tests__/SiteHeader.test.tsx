@@ -54,6 +54,12 @@ vi.mock('../ui/icon', () => ({
 	),
 }));
 
+vi.mock('../ui/lucide-icon', () => ({
+	LucideIcon: ({ name, className }: any) => (
+		<svg data-testid="lucide-icon" data-name={name} className={className} />
+	),
+}));
+
 vi.mock('../ui/tooltip', () => ({
 	Tooltip: ({ children }: any) => <div data-testid="tooltip">{children}</div>,
 	TooltipTrigger: ({ asChild, children }: any) => (
@@ -192,5 +198,21 @@ describe('SiteHeader Component', () => {
 		// Não deve encontrar o indicador de status piscando
 		const statusIndicator = document.querySelector('.status-indicator-blinking');
 		expect(statusIndicator).toBeNull();
+	});
+
+	it('renderiza o ícone de aba como SVG (não texto Material Icons)', () => {
+		render(
+			<SiteHeader
+				targetTab={{ id: 1, title: 'Tab', url: 'https://example.com' }}
+				isDebugging={false}
+				pendingResponsesCount={0}
+				onSelectTabClick={vi.fn()}
+				onStartDebugging={vi.fn()}
+				onStopDebugging={vi.fn()}
+			/>,
+		);
+		const tabButton = screen.getByRole('button', { name: /Tab/i });
+		expect(tabButton.querySelector('svg')).not.toBeNull();
+		expect(tabButton.textContent).not.toContain('tab');
 	});
 });

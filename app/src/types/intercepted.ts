@@ -30,6 +30,8 @@ export interface InterceptedResponse {
 	duration?: number;
 	durationSource?: 'network' | 'mock';
 	mockLatencyMs?: number;
+	/** ID da regra gerada via Quick Mock a partir desta request, quando aplicável. */
+	generatedRuleId?: string;
 }
 
 export interface ResponseModifications {

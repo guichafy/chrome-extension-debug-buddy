@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
+import { LucideIcon } from '@/components/ui/lucide-icon';
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -83,7 +83,7 @@ export function SiteHeader({
 									className="flex items-center gap-2 max-w-[200px]"
 									onClick={onSelectTabClick}
 								>
-									<Icon name="tab" className="flex-shrink-0" />
+									<LucideIcon name="tab" className="h-4 w-4 flex-shrink-0" />
 									<span className="truncate">
 										{targetTab.id ? targetTab.title : 'Selecionar Aba'}
 									</span>
@@ -106,7 +106,7 @@ export function SiteHeader({
 							className="flex items-center gap-2"
 							onClick={onStartDebugging}
 						>
-							<Icon name="play_arrow" />
+							<LucideIcon name="play" className="h-4 w-4" />
 							<span className="hidden sm:inline">Iniciar Interceptação</span>
 						</Button>
 					) : (
@@ -115,7 +115,7 @@ export function SiteHeader({
 							className="flex items-center gap-2"
 							onClick={onStopDebugging}
 						>
-							<Icon name="stop" />
+							<LucideIcon name="stop" className="h-4 w-4" />
 							<span className="hidden sm:inline">Parar Interceptação</span>
 						</Button>
 					)}
