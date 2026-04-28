@@ -34,7 +34,7 @@ CI runs `lint`, `build`, `test` (in that order) on PRs to `main` — keep all th
 
 1. `cd app && npm run build` (or `npm run watch` for iterative dev)
 2. `chrome://extensions` → Developer mode → "Load unpacked" → select `app/dist/`
-3. Click the extension's toolbar icon to open the interceptor tab (the React app — `app/index.html` is both `options_page` and what `chrome.action.onClicked` opens via `chrome.tabs.create`)
+3. Click the extension's toolbar icon to open the interceptor tab (the React app — `app/options.html` is both `options_page` and what `chrome.action.onClicked` opens via `chrome.tabs.create`). Alternatively, open Chrome's side panel (toolbar button or right-click action icon → "Open side panel") to use the docked UI from `app/sidepanel.html`; both entrypoints share state via `chrome.storage.local` and IndexedDB.
 4. In the interceptor UI, pick a **target tab** (the page the debugger attaches to), then "Start Debugging"
 
 The "Start Debugging" warning bar in Chrome appears on the target tab — that's expected (`chrome.debugger.attach`).
@@ -45,7 +45,7 @@ Four moving parts you must understand before changing anything substantial:
 
 ### 1. Two-tab model (background.ts)
 
-`app/src/backend/background.ts` is the service worker and the **authority for runtime state**. It tracks two distinct tab IDs:
+`app/src/entrypoints/background.ts` is the service worker and the **authority for runtime state**. It tracks two distinct tab IDs:
 
 - `interceptorTabId` — the tab where the React UI runs (set when user clicks the action icon)
 - `targetTabId` — the tab the user picked to debug (persisted in `chrome.storage.local.targetTabInfo`)
@@ -68,13 +68,13 @@ The debugger only attaches to `targetTabId`. Closing `interceptorTabId` automati
 
 `Fetch` and `Network` are different CDP domains with **different `requestId` namespaces**. Correlation uses the `networkId` field on `Fetch.requestPaused` (when both domains are enabled, it equals `Network.requestWillBeSent.requestId`).
 
-`Fetch.requestPaused` (Response stage) fires *before* `Network.responseReceived`/`loadingFinished` get delivered to the listener — so duration cannot be read synchronously. `app/src/backend/services/networkTiming.ts` exposes a `NetworkTimingTracker` class that buffers `start` (`requestWillBeSent.timestamp`) and `end` (`loadingFinished.timestamp`, with `responseReceived` as TTFB fallback) and emits `onDurationReady(fetchRequestId, durationMs)` once both sides plus `linkFetchId` (called from `handleRequestPaused`) are present. The background's emit callback updates `allRequests[fetchId].duration` and broadcasts a `requestUpdated` message; `useAllRequests` merges the partial update into state and IndexedDB.
+`Fetch.requestPaused` (Response stage) fires *before* `Network.responseReceived`/`loadingFinished` get delivered to the listener — so duration cannot be read synchronously. `app/src/lib/networkTiming.ts` exposes a `NetworkTimingTracker` class that buffers `start` (`requestWillBeSent.timestamp`) and `end` (`loadingFinished.timestamp`, with `responseReceived` as TTFB fallback) and emits `onDurationReady(fetchRequestId, durationMs)` once both sides plus `linkFetchId` (called from `handleRequestPaused`) are present. The background's emit callback updates `allRequests[fetchId].duration` and broadcasts a `requestUpdated` message; `useAllRequests` merges the partial update into state and IndexedDB.
 
 The tracker filters Network events to a 4-event allowlist (`requestWillBeSent`/`responseReceived`/`loadingFinished`/`loadingFailed`) and caps internal entries at 2000 (FIFO eviction) to bound memory in long debugging sessions.
 
 ### 3. Single rule format
 
-The codebase uses a single rule schema (`Rule[]` from `app/src/backend/types/rules.ts`). Earlier versions had separate `urlPatterns`/`mocks` storage keys; those are migrated one-shot at extension install/update via `app/src/backend/services/legacyMigration.ts` and removed from runtime code paths. A backup is kept at `chrome.storage.local.legacy_backup_v1` for one release as a safety net.
+The codebase uses a single rule schema (`Rule[]` from `app/src/types/rules.ts`). Earlier versions had separate `urlPatterns`/`mocks` storage keys; those are migrated one-shot at extension install/update via `app/src/lib/legacyMigration.ts` and removed from runtime code paths. A backup is kept at `chrome.storage.local.legacy_backup_v1` for one release as a safety net.
 
 `Rule.action.type` is one of `'mock' | 'delay' | 'modify' | 'breakpoint'`. On UI mount, `useRules` is a pure reader — the background owns migration; the UI only adds/updates/deletes rules through `chrome.storage.local` writes.
 
@@ -82,7 +82,7 @@ The codebase uses a single rule schema (`Rule[]` from `app/src/backend/types/rul
 
 - **`chrome.storage.local`** — `rules`, `targetTabInfo`, plus `legacy_migrated_at` (timestamp) and `legacy_backup_v1` (one-release safety net containing the pre-migration `urlPatterns`/`mocks`). The background subscribes to `chrome.storage.onChanged` to keep its in-memory `rules` array in sync (so changes apply without restart).
 - **In-memory (background)** — `pendingResponses`, `allRequests`, `isDebugging`, `attachedTabId`. The in-memory `allRequests` is a fast cache; the durable copy is in IndexedDB.
-- **IndexedDB (shared by background and UI)** — `debugger-extension-db` v1, store `requests` (keyPath `id`, indexes on `data.url`/`data.timestamp`/`data.method`/`data.status`). The same `IndexedDBServiceImpl` (`app/src/backend/services/indexedDB.ts`) is imported by both the service worker and the UI; each context opens its own connection to the same database (IndexedDB allows concurrent connections).
+- **IndexedDB (shared by background and UI)** — `debugger-extension-db` v1, store `requests` (keyPath `id`, indexes on `data.url`/`data.timestamp`/`data.method`/`data.status`). The same `IndexedDBServiceImpl` (`app/src/lib/indexedDB.ts`) is imported by both the service worker and the UI; each context opens its own connection to the same database (IndexedDB allows concurrent connections).
 - **Background is the writer**, frontend is the reader. Two helpers in `background.ts` enforce this:
   - `persistRequest(id, response)` — writes to `allRequests`, IndexedDB, and broadcasts `newRequest` to the UI. Called from `handleRequestPaused` (intercepted/passthrough), `applyMockResponse`, and any other point that creates a request.
   - `patchRequest(id, updates)` — merges into existing `allRequests[id]`, persists, and broadcasts `requestUpdated`. Called from the `NetworkTimingTracker` callback (when `duration` arrives) and from `approveResponse` finalization (when `isWaiting: false` plus modifications are committed).
@@ -94,25 +94,33 @@ UI → background: `chrome.runtime.sendMessage({action, ...})`. Action names liv
 
 Background → UI: `chrome.tabs.sendMessage(interceptorTabId, {action, ...})` via the `broadcastToUI` helper for events targeted at the React app (`newRequest`, `requestUpdated`, `targetTabSelected`, `openSelectTabDialog`), or `chrome.runtime.sendMessage(...)` broadcasts (`newPendingResponse`, `responseBodyReady`). `requestUpdated` carries `{ requestId, updates }` for partial merges (e.g. duration arriving asynchronously after `loadingFinished`, or `isWaiting: false` after dialog approval).
 
-When you add a new action, edit `app/src/backend/types/messages.ts` — that file is the single source of truth, imported by `background.ts` and the UI hooks alike.
+When you add a new action, edit `app/src/types/messages.ts` — that file is the single source of truth, imported by `background.ts` and the UI hooks alike.
 
 ## Frontend layout
 
-`app/src/ui/`:
+`app/src/`:
 
-- `main.tsx` + `routes.tsx` — React 19 + `react-router-dom` `createHashRouter` (hash routing because `chrome-extension://` URLs don't play with HTML5 history). Three routes under `Layout`: `/` (Settings/rules), `/requests` (pending intercepts), `/request-history` (IndexedDB-backed history).
+- `entrypoints/options/main.tsx` and `entrypoints/sidepanel/main.tsx` — two React entrypoints that both mount the same `RouterProvider` from `src/routes.tsx`. Options runs in a regular tab (opened via `chrome.action.onClicked` or the manifest's `options_page`); Side Panel runs docked inside Chrome's native side panel. Both share state via `chrome.storage.local` and IndexedDB.
+- `entrypoints/background.ts` — the service worker (manifest's `background.service_worker`).
+- `routes.tsx` — React 19 + `react-router-dom` `createHashRouter` (hash routing because `chrome-extension://` URLs don't play with HTML5 history). Three routes under `Layout`: `/` (Settings/rules), `/requests` (pending intercepts), `/request-history` (IndexedDB-backed history).
 - `pages/Layout.tsx` — sidebar + header shell, owns the `SelectTabDialog`.
 - `hooks/` — one hook per concern: `useDebugging`, `useResponses` (pending), `useAllRequests` (history), `useRules` (rule CRUD).
-- `components/shadcn/` — vendored shadcn-ui components. Add new ones via `npm run shadcn:add <name>` (configured in `app/components.json`). Tailwind v4 with config in CSS — `@theme` block in `app/src/ui/globals.css` declares `--color-*` design tokens; `tw-animate-css` provides the Radix-targeted animation utilities (`animate-in/out`, `fade-in-0`, `zoom-in-95`, `slide-in-from-*`).
+- `components/ui/` — vendored shadcn-ui primitives. Add new ones via `npm run shadcn:add <name>` (configured in `app/components.json`). Tailwind v4 with config in CSS — `@theme` block in `app/src/styles/globals.css` declares `--color-*` design tokens; `tw-animate-css` provides the Radix-targeted animation utilities (`animate-in/out`, `fade-in-0`, `zoom-in-95`, `slide-in-from-*`).
+- `components/layout/` — `AppSidebar`, `SiteHeader`, `NavMain` (chrome shell shared by both entrypoints).
 - `components/requests/duration.ts` — pure helpers (`formatDuration`, `getDurationColorClass`, `compareDurations`) used by the "Tempo" column. Co-located tests in `__tests__/duration.test.ts`.
+- `lib/` — shared utilities (`indexedDB`, `networkTiming`, `legacyMigration`, `statusBadge`, `helpers`, `utils` — the `cn` shadcn helper). Imported by both background and UI.
+- `types/` — shared type contracts (`messages`, `rules`, `intercepted`, `legacy`).
+- `domain/` — pure functions for HTTP semantics, mock latency, rule matching.
+- `styles/globals.css` — Tailwind v4 + design tokens.
 
 ## Build pipeline (Vite)
 
-`app/vite.config.mts` declares three Rollup entry points so the extension's flat-file layout works:
+`app/vite.config.mts` declares four Rollup entry points so the extension's flat-file layout works:
 
-- `index` → `index.html` (the UI)
-- `background` → `src/backend/background.ts` (service worker; manifest references `background.js`)
-- `main` → `src/ui/main.tsx`
+- `options` → `options.html` (the React UI in a tab — manifest `options_page`)
+- `sidepanel` → `sidepanel.html` (the React UI docked as a side panel — manifest `side_panel.default_path`)
+- `background` → `src/entrypoints/background.ts` (service worker; manifest references `background.js`)
+- `main` → `src/entrypoints/options/main.tsx` (kept as an explicit input so the React bundle gets a stable `main.js` filename)
 
 Output `entryFileNames: '[name].js'` is required so `manifest.json`'s `service_worker: "background.js"` resolves. `vite-plugin-static-copy` ships `manifest.json`, `images/`, and `lib/` (jsonlint, codemirror, prettier — used by rule editors) into `dist/`. Path alias `@` → `app/src/`.
 
@@ -127,7 +135,7 @@ Output `entryFileNames: '[name].js'` is required so `manifest.json`'s `service_w
 - **Indentation: tabs (size 2)** per `.editorconfig` and Biome config. Don't switch to spaces — diffs will be huge.
 - Biome formatter: single quotes, trailing commas everywhere, semicolons always, print width 100, JSX double quotes.
 - UI strings, comments, and console logs are written in Portuguese-BR — match that when editing existing files.
-- Functional React + hooks. Classes only for the two service wrappers: `IndexedDBServiceImpl` (`app/src/backend/services/indexedDB.ts`) and `NetworkTimingTracker` (`app/src/backend/services/networkTiming.ts`).
+- Functional React + hooks. Classes only for the two service wrappers: `IndexedDBServiceImpl` (`app/src/lib/indexedDB.ts`) and `NetworkTimingTracker` (`app/src/lib/networkTiming.ts`).
 
 ## No fallbacks / no default values (project-wide rule)
 
