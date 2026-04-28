@@ -34,18 +34,19 @@ describe('Requests Component', () => {
 	beforeEach(() => {
 		// Setup mock return values
 		vi.mocked(useResponses).mockReturnValue({
-			pendingResponses: { '1': { id: '1', url: 'https://example.com' } },
+			pendingResponses: { '1': { url: 'https://example.com' } },
 			currentResponseId: '',
 			currentResponse: null,
 			getResponseDetails: vi.fn(),
 			approveResponse: vi.fn(),
 			ignoreResponse: vi.fn(),
 			clearCurrentResponse: vi.fn(),
-		});
+		} as any);
 
+		// Partial mock — only the fields exercised by this test are populated.
 		vi.mocked(useRules).mockReturnValue({
 			addRule: vi.fn().mockResolvedValue(true),
-		});
+		} as any);
 	});
 
 	it('renders the intercepted requests card', () => {

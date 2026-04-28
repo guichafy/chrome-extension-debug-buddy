@@ -40,17 +40,20 @@ vi.mock('../../components/ResponseDialog', () => ({
 
 describe('RequestHistory Component', () => {
 	beforeEach(() => {
+		// Partial mock — only the fields exercised by this test are populated.
 		vi.mocked(useResponses).mockReturnValue({
 			ignoreResponse: vi.fn(),
 			clearCurrentResponse: vi.fn(),
-		});
+		} as any);
 
+		// Partial mock — only the fields exercised by this test are populated.
 		vi.mocked(useRules).mockReturnValue({
 			addRule: vi.fn().mockResolvedValue(true),
-		});
+		} as any);
 	});
 
 	it('keeps search input visible when there are no results', () => {
+		// Partial mock — only the fields exercised by this test are populated.
 		vi.mocked(useAllRequests).mockReturnValue({
 			filteredRequests: {},
 			currentRequestId: '',
@@ -62,7 +65,7 @@ describe('RequestHistory Component', () => {
 			enableAutoRefresh: vi.fn(),
 			autoRefreshEnabled: true,
 			clearAllRequests: vi.fn(),
-		});
+		} as any);
 
 		render(<RequestHistory />);
 
@@ -71,8 +74,9 @@ describe('RequestHistory Component', () => {
 	});
 
 	it('shows results table when there are requests', () => {
+		// Partial mock — only the fields exercised by this test are populated.
 		vi.mocked(useAllRequests).mockReturnValue({
-			filteredRequests: { '1': { id: '1', url: 'https://example.com' } },
+			filteredRequests: { '1': { url: 'https://example.com' } },
 			currentRequestId: '',
 			currentRequest: null,
 			getRequestDetails: vi.fn(),
@@ -82,7 +86,7 @@ describe('RequestHistory Component', () => {
 			enableAutoRefresh: vi.fn(),
 			autoRefreshEnabled: true,
 			clearAllRequests: vi.fn(),
-		});
+		} as any);
 
 		render(<RequestHistory />);
 
