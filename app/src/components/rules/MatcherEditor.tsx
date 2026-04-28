@@ -10,7 +10,7 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Icon } from '@/components/ui/icon';
+import { LucideIcon } from '@/components/ui/lucide-icon';
 import { Matcher, UrlMatcher, MethodMatcher, HeaderMatcher, BodyMatcher } from '@/types/rules';
 
 interface MatcherEditorProps {
@@ -250,7 +250,7 @@ export const MatcherEditor: React.FC<MatcherEditorProps> = ({
 						onClick={onRemove}
 						className="h-8 w-8 p-0 text-destructive"
 					>
-						<Icon name="delete" className="h-4 w-4" />
+						<LucideIcon name="trash" className="h-4 w-4" />
 						<span className="sr-only">Remover</span>
 					</Button>
 				)}

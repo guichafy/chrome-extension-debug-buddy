@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
+import { LucideIcon } from '@/components/ui/lucide-icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -279,7 +279,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 										onClick={() => addMatcher('url')}
 										className="mr-2"
 									>
-										<Icon name="add" className="mr-1 h-4 w-4" />
+										<LucideIcon name="plus" className="mr-1 h-4 w-4" />
 										URL
 									</Button>
 									<Button
@@ -288,7 +288,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 										onClick={() => addMatcher('method')}
 										className="mr-2"
 									>
-										<Icon name="add" className="mr-1 h-4 w-4" />
+										<LucideIcon name="plus" className="mr-1 h-4 w-4" />
 										Método
 									</Button>
 									<Button
@@ -297,11 +297,11 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 										onClick={() => addMatcher('header')}
 										className="mr-2"
 									>
-										<Icon name="add" className="mr-1 h-4 w-4" />
+										<LucideIcon name="plus" className="mr-1 h-4 w-4" />
 										Header
 									</Button>
 									<Button type="button" variant="outline" onClick={() => addMatcher('body')}>
-										<Icon name="add" className="mr-1 h-4 w-4" />
+										<LucideIcon name="plus" className="mr-1 h-4 w-4" />
 										Body
 									</Button>
 								</div>
@@ -347,11 +347,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 						className="primary-button flex items-center gap-2"
 					>
 						{isSaving ? (
-							<span className="animate-spin">
-								<Icon name="refresh" />
-							</span>
+							<LucideIcon name="refresh" className="h-4 w-4 animate-spin" />
 						) : (
-							<Icon name={mode === 'create' ? 'add' : 'save'} />
+							<LucideIcon name={mode === 'create' ? 'plus' : 'save'} className="h-4 w-4" />
 						)}
 						{mode === 'create' ? 'Adicionar' : 'Salvar'}
 					</Button>

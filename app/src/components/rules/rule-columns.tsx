@@ -3,7 +3,7 @@
 import { ColumnDef } from '@tanstack/react-table';
 import { ArrowUpDown, Edit, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
+import { LucideIcon } from '@/components/ui/lucide-icon';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -179,7 +179,7 @@ export const columns: ColumnDef<Rule>[] = [
 							onClick={() => onRemove(rule.id)}
 							className="text-red-600 focus:text-red-600"
 						>
-							<Icon name="delete" className="mr-2 h-4 w-4" />
+							<LucideIcon name="trash" className="mr-2 h-4 w-4" />
 							Remover regra
 						</DropdownMenuItem>
 					</DropdownMenuContent>
