@@ -1,8 +1,8 @@
 {
-  "name": "chrome-interceptor",
+  "name": "debug-buddy",
   "version": "0.1.0",
   "type": "module",
-  "description": "Chrome extension to intercept and modify network requests",
+  "description": "Inspect, intercept, and mock HTTP responses in Chrome to test how your app handles network failures without touching the backend.",
   "main": "background.js",
   "scripts": {
     "build": "vite build",
@@ -33,7 +33,7 @@
     "network",
     "interceptor"
   ],
-  "author": "",
+  "author": "Chafy Studio",
   "license": "MIT",
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.7",
