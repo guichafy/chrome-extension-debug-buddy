@@ -30,6 +30,6 @@
     },
     "types": ["vitest/globals", "@testing-library/jest-dom", "chrome"]
   },
-  "include": ["./**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["./src/**/*"],
+  "exclude": ["node_modules", "dist", "coverage", "lib", "vite.config.mts", "vitest.config.ts", "vitest.setup.ts"]
 }
