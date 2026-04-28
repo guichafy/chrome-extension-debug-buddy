@@ -22,6 +22,8 @@ jobs:
         run: npm ci
       - name: Lint (Biome)
         run: npm run lint
+      - name: Typecheck (tsc)
+        run: npm run typecheck
       - name: Build
         run: npm run build
       - name: Test (Vitest)
