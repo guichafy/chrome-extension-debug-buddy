@@ -43,6 +43,7 @@ interface DataTableProps<TData, TValue> {
 	enableAutoRefresh?: () => void;
 	autoRefreshEnabled?: boolean;
 	onClearHistory?: () => void;
+	selectedRowId?: string;
 }
 
 export function DataTable<TData, TValue>({
@@ -55,6 +56,7 @@ export function DataTable<TData, TValue>({
 	enableAutoRefresh,
 	autoRefreshEnabled,
 	onClearHistory,
+	selectedRowId,
 }: DataTableProps<TData, TValue>) {
 	// Estados para a tabela
 	const [sorting, setSorting] = React.useState<SortingState>([
@@ -298,10 +300,17 @@ export function DataTable<TData, TValue>({
 							table.getRowModel().rows.map((row) => (
 								<TableRow
 									key={row.id}
-									data-state={row.getIsSelected() && 'selected'}
-									className="cursor-pointer hover:bg-muted/50"
+									data-state={
+										// @ts-expect-error - acessar id via original
+										row.original.id === selectedRowId
+											? 'selected'
+											: row.getIsSelected()
+												? 'selected'
+												: undefined
+									}
+									className="cursor-pointer hover:bg-muted/50 data-[state=selected]:bg-accent"
 									onClick={() => {
-										// @ts-expect-error - Acessar o ID da requisição
+										// @ts-expect-error - acessar id via original
 										const requestId = row.original.id;
 										onSelect(requestId);
 									}}
