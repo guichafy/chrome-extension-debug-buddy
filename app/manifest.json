@@ -41,7 +41,6 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "styles.css",
         "images/*"
       ],
       "matches": [
