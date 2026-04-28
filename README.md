@@ -110,6 +110,10 @@ To modify or extend this extension:
 2. Reload the extension in `chrome://extensions/` by clicking the refresh icon
 3. Test your changes
 
+## Releasing
+
+See [`app/RELEASING.md`](app/RELEASING.md) for the release flow (release-please + Chrome Web Store).
+
 ## License
 
 This project is open source and available for any use.
