@@ -7,7 +7,7 @@ import { LucideIcon } from '@/components/ui/lucide-icon';
 import type { InterceptedResponse, ResponseModifications } from '@/types/intercepted';
 import type { Rule } from '@/types/rules';
 import { formatDuration } from '@/components/requests/duration';
-import { ReplayPanel } from './ReplayPanel';
+import { buildReplayView } from '@/lib/replayHistory';
 
 interface RequestInspectorProps {
 	request: InterceptedResponse | null;
@@ -16,7 +16,6 @@ interface RequestInspectorProps {
 	onIgnore: (requestId: string) => Promise<boolean>;
 	onCreateMock: (request: InterceptedResponse, requestId: string) => void;
 	onOpenInRulesLab: (ruleId: string) => void;
-	onReplay: (request: InterceptedResponse) => void;
 	onClose: () => void;
 	rules: Rule[];
 }
@@ -34,7 +33,6 @@ export function RequestInspector({
 	onIgnore,
 	onCreateMock,
 	onOpenInRulesLab,
-	onReplay,
 	onClose,
 	rules,
 }: RequestInspectorProps) {
@@ -121,10 +119,6 @@ export function RequestInspector({
 						Abrir no Rules Lab
 					</Button>
 				)}
-				<Button size="sm" variant="outline" onClick={() => onReplay(request)} className="gap-2">
-					<LucideIcon name="rotate-ccw" className="h-4 w-4" />
-					Replay
-				</Button>
 				{isPending && (
 					<>
 						<Button size="sm" variant="default" onClick={handleApprove} className="gap-2">
@@ -140,12 +134,10 @@ export function RequestInspector({
 			</div>
 
 			<Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
-				<TabsList className="mx-4 grid grid-cols-5">
+				<TabsList className="mx-4 grid grid-cols-3">
 					<TabsTrigger value="overview">Overview</TabsTrigger>
 					<TabsTrigger value="request">Request</TabsTrigger>
 					<TabsTrigger value="response">Response</TabsTrigger>
-					<TabsTrigger value="body">Body</TabsTrigger>
-					<TabsTrigger value="replay">Replay</TabsTrigger>
 				</TabsList>
 
 				<ScrollArea className="flex-1 px-4 py-3">
@@ -158,38 +150,64 @@ export function RequestInspector({
 							<span className="font-medium">MIME: </span>
 							{request.mimeType ?? 'Sem Content-Type'}
 						</div>
-					</TabsContent>
-
-					<TabsContent value="request">
-						<HeaderTable headers={requestHeaders} emptyMessage="Sem request headers capturados." />
-						{request.request?.postData && (
-							<pre className="mt-3 max-h-72 overflow-auto rounded-md border bg-muted/30 p-3 font-mono text-xs">
-								{request.request.postData}
-							</pre>
-						)}
-					</TabsContent>
-
-					<TabsContent value="response">
-						<HeaderTable
-							headers={responseHeaders}
-							emptyMessage="Sem response headers capturados."
-						/>
-					</TabsContent>
-
-					<TabsContent value="body">
-						{responseBody === undefined ? (
-							<div className="rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground">
-								{request.bodyUnavailableReason ?? 'Corpo da resposta indisponível.'}
+						<div>
+							<span className="font-medium">Duração: </span>
+							{formatDuration(request.duration)}
+						</div>
+						{typeof request.mockLatencyMs === 'number' && (
+							<div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
+								Mock aplicado com latência artificial de {request.mockLatencyMs}ms. O Chrome
+								DevTools pode não refletir esse tempo na coluna "Time" quando a resposta é fornecida
+								via Fetch.fulfillRequest.
 							</div>
-						) : (
-							<pre className="max-h-[420px] overflow-auto rounded-md border bg-muted/20 p-3 font-mono text-xs">
-								{responseBody}
-							</pre>
 						)}
 					</TabsContent>
 
-					<TabsContent value="replay">
-						<ReplayPanel request={request} rules={rules} />
+					<TabsContent value="request" className="space-y-3">
+						<div>
+							<h3 className="mb-1 text-sm font-medium">Headers</h3>
+							<HeaderTable
+								headers={requestHeaders}
+								emptyMessage="Sem request headers capturados."
+							/>
+						</div>
+						<div>
+							<h3 className="mb-1 text-sm font-medium">Body</h3>
+							{request.request?.postData ? (
+								<pre className="max-h-72 overflow-auto rounded-md border bg-muted/30 p-3 font-mono text-xs">
+									{request.request.postData}
+								</pre>
+							) : (
+								<div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+									Sem request body.
+								</div>
+							)}
+						</div>
+					</TabsContent>
+
+					<TabsContent value="response" className="space-y-3">
+						<div>
+							<h3 className="mb-1 text-sm font-medium">Headers</h3>
+							<HeaderTable
+								headers={responseHeaders}
+								emptyMessage="Sem response headers capturados."
+							/>
+						</div>
+						<div>
+							<h3 className="mb-1 text-sm font-medium">Body</h3>
+							{responseBody === undefined ? (
+								<div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+									{request.bodyUnavailableReason ?? 'Corpo da resposta indisponível.'}
+								</div>
+							) : (
+								<pre className="max-h-[420px] overflow-auto rounded-md border bg-muted/20 p-3 font-mono text-xs">
+									{responseBody}
+								</pre>
+							)}
+						</div>
+
+						{/* comparação inline com mock atual */}
+						<MockComparison request={request} rules={rules} />
 					</TabsContent>
 				</ScrollArea>
 			</Tabs>
@@ -220,6 +238,43 @@ function HeaderTable({
 					<div className="font-mono text-xs break-all">{v}</div>
 				</div>
 			))}
+		</div>
+	);
+}
+
+function MockComparison({
+	request,
+	rules,
+}: {
+	request: InterceptedResponse;
+	rules: Rule[];
+}) {
+	const view = buildReplayView(request, rules);
+	if (!view.currentMock) return null;
+	return (
+		<div className="rounded-md border border-blue-300 bg-blue-50/40 p-3 text-xs space-y-2 dark:border-blue-700 dark:bg-blue-950/30">
+			<div className="flex items-center gap-2">
+				<LucideIcon name="flask" className="h-4 w-4" />
+				<span className="font-medium">
+					Mock ativo aplicado por &quot;{view.currentMock.ruleName}&quot;
+				</span>
+			</div>
+			<div>
+				<span className="font-medium">Status mock: </span>
+				{view.currentMock.status} {view.currentMock.statusPhrase ?? ''}
+			</div>
+			{view.currentMock.body !== undefined && (
+				<div>
+					<span className="font-medium">Body mock:</span>
+					<pre className="mt-1 max-h-60 overflow-auto rounded border bg-background p-2 font-mono text-xs">
+						{view.currentMock.body}
+					</pre>
+				</div>
+			)}
+			<p className="text-muted-foreground">
+				A resposta acima (capturada) é o que veio do servidor antes da regra. O bloco azul mostra o
+				que sua regra mock retorna agora para esta URL.
+			</p>
 		</div>
 	);
 }
