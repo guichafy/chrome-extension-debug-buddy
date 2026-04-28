@@ -1,5 +1,5 @@
 // Barrel: re-exporta os tipos canônicos para consumidores que importam
-// de '@/backend/types' sem se importar com o caminho exato. Os arquivos
+// de '@/types' sem se importar com o caminho exato. Os arquivos
 // dedicados (messages.ts, intercepted.ts, rules.ts) são a fonte de verdade.
 
 export type { MessageAction, Message, MessageResponse } from './messages';
