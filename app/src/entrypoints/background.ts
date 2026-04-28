@@ -114,7 +114,7 @@ chrome.storage.local.get(['targetTabInfo'], (result) => {
 });
 
 // Support for hot reload during development
-if (process.env.NODE_ENV !== 'production') {
+if (import.meta.env.MODE !== 'production') {
 	console.log('Running in development mode with hot reload support');
 }
 
