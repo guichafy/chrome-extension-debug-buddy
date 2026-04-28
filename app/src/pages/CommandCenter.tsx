@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { InterceptedResponse } from '@/types/intercepted';
 import { useAllRequests } from '@/hooks/useAllRequests';
@@ -36,7 +36,14 @@ const CommandCenter: React.FC = () => {
 
 	const [clearDialogOpen, setClearDialogOpen] = useState(false);
 	const [quickMockOpen, setQuickMockOpen] = useState(false);
-	const [recentRuleName, setRecentRuleName] = useState<string | null>(null);
+	const [recentRuleId, setRecentRuleId] = useState<string | null>(null);
+
+	// Limpar o id da regra recém-criada quando o usuário troca de request selecionado.
+	// selectedId é dependência intencional: o efeito deve disparar a cada troca de seleção.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: selectedId é o gatilho da limpeza
+	useEffect(() => {
+		setRecentRuleId(null);
+	}, [selectedId]);
 
 	const handleClearHistory = async () => {
 		await clearAllRequests();
@@ -70,9 +77,7 @@ const CommandCenter: React.FC = () => {
 						selected
 							? {
 									...selected,
-									// Sentinela provisória: indica que existe uma regra recém-criada via Quick Mock
-									// vinculada a esta request. O id real será exposto em task futura (issue follow-up).
-									generatedRuleId: recentRuleName ? 'pending-link' : selected.generatedRuleId,
+									generatedRuleId: recentRuleId ?? selected.generatedRuleId,
 								}
 							: null
 					}
@@ -95,7 +100,7 @@ const CommandCenter: React.FC = () => {
 					onOpenChange={setQuickMockOpen}
 					request={selected}
 					requestId={selectedId}
-					onCreated={(name) => setRecentRuleName(name)}
+					onCreated={(rule) => setRecentRuleId(rule.id)}
 				/>
 			)}
 
