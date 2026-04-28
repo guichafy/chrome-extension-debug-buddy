@@ -1,3 +1,13 @@
+## [0.1.1](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.1.0...v0.1.1) (2026-04-28)
+
+### Bug Fixes
+
+* **metadata:** align package.json/manifest.json/README naming and description ([#52](https://github.com/guichafy/chrome-extension-debug-buddy/issues/52)) ([3c12c14](https://github.com/guichafy/chrome-extension-debug-buddy/commit/3c12c1477c96440449d749d40b985f454e1e9264))
+
+### Build
+
+* **deps:** resolver 34 alertas Dependabot via bumps e overrides ([#54](https://github.com/guichafy/chrome-extension-debug-buddy/issues/54)) ([282513b](https://github.com/guichafy/chrome-extension-debug-buddy/commit/282513bec3a9412bccc3333e8826bcebd8cd791d)), closes [#1](https://github.com/guichafy/chrome-extension-debug-buddy/issues/1) [20-#25](https://github.com/guichafy/20-/issues/25) [#11](https://github.com/guichafy/chrome-extension-debug-buddy/issues/11) [#12](https://github.com/guichafy/chrome-extension-debug-buddy/issues/12) [#13](https://github.com/guichafy/chrome-extension-debug-buddy/issues/13) [#50](https://github.com/guichafy/chrome-extension-debug-buddy/issues/50) [#55](https://github.com/guichafy/chrome-extension-debug-buddy/issues/55) [46-#47](https://github.com/guichafy/46-/issues/47) [51-#52](https://github.com/guichafy/51-/issues/52) [#59](https://github.com/guichafy/chrome-extension-debug-buddy/issues/59) [#60](https://github.com/guichafy/chrome-extension-debug-buddy/issues/60) [#17](https://github.com/guichafy/chrome-extension-debug-buddy/issues/17) [#57](https://github.com/guichafy/chrome-extension-debug-buddy/issues/57) [#10](https://github.com/guichafy/chrome-extension-debug-buddy/issues/10) [#8](https://github.com/guichafy/chrome-extension-debug-buddy/issues/8) [#26](https://github.com/guichafy/chrome-extension-debug-buddy/issues/26) [#53](https://github.com/guichafy/chrome-extension-debug-buddy/issues/53) [#30](https://github.com/guichafy/chrome-extension-debug-buddy/issues/30) [#35](https://github.com/guichafy/chrome-extension-debug-buddy/issues/35) [#36](https://github.com/guichafy/chrome-extension-debug-buddy/issues/36) [#58](https://github.com/guichafy/chrome-extension-debug-buddy/issues/58) [#34](https://github.com/guichafy/chrome-extension-debug-buddy/issues/34) [#48](https://github.com/guichafy/chrome-extension-debug-buddy/issues/48)
+
 ## [0.1.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.0.3...v0.1.0) (2026-04-28)
 
 ### Features
