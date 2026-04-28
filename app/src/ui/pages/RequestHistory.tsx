@@ -13,9 +13,9 @@ import { useAllRequests } from '../hooks/useAllRequests';
 import { useResponses } from '../hooks/useResponses';
 import { useRules } from '../hooks/useRules';
 import { useLocation } from 'react-router-dom';
-import { Matcher, MockAction } from '@/backend/types/rules';
-import type { InterceptedResponse } from '@/backend/types/intercepted';
-import { indexedDBService } from '@/backend/services/indexedDB';
+import { Matcher, MockAction } from '@/types/rules';
+import type { InterceptedResponse } from '@/types/intercepted';
+import { indexedDBService } from '@/lib/indexedDB';
 import {
 	AlertDialog,
 	AlertDialogAction,

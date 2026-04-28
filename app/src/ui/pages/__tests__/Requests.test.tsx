@@ -11,7 +11,7 @@ vi.mock('../../hooks/useRules');
 vi.mock('react-router-dom', () => ({
 	useLocation: vi.fn().mockReturnValue({ pathname: '/requests' }),
 }));
-vi.mock('../../../backend/services/indexedDB', () => ({
+vi.mock('@/lib/indexedDB', () => ({
 	indexedDBService: {
 		init: vi.fn().mockResolvedValue(undefined),
 	},

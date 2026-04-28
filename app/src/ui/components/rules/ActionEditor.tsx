@@ -11,7 +11,7 @@ import {
 } from '@/ui/components/shadcn/select';
 import { Textarea } from '@/ui/components/shadcn/textarea';
 import { Checkbox } from '@/ui/components/shadcn/checkbox';
-import { Action, MockAction, BreakpointAction, MockLatency } from '@/backend/types/rules';
+import { Action, MockAction, BreakpointAction, MockLatency } from '@/types/rules';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/shadcn/tabs';
 
 interface ActionEditorProps {

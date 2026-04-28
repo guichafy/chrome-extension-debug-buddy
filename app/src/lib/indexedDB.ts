@@ -1,5 +1,5 @@
-import type { InterceptedResponse } from '@/backend/types/intercepted';
-import { normalizeInterceptedResponse } from '@/backend/domain/intercepted';
+import type { InterceptedResponse } from '@/types/intercepted';
+import { normalizeInterceptedResponse } from '@/domain/intercepted';
 
 // Nome do banco de dados e versão
 const DB_NAME = 'debugger-extension-db';

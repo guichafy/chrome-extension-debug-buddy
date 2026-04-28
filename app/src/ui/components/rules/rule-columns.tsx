@@ -12,7 +12,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@/ui/components/shadcn/dropdown-menu';
-import { Rule, Matcher } from '@/backend/types/rules';
+import { Rule, Matcher } from '@/types/rules';
 import { Badge } from '@/ui/components/shadcn/badge';
 
 // Função para obter uma descrição resumida dos matchers

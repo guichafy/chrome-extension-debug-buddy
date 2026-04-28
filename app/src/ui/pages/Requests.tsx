@@ -11,9 +11,9 @@ import ResponseDialog from '../components/ResponseDialog';
 import { useResponses } from '../hooks/useResponses';
 import { useRules } from '../hooks/useRules';
 import { useLocation } from 'react-router-dom';
-import { Matcher, MockAction } from '@/backend/types/rules';
-import { indexedDBService } from '@/backend/services/indexedDB';
-import type { InterceptedResponse } from '@/backend/types/intercepted';
+import { Matcher, MockAction } from '@/types/rules';
+import { indexedDBService } from '@/lib/indexedDB';
+import type { InterceptedResponse } from '@/types/intercepted';
 
 const getResponseHeaders = (response: InterceptedResponse): Record<string, string> =>
 	response.response?.headers ?? response.headers;

@@ -1,13 +1,13 @@
-import { indexedDBService } from './services/indexedDB';
-import { runLegacyMigration } from './services/legacyMigration';
-import { NetworkTimingTracker } from './services/networkTiming';
+import { indexedDBService } from '@/lib/indexedDB';
+import { runLegacyMigration } from '@/lib/legacyMigration';
+import { NetworkTimingTracker } from '@/lib/networkTiming';
 import type {
 	InterceptedResponse,
 	MessageResponse,
 	MockAction,
 	ResponseModifications,
 	Rule,
-} from './types';
+} from '@/types';
 import {
 	encodeBodyToBase64,
 	getCaptureBodyUnavailableReason,
@@ -18,9 +18,9 @@ import {
 	headersRecordToArray,
 	requestHeadersToRecord,
 	validateMockBody,
-} from './domain/http';
-import { resolveMockLatencyMs, wait } from './domain/mockLatency';
-import { findMatchingRuleAction } from './domain/ruleMatching';
+} from '@/domain/http';
+import { resolveMockLatencyMs, wait } from '@/domain/mockLatency';
+import { findMatchingRuleAction } from '@/domain/ruleMatching';
 
 // Global variables
 let isDebugging = false;

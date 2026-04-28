@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Action, Matcher, Rule } from '@/backend/types/rules';
+import type { Action, Matcher, Rule } from '@/types/rules';
 
 export function useRules() {
 	const [rules, setRules] = useState<Rule[]>([]);
@@ -122,7 +122,7 @@ export function useRules() {
 
 	// Carregar regras ao montar o componente. A migração de dados legados
 	// (urlPatterns/mocks) é responsabilidade do background — ver
-	// app/src/backend/services/legacyMigration.ts.
+	// app/src/lib/legacyMigration.ts.
 	useEffect(() => {
 		loadRules();
 	}, [loadRules]);
