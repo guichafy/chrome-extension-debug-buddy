@@ -157,9 +157,7 @@ export function RequestInspector({
 						</div>
 						{typeof request.mockLatencyMs === 'number' && (
 							<div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
-								Mock aplicado com latência artificial de {request.mockLatencyMs}ms. O Chrome
-								DevTools pode não refletir esse tempo na coluna "Time" quando a resposta é fornecida
-								via Fetch.fulfillRequest.
+								Mock aplicado com latência artificial de {request.mockLatencyMs}ms.
 							</div>
 						)}
 					</TabsContent>
