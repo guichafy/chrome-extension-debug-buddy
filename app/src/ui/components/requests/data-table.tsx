@@ -92,10 +92,10 @@ export function DataTable<TData, TValue>({
 	React.useEffect(() => {
 		// Em telas menores, ocultar algumas colunas menos importantes
 		if (typeof window !== 'undefined' && window.innerWidth < 1200) {
-			setColumnVisibility({
-				...columnVisibility,
+			setColumnVisibility((prev) => ({
+				...prev,
 				mimeType: false,
-			});
+			}));
 		}
 	}, []);
 
