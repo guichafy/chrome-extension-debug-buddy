@@ -128,8 +128,15 @@ const safeBase64Encode = (str: string): string => {
 		}
 
 		// Tenta codificar para base64
-		// Usa unescape/encodeURIComponent para lidar com caracteres Unicode
-		return btoa(unescape(encodeURIComponent(str)));
+		// Substitui o idioma `btoa(unescape(encodeURIComponent(str)))` (unescape é deprecated):
+		// usamos TextEncoder para obter os bytes UTF-8 e então convertemos para a string
+		// binária esperada por btoa. O resultado é idêntico ao do truque legado.
+		const utf8Bytes = new TextEncoder().encode(str);
+		let binary = '';
+		for (let i = 0; i < utf8Bytes.length; i++) {
+			binary += String.fromCharCode(utf8Bytes[i]);
+		}
+		return btoa(binary);
 	} catch (e) {
 		console.error('Erro ao codificar para base64:', e);
 		return '';
