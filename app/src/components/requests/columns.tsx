@@ -2,16 +2,16 @@
 
 import { ColumnDef } from '@tanstack/react-table';
 import { ArrowUpDown, MoreHorizontal } from 'lucide-react';
-import { Button } from '@/ui/components/shadcn/button';
-import { Badge } from '@/ui/components/shadcn/badge';
-import { Icon } from '@/ui/components/shadcn/icon';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Icon } from '@/components/ui/icon';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuTrigger,
-} from '@/ui/components/shadcn/dropdown-menu';
+} from '@/components/ui/dropdown-menu';
 import { InterceptedResponse } from '../../hooks/useResponses';
 import { compareDurations, formatDuration, getDurationColorClass } from './duration';
 

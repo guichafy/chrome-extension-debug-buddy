@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
-import { Button } from '@/ui/components/shadcn/button';
-import { Input } from '@/ui/components/shadcn/input';
-import { Label } from '@/ui/components/shadcn/label';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from '@/ui/components/shadcn/select';
-import { Textarea } from '@/ui/components/shadcn/textarea';
-import { Checkbox } from '@/ui/components/shadcn/checkbox';
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Action, MockAction, BreakpointAction, MockLatency } from '@/types/rules';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/shadcn/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface ActionEditorProps {
 	action: Action;

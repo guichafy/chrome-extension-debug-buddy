@@ -7,13 +7,13 @@ import {
 	DialogFooter,
 	DialogClose,
 	DialogDescription,
-} from './shadcn/dialog';
-import { Button } from './shadcn/button';
-import { Icon } from './shadcn/icon';
-import { Badge } from './shadcn/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './shadcn/tabs';
-import { ScrollArea } from './shadcn/scroll-area';
-import { Input } from './shadcn/input';
+} from './ui/dialog';
+import { Button } from './ui/button';
+import { Icon } from './ui/icon';
+import { Badge } from './ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { ScrollArea } from './ui/scroll-area';
+import { Input } from './ui/input';
 import { InterceptedResponse, ResponseModifications } from '../hooks/useResponses';
 
 interface ResponseDialogProps {

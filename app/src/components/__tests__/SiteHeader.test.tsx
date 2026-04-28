@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { SiteHeader } from '../SiteHeader';
+import { SiteHeader } from '../layout/SiteHeader';
 
 // Mock para react-router-dom
 const mockNavigate = vi.fn();
@@ -9,13 +9,13 @@ vi.mock('react-router-dom', () => ({
 }));
 
 // Mock para os componentes do shadcn-ui
-vi.mock('../shadcn/separator', () => ({
+vi.mock('../ui/separator', () => ({
 	Separator: ({ orientation, className }: any) => (
 		<div data-testid="separator" data-orientation={orientation} className={className} />
 	),
 }));
 
-vi.mock('../shadcn/sidebar', () => ({
+vi.mock('../ui/sidebar', () => ({
 	SidebarTrigger: ({ className }: any) => (
 		<button data-testid="sidebar-trigger" className={className}>
 			Toggle
@@ -23,7 +23,7 @@ vi.mock('../shadcn/sidebar', () => ({
 	),
 }));
 
-vi.mock('../shadcn/badge', () => ({
+vi.mock('../ui/badge', () => ({
 	Badge: ({ children, variant, className }: any) => (
 		<span data-testid="badge" data-variant={variant} className={className}>
 			{children}
@@ -31,7 +31,7 @@ vi.mock('../shadcn/badge', () => ({
 	),
 }));
 
-vi.mock('../shadcn/button', () => ({
+vi.mock('../ui/button', () => ({
 	Button: ({ children, onClick, variant, size, className, disabled }: any) => (
 		<button
 			data-testid="button"
@@ -46,7 +46,7 @@ vi.mock('../shadcn/button', () => ({
 	),
 }));
 
-vi.mock('../shadcn/icon', () => ({
+vi.mock('../ui/icon', () => ({
 	Icon: ({ name, className }: any) => (
 		<span data-testid="icon" data-name={name} className={className}>
 			{name}
@@ -54,7 +54,7 @@ vi.mock('../shadcn/icon', () => ({
 	),
 }));
 
-vi.mock('../shadcn/tooltip', () => ({
+vi.mock('../ui/tooltip', () => ({
 	Tooltip: ({ children }: any) => <div data-testid="tooltip">{children}</div>,
 	TooltipTrigger: ({ asChild, children }: any) => (
 		<div data-testid="tooltip-trigger">{children}</div>

@@ -1,13 +1,13 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Icon } from '@/ui/components/shadcn/icon';
+import { Icon } from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
 import {
 	SidebarMenu,
 	SidebarMenuItem,
 	SidebarMenuButton,
 	SidebarMenuBadge,
-} from '@/ui/components/shadcn/sidebar';
+} from '@/components/ui/sidebar';
 
 interface NavItem {
 	title: string;

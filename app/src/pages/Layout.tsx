@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import SelectTabDialog from '../components/SelectTabDialog';
-import { AppSidebar } from '../components/AppSidebar';
-import { SiteHeader } from '../components/SiteHeader';
-import { SidebarProvider, SidebarInset } from '@/ui/components/shadcn/sidebar';
+import { AppSidebar } from '../components/layout/AppSidebar';
+import { SiteHeader } from '../components/layout/SiteHeader';
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { useDebugging } from '../hooks/useDebugging';
 import { useResponses } from '../hooks/useResponses';
 

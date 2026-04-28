@@ -4,7 +4,7 @@ import ResponseList from '../ResponseList';
 import { InterceptedResponse } from '../../hooks/useResponses';
 
 // Mock para os componentes do shadcn-ui
-vi.mock('@/ui/components/shadcn/scroll-area', () => ({
+vi.mock('@/components/ui/scroll-area', () => ({
 	ScrollArea: ({ children, className }: any) => (
 		<div data-testid="scroll-area" className={className}>
 			{children}
@@ -12,7 +12,7 @@ vi.mock('@/ui/components/shadcn/scroll-area', () => ({
 	),
 }));
 
-vi.mock('@/ui/components/shadcn/card', () => ({
+vi.mock('@/components/ui/card', () => ({
 	Card: ({ children, className }: any) => (
 		<div data-testid="card" className={className}>
 			{children}
@@ -25,7 +25,7 @@ vi.mock('@/ui/components/shadcn/card', () => ({
 	),
 }));
 
-vi.mock('@/ui/components/shadcn/badge', () => ({
+vi.mock('@/components/ui/badge', () => ({
 	Badge: ({ children, variant, className }: any) => (
 		<span data-testid="badge" data-variant={variant} className={className}>
 			{children}
@@ -33,7 +33,7 @@ vi.mock('@/ui/components/shadcn/badge', () => ({
 	),
 }));
 
-vi.mock('@/ui/components/shadcn/button', () => ({
+vi.mock('@/components/ui/button', () => ({
 	Button: ({ children, onClick, variant, size, className, title }: any) => (
 		<button
 			data-testid="button"
@@ -48,7 +48,7 @@ vi.mock('@/ui/components/shadcn/button', () => ({
 	),
 }));
 
-vi.mock('@/ui/components/shadcn/icon', () => ({
+vi.mock('@/components/ui/icon', () => ({
 	Icon: ({ name, className }: any) => (
 		<span data-testid="icon" data-name={name} className={className}>
 			{name}

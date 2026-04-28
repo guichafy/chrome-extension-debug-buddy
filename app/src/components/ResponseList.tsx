@@ -1,17 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { InterceptedResponse } from '../hooks/useResponses';
-import { Button } from '@/ui/components/shadcn/button';
-import { Icon } from '@/ui/components/shadcn/icon';
-import { Card, CardContent } from '@/ui/components/shadcn/card';
-import { Badge } from '@/ui/components/shadcn/badge';
-import { ScrollArea } from '@/ui/components/shadcn/scroll-area';
-import { Separator } from '@/ui/components/shadcn/separator';
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from '@/ui/components/shadcn/tooltip';
+import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface ResponseListProps {
 	responses: Record<string, InterceptedResponse>;

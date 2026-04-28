@@ -6,14 +6,14 @@ import {
 	DialogTitle,
 	DialogDescription,
 	DialogFooter,
-} from '@/ui/components/shadcn/dialog';
-import { ScrollArea } from '@/ui/components/shadcn/scroll-area';
-import { Button } from '@/ui/components/shadcn/button';
-import { Icon } from '@/ui/components/shadcn/icon';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/shadcn/tabs';
-import { Input } from '@/ui/components/shadcn/input';
-import { Label } from '@/ui/components/shadcn/label';
-import { Checkbox } from '@/ui/components/shadcn/checkbox';
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
 	Rule,
 	Matcher,

@@ -1,8 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
-import './globals.css';
-import router from './routes';
+import '@/styles/globals.css';
+import router from '@/routes';
 
 const MainApp: React.FC = () => {
 	return <RouterProvider router={router} />;

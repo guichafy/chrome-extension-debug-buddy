@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle,
-	CardDescription,
-} from '@/ui/components/shadcn/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import ResponseList from '../components/ResponseList';
 import ResponseDialog from '../components/ResponseDialog';
 import { useResponses } from '../hooks/useResponses';
