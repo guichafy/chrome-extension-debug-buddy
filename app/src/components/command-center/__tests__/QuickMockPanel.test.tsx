@@ -56,4 +56,16 @@ describe('QuickMockPanel', () => {
 		);
 		expect(action.type).toBe('mock');
 	});
+
+	test('header sensível (authorization) aparece mascarado e desmarcado', () => {
+		render(
+			<QuickMockPanel open onOpenChange={vi.fn()} request={baseRequest as any} requestId="r1" />,
+		);
+		const row = screen.getByText('authorization').closest('tr');
+		expect(row).not.toBeNull();
+		expect(row!.textContent).toContain('•••••• (mascarado)');
+		const checkbox = row!.querySelector('button[role="checkbox"]');
+		expect(checkbox).not.toBeNull();
+		expect(checkbox!.getAttribute('data-state')).toBe('unchecked');
+	});
 });
