@@ -5,10 +5,39 @@
 @import "tw-animate-css";
 
 /*
- * Design tokens — dark only.
- * Tailwind v4 generates utility classes (bg-foo, text-foo, border-foo, ring-foo)
- * automatically from any --color-* variable declared in the @theme block.
- * No :root light variant. No .dark class. The whole UI is dark-by-default.
+ * Design tokens — dark only. The whole UI is dark-by-default; no :root
+ * light variant, no .dark class.
+ *
+ * Tailwind v4 auto-generates utility classes (bg-X, text-X, border-X,
+ * ring-X) from each `--color-X` declared here. Naming convention:
+ * `--color-{role}` for the surface/interactive token; `--color-{role}-foreground`
+ * for the text/icon color that sits on top of that surface (always
+ * AA-contrast against the role color).
+ *
+ * Roles:
+ *  - background / foreground:  page canvas + default text
+ *  - card / popover:           floating surfaces
+ *  - primary:                  the dominant action (button)
+ *  - secondary / muted:        de-emphasized surfaces and text
+ *  - accent:                   hover states + subtle highlights
+ *  - destructive:              red — destructive actions, error states
+ *  - success:                  green — confirmation, healthy state, 2xx
+ *  - warning:                  amber — caution, 4xx
+ *  - info:                     blue — informational, 3xx
+ *  - border / input / ring:    form chrome
+ *  - sidebar*:                 own scale because the sidebar sits on the
+ *                              canvas (not on a card). Slightly different
+ *                              hue from the rest to create visual hierarchy.
+ *
+ * Radius:
+ *  - lg: 0.5rem  (cards, dialogs, large surfaces)
+ *  - md: lg-2    (buttons, inputs, mid-size)
+ *  - sm: lg-4    (badges, tight controls)
+ *
+ * Animations:
+ *  - accordion-down/up: drive Radix accordion content expand/collapse.
+ *    Keyframes are declared below this @theme block; the --animate-* vars
+ *    register them as Tailwind utility classes.
  */
 @theme {
 	/* Surfaces */
@@ -34,15 +63,25 @@
 	--color-accent: hsl(217.2 32.6% 17.5%);
 	--color-accent-foreground: hsl(210 40% 98%);
 
+	/* Status */
 	--color-destructive: hsl(0 62.8% 30.6%);
 	--color-destructive-foreground: hsl(210 40% 98%);
+
+	--color-success: hsl(142 70% 45%);
+	--color-success-foreground: hsl(0 0% 100%);
+
+	--color-warning: hsl(35 92% 50%);
+	--color-warning-foreground: hsl(0 0% 100%);
+
+	--color-info: hsl(217 91% 60%);
+	--color-info-foreground: hsl(0 0% 100%);
 
 	/* Form chrome */
 	--color-border: hsl(217.2 32.6% 17.5%);
 	--color-input: hsl(217.2 32.6% 17.5%);
 	--color-ring: hsl(212.7 26.8% 83.9%);
 
-	/* Sidebar (own scale because it sits on the canvas, not the card) */
+	/* Sidebar (own scale — sits on the canvas, not the card) */
 	--color-sidebar: hsl(240 5.9% 10%);
 	--color-sidebar-foreground: hsl(240 4.8% 95.9%);
 	--color-sidebar-primary: hsl(224.3 76.3% 48%);
