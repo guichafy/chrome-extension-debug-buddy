@@ -30,7 +30,7 @@ const noopHandlers = {
 
 describe('RequestInspector', () => {
 	test('mostra estado vazio quando nenhuma request está selecionada', () => {
-		render(<RequestInspector request={null} requestId={null} {...noopHandlers} />);
+		render(<RequestInspector request={null} requestId={null} rules={[]} {...noopHandlers} />);
 		expect(screen.getByText(/Selecione uma requisição/)).toBeInTheDocument();
 	});
 
@@ -39,6 +39,7 @@ describe('RequestInspector', () => {
 			<RequestInspector
 				request={baseRequest({ duration: 123 })}
 				requestId="r1"
+				rules={[]}
 				{...noopHandlers}
 			/>,
 		);
@@ -53,6 +54,7 @@ describe('RequestInspector', () => {
 			<RequestInspector
 				request={baseRequest({ captureError: 'Net::ERR_FAILED' })}
 				requestId="r1"
+				rules={[]}
 				{...noopHandlers}
 			/>,
 		);
@@ -62,7 +64,7 @@ describe('RequestInspector', () => {
 	test('mostra body indisponível quando bodyUnavailableReason presente', () => {
 		const req = baseRequest({ bodyUnavailableReason: 'Body too large to capture' });
 		(req as { body?: string }).body = undefined;
-		render(<RequestInspector request={req} requestId="r1" {...noopHandlers} />);
+		render(<RequestInspector request={req} requestId="r1" rules={[]} {...noopHandlers} />);
 		expect(screen.getByText(/Body too large to capture/)).toBeInTheDocument();
 	});
 
@@ -71,6 +73,7 @@ describe('RequestInspector', () => {
 			<RequestInspector
 				request={baseRequest({ isWaiting: true })}
 				requestId="r1"
+				rules={[]}
 				{...noopHandlers}
 			/>,
 		);
@@ -83,6 +86,7 @@ describe('RequestInspector', () => {
 			<RequestInspector
 				request={baseRequest({ isWaiting: false })}
 				requestId="r1"
+				rules={[]}
 				{...noopHandlers}
 			/>,
 		);

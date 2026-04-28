@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { InterceptedResponse } from '@/types/intercepted';
 import { useAllRequests } from '@/hooks/useAllRequests';
 import { useResponses } from '@/hooks/useResponses';
+import { useRules } from '@/hooks/useRules';
 import { useRequestSelection } from '@/hooks/useRequestSelection';
 import { RequestTimeline } from '@/components/command-center/RequestTimeline';
 import { RequestInspector } from '@/components/command-center/RequestInspector';
@@ -30,6 +31,7 @@ const CommandCenter: React.FC = () => {
 		clearAllRequests,
 	} = useAllRequests();
 	const { approveResponse, ignoreResponse } = useResponses();
+	const { rules } = useRules();
 	const { selectedId, selected, select, clear } = useRequestSelection(filteredRequests);
 
 	const [clearDialogOpen, setClearDialogOpen] = useState(false);
@@ -83,6 +85,7 @@ const CommandCenter: React.FC = () => {
 						/* Tratado dentro da aba Replay do inspector — Phase 5 */
 					}}
 					onClose={clear}
+					rules={rules}
 				/>
 			</section>
 

@@ -5,7 +5,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LucideIcon } from '@/components/ui/lucide-icon';
 import type { InterceptedResponse, ResponseModifications } from '@/types/intercepted';
+import type { Rule } from '@/types/rules';
 import { formatDuration } from '@/components/requests/duration';
+import { ReplayPanel } from './ReplayPanel';
 
 interface RequestInspectorProps {
 	request: InterceptedResponse | null;
@@ -16,6 +18,7 @@ interface RequestInspectorProps {
 	onOpenInRulesLab: (ruleId: string) => void;
 	onReplay: (request: InterceptedResponse) => void;
 	onClose: () => void;
+	rules: Rule[];
 }
 
 function truncateMiddle(value: string, maxLength = 80): string {
@@ -33,6 +36,7 @@ export function RequestInspector({
 	onOpenInRulesLab,
 	onReplay,
 	onClose,
+	rules,
 }: RequestInspectorProps) {
 	if (!request || !requestId) {
 		return (
@@ -136,11 +140,12 @@ export function RequestInspector({
 			</div>
 
 			<Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
-				<TabsList className="mx-4 grid grid-cols-4">
+				<TabsList className="mx-4 grid grid-cols-5">
 					<TabsTrigger value="overview">Overview</TabsTrigger>
 					<TabsTrigger value="request">Request</TabsTrigger>
 					<TabsTrigger value="response">Response</TabsTrigger>
 					<TabsTrigger value="body">Body</TabsTrigger>
+					<TabsTrigger value="replay">Replay</TabsTrigger>
 				</TabsList>
 
 				<ScrollArea className="flex-1 px-4 py-3">
@@ -181,6 +186,10 @@ export function RequestInspector({
 								{responseBody}
 							</pre>
 						)}
+					</TabsContent>
+
+					<TabsContent value="replay">
+						<ReplayPanel request={request} rules={rules} />
 					</TabsContent>
 				</ScrollArea>
 			</Tabs>
