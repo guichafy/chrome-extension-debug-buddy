@@ -6,6 +6,7 @@ import {
 	CardTitle,
 	CardDescription,
 } from '@/ui/components/shadcn/card';
+import { Button } from '@/ui/components/shadcn/button';
 import RequestTable from '../components/RequestTable';
 import ResponseDialog from '../components/ResponseDialog';
 import { useAllRequests } from '../hooks/useAllRequests';
@@ -13,6 +14,7 @@ import { useResponses } from '../hooks/useResponses';
 import { useRules } from '../hooks/useRules';
 import { useLocation } from 'react-router-dom';
 import { Matcher, MockAction } from '@/backend/types/rules';
+import type { InterceptedResponse } from '@/backend/types/intercepted';
 import { indexedDBService } from '@/backend/services/indexedDB';
 import {
 	AlertDialog,
@@ -24,6 +26,35 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from '@/ui/components/shadcn/alert-dialog';
+
+type HistoryView = 'all' | 'pending' | 'history' | 'mocked' | 'failed';
+
+const historyViews: Array<{ value: HistoryView; label: string }> = [
+	{ value: 'all', label: 'Todos' },
+	{ value: 'pending', label: 'Aguardando ação' },
+	{ value: 'history', label: 'Histórico' },
+	{ value: 'mocked', label: 'Mockadas' },
+	{ value: 'failed', label: 'Falhas' },
+];
+
+const getInitialView = (search?: string): HistoryView => {
+	const view = new URLSearchParams(search ?? '').get('view');
+	return historyViews.some((item) => item.value === view) ? (view as HistoryView) : 'all';
+};
+
+const matchesView = (request: InterceptedResponse, view: HistoryView): boolean => {
+	if (view === 'all') return true;
+	if (view === 'pending') return request.isWaiting === true;
+	if (view === 'history') return request.isWaiting !== true;
+	if (view === 'mocked') return request.isMocked === true;
+	return Boolean(request.captureError);
+};
+
+const getResponseHeaders = (request: InterceptedResponse): Record<string, string> =>
+	request.response?.headers ?? request.headers;
+
+const getResponseBody = (request: InterceptedResponse): string | undefined =>
+	request.response && 'body' in request.response ? request.response.body : request.body;
 
 const RequestHistory: React.FC = () => {
 	// Use location to force re-render when route changes
@@ -48,13 +79,15 @@ const RequestHistory: React.FC = () => {
 		initDB();
 	}, []);
 
-	const { ignoreResponse, clearCurrentResponse } = useResponses();
+	const { approveResponse, ignoreResponse, clearCurrentResponse } = useResponses();
 
 	const {
+		allRequests,
 		filteredRequests,
 		currentRequestId,
 		currentRequest,
 		getRequestDetails,
+		clearCurrentRequest,
 		filter,
 		setFilter,
 		pauseAutoRefresh,
@@ -69,6 +102,32 @@ const RequestHistory: React.FC = () => {
 
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [clearDialogOpen, setClearDialogOpen] = useState(false);
+	const [activeView, setActiveView] = useState<HistoryView>(() => getInitialView(location.search));
+
+	useEffect(() => {
+		setActiveView(getInitialView(location.search));
+	}, [location.search]);
+
+	const counts = React.useMemo<Record<HistoryView, number>>(() => {
+		const requests = Object.values(allRequests ?? {});
+		return {
+			all: requests.length,
+			pending: requests.filter((request) => matchesView(request, 'pending')).length,
+			history: requests.filter((request) => matchesView(request, 'history')).length,
+			mocked: requests.filter((request) => matchesView(request, 'mocked')).length,
+			failed: requests.filter((request) => matchesView(request, 'failed')).length,
+		};
+	}, [allRequests]);
+
+	const visibleRequests = React.useMemo<Record<string, InterceptedResponse>>(() => {
+		const selected: Record<string, InterceptedResponse> = {};
+		for (const [id, request] of Object.entries(filteredRequests ?? {})) {
+			if (matchesView(request, activeView)) {
+				selected[id] = request;
+			}
+		}
+		return selected;
+	}, [filteredRequests, activeView]);
 
 	const handleEditResponse = () => {
 		setIsEditing(true);
@@ -76,6 +135,17 @@ const RequestHistory: React.FC = () => {
 
 	const handleCancelEdit = () => {
 		setIsEditing(false);
+		clearCurrentRequest();
+		clearCurrentResponse();
+	};
+
+	const handleDialogOpenChange = (open: boolean) => {
+		setDialogOpen(open);
+		if (!open) {
+			setIsEditing(false);
+			clearCurrentRequest();
+			clearCurrentResponse();
+		}
 	};
 
 	const handleClearHistory = async () => {
@@ -94,8 +164,13 @@ const RequestHistory: React.FC = () => {
 
 	const handleCreateMock = async () => {
 		if (currentRequest) {
-			if (currentRequest.captureError || currentRequest.body === undefined) {
+			if (currentRequest.captureError) {
 				alert('Não é possível criar mock a partir de uma resposta com falha de captura.');
+				return;
+			}
+
+			if (!currentRequest.method) {
+				alert('Não é possível criar mock sem o método HTTP original da requisição.');
 				return;
 			}
 
@@ -104,6 +179,7 @@ const RequestHistory: React.FC = () => {
 				const url = currentRequest.url;
 				const urlObj = new URL(url);
 				const urlPattern = urlObj.hostname + urlObj.pathname;
+				const responseBody = getResponseBody(currentRequest);
 
 				// Criar matchers para a regra
 				const matchers: Matcher[] = [
@@ -116,7 +192,7 @@ const RequestHistory: React.FC = () => {
 					{
 						type: 'method',
 						enabled: true,
-						method: currentRequest.method || 'GET',
+						method: currentRequest.method,
 					},
 				];
 
@@ -125,9 +201,12 @@ const RequestHistory: React.FC = () => {
 					type: 'mock',
 					enabled: true,
 					status: currentRequest.status,
-					headers: currentRequest.headers || {},
-					body: currentRequest.body,
-					contentType: currentRequest.mimeType || 'application/json',
+					headers: getResponseHeaders(currentRequest),
+					...(currentRequest.statusText ? { statusPhrase: currentRequest.statusText } : {}),
+					...(responseBody !== undefined ? { body: responseBody } : {}),
+					...(currentRequest.mimeType !== undefined
+						? { contentType: currentRequest.mimeType }
+						: {}),
 				};
 
 				// Adicionar a regra
@@ -163,8 +242,35 @@ const RequestHistory: React.FC = () => {
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
+					<div
+						className="mb-4 flex flex-wrap gap-2"
+						role="tablist"
+						aria-label="Filtros do histórico de requisições"
+					>
+						{historyViews.map(({ value, label }) => (
+							<Button
+								key={value}
+								type="button"
+								variant={activeView === value ? 'default' : 'outline'}
+								size="sm"
+								className="gap-2"
+								onClick={() => setActiveView(value)}
+							>
+								<span>{label}</span>
+								<span
+									className={`rounded-full px-2 py-0.5 text-xs ${
+										activeView === value
+											? 'bg-primary-foreground/20 text-primary-foreground'
+											: 'bg-muted text-muted-foreground'
+									}`}
+								>
+									{counts[value]}
+								</span>
+							</Button>
+						))}
+					</div>
 					<RequestTable
-						requests={filteredRequests}
+						requests={visibleRequests}
 						onSelect={handleSelectRequest}
 						searchValue={filter}
 						onSearchChange={setFilter}
@@ -173,7 +279,7 @@ const RequestHistory: React.FC = () => {
 						autoRefreshEnabled={autoRefreshEnabled}
 						onClearHistory={() => setClearDialogOpen(true)}
 					/>
-					{Object.keys(filteredRequests || {}).length === 0 && (
+					{Object.keys(visibleRequests || {}).length === 0 && (
 						<div className="text-center py-8 text-muted-foreground">
 							Nenhuma requisição encontrada no histórico.
 						</div>
@@ -183,16 +289,16 @@ const RequestHistory: React.FC = () => {
 
 			<ResponseDialog
 				open={dialogOpen}
-				onOpenChange={setDialogOpen}
+				onOpenChange={handleDialogOpenChange}
 				response={currentRequest}
 				requestId={currentRequestId}
-				onApprove={() => Promise.resolve(false)}
+				onApprove={approveResponse}
 				onIgnore={ignoreResponse}
 				onMock={handleCreateMock}
 				onEdit={handleEditResponse}
 				onCancel={handleCancelEdit}
 				isEditing={isEditing}
-				readOnly={true}
+				readOnly={currentRequest?.isWaiting !== true}
 				ruleCreated={ruleCreated}
 			/>
 

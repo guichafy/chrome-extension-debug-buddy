@@ -1,23 +1,26 @@
 // Forma canônica das requisições interceptadas. Compartilhada entre
 // background.ts (writer) e useResponses.ts (reader).
-//
-// Notas (issue #19): atualmente `headers` carrega APENAS os response
-// headers — request headers não são armazenados separadamente. Qualquer
-// UI que se refira a "request headers" está exibindo response headers.
 
 export interface InterceptedResponse {
 	url: string;
 	method?: string;
-	/** Dados enviados no corpo da requisição original (commit 0bb0778). */
+	/** Dados enviados na requisição original. */
 	request?: {
+		headers?: Record<string, string>;
 		postData?: string;
+	};
+	response?: {
+		headers: Record<string, string>;
+		body?: string;
 	};
 	status: number;
 	statusText: string;
+	/** Alias legado de response.headers, mantido para leitura de registros antigos. */
 	headers: Record<string, string>;
-	mimeType: string;
+	mimeType?: string;
 	type: string;
 	timestamp: number;
+	/** Alias legado de response.body, mantido para leitura de registros antigos. */
 	body?: string;
 	isWaiting?: boolean;
 	isMocked?: boolean;
@@ -25,6 +28,8 @@ export interface InterceptedResponse {
 	bodyUnavailableReason?: string;
 	/** Tempo total da requisição em milissegundos (capturado via Network domain do CDP). */
 	duration?: number;
+	durationSource?: 'network' | 'mock';
+	mockLatencyMs?: number;
 }
 
 export interface ResponseModifications {

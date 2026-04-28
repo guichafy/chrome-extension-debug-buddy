@@ -83,7 +83,7 @@ const ResponseList: React.FC<ResponseListProps> = ({
 				<div className="space-y-1.5">
 					{responseIds.map((requestId) => {
 						const response = responses[requestId];
-						const method = response.method || 'GET';
+						const method = response.method ?? 'Método ausente';
 						const methodColor = getMethodColor(method);
 						const waitingTime = getWaitingTime(response.timestamp);
 
@@ -148,7 +148,7 @@ const ResponseList: React.FC<ResponseListProps> = ({
 													</span>
 													<Separator orientation="vertical" className="mx-1.5 h-2.5" />
 													<span className="truncate max-w-[150px]" title={response.mimeType}>
-														{response.mimeType}
+														{response.mimeType ?? 'Sem Content-Type'}
 													</span>
 												</div>
 											</div>

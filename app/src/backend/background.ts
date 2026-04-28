@@ -1,7 +1,26 @@
 import { indexedDBService } from './services/indexedDB';
 import { runLegacyMigration } from './services/legacyMigration';
 import { NetworkTimingTracker } from './services/networkTiming';
-import type { InterceptedResponse, MessageResponse, ResponseModifications, Rule } from './types';
+import type {
+	InterceptedResponse,
+	MessageResponse,
+	MockAction,
+	ResponseModifications,
+	Rule,
+} from './types';
+import {
+	encodeBodyToBase64,
+	getCaptureBodyUnavailableReason,
+	getHeaderValue,
+	getHttpStatusPhrase,
+	getOptionalMimeTypeFromHeaders,
+	headersArrayToRecord,
+	headersRecordToArray,
+	requestHeadersToRecord,
+	validateMockBody,
+} from './domain/http';
+import { resolveMockLatencyMs, wait } from './domain/mockLatency';
+import { findMatchingRuleAction } from './domain/ruleMatching';
 
 // Global variables
 let isDebugging = false;
@@ -57,7 +76,7 @@ async function patchRequest(
 }
 
 const timingTracker = new NetworkTimingTracker((fetchRequestId, duration) => {
-	patchRequest(fetchRequestId, { duration });
+	patchRequest(fetchRequestId, { duration, durationSource: 'network' });
 });
 
 // Initialize when the extension is installed or updated
@@ -254,7 +273,7 @@ chrome.runtime.onMessage.addListener(
 			const { requestId, modifications } = message;
 
 			console.log('background.ts - Received approveResponse message:', JSON.stringify(message));
-			if (modifications && modifications.status) {
+			if (modifications && modifications.status !== undefined) {
 				console.log(
 					`background.ts - Received status code: ${modifications.status}, type: ${typeof modifications.status}`,
 				);
@@ -268,7 +287,7 @@ chrome.runtime.onMessage.addListener(
 			// Apply modifications if provided
 			if (modifications) {
 				// Garantir que o status code seja um número
-				if (modifications.status) {
+				if (modifications.status !== undefined) {
 					modifications.status = Number(modifications.status);
 					console.log(
 						`background.ts - Converted status code: ${modifications.status}, type: ${typeof modifications.status}`,
@@ -277,13 +296,32 @@ chrome.runtime.onMessage.addListener(
 
 				applyResponseModifications(requestId, modifications)
 					.then(() => {
+						const pendingResponse = pendingResponses[requestId];
 						delete pendingResponses[requestId];
 						// Filtra undefined: spread cego do `modifications` poderia apagar
 						// `headers`/`body` originais se o usuário só alterou `status`.
 						const finalUpdates: Partial<InterceptedResponse> = { isWaiting: false };
-						if (modifications.status !== undefined) finalUpdates.status = modifications.status;
-						if (modifications.headers !== undefined) finalUpdates.headers = modifications.headers;
+						if (modifications.status !== undefined) {
+							finalUpdates.status = modifications.status;
+							finalUpdates.statusText = getHttpStatusPhrase(modifications.status);
+						}
+						if (modifications.headers !== undefined) {
+							finalUpdates.headers = modifications.headers;
+						}
 						if (modifications.body !== undefined) finalUpdates.body = modifications.body;
+						if (modifications.headers !== undefined || modifications.body !== undefined) {
+							const previousResponse = pendingResponse.response;
+							const responseHeaders =
+								modifications.headers ?? previousResponse?.headers ?? pendingResponse.headers;
+							finalUpdates.response = {
+								headers: responseHeaders,
+								...(modifications.body !== undefined
+									? { body: modifications.body }
+									: previousResponse?.body !== undefined
+										? { body: previousResponse.body }
+										: {}),
+							};
+						}
 						patchRequest(requestId, finalUpdates);
 						sendResponse({ success: true });
 					})
@@ -318,14 +356,6 @@ chrome.runtime.onMessage.addListener(
 		return false;
 	},
 );
-
-function encodeBodyToBase64(body: string): string {
-	return btoa(
-		encodeURIComponent(body).replace(/%([0-9A-F]{2})/g, (_, p1) =>
-			String.fromCharCode(Number.parseInt(p1, 16)),
-		),
-	);
-}
 
 function getErrorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
@@ -384,26 +414,6 @@ async function getDecodedResponseBody(requestId: string): Promise<string> {
 	}
 }
 
-function getBodyUnavailableReason(method: string, statusCode: number): string | undefined {
-	if (method === 'HEAD') {
-		return 'Requisições HEAD não possuem corpo de resposta.';
-	}
-
-	if (statusCode >= 100 && statusCode < 200) {
-		return `Respostas informativas ${statusCode} não possuem corpo disponível para captura.`;
-	}
-
-	if (statusCode === 204 || statusCode === 205 || statusCode === 304) {
-		return `Resposta ${statusCode} não possui corpo disponível para captura.`;
-	}
-
-	if (statusCode >= 300 && statusCode < 400) {
-		return `Redirect ${statusCode} não possui corpo disponível para captura via Fetch.getResponseBody.`;
-	}
-
-	return undefined;
-}
-
 // Apply modifications to a response
 async function applyResponseModifications(
 	requestId: string,
@@ -446,22 +456,19 @@ async function applyResponseModifications(
 				}
 
 				// Prepare response headers
-				let responseHeaders = pendingResponse.headers;
-				if (modifications.headers) {
+				let responseHeaders = pendingResponse.response?.headers ?? pendingResponse.headers;
+				if (modifications.headers !== undefined) {
 					responseHeaders = modifications.headers;
 				}
 
 				// Convert headers object to array format required by Fetch API
-				const headersArray: { name: string; value: string }[] = [];
-				for (const [name, value] of Object.entries(responseHeaders)) {
-					headersArray.push({ name, value });
-				}
+				const headersArray = headersRecordToArray(responseHeaders);
 
 				// Prepare status code and phrase
 				let statusCode = pendingResponse.status;
-				let statusPhrase = getStatusText(statusCode);
+				let statusPhrase = getHttpStatusPhrase(statusCode, pendingResponse.statusText);
 
-				if (modifications.status) {
+				if (modifications.status !== undefined) {
 					console.log(`Original status code: ${statusCode}, type: ${typeof statusCode}`);
 					console.log(
 						`Modification status code: ${modifications.status}, type: ${typeof modifications.status}`,
@@ -469,7 +476,7 @@ async function applyResponseModifications(
 
 					// Garantir que o status code seja um número
 					statusCode = Number(modifications.status);
-					statusPhrase = getStatusText(statusCode);
+					statusPhrase = getHttpStatusPhrase(statusCode);
 
 					console.log(`Final status code: ${statusCode}, type: ${typeof statusCode}`);
 					console.log(`Applying modified status code: ${statusCode} (${statusPhrase})`);
@@ -662,43 +669,86 @@ function debuggerEventListener(
 	}
 
 	if (message === 'Fetch.requestPaused') {
-		handleRequestPaused(params);
+		handleRequestPaused(params).catch((error) => {
+			console.error('Erro ao processar Fetch.requestPaused:', error);
+			const requestId = params?.requestId;
+			if (!requestId) return;
+			sendDebuggerCommand('Fetch.failRequest', { requestId, errorReason: 'Failed' }).catch(
+				(failError) => {
+					console.error('Erro ao sinalizar falha para request pausada:', failError);
+				},
+			);
+		});
 	}
 }
 
 // Handle paused request
 async function handleRequestPaused(params: any): Promise<void> {
-	const { requestId, request, responseStatusCode, responseHeaders, resourceType, networkId } =
-		params;
+	const {
+		requestId,
+		request,
+		responseStatusCode,
+		responseStatusText,
+		responseHeaders,
+		resourceType,
+		networkId,
+	} = params;
 	const url = request.url;
-	const method = request.method || 'GET';
-	const postData = request.postData || '';
+	const method = request.method;
+	if (!method) {
+		throw new Error(`CDP nao informou metodo HTTP para ${requestId}`);
+	}
+	if (typeof responseStatusCode !== 'number') {
+		throw new Error(`CDP nao informou status de resposta para ${requestId}`);
+	}
+	if (!resourceType) {
+		throw new Error(`CDP nao informou resourceType para ${requestId}`);
+	}
+
+	const requestHeaders = requestHeadersToRecord(request.headers);
+	const responseHeaderArray = responseHeaders ?? [];
+	const responseHeadersRecord = headersArrayToRecord(responseHeaderArray);
+	const postData = typeof request.postData === 'string' ? request.postData : undefined;
+	const statusText = getHttpStatusPhrase(responseStatusCode, responseStatusText);
+	const mimeType = getOptionalMimeTypeFromHeaders(responseHeadersRecord);
+	const requestInfo: InterceptedResponse['request'] = {
+		headers: requestHeaders,
+		...(postData !== undefined ? { postData } : {}),
+	};
+	const responseInfo: InterceptedResponse['response'] = {
+		headers: responseHeadersRecord,
+	};
 
 	console.log(`🟡 REQUEST PAUSED: ${url}`);
 	console.log('Request ID:', requestId);
 	console.log('Method:', method);
 	console.log('Resource Type:', resourceType);
 
-	// Verificar se existe um mock configurado para essa requisição
-	const mockResult = await checkForMock(url, method);
-	if (mockResult) {
+	const matchedAction = findMatchingRuleAction(rules, {
+		url,
+		method,
+		headers: requestHeaders,
+	});
+
+	if (matchedAction?.type === 'mock') {
 		console.log(`Applying mock for ${url}`);
 		// Mock não viaja na rede; descarta o timing pendente.
 		timingTracker.discardByNetworkId(networkId);
-		await applyMockResponse(requestId, mockResult, {
+		await applyMockResponse(requestId, matchedAction.action, {
 			url,
 			method,
+			requestHeaders,
 			postData,
 			responseStatusCode,
-			responseHeaders,
+			responseStatusText: statusText,
+			responseHeaders: responseHeaderArray,
 			resourceType,
 		});
 		return;
 	}
 
 	// Verificar se existe uma regra de breakpoint para essa requisição
-	const breakpointRule = await checkForBreakpoint(url, method);
-	if (breakpointRule) {
+	if (matchedAction?.type === 'breakpoint') {
 		console.log(`Applying breakpoint for ${url}`);
 		// Não precisamos fazer nada especial aqui, pois o fluxo normal já vai interceptar a requisição
 		// e adicionar à lista de pendingResponses para o usuário interagir
@@ -706,7 +756,7 @@ async function handleRequestPaused(params: any): Promise<void> {
 
 	// Nem toda resposta possui corpo disponível para captura (ex.: redirect/204/HEAD).
 	let body: string | undefined;
-	const bodyUnavailableReason = getBodyUnavailableReason(method, responseStatusCode);
+	const bodyUnavailableReason = getCaptureBodyUnavailableReason(method, responseStatusCode);
 	if (!bodyUnavailableReason) {
 		try {
 			body = await getDecodedResponseBody(requestId);
@@ -734,12 +784,13 @@ async function handleRequestPaused(params: any): Promise<void> {
 				url,
 				method,
 				status: responseStatusCode,
-				statusText: getStatusText(responseStatusCode),
-				headers: responseHeadersToObject(responseHeaders),
-				mimeType: getMimeTypeFromHeaders(responseHeaders),
+				statusText,
+				headers: responseHeadersRecord,
+				...(mimeType !== undefined ? { mimeType } : {}),
 				type: resourceType,
 				timestamp: Date.now(),
-				request: { postData },
+				request: requestInfo,
+				response: responseInfo,
 				captureError: continueErrorMessage
 					? `${captureError}; falha ao continuar request: ${continueErrorMessage}`
 					: captureError,
@@ -757,21 +808,25 @@ async function handleRequestPaused(params: any): Promise<void> {
 		url,
 		method,
 		status: responseStatusCode,
-		statusText: getStatusText(responseStatusCode),
-		headers: responseHeadersToObject(responseHeaders),
-		mimeType: getMimeTypeFromHeaders(responseHeaders),
+		statusText,
+		headers: responseHeadersRecord,
+		...(mimeType !== undefined ? { mimeType } : {}),
 		type: resourceType,
 		timestamp: Date.now(),
-		request: { postData },
+		request: requestInfo,
+		response: responseInfo,
 	};
-	if (body !== undefined) responseObj.body = body;
+	if (body !== undefined) {
+		responseObj.body = body;
+		responseObj.response = { ...responseInfo, body };
+	}
 	if (bodyUnavailableReason) responseObj.bodyUnavailableReason = bodyUnavailableReason;
 
 	// Quando Network.loadingFinished chegar (tipicamente depois do paused),
 	// o tracker emitirá `requestUpdated` com a duration final.
 	timingTracker.linkFetchId(networkId, requestId);
 
-	const willIntercept = shouldInterceptUrl(url, request);
+	const willIntercept = matchedAction?.type === 'breakpoint';
 	const persistedRequest: InterceptedResponse = willIntercept
 		? { ...responseObj, isWaiting: true }
 		: responseObj;
@@ -786,9 +841,10 @@ async function handleRequestPaused(params: any): Promise<void> {
 			url,
 			method,
 			status: responseStatusCode,
-			statusText: getStatusText(responseStatusCode),
+			statusText,
 			type: resourceType,
-			mimeType: getMimeTypeFromHeaders(responseHeaders),
+			mimeType,
+			response: persistedRequest,
 		});
 		console.log(`Response for ${url} is now pending user approval`);
 	} else {
@@ -819,302 +875,36 @@ async function continueRequest(requestId: string): Promise<void> {
 	console.log(`Continued request ${requestId}`);
 }
 
-// Helper function to get status text from status code
-function getStatusText(statusCode: number): string {
-	const statusTexts: Record<number, string> = {
-		200: 'OK',
-		201: 'Created',
-		204: 'No Content',
-		301: 'Moved Permanently',
-		302: 'Found',
-		304: 'Not Modified',
-		400: 'Bad Request',
-		401: 'Unauthorized',
-		403: 'Forbidden',
-		404: 'Not Found',
-		500: 'Internal Server Error',
-		502: 'Bad Gateway',
-		503: 'Service Unavailable',
-	};
-
-	return statusTexts[statusCode] || 'Unknown';
-}
-
-// Helper function to convert response headers array to object
-function responseHeadersToObject(
-	headers: { name: string; value: string }[],
-): Record<string, string> {
-	const result: Record<string, string> = {};
-	if (Array.isArray(headers)) {
-		headers.forEach((header) => {
-			result[header.name] = header.value;
-		});
-	}
-	return result;
-}
-
-// Helper function to get MIME type from headers
-function getMimeTypeFromHeaders(headers: { name: string; value: string }[]): string {
-	if (Array.isArray(headers)) {
-		const contentType = headers.find((h) => h.name.toLowerCase() === 'content-type');
-		if (contentType) {
-			return contentType.value.split(';')[0].trim();
-		}
-	}
-	return 'text/plain';
-}
-
-// Check if a URL should be intercepted based on our patterns
-function shouldInterceptUrl(url: string, request: any): boolean {
-	if (!url) return false;
-
-	const currentRules = rules;
-
-	// Se não houver regras configuradas, não interceptamos nada — assim o
-	// usuário pode iniciar a interceptação e ir adicionando regras gradativamente.
-	if (currentRules.length === 0) {
-		return false;
-	}
-
-	return currentRules.some((rule) => {
-		// Verificar se a regra está habilitada
-		if (!rule.enabled) return false;
-
-		// Verificar se todos os matchers habilitados correspondem
-		const allMatchersMatch = rule.matchers.every((matcher) => {
-			// Ignorar matchers desabilitados
-			if (!matcher.enabled) return true;
-
-			switch (matcher.type) {
-				case 'url':
-					if (!matcher.pattern) return false;
-
-					if (matcher.isRegex) {
-						try {
-							const regex = new RegExp(matcher.pattern);
-							return regex.test(url);
-						} catch (error) {
-							console.error(`Erro ao processar expressão regular '${matcher.pattern}':`, error);
-							return false;
-						}
-					} else {
-						return url.includes(matcher.pattern);
-					}
-
-				case 'method':
-					if (!matcher.method) return true; // Se não tiver método, considera como correspondente
-					return matcher.method === 'ANY' || matcher.method === request.method;
-
-				case 'header': {
-					if (!matcher.name || !matcher.value || !matcher.headerType) return false;
-					if (matcher.headerType !== 'request') return true; // Ignorar headers de resposta neste ponto
-
-					// Verificar se o header na request corresponde
-					const headerValue = request.headers.find(
-						(h: { name: string; value: string }) =>
-							h.name.toLowerCase() === matcher.name.toLowerCase(),
-					)?.value;
-
-					return !!headerValue && headerValue === matcher.value;
-				}
-
-				case 'body':
-					// Não podemos verificar o corpo da requisição neste ponto
-					// Sempre retorna true para não bloquear a interceptação
-					return true;
-
-				default:
-					return false;
-			}
-		});
-
-		// Verificar se a ação está habilitada
-		if (!rule.action.enabled) return false;
-
-		// Se todos os matchers corresponderem e a ação estiver habilitada, interceptar
-		// Interceptamos tanto regras de mock quanto de breakpoint
-		return allMatchersMatch && (rule.action.type === 'mock' || rule.action.type === 'breakpoint');
-	});
-}
-
-/**
- * Forma resolvida de um mock após resolução da regra. Compartilhada com
- * `applyMockResponse`, que materializa a resposta no Chrome via Fetch domain.
- */
-interface ResolvedMock {
-	urlPattern: string;
-	method: string;
-	status: number;
-	headers: Record<string, string>;
-	body: string;
-	createdAt: number;
-	enabled: boolean;
-}
-
-// Verifica se existe um mock configurado para a URL
-async function checkForMock(url: string, method: string): Promise<ResolvedMock | undefined> {
-	const currentRules = rules;
-
-	for (const rule of currentRules) {
-		if (!rule.enabled) continue;
-		if (rule.action.type !== 'mock' || !rule.action.enabled) continue;
-
-		const allMatchersMatch = rule.matchers.every((matcher) => {
-			if (!matcher.enabled) return true;
-
-			switch (matcher.type) {
-				case 'url':
-					if (!matcher.pattern) return false;
-					if (matcher.isRegex) {
-						try {
-							return new RegExp(matcher.pattern).test(url);
-						} catch (error) {
-							console.error(`Erro ao processar expressão regular '${matcher.pattern}':`, error);
-							return false;
-						}
-					}
-					return url.includes(matcher.pattern);
-
-				case 'method':
-					if (!matcher.method) return true;
-					return matcher.method === 'ANY' || matcher.method === method;
-
-				case 'header':
-					// Headers não podem ser verificados neste ponto — não bloqueia o mock.
-					return true;
-
-				case 'body':
-					// Body não pode ser verificado neste ponto — não bloqueia o mock.
-					return true;
-
-				default:
-					return false;
-			}
-		});
-
-		if (allMatchersMatch) {
-			console.log(`Mock encontrado para ${url} (regra: ${rule.name})`);
-			return {
-				urlPattern: rule.matchers.find((m) => m.type === 'url')?.pattern || url,
-				method: rule.matchers.find((m) => m.type === 'method')?.method || 'ANY',
-				status: rule.action.status || 200,
-				headers: rule.action.headers || {},
-				body: rule.action.body || '',
-				createdAt: rule.createdAt,
-				enabled: true,
-			};
-		}
-	}
-
-	return undefined;
-}
-
-// Verifica se existe uma regra de breakpoint configurada para a URL
-async function checkForBreakpoint(url: string, method: string): Promise<boolean> {
-	return new Promise((resolve) => {
-		// Usar as regras em memória para resposta mais rápida
-		// Isso garante que estamos usando as regras mais atualizadas
-		const currentRules = rules;
-
-		// Procurar por uma regra com ação de breakpoint que corresponda à URL e método
-		for (const rule of currentRules) {
-			// Verificar se a regra está habilitada
-			if (!rule.enabled) continue;
-
-			// Verificar se a ação é do tipo breakpoint e está habilitada
-			if (rule.action.type !== 'breakpoint' || !rule.action.enabled) continue;
-
-			// Verificar se todos os matchers habilitados correspondem
-			const allMatchersMatch = rule.matchers.every((matcher) => {
-				// Ignorar matchers desabilitados
-				if (!matcher.enabled) return true;
-
-				switch (matcher.type) {
-					case 'url':
-						if (!matcher.pattern) return false;
-
-						if (matcher.isRegex) {
-							try {
-								const regex = new RegExp(matcher.pattern);
-								return regex.test(url);
-							} catch (error) {
-								console.error(`Erro ao processar expressão regular '${matcher.pattern}':`, error);
-								return false;
-							}
-						} else {
-							return url.includes(matcher.pattern);
-						}
-
-					case 'method':
-						if (!matcher.method) return true; // Se não tiver método, considera como correspondente
-						return matcher.method === 'ANY' || matcher.method === method;
-
-					case 'header':
-						// Não podemos verificar headers neste ponto
-						// Sempre retorna true para não bloquear o breakpoint
-						return true;
-
-					case 'body':
-						// Não podemos verificar o corpo da requisição neste ponto
-						// Sempre retorna true para não bloquear o breakpoint
-						return true;
-
-					default:
-						return false;
-				}
-			});
-
-			// Se todos os matchers corresponderem, encontramos uma regra de breakpoint
-			if (allMatchersMatch) {
-				console.log(`Breakpoint encontrado para ${url} na regra: ${rule.name}`);
-				resolve(true);
-				return;
-			}
-		}
-
-		// Se não encontrou nenhuma regra de breakpoint, retorna false
-		resolve(false);
-	});
-}
-
 // Aplica um mock como resposta para uma requisição
 async function applyMockResponse(
 	requestId: string,
-	mock: ResolvedMock,
+	mock: MockAction,
 	originalRequest: {
 		url: string;
 		method: string;
+		requestHeaders: Record<string, string>;
 		postData?: string;
 		responseStatusCode: number;
+		responseStatusText: string;
 		responseHeaders: { name: string; value: string }[];
 		resourceType: string;
 	},
 ): Promise<void> {
-	if (!mock) {
-		throw new Error(`Mock não informado para ${requestId}`);
-	}
-
+	const startedAt = Date.now();
 	try {
-		// Converte headers de objeto para array (formato esperado pelo API Fetch)
-		const headerArray: { name: string; value: string }[] = [];
-		for (const [name, value] of Object.entries(mock.headers)) {
-			headerArray.push({ name, value });
+		const responseHeaders = { ...mock.headers };
+		if (mock.contentType && !getHeaderValue(responseHeaders, 'content-type')) {
+			responseHeaders['Content-Type'] = mock.contentType;
 		}
 
-		// Importante: O Chrome espera que o body seja codificado como base64
-		// quando passado para fulfillRequest
-		let base64Body: string;
-		try {
-			// Tenta codificar o corpo como base64
-			base64Body = encodeBodyToBase64(mock.body);
-			console.log('Body codificado em base64:', base64Body);
-		} catch (encodeError) {
-			console.error('Erro ao codificar corpo em base64:', encodeError);
-			throw new Error(`Erro ao codificar corpo do mock para ${requestId}`);
-		}
+		const headerArray = headersRecordToArray(responseHeaders);
+		const bodyValidation = validateMockBody(originalRequest.method, mock.status, mock.body);
+		const latencyMs = resolveMockLatencyMs(mock.latency);
+		await wait(latencyMs);
 
 		// Obter o texto do status para o código
-		const statusPhrase = getStatusText(mock.status);
+		const statusPhrase = getHttpStatusPhrase(mock.status, mock.statusPhrase);
+		const mimeType = getOptionalMimeTypeFromHeaders(responseHeaders);
 
 		// Criar objeto de resposta para armazenar no histórico
 		const responseObj: InterceptedResponse = {
@@ -1122,24 +912,43 @@ async function applyMockResponse(
 			method: originalRequest.method,
 			status: mock.status,
 			statusText: statusPhrase,
-			headers: mock.headers,
-			mimeType: getMimeTypeFromHeaders(headerArray),
+			headers: responseHeaders,
+			...(mimeType !== undefined ? { mimeType } : {}),
 			type: 'mock',
 			timestamp: Date.now(),
-			body: mock.body,
 			isMocked: true,
-			request: { postData: originalRequest.postData },
+			request: {
+				headers: originalRequest.requestHeaders,
+				...(originalRequest.postData !== undefined ? { postData: originalRequest.postData } : {}),
+			},
+			response: {
+				headers: responseHeaders,
+				...(bodyValidation.shouldSendBody ? { body: bodyValidation.body } : {}),
+			},
+			mockLatencyMs: latencyMs,
 		};
+		if (bodyValidation.shouldSendBody) responseObj.body = bodyValidation.body;
 
-		// Envia a resposta mockada com o body corretamente codificado
-		await sendDebuggerCommand('Fetch.fulfillRequest', {
+		const fulfillParams: {
+			requestId: string;
+			responseCode: number;
+			responsePhrase: string;
+			responseHeaders: { name: string; value: string }[];
+			body?: string;
+		} = {
 			requestId,
 			responseCode: mock.status,
 			responsePhrase: statusPhrase,
 			responseHeaders: headerArray,
-			body: base64Body,
-		});
+		};
+		if (bodyValidation.shouldSendBody) {
+			fulfillParams.body = encodeBodyToBase64(bodyValidation.body);
+		}
 
+		await sendDebuggerCommand('Fetch.fulfillRequest', fulfillParams);
+
+		responseObj.duration = Date.now() - startedAt;
+		responseObj.durationSource = 'mock';
 		await persistRequest(requestId, responseObj);
 		console.log(`Mock aplicado com sucesso para ${requestId}`);
 	} catch (error) {
@@ -1150,25 +959,32 @@ async function applyMockResponse(
 			url: originalRequest.url,
 			method: originalRequest.method,
 			status: originalRequest.responseStatusCode,
-			statusText: getStatusText(originalRequest.responseStatusCode),
-			headers: responseHeadersToObject(originalRequest.responseHeaders),
-			mimeType: getMimeTypeFromHeaders(originalRequest.responseHeaders),
+			statusText: originalRequest.responseStatusText,
+			headers: headersArrayToRecord(originalRequest.responseHeaders),
+			...(getOptionalMimeTypeFromHeaders(originalRequest.responseHeaders) !== undefined
+				? { mimeType: getOptionalMimeTypeFromHeaders(originalRequest.responseHeaders) }
+				: {}),
 			type: originalRequest.resourceType,
 			timestamp: Date.now(),
-			request: { postData: originalRequest.postData },
+			request: {
+				headers: originalRequest.requestHeaders,
+				...(originalRequest.postData !== undefined ? { postData: originalRequest.postData } : {}),
+			},
+			response: {
+				headers: headersArrayToRecord(originalRequest.responseHeaders),
+			},
 			captureError,
 		};
 
 		await persistRequest(requestId, failedMockRequest);
 
-		// Em caso de erro, tenta continuar a requisição original
 		try {
-			await continueRequest(requestId);
-		} catch (continueError) {
-			const continueMessage = getErrorMessage(continueError);
-			console.error('Erro ao continuar requisição após falha do mock:', continueError);
+			await sendDebuggerCommand('Fetch.failRequest', { requestId, errorReason: 'Failed' });
+		} catch (failError) {
+			const failMessage = getErrorMessage(failError);
+			console.error('Erro ao falhar requisição após falha do mock:', failError);
 			await patchRequest(requestId, {
-				captureError: `${captureError}; falha ao continuar request: ${continueMessage}`,
+				captureError: `${captureError}; falha ao sinalizar erro para o navegador: ${failMessage}`,
 			});
 		}
 	}

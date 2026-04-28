@@ -1,4 +1,5 @@
-import { InterceptedResponse } from '@/ui/hooks/useResponses';
+import type { InterceptedResponse } from '@/backend/types/intercepted';
+import { normalizeInterceptedResponse } from '@/backend/domain/intercepted';
 
 // Nome do banco de dados e versão
 const DB_NAME = 'debugger-extension-db';
@@ -116,7 +117,7 @@ class IndexedDBServiceImpl implements IndexedDBService {
 					if (record && record.data) {
 						// Garantir que o objeto retornado é do tipo InterceptedResponse
 						const data = record.data as InterceptedResponse;
-						resolve(data);
+						resolve(normalizeInterceptedResponse(data));
 					} else {
 						resolve(null);
 					}
@@ -156,7 +157,7 @@ class IndexedDBServiceImpl implements IndexedDBService {
 
 					records.forEach((record: { id: string; data: any }) => {
 						if (record && record.data && typeof record.data === 'object' && 'url' in record.data) {
-							result[record.id] = record.data as InterceptedResponse;
+							result[record.id] = normalizeInterceptedResponse(record.data as InterceptedResponse);
 						}
 					});
 

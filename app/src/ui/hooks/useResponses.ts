@@ -132,21 +132,10 @@ export function useResponses() {
 	useEffect(() => {
 		const messageListener = (message: any) => {
 			if (message.action === 'newPendingResponse') {
-				// Adicionar à lista de respostas pendentes
+				if (!message.requestId || !message.response) return;
 				setPendingResponses((prev) => ({
 					...prev,
-					[message.requestId]: {
-						url: message.url,
-						method: message.method || 'GET',
-						status: message.status,
-						statusText: message.statusText,
-						type: message.type,
-						mimeType: message.mimeType,
-						body: '',
-						headers: {},
-						timestamp: Date.now(),
-						isWaiting: true,
-					},
+					[message.requestId]: message.response,
 				}));
 			} else if (message.action === 'responseBodyReady') {
 				// Atualizar o corpo da resposta

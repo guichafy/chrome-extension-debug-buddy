@@ -108,7 +108,7 @@ describe('convertLegacyStorage', () => {
 		});
 	});
 
-	test('mock without explicit Content-Type defaults to application/json', () => {
+	test('mock without explicit Content-Type keeps contentType absent', () => {
 		counter = 0;
 		const out = convertLegacyStorage(
 			{
@@ -127,7 +127,29 @@ describe('convertLegacyStorage', () => {
 			FIXED_NOW,
 			seqId,
 		);
-		expect((out.rules[0].action as { contentType: string }).contentType).toBe('application/json');
+		expect('contentType' in out.rules[0].action).toBe(false);
+	});
+
+	test('legacy mock without body keeps body absent instead of inventing an empty body', () => {
+		counter = 0;
+		const out = convertLegacyStorage(
+			{
+				mocks: [
+					{
+						urlPattern: 'foo',
+						method: 'HEAD',
+						status: 200,
+						headers: {},
+						body: undefined as unknown as string,
+						createdAt: 0,
+						enabled: true,
+					},
+				],
+			},
+			FIXED_NOW,
+			seqId,
+		);
+		expect('body' in out.rules[0].action).toBe(false);
 	});
 
 	test('preserves existing rules and appends migrated ones', () => {

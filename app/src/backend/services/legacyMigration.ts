@@ -65,7 +65,15 @@ export function convertLegacyStorage(
 	for (const mock of legacyMocks) {
 		if (!mock.urlPattern) continue;
 		const headers = mock.headers ?? {};
-		const contentType = headers['Content-Type'] ?? headers['content-type'] ?? 'application/json';
+		const contentType = headers['Content-Type'] ?? headers['content-type'];
+		const action: Rule['action'] = {
+			type: 'mock',
+			enabled: true,
+			status: mock.status,
+			headers,
+			...(mock.body !== undefined ? { body: mock.body } : {}),
+			...(contentType !== undefined ? { contentType } : {}),
+		};
 		newRules.push({
 			id: idGenerator(),
 			name: mock.urlPattern,
@@ -74,14 +82,7 @@ export function convertLegacyStorage(
 				{ type: 'url', enabled: true, pattern: mock.urlPattern, isRegex: false },
 				...(mock.method ? [{ type: 'method' as const, enabled: true, method: mock.method }] : []),
 			],
-			action: {
-				type: 'mock',
-				enabled: true,
-				status: mock.status,
-				headers,
-				body: mock.body ?? '',
-				contentType,
-			},
+			action,
 			createdAt: mock.createdAt ?? now,
 			updatedAt: now,
 		});

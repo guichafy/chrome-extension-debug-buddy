@@ -35,6 +35,7 @@ export interface Message {
 	type?: string;
 	mimeType?: string;
 	body?: string;
+	response?: InterceptedResponse;
 	modifications?: ResponseModifications;
 	updates?: Partial<InterceptedResponse>;
 }

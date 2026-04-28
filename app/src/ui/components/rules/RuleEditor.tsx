@@ -49,8 +49,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 			enabled: true,
 			status: 200,
 			headers: {},
-			body: '{"success": true, "message": "Resposta mockada"}',
-			contentType: 'application/json',
 		},
 	);
 	const [enabled, setEnabled] = useState(rule?.enabled !== false);
@@ -76,8 +74,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 				enabled: true,
 				status: 200,
 				headers: {},
-				body: '{"success": true, "message": "Resposta mockada"}',
-				contentType: 'application/json',
 			});
 			setEnabled(true);
 		}

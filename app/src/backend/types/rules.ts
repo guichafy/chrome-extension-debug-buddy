@@ -50,13 +50,26 @@ export interface BaseAction {
 	enabled: boolean;
 }
 
+export type MockLatency =
+	| {
+			mode: 'fixed';
+			delayMs: number;
+	  }
+	| {
+			mode: 'range';
+			minMs: number;
+			maxMs: number;
+	  };
+
 // Ação para retornar uma resposta mockada
 export interface MockAction extends BaseAction {
 	type: 'mock';
 	status: number;
+	statusPhrase?: string;
 	headers: Record<string, string>;
-	body: string;
-	contentType: string;
+	body?: string;
+	contentType?: string;
+	latency?: MockLatency;
 }
 
 // Ação para adicionar um delay na resposta

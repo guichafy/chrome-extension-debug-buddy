@@ -46,7 +46,7 @@ export function SiteHeader({
 								<div
 									className="flex items-center gap-2 cursor-pointer"
 									onClick={() => {
-										navigate('/requests');
+										navigate('/request-history?view=pending');
 									}}
 								>
 									{/* <img src="images/icon_64px.png" alt="Logo" className="w-6 h-6" /> */}

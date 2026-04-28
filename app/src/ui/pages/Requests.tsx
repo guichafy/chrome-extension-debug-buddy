@@ -13,6 +13,13 @@ import { useRules } from '../hooks/useRules';
 import { useLocation } from 'react-router-dom';
 import { Matcher, MockAction } from '@/backend/types/rules';
 import { indexedDBService } from '@/backend/services/indexedDB';
+import type { InterceptedResponse } from '@/backend/types/intercepted';
+
+const getResponseHeaders = (response: InterceptedResponse): Record<string, string> =>
+	response.response?.headers ?? response.headers;
+
+const getResponseBody = (response: InterceptedResponse): string | undefined =>
+	response.response && 'body' in response.response ? response.response.body : response.body;
 
 const Requests: React.FC = () => {
 	// Use location to force re-render when route changes
@@ -61,8 +68,13 @@ const Requests: React.FC = () => {
 
 	const handleCreateMock = async () => {
 		if (currentResponse) {
-			if (currentResponse.captureError || currentResponse.body === undefined) {
+			if (currentResponse.captureError) {
 				alert('Não é possível criar mock a partir de uma resposta com falha de captura.');
+				return;
+			}
+
+			if (!currentResponse.method) {
+				alert('Não é possível criar mock sem o método HTTP original da requisição.');
 				return;
 			}
 
@@ -71,6 +83,7 @@ const Requests: React.FC = () => {
 				const url = currentResponse.url;
 				const urlObj = new URL(url);
 				const urlPattern = urlObj.hostname + urlObj.pathname;
+				const responseBody = getResponseBody(currentResponse);
 
 				// Criar matchers para a regra
 				const matchers: Matcher[] = [
@@ -83,7 +96,7 @@ const Requests: React.FC = () => {
 					{
 						type: 'method',
 						enabled: true,
-						method: currentResponse.method || 'GET',
+						method: currentResponse.method,
 					},
 				];
 
@@ -92,9 +105,12 @@ const Requests: React.FC = () => {
 					type: 'mock',
 					enabled: true,
 					status: currentResponse.status,
-					headers: currentResponse.headers || {},
-					body: currentResponse.body,
-					contentType: currentResponse.mimeType || 'application/json',
+					headers: getResponseHeaders(currentResponse),
+					...(currentResponse.statusText ? { statusPhrase: currentResponse.statusText } : {}),
+					...(responseBody !== undefined ? { body: responseBody } : {}),
+					...(currentResponse.mimeType !== undefined
+						? { contentType: currentResponse.mimeType }
+						: {}),
 				};
 
 				// Adicionar a regra

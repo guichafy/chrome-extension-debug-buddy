@@ -73,8 +73,8 @@ vi.mock('../shadcn/input', () => ({
 }));
 
 vi.mock('../shadcn/icon', () => ({
-	Icon: ({ name, className }: any) => (
-		<span data-testid="icon" data-name={name} className={className}>
+	Icon: ({ name, className, ...props }: any) => (
+		<span data-testid={props['data-testid'] ?? 'icon'} data-name={name} className={className}>
 			{name}
 		</span>
 	),
@@ -357,20 +357,20 @@ describe('ResponseDialog Component', () => {
 		expect(mockOnMock).not.toHaveBeenCalled();
 	});
 
-	test('desabilita Criar Mock quando o body é indisponível (ex.: redirect 301)', () => {
-		const redirectResponse: InterceptedResponse = {
+	test('permite Criar Mock quando a resposta nao tem body capturado', () => {
+		const noBodyResponse: InterceptedResponse = {
 			...mockResponse,
-			status: 301,
-			statusText: 'Moved Permanently',
+			status: 204,
+			statusText: 'No Content',
 			body: undefined,
-			bodyUnavailableReason: 'Redirect 301 não possui corpo disponível para captura.',
+			bodyUnavailableReason: 'Resposta 204 nao possui corpo disponivel.',
 		};
 
 		render(
 			<ResponseDialog
 				open={true}
 				onOpenChange={mockOnOpenChange}
-				response={redirectResponse}
+				response={noBodyResponse}
 				requestId={mockRequestId}
 				onApprove={mockOnApprove}
 				onIgnore={mockOnIgnore}
@@ -384,9 +384,96 @@ describe('ResponseDialog Component', () => {
 		const mockButton = screen
 			.getAllByTestId('button')
 			.find((button) => button.textContent!.includes('Criar Mock'));
-		expect(mockButton).toBeDisabled();
+		expect(mockButton).not.toBeDisabled();
 
 		fireEvent.click(mockButton!);
-		expect(mockOnMock).not.toHaveBeenCalled();
+		expect(mockOnMock).toHaveBeenCalledWith(noBodyResponse);
+	});
+
+	test('exibe request headers separados dos response headers', () => {
+		const responseWithSeparatedHeaders: InterceptedResponse = {
+			...mockResponse,
+			request: {
+				headers: { Authorization: 'Bearer token' },
+			},
+			response: {
+				headers: { 'Content-Type': 'application/json' },
+				body: mockResponse.body,
+			},
+		};
+
+		render(
+			<ResponseDialog
+				open={true}
+				onOpenChange={mockOnOpenChange}
+				response={responseWithSeparatedHeaders}
+				requestId={mockRequestId}
+				onApprove={mockOnApprove}
+				onIgnore={mockOnIgnore}
+				onMock={mockOnMock}
+				onEdit={mockOnEdit}
+				onCancel={mockOnCancel}
+				isEditing={false}
+			/>,
+		);
+
+		expect(screen.getByText('Authorization')).toBeInTheDocument();
+		expect(screen.getByTestId('request-header-row-Authorization')).toHaveTextContent(
+			'Bearer token',
+		);
+	});
+
+	test('formata response body JSON para leitura quando nao esta editando', async () => {
+		const jsonResponse: InterceptedResponse = {
+			...mockResponse,
+			body: '{"items":[{"name":"Bulbasaur","types":["Grass","Poison"]}]}',
+			response: {
+				headers: { 'content-type': 'application/json' },
+				body: '{"items":[{"name":"Bulbasaur","types":["Grass","Poison"]}]}',
+			},
+		};
+
+		render(
+			<ResponseDialog
+				open={true}
+				onOpenChange={mockOnOpenChange}
+				response={jsonResponse}
+				requestId={mockRequestId}
+				onApprove={mockOnApprove}
+				onIgnore={mockOnIgnore}
+				onMock={mockOnMock}
+				onEdit={mockOnEdit}
+				onCancel={mockOnCancel}
+				isEditing={false}
+			/>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByTestId('response-body-viewer')).toHaveTextContent('"items": [');
+			expect(screen.getByTestId('response-body-viewer')).toHaveTextContent('"name": "Bulbasaur"');
+		});
+	});
+
+	test('mantem proporcao consistente entre icone e texto dos botoes de acao', () => {
+		render(
+			<ResponseDialog
+				open={true}
+				onOpenChange={mockOnOpenChange}
+				response={mockResponse}
+				requestId={mockRequestId}
+				onApprove={mockOnApprove}
+				onIgnore={mockOnIgnore}
+				onMock={mockOnMock}
+				onEdit={mockOnEdit}
+				onCancel={mockOnCancel}
+				isEditing={false}
+			/>,
+		);
+
+		const mockButton = screen
+			.getAllByTestId('button')
+			.find((button) => button.textContent!.includes('Criar Mock'));
+		expect(mockButton).toHaveClass('gap-2');
+		expect(screen.getByTestId('response-dialog-icon-content_copy')).toHaveClass('text-base');
 	});
 });

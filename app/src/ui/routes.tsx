@@ -1,8 +1,7 @@
 import React from 'react';
-import { createHashRouter } from 'react-router-dom';
+import { createHashRouter, Navigate } from 'react-router-dom';
 import Layout from './pages/Layout';
 import Settings from './pages/Settings';
-import Requests from './pages/Requests';
 import RequestHistory from './pages/RequestHistory';
 
 // Usamos HashRouter (via createHashRouter) em vez de BrowserRouter para extensões Chrome
@@ -18,7 +17,7 @@ const router = createHashRouter([
 			},
 			{
 				path: 'requests',
-				element: <Requests />,
+				element: <Navigate to="/request-history?view=pending" replace />,
 			},
 			{
 				path: 'request-history',

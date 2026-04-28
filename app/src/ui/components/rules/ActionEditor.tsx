@@ -10,13 +10,21 @@ import {
 	SelectValue,
 } from '@/ui/components/shadcn/select';
 import { Textarea } from '@/ui/components/shadcn/textarea';
-import { Action, MockAction, BreakpointAction } from '@/backend/types/rules';
+import { Checkbox } from '@/ui/components/shadcn/checkbox';
+import { Action, MockAction, BreakpointAction, MockLatency } from '@/backend/types/rules';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/shadcn/tabs';
 
 interface ActionEditorProps {
 	action: Action;
 	onChange: (action: Action) => void;
 }
+
+const createEmptyMockAction = (): MockAction => ({
+	type: 'mock',
+	enabled: true,
+	status: 200,
+	headers: {},
+});
 
 export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange }) => {
 	const [activeTab, setActiveTab] = useState<string>('response');
@@ -41,6 +49,9 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange }) 
 
 	// Editor para ação de mock
 	const renderMockActionEditor = (mockAction: MockAction) => {
+		const hasBody = mockAction.body !== undefined;
+		const latencyMode = mockAction.latency?.mode ?? 'none';
+
 		// Adicionar um novo header
 		const addHeader = () => {
 			if (!headerName.trim() || !headerValue.trim()) return;
@@ -68,6 +79,53 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange }) 
 				...mockAction,
 				headers: newHeaders,
 			});
+		};
+
+		const updateContentType = (value: string) => {
+			const updatedAction = { ...mockAction };
+			const trimmedValue = value.trim();
+			if (trimmedValue) {
+				updatedAction.contentType = trimmedValue;
+			} else {
+				updatedAction.contentType = undefined;
+			}
+			onChange(updatedAction);
+		};
+
+		const updateStatusPhrase = (value: string) => {
+			const updatedAction = { ...mockAction };
+			const trimmedValue = value.trim();
+			if (trimmedValue) {
+				updatedAction.statusPhrase = trimmedValue;
+			} else {
+				updatedAction.statusPhrase = undefined;
+			}
+			onChange(updatedAction);
+		};
+
+		const updateBodyEnabled = (checked: boolean) => {
+			const updatedAction = { ...mockAction };
+			if (checked) {
+				updatedAction.body = mockAction.body ?? '';
+			} else {
+				updatedAction.body = undefined;
+			}
+			onChange(updatedAction);
+		};
+
+		const updateLatency = (latency?: MockLatency) => {
+			const updatedAction = { ...mockAction };
+			if (latency) {
+				updatedAction.latency = latency;
+			} else {
+				updatedAction.latency = undefined;
+			}
+			onChange(updatedAction);
+		};
+
+		const parseLatencyValue = (value: string): number | null => {
+			const parsedValue = Number.parseInt(value, 10);
+			return Number.isInteger(parsedValue) && parsedValue >= 0 ? parsedValue : null;
 		};
 
 		return (
@@ -112,10 +170,13 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange }) 
 						<TabsTrigger value="body" className="flex-1">
 							Body
 						</TabsTrigger>
+						<TabsTrigger value="latency" className="flex-1">
+							Latência
+						</TabsTrigger>
 					</TabsList>
 
 					<TabsContent value="response" className="space-y-4">
-						<div className="grid grid-cols-2 gap-4">
+						<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 							<div>
 								<Label>Status Code</Label>
 								<Input
@@ -134,15 +195,18 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange }) 
 								/>
 							</div>
 							<div>
+								<Label>Status Text</Label>
+								<Input
+									value={mockAction.statusPhrase ?? ''}
+									onChange={(e) => updateStatusPhrase(e.target.value)}
+									placeholder="Created"
+								/>
+							</div>
+							<div>
 								<Label>Content-Type</Label>
 								<Input
-									value={mockAction.contentType}
-									onChange={(e) => {
-										onChange({
-											...mockAction,
-											contentType: e.target.value,
-										});
-									}}
+									value={mockAction.contentType ?? ''}
+									onChange={(e) => updateContentType(e.target.value)}
 									placeholder="application/json"
 								/>
 							</div>
@@ -208,10 +272,18 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange }) 
 					</TabsContent>
 
 					<TabsContent value="body" className="space-y-4">
+						<div className="flex items-center space-x-2">
+							<Checkbox
+								id="mock-response-body-enabled"
+								checked={hasBody}
+								onCheckedChange={(checked) => updateBodyEnabled(checked === true)}
+							/>
+							<Label htmlFor="mock-response-body-enabled">Enviar body na resposta mockada</Label>
+						</div>
 						<div>
 							<Label>Corpo da Resposta</Label>
 							<Textarea
-								value={mockAction.body}
+								value={mockAction.body ?? ''}
 								onChange={(e) => {
 									onChange({
 										...mockAction,
@@ -220,8 +292,103 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange }) 
 								}}
 								placeholder='{"success": true, "message": "Resposta mockada"}'
 								className="font-mono h-64"
+								disabled={!hasBody}
 							/>
+							{!hasBody && (
+								<p className="mt-2 text-sm text-muted-foreground">
+									O mock será enviado sem corpo de resposta.
+								</p>
+							)}
 						</div>
+					</TabsContent>
+
+					<TabsContent value="latency" className="space-y-4">
+						<div>
+							<Label>Latência artificial</Label>
+							<Select
+								value={latencyMode}
+								onValueChange={(value: 'none' | 'fixed' | 'range') => {
+									if (value === 'none') {
+										updateLatency();
+									} else if (value === 'fixed') {
+										const delayMs =
+											mockAction.latency?.mode === 'fixed' ? mockAction.latency.delayMs : 0;
+										updateLatency({ mode: 'fixed', delayMs });
+									} else {
+										const previousDelay =
+											mockAction.latency?.mode === 'fixed' ? mockAction.latency.delayMs : 0;
+										const minMs =
+											mockAction.latency?.mode === 'range'
+												? mockAction.latency.minMs
+												: previousDelay;
+										const maxMs =
+											mockAction.latency?.mode === 'range'
+												? mockAction.latency.maxMs
+												: previousDelay;
+										updateLatency({ mode: 'range', minMs, maxMs });
+									}
+								}}
+							>
+								<SelectTrigger>
+									<SelectValue placeholder="Selecione a latência" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="none">Sem latência artificial</SelectItem>
+									<SelectItem value="fixed">Fixa</SelectItem>
+									<SelectItem value="range">Range dinâmico</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+
+						{mockAction.latency?.mode === 'fixed' && (
+							<div>
+								<Label>Delay em ms</Label>
+								<Input
+									type="number"
+									min={0}
+									value={mockAction.latency.delayMs}
+									onChange={(e) => {
+										const delayMs = parseLatencyValue(e.target.value);
+										if (delayMs !== null) {
+											updateLatency({ mode: 'fixed', delayMs });
+										}
+									}}
+								/>
+							</div>
+						)}
+
+						{mockAction.latency?.mode === 'range' && (
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+								<div>
+									<Label>Delay mínimo em ms</Label>
+									<Input
+										type="number"
+										min={0}
+										value={mockAction.latency.minMs}
+										onChange={(e) => {
+											const minMs = parseLatencyValue(e.target.value);
+											if (minMs !== null && mockAction.latency?.mode === 'range') {
+												updateLatency({ ...mockAction.latency, minMs });
+											}
+										}}
+									/>
+								</div>
+								<div>
+									<Label>Delay máximo em ms</Label>
+									<Input
+										type="number"
+										min={0}
+										value={mockAction.latency.maxMs}
+										onChange={(e) => {
+											const maxMs = parseLatencyValue(e.target.value);
+											if (maxMs !== null && mockAction.latency?.mode === 'range') {
+												updateLatency({ ...mockAction.latency, maxMs });
+											}
+										}}
+									/>
+								</div>
+							</div>
+						)}
 					</TabsContent>
 				</Tabs>
 			</div>
@@ -237,14 +404,7 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange }) 
 					value={delayAction.type}
 					onValueChange={(value: 'mock' | 'breakpoint') => {
 						if (value === 'mock') {
-							onChange({
-								type: value,
-								enabled: true,
-								status: 200,
-								headers: {},
-								body: '{"success": true, "message": "Resposta mockada"}',
-								contentType: 'application/json',
-							});
+							onChange(createEmptyMockAction());
 						} else if (value === 'breakpoint') {
 							onChange({
 								type: value,
@@ -278,14 +438,7 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange }) 
 					value={modifyAction.type}
 					onValueChange={(value: 'mock' | 'breakpoint') => {
 						if (value === 'mock') {
-							onChange({
-								type: value,
-								enabled: true,
-								status: 200,
-								headers: {},
-								body: '{"success": true, "message": "Resposta mockada"}',
-								contentType: 'application/json',
-							});
+							onChange(createEmptyMockAction());
 						} else if (value === 'breakpoint') {
 							onChange({
 								type: value,
@@ -319,14 +472,7 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange }) 
 					value={breakpointAction.type}
 					onValueChange={(value: 'mock' | 'breakpoint') => {
 						if (value === 'mock') {
-							onChange({
-								type: value,
-								enabled: true,
-								status: 200,
-								headers: {},
-								body: '{"success": true, "message": "Resposta mockada"}',
-								contentType: 'application/json',
-							});
+							onChange(createEmptyMockAction());
 						} else {
 							onChange({
 								...breakpointAction,

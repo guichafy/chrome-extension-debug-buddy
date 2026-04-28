@@ -141,6 +141,66 @@ const createImageDataUrl = (base64Data: string, mimeType: string): string => {
 	return `data:${mimeType};base64,${base64Data}`;
 };
 
+const formatJsonForDisplay = (value: string, mimeType?: string): string => {
+	const trimmedValue = value.trim();
+	const shouldTryJson =
+		mimeType?.toLowerCase().includes('json') ||
+		trimmedValue.startsWith('{') ||
+		trimmedValue.startsWith('[');
+	if (!shouldTryJson) return value;
+
+	try {
+		return JSON.stringify(JSON.parse(value), null, 2);
+	} catch {
+		return value;
+	}
+};
+
+const getResponseHeaders = (response: InterceptedResponse): Record<string, string> =>
+	response.response?.headers ?? response.headers;
+
+const getResponseBody = (response: InterceptedResponse): string | undefined =>
+	response.response && 'body' in response.response ? response.response.body : response.body;
+
+const sanitizeHeaderTestId = (key: string): string => key.replace(/[^a-zA-Z0-9_-]/g, '-');
+
+const HeaderViewer: React.FC<{
+	headers: Record<string, string>;
+	emptyMessage: string;
+	testIdPrefix: string;
+}> = ({ headers, emptyMessage, testIdPrefix }) => {
+	const entries = Object.entries(headers);
+
+	return (
+		<ScrollArea className="h-[260px] rounded-md border bg-muted/20">
+			<div className="min-w-full text-sm">
+				{entries.length > 0 ? (
+					entries.map(([key, value]) => (
+						<div
+							key={key}
+							data-testid={`${testIdPrefix}-header-row-${sanitizeHeaderTestId(key)}`}
+							className="grid grid-cols-1 gap-1 border-b px-3 py-2 last:border-b-0 md:grid-cols-[minmax(140px,220px)_minmax(0,1fr)] md:gap-4"
+						>
+							<div className="font-mono text-xs font-semibold text-muted-foreground break-all">
+								{key}
+							</div>
+							<div className="font-mono text-xs leading-relaxed break-all whitespace-pre-wrap">
+								{value}
+							</div>
+						</div>
+					))
+				) : (
+					<div className="px-3 py-3 text-sm text-muted-foreground">{emptyMessage}</div>
+				)}
+			</div>
+		</ScrollArea>
+	);
+};
+
+const responseDialogActionButtonClass =
+	'inline-flex h-9 items-center gap-2 px-3 text-sm leading-none';
+const responseDialogActionIconClass = 'shrink-0 text-base leading-none';
+
 const ResponseDialog: React.FC<ResponseDialogProps> = ({
 	open,
 	onOpenChange,
@@ -165,12 +225,15 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 
 	useEffect(() => {
 		if (response) {
+			const responseHeaders = getResponseHeaders(response);
+			const responseBody = getResponseBody(response);
+
 			// Resetar o zoom quando uma nova resposta for carregada
 			setImageZoom(100);
 
 			setStatus(response.status.toString());
-			setHeaders(JSON.stringify(response.headers, null, 2));
-			setBody(response.body || '');
+			setHeaders(JSON.stringify(responseHeaders, null, 2));
+			setBody(responseBody ?? '');
 
 			// Verificar se é uma resposta de imagem
 			const supportedImageTypes = [
@@ -184,24 +247,24 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 			setIsImageResponse(Boolean(isImage));
 
 			// Se for uma imagem, preparar os dados para exibição
-			if (isImage && response.body) {
+			if (isImage && response.mimeType && responseBody) {
 				try {
 					// Verificar se o body já está em base64 ou é uma data URL
-					if (response.body.startsWith('data:image/')) {
+					if (responseBody.startsWith('data:image/')) {
 						// Já é uma data URL completa
-						const base64Data = response.body.split(',')[1] || '';
+						const base64Data = responseBody.split(',')[1] || '';
 						setImageData(base64Data);
 						console.log('Processando imagem: Data URL detectada');
-					} else if (isValidBase64Image(response.body, response.mimeType)) {
-						if (isBinaryContent(response.body)) {
+					} else if (isValidBase64Image(responseBody, response.mimeType)) {
+						if (isBinaryContent(responseBody)) {
 							console.log('Processando imagem: Conteúdo binário detectado');
 
 							// Abordagem alternativa usando Blob e FileReader para dados binários
 							try {
 								// Criar um array de bytes a partir dos dados binários
-								const bytes = new Uint8Array(response.body.length);
-								for (let i = 0; i < response.body.length; i++) {
-									bytes[i] = response.body.charCodeAt(i) & 0xff;
+								const bytes = new Uint8Array(responseBody.length);
+								for (let i = 0; i < responseBody.length; i++) {
+									bytes[i] = responseBody.charCodeAt(i) & 0xff;
 								}
 
 								// Criar um Blob com os bytes e o tipo MIME correto
@@ -217,19 +280,18 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 								console.log('Imagem processada como Blob URL');
 							} catch (blobError) {
 								console.error('Erro ao processar imagem como Blob:', blobError);
-								// Fallback para o método anterior
-								const encodedData = safeBase64Encode(response.body);
+								const encodedData = safeBase64Encode(responseBody);
 								setImageData(encodedData);
 							}
 						} else {
 							// É uma string base64 válida
 							console.log('Processando imagem: Base64 válido detectado');
-							setImageData(response.body.replace(/[\r\n\s]/g, ''));
+							setImageData(responseBody.replace(/[\r\n\s]/g, ''));
 						}
 					} else {
 						// Tentar converter para base64
 						console.log('Processando imagem: Tentando converter para base64');
-						const encodedData = safeBase64Encode(response.body);
+						const encodedData = safeBase64Encode(responseBody);
 						setImageData(encodedData);
 
 						// Registrar informações de debug
@@ -264,6 +326,14 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 		return null;
 	}
 
+	const responseHeaders = getResponseHeaders(response);
+	const responseBody = getResponseBody(response);
+	const requestHeaders = response.request?.headers ?? {};
+	const displayMethod = response.method ?? 'Método ausente';
+	const displayMimeType = response.mimeType ?? 'Sem Content-Type';
+	const formattedResponseBody =
+		responseBody !== undefined ? formatJsonForDisplay(responseBody, response.mimeType) : '';
+
 	const handleApprove = async () => {
 		if (!requestId) return;
 
@@ -289,7 +359,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 				return;
 			}
 
-			if (response.body !== undefined) {
+			if (responseBody !== undefined) {
 				modifications.body = body;
 			}
 		}
@@ -309,7 +379,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 	};
 
 	const handleMock = () => {
-		if (!response || response.captureError || response.body === undefined) return;
+		if (!response || response.captureError) return;
 		onMock(response);
 		onOpenChange(false);
 	};
@@ -321,15 +391,15 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 	const handleCancel = () => {
 		if (response) {
 			setStatus(response.status.toString());
-			setHeaders(JSON.stringify(response.headers, null, 2));
-			setBody(response.body || '');
+			setHeaders(JSON.stringify(getResponseHeaders(response), null, 2));
+			setBody(getResponseBody(response) ?? '');
 		}
 		onCancel();
 	};
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+			<DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
 				<DialogHeader>
 					<DialogTitle className="flex items-center justify-between">
 						<span className="flex items-center gap-2">
@@ -343,7 +413,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 								}
 								className="text-xs"
 							>
-								{response.method}
+								{displayMethod}
 							</Badge>
 							<span className="font-mono text-sm break-all" title={response.url}>
 								{truncateUrl(response.url)}
@@ -373,7 +443,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 					</DialogDescription>
 				</DialogHeader>
 
-				<div className="flex justify-between items-start mb-4">
+				<div className="flex flex-col gap-4 mb-4 lg:flex-row lg:items-start lg:justify-between">
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
 						<div>
 							<div className="flex items-center gap-1 mb-1">
@@ -383,7 +453,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 							<div className="flex items-center gap-1">
 								<span className="font-medium">Método:</span>
 								<Badge variant="outline" className="text-xs">
-									{response.method || 'GET'}
+									{displayMethod}
 								</Badge>
 							</div>
 						</div>
@@ -394,27 +464,35 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 							</div>
 							<div className="flex items-center gap-1">
 								<span className="font-medium">MIME Type:</span>
-								<span>{response.mimeType}</span>
+								<span>{displayMimeType}</span>
 							</div>
 						</div>
 					</div>
-					<div className="flex space-x-2">
+					<div className="flex flex-wrap justify-start gap-2 lg:justify-end">
 						<Button
 							variant={ruleCreated ? 'default' : 'outline'}
 							size="sm"
-							className={`flex items-center gap-1 ${ruleCreated ? 'bg-green-500 hover:bg-green-600' : ''}`}
+							className={responseDialogActionButtonClass}
 							onClick={handleMock}
-							disabled={ruleCreated || !!response.captureError || response.body === undefined}
+							disabled={ruleCreated || !!response.captureError}
 						>
 							{ruleCreated ? (
 								<>
-									<Icon name="check" className="h-4 w-4" />
-									<span className="hidden sm:inline">Mock Criado</span>
+									<Icon
+										name="check"
+										className={responseDialogActionIconClass}
+										data-testid="response-dialog-icon-check"
+									/>
+									<span>Mock Criado</span>
 								</>
 							) : (
 								<>
-									<Icon name="content_copy" className="h-4 w-4" />
-									<span className="hidden sm:inline">Criar Mock</span>
+									<Icon
+										name="content_copy"
+										className={responseDialogActionIconClass}
+										data-testid="response-dialog-icon-content_copy"
+									/>
+									<span>Criar Mock</span>
 								</>
 							)}
 						</Button>
@@ -423,11 +501,15 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 							<Button
 								variant="outline"
 								size="sm"
-								className="flex items-center gap-1"
+								className={responseDialogActionButtonClass}
 								onClick={handleIgnore}
 							>
-								<Icon name="close" className="h-4 w-4" />
-								<span className="hidden sm:inline">Ignorar</span>
+								<Icon
+									name="close"
+									className={responseDialogActionIconClass}
+									data-testid="response-dialog-icon-close"
+								/>
+								<span>Ignorar</span>
 							</Button>
 						)}
 
@@ -435,12 +517,16 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 							<Button
 								variant="outline"
 								size="sm"
-								className="flex items-center gap-1"
+								className={responseDialogActionButtonClass}
 								onClick={handleEdit}
 								disabled={isEditing}
 							>
-								<Icon name="edit" className="h-4 w-4" />
-								<span className="hidden sm:inline">Editar</span>
+								<Icon
+									name="edit"
+									className={responseDialogActionIconClass}
+									data-testid="response-dialog-icon-edit"
+								/>
+								<span>Editar</span>
 							</Button>
 						)}
 					</div>
@@ -482,7 +568,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 											<Input
 												type="text"
 												id="requestMethod"
-												value={response.method || 'GET'}
+												value={displayMethod}
 												disabled={true}
 												className="font-mono"
 											/>
@@ -515,16 +601,11 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 
 									<div>
 										<div className="block text-sm font-medium mb-1">Request Headers</div>
-										<ScrollArea className="h-[200px] border rounded-md">
-											<div className="p-3 font-mono text-sm">
-												{/* Exibir todos os headers, pois não temos uma distinção clara entre request e response headers */}
-												{Object.entries(response.headers || {}).map(([key, value]) => (
-													<div key={key} className="mb-1">
-														<span className="font-semibold">{key}</span>: {value}
-													</div>
-												))}
-											</div>
-										</ScrollArea>
+										<HeaderViewer
+											headers={requestHeaders}
+											emptyMessage="Headers de request ausentes."
+											testIdPrefix="request"
+										/>
 									</div>
 									{response.request?.postData && (
 										<div>
@@ -579,15 +660,11 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 
 									<div>
 										<div className="block text-sm font-medium mb-1">Response Headers</div>
-										<ScrollArea className="h-[200px] border rounded-md">
-											<div className="p-3 font-mono text-sm">
-												{Object.entries(response.headers || {}).map(([key, value]) => (
-													<div key={key} className="mb-1">
-														<span className="font-semibold">{key}</span>: {value}
-													</div>
-												))}
-											</div>
-										</ScrollArea>
+										<HeaderViewer
+											headers={responseHeaders}
+											emptyMessage="Headers de response ausentes."
+											testIdPrefix="response"
+										/>
 
 										{isEditing && !readOnly && (
 											<div className="mt-4">
@@ -615,12 +692,12 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 											<div className="text-sm text-muted-foreground">
 												MIME Type:{' '}
 												<Badge variant="outline" className="text-xs">
-													{response.mimeType}
+													{displayMimeType}
 												</Badge>
 											</div>
 										</div>
 
-										{response.body === undefined ? (
+										{responseBody === undefined ? (
 											<div className="h-[120px] rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground">
 												{response.bodyUnavailableReason || 'Corpo da resposta indisponível.'}
 											</div>
@@ -675,12 +752,12 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 																		url = imageData.substring(9);
 																	} else {
 																		// Criar uma data URL
-																		url = createImageDataUrl(imageData, response.mimeType);
+																		url = createImageDataUrl(imageData, displayMimeType);
 																	}
 
 																	const a = document.createElement('a');
 																	a.href = url;
-																	a.download = `image.${response.mimeType.split('/')[1] || 'png'}`;
+																	a.download = `image.${displayMimeType.split('/')[1] || 'png'}`;
 																	document.body.appendChild(a);
 																	a.click();
 																	document.body.removeChild(a);
@@ -699,7 +776,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 																src={
 																	imageData.startsWith('blob-url:')
 																		? imageData.substring(9) // Remover o prefixo 'blob-url:'
-																		: createImageDataUrl(imageData, response.mimeType)
+																		: createImageDataUrl(imageData, displayMimeType)
 																}
 																alt="Response"
 																style={{
@@ -737,15 +814,24 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 													)}
 												</div>
 											</div>
-										) : (
+										) : isEditing && !readOnly ? (
 											<ScrollArea className="h-[300px] border rounded-md">
 												<textarea
 													id="responseBody"
 													value={body}
 													onChange={(e) => setBody(e.target.value)}
 													className="w-full p-3 font-mono text-sm min-h-[300px] focus:outline-hidden"
-													disabled={!isEditing || readOnly}
 												/>
+											</ScrollArea>
+										) : (
+											<ScrollArea className="h-[360px] rounded-md border bg-muted/20">
+												<pre
+													id="responseBody"
+													data-testid="response-body-viewer"
+													className="min-h-[220px] p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap break-words"
+												>
+													{formattedResponseBody}
+												</pre>
 											</ScrollArea>
 										)}
 									</div>
@@ -758,18 +844,19 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 				<DialogFooter className="mt-4">
 					{!readOnly ? (
 						<>
-							<Button className="flex items-center gap-2" onClick={handleApprove}>
-								<Icon name="check" className="h-4 w-4" />
+							<Button size="sm" className={responseDialogActionButtonClass} onClick={handleApprove}>
+								<Icon name="check" className={responseDialogActionIconClass} />
 								{isEditing ? 'Salvar e Aprovar' : 'Aprovar'}
 							</Button>
 
 							{isEditing && (
 								<Button
 									variant="outline"
-									className="flex items-center gap-2"
+									size="sm"
+									className={responseDialogActionButtonClass}
 									onClick={handleCancel}
 								>
-									<Icon name="cancel" className="h-4 w-4" />
+									<Icon name="cancel" className={responseDialogActionIconClass} />
 									Cancelar
 								</Button>
 							)}
@@ -777,8 +864,8 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 					) : null}
 
 					<DialogClose asChild>
-						<Button variant="outline" size="sm">
-							<Icon name="close" className="h-4 w-4 mr-2" />
+						<Button variant="outline" size="sm" className={responseDialogActionButtonClass}>
+							<Icon name="close" className={responseDialogActionIconClass} />
 							Fechar
 						</Button>
 					</DialogClose>

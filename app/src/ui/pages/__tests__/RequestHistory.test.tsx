@@ -21,8 +21,9 @@ vi.mock('@/backend/services/indexedDB', () => ({
 // Simplified RequestTable mock with search input
 vi.mock('../../components/RequestTable', () => ({
 	__esModule: true,
-	default: ({ searchValue, onSearchChange }: any) => (
+	default: ({ requests, searchValue, onSearchChange }: any) => (
 		<div data-testid="request-table">
+			<div data-testid="request-count">{Object.keys(requests).length}</div>
 			<input
 				data-testid="search-input"
 				placeholder="Pesquisar em qualquer campo..."
@@ -55,6 +56,7 @@ describe('RequestHistory Component', () => {
 	it('keeps search input visible when there are no results', () => {
 		// Partial mock — only the fields exercised by this test are populated.
 		vi.mocked(useAllRequests).mockReturnValue({
+			allRequests: {},
 			filteredRequests: {},
 			currentRequestId: '',
 			currentRequest: null,
@@ -76,6 +78,7 @@ describe('RequestHistory Component', () => {
 	it('shows results table when there are requests', () => {
 		// Partial mock — only the fields exercised by this test are populated.
 		vi.mocked(useAllRequests).mockReturnValue({
+			allRequests: { '1': { url: 'https://example.com' } },
 			filteredRequests: { '1': { url: 'https://example.com' } },
 			currentRequestId: '',
 			currentRequest: null,
@@ -94,5 +97,38 @@ describe('RequestHistory Component', () => {
 		expect(
 			screen.queryByText('Nenhuma requisição encontrada no histórico.'),
 		).not.toBeInTheDocument();
+	});
+
+	it('filters pending requests with segmented controls', () => {
+		vi.mocked(useLocation).mockReturnValue({
+			pathname: '/request-history',
+			search: '?view=pending',
+		} as any);
+		vi.mocked(useAllRequests).mockReturnValue({
+			allRequests: {
+				'1': { url: 'https://example.com/pending', isWaiting: true },
+				'2': { url: 'https://example.com/done', isWaiting: false },
+				'3': { url: 'https://example.com/mock', isMocked: true },
+			},
+			filteredRequests: {
+				'1': { url: 'https://example.com/pending', isWaiting: true },
+				'2': { url: 'https://example.com/done', isWaiting: false },
+				'3': { url: 'https://example.com/mock', isMocked: true },
+			},
+			currentRequestId: '',
+			currentRequest: null,
+			getRequestDetails: vi.fn(),
+			filter: '',
+			setFilter: vi.fn(),
+			pauseAutoRefresh: vi.fn(),
+			enableAutoRefresh: vi.fn(),
+			autoRefreshEnabled: true,
+			clearAllRequests: vi.fn(),
+		} as any);
+
+		render(<RequestHistory />);
+
+		expect(screen.getByText('Aguardando ação')).toBeInTheDocument();
+		expect(screen.getByTestId('request-count')).toHaveTextContent('1');
 	});
 });

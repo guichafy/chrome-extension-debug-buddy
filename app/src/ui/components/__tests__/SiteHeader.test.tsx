@@ -155,8 +155,8 @@ describe('SiteHeader Component', () => {
 		expect(screen.getByText('1 requisição aguardando')).toBeTruthy();
 	});
 
-	// Teste para verificar se o título com o contador redireciona para a página de requisições
-	test('redireciona para a página de requisições ao clicar no título', () => {
+	// Teste para verificar se o título com o contador redireciona para o histórico filtrado
+	test('redireciona para o histórico filtrado ao clicar no título', () => {
 		render(<SiteHeader {...{ ...mockProps, pendingResponsesCount: 3 }} />);
 
 		// Encontra o elemento que contém o título
@@ -164,7 +164,7 @@ describe('SiteHeader Component', () => {
 		fireEvent.click(titleElement!);
 
 		// Verifica se a função de navegação foi chamada com o caminho correto
-		expect(mockNavigate).toHaveBeenCalledWith('/requests');
+		expect(mockNavigate).toHaveBeenCalledWith('/request-history?view=pending');
 	});
 
 	// Teste para verificar se não há badge quando não há requisições pendentes (porque não usa badge)

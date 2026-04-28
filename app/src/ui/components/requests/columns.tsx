@@ -169,13 +169,15 @@ export const columns: ColumnDef<RequestRow>[] = [
 			);
 		},
 		sortingFn: (rowA, rowB) => {
-			const methodA = rowA.original.request.method || 'GET';
-			const methodB = rowB.original.request.method || 'GET';
+			const methodA = rowA.original.request.method ?? '';
+			const methodB = rowB.original.request.method ?? '';
 			return methodA.localeCompare(methodB);
 		},
 		cell: ({ row }) => {
 			const request = row.original.request;
-			return <span className="font-medium whitespace-nowrap">{request.method || 'GET'}</span>;
+			return (
+				<span className="font-medium whitespace-nowrap">{request.method ?? 'Método ausente'}</span>
+			);
 		},
 		size: 80,
 	},
@@ -236,15 +238,19 @@ export const columns: ColumnDef<RequestRow>[] = [
 			);
 		},
 		sortingFn: (rowA, rowB) => {
-			const statusA = rowA.original.request.status || 0;
-			const statusB = rowB.original.request.status || 0;
+			const statusA = rowA.original.request.status;
+			const statusB = rowB.original.request.status;
+			if (typeof statusA !== 'number' && typeof statusB !== 'number') return 0;
+			if (typeof statusA !== 'number') return 1;
+			if (typeof statusB !== 'number') return -1;
 			return statusA - statusB;
 		},
 		cell: ({ row }) => {
 			const request = row.original.request;
 			return (
 				<span className="whitespace-nowrap">
-					{request.status} {request.statusText}
+					{typeof request.status === 'number' ? request.status : 'Status ausente'}{' '}
+					{request.statusText}
 				</span>
 			);
 		},
@@ -265,7 +271,9 @@ export const columns: ColumnDef<RequestRow>[] = [
 		cell: ({ row }) => {
 			const request = row.original.request;
 			return (
-				<span className="text-xs text-muted-foreground whitespace-nowrap">{request.mimeType}</span>
+				<span className="text-xs text-muted-foreground whitespace-nowrap">
+					{request.mimeType ?? 'Sem Content-Type'}
+				</span>
 			);
 		},
 		size: 100,
