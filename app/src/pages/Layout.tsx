@@ -55,10 +55,8 @@ const Layout: React.FC = () => {
 					onStopDebugging={() => stopDebugging()}
 				/>
 
-				<div className="main-content-container">
-					<div className="p-4 pb-8">
-						<Outlet />
-					</div>
+				<div className="main-content-container flex-1 min-h-0 overflow-hidden">
+					<Outlet />
 				</div>
 			</SidebarInset>
 		</SidebarProvider>

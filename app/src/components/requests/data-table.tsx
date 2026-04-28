@@ -176,8 +176,8 @@ export function DataTable<TData, TValue>({
 	}, [data.length, autoRefreshEnabled, pagination.pageIndex, pagination.pageSize]);
 
 	return (
-		<div className="space-y-4">
-			<div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+		<div className="space-y-4 flex flex-col min-h-0">
+			<div className="flex flex-col sm:flex-row items-center justify-between gap-4 flex-shrink-0">
 				<div className="flex w-full sm:w-auto items-center gap-2">
 					<Input
 						placeholder="Pesquisar em qualquer campo..."
@@ -272,9 +272,9 @@ export function DataTable<TData, TValue>({
 					</DropdownMenu>
 				</div>
 			</div>
-			<div className="rounded-md border overflow-x-auto data-table-container">
+			<div className="rounded-md border overflow-auto data-table-container flex-1 min-h-0">
 				<Table className="w-full table-fixed">
-					<TableHeader>
+					<TableHeader className="sticky top-0 bg-background z-10">
 						{table.getHeaderGroups().map((headerGroup) => (
 							<TableRow key={headerGroup.id}>
 								{headerGroup.headers.map((header) => (
@@ -338,7 +338,7 @@ export function DataTable<TData, TValue>({
 					</TableBody>
 				</Table>
 			</div>
-			<div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4">
+			<div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-2 flex-shrink-0">
 				<div className="flex-1 text-sm text-muted-foreground">
 					{table.getFilteredRowModel().rows.length} requisição(ões) encontrada(s).
 				</div>
