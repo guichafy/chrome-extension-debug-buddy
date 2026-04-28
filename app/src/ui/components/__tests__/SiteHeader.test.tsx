@@ -10,13 +10,13 @@ vi.mock('react-router-dom', () => ({
 
 // Mock para os componentes do shadcn-ui
 vi.mock('../shadcn/separator', () => ({
-	Separator: ({ orientation, className }) => (
+	Separator: ({ orientation, className }: any) => (
 		<div data-testid="separator" data-orientation={orientation} className={className} />
 	),
 }));
 
 vi.mock('../shadcn/sidebar', () => ({
-	SidebarTrigger: ({ className }) => (
+	SidebarTrigger: ({ className }: any) => (
 		<button data-testid="sidebar-trigger" className={className}>
 			Toggle
 		</button>
@@ -24,7 +24,7 @@ vi.mock('../shadcn/sidebar', () => ({
 }));
 
 vi.mock('../shadcn/badge', () => ({
-	Badge: ({ children, variant, className }) => (
+	Badge: ({ children, variant, className }: any) => (
 		<span data-testid="badge" data-variant={variant} className={className}>
 			{children}
 		</span>
@@ -32,7 +32,7 @@ vi.mock('../shadcn/badge', () => ({
 }));
 
 vi.mock('../shadcn/button', () => ({
-	Button: ({ children, onClick, variant, size, className, disabled }) => (
+	Button: ({ children, onClick, variant, size, className, disabled }: any) => (
 		<button
 			data-testid="button"
 			data-variant={variant}
@@ -47,7 +47,7 @@ vi.mock('../shadcn/button', () => ({
 }));
 
 vi.mock('../shadcn/icon', () => ({
-	Icon: ({ name, className }) => (
+	Icon: ({ name, className }: any) => (
 		<span data-testid="icon" data-name={name} className={className}>
 			{name}
 		</span>
@@ -55,14 +55,16 @@ vi.mock('../shadcn/icon', () => ({
 }));
 
 vi.mock('../shadcn/tooltip', () => ({
-	Tooltip: ({ children }) => <div data-testid="tooltip">{children}</div>,
-	TooltipTrigger: ({ asChild, children }) => <div data-testid="tooltip-trigger">{children}</div>,
-	TooltipContent: ({ side, children }) => (
+	Tooltip: ({ children }: any) => <div data-testid="tooltip">{children}</div>,
+	TooltipTrigger: ({ asChild, children }: any) => (
+		<div data-testid="tooltip-trigger">{children}</div>
+	),
+	TooltipContent: ({ side, children }: any) => (
 		<div data-testid="tooltip-content" data-side={side}>
 			{children}
 		</div>
 	),
-	TooltipProvider: ({ children }) => <div data-testid="tooltip-provider">{children}</div>,
+	TooltipProvider: ({ children }: any) => <div data-testid="tooltip-provider">{children}</div>,
 }));
 
 describe('SiteHeader Component', () => {
@@ -106,12 +108,12 @@ describe('SiteHeader Component', () => {
 		const buttons = screen.getAllByRole('button');
 		const selectTabButton = buttons.find(
 			(button) =>
-				button.textContent.includes('Test Tab') &&
-				!button.textContent.includes('Iniciar') &&
-				!button.textContent.includes('Parar'),
+				button.textContent!.includes('Test Tab') &&
+				!button.textContent!.includes('Iniciar') &&
+				!button.textContent!.includes('Parar'),
 		);
 
-		fireEvent.click(selectTabButton);
+		fireEvent.click(selectTabButton!);
 
 		expect(mockProps.onSelectTabClick).toHaveBeenCalledTimes(1);
 	});
@@ -121,7 +123,7 @@ describe('SiteHeader Component', () => {
 		render(<SiteHeader {...mockProps} />);
 
 		const startButton = screen.getByText('Iniciar Interceptação').closest('button');
-		fireEvent.click(startButton);
+		fireEvent.click(startButton!);
 
 		expect(mockProps.onStartDebugging).toHaveBeenCalledTimes(1);
 	});
@@ -159,7 +161,7 @@ describe('SiteHeader Component', () => {
 
 		// Encontra o elemento que contém o título
 		const titleElement = screen.getByText('3 requisições aguardando').closest('div');
-		fireEvent.click(titleElement);
+		fireEvent.click(titleElement!);
 
 		// Verifica se a função de navegação foi chamada com o caminho correto
 		expect(mockNavigate).toHaveBeenCalledWith('/requests');

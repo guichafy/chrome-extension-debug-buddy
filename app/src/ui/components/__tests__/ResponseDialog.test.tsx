@@ -5,30 +5,30 @@ import { InterceptedResponse } from '../../hooks/useResponses';
 
 // Mock para os componentes do shadcn-ui
 vi.mock('../shadcn/dialog', () => ({
-	Dialog: ({ children, open }) => (open ? <div data-testid="dialog">{children}</div> : null),
-	DialogContent: ({ children, className }) => (
+	Dialog: ({ children, open }: any) => (open ? <div data-testid="dialog">{children}</div> : null),
+	DialogContent: ({ children, className }: any) => (
 		<div data-testid="dialog-content" className={className}>
 			{children}
 		</div>
 	),
-	DialogHeader: ({ children }) => <div data-testid="dialog-header">{children}</div>,
-	DialogTitle: ({ children }) => <div data-testid="dialog-title">{children}</div>,
-	DialogFooter: ({ children, className }) => (
+	DialogHeader: ({ children }: any) => <div data-testid="dialog-header">{children}</div>,
+	DialogTitle: ({ children }: any) => <div data-testid="dialog-title">{children}</div>,
+	DialogFooter: ({ children, className }: any) => (
 		<div data-testid="dialog-footer" className={className}>
 			{children}
 		</div>
 	),
-	DialogClose: ({ children, asChild }) => <div data-testid="dialog-close">{children}</div>,
-	DialogDescription: ({ children }) => <div data-testid="dialog-description">{children}</div>,
+	DialogClose: ({ children, asChild }: any) => <div data-testid="dialog-close">{children}</div>,
+	DialogDescription: ({ children }: any) => <div data-testid="dialog-description">{children}</div>,
 }));
 
 vi.mock('../shadcn/card', () => ({
-	Card: ({ children, className }) => (
+	Card: ({ children, className }: any) => (
 		<div data-testid="card" className={className}>
 			{children}
 		</div>
 	),
-	CardContent: ({ children, className }) => (
+	CardContent: ({ children, className }: any) => (
 		<div data-testid="card-content" className={className}>
 			{children}
 		</div>
@@ -36,7 +36,7 @@ vi.mock('../shadcn/card', () => ({
 }));
 
 vi.mock('../shadcn/badge', () => ({
-	Badge: ({ children, variant, className }) => (
+	Badge: ({ children, variant, className }: any) => (
 		<span data-testid="badge" data-variant={variant} className={className}>
 			{children}
 		</span>
@@ -44,7 +44,7 @@ vi.mock('../shadcn/badge', () => ({
 }));
 
 vi.mock('../shadcn/button', () => ({
-	Button: ({ children, onClick, variant, size, className, disabled }) => (
+	Button: ({ children, onClick, variant, size, className, disabled }: any) => (
 		<button
 			data-testid="button"
 			data-variant={variant}
@@ -59,7 +59,7 @@ vi.mock('../shadcn/button', () => ({
 }));
 
 vi.mock('../shadcn/input', () => ({
-	Input: ({ id, value, onChange, disabled, className, type }) => (
+	Input: ({ id, value, onChange, disabled, className, type }: any) => (
 		<input
 			data-testid="input"
 			id={id}
@@ -73,7 +73,7 @@ vi.mock('../shadcn/input', () => ({
 }));
 
 vi.mock('../shadcn/icon', () => ({
-	Icon: ({ name, className }) => (
+	Icon: ({ name, className }: any) => (
 		<span data-testid="icon" data-name={name} className={className}>
 			{name}
 		</span>
@@ -81,22 +81,22 @@ vi.mock('../shadcn/icon', () => ({
 }));
 
 vi.mock('../shadcn/tabs', () => ({
-	Tabs: ({ children, defaultValue, className }) => (
+	Tabs: ({ children, defaultValue, className }: any) => (
 		<div data-testid="tabs" data-default-value={defaultValue} className={className}>
 			{children}
 		</div>
 	),
-	TabsList: ({ children, className }) => (
+	TabsList: ({ children, className }: any) => (
 		<div data-testid="tabs-list" className={className}>
 			{children}
 		</div>
 	),
-	TabsTrigger: ({ children, value }) => (
+	TabsTrigger: ({ children, value }: any) => (
 		<button data-testid="tabs-trigger" data-value={value}>
 			{children}
 		</button>
 	),
-	TabsContent: ({ children, value, className }) => (
+	TabsContent: ({ children, value, className }: any) => (
 		<div data-testid="tabs-content" data-value={value} className={className}>
 			{children}
 		</div>
@@ -104,7 +104,7 @@ vi.mock('../shadcn/tabs', () => ({
 }));
 
 vi.mock('../shadcn/scroll-area', () => ({
-	ScrollArea: ({ children, className }) => (
+	ScrollArea: ({ children, className }: any) => (
 		<div data-testid="scroll-area" className={className}>
 			{children}
 		</div>
@@ -246,8 +246,8 @@ describe('ResponseDialog Component', () => {
 		// Encontrar o botão de aprovar e clicar nele
 		const approveButton = screen
 			.getAllByTestId('button')
-			.find((button) => button.textContent.includes('Aprovar'));
-		fireEvent.click(approveButton);
+			.find((button) => button.textContent!.includes('Aprovar'));
+		fireEvent.click(approveButton!);
 
 		// Verificar se onApprove foi chamado com os parâmetros corretos
 		expect(mockOnApprove).toHaveBeenCalledWith(mockRequestId, {});
@@ -272,8 +272,8 @@ describe('ResponseDialog Component', () => {
 		// Encontrar o botão de ignorar e clicar nele
 		const ignoreButton = screen
 			.getAllByTestId('button')
-			.find((button) => button.textContent.includes('Ignorar'));
-		fireEvent.click(ignoreButton);
+			.find((button) => button.textContent!.includes('Ignorar'));
+		fireEvent.click(ignoreButton!);
 
 		// Verificar se onIgnore foi chamado com o ID correto
 		expect(mockOnIgnore).toHaveBeenCalledWith(mockRequestId);
@@ -298,8 +298,8 @@ describe('ResponseDialog Component', () => {
 		// Encontrar o botão de criar mock e clicar nele
 		const mockButton = screen
 			.getAllByTestId('button')
-			.find((button) => button.textContent.includes('Criar Mock'));
-		fireEvent.click(mockButton);
+			.find((button) => button.textContent!.includes('Criar Mock'));
+		fireEvent.click(mockButton!);
 
 		// Verificar se onMock foi chamado com a resposta correta
 		expect(mockOnMock).toHaveBeenCalledWith(mockResponse);
@@ -349,11 +349,11 @@ describe('ResponseDialog Component', () => {
 
 		const mockButton = screen
 			.getAllByTestId('button')
-			.find((button) => button.textContent.includes('Criar Mock'));
+			.find((button) => button.textContent!.includes('Criar Mock'));
 		expect(mockButton).toBeTruthy();
 		expect(mockButton).toBeDisabled();
 
-		fireEvent.click(mockButton);
+		fireEvent.click(mockButton!);
 		expect(mockOnMock).not.toHaveBeenCalled();
 	});
 
@@ -383,10 +383,10 @@ describe('ResponseDialog Component', () => {
 
 		const mockButton = screen
 			.getAllByTestId('button')
-			.find((button) => button.textContent.includes('Criar Mock'));
+			.find((button) => button.textContent!.includes('Criar Mock'));
 		expect(mockButton).toBeDisabled();
 
-		fireEvent.click(mockButton);
+		fireEvent.click(mockButton!);
 		expect(mockOnMock).not.toHaveBeenCalled();
 	});
 });

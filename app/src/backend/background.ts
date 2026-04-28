@@ -341,7 +341,7 @@ function sendDebuggerCommand<T = unknown>(
 
 	const tabId = attachedTabId;
 	return new Promise((resolve, reject) => {
-		const callback = (result?: T) => {
+		const callback = (result?: unknown) => {
 			const lastError = chrome.runtime.lastError;
 			if (lastError) {
 				reject(new Error(`${method} falhou: ${lastError.message}`));

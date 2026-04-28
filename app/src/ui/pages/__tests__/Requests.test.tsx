@@ -20,7 +20,7 @@ vi.mock('../../../backend/services/indexedDB', () => ({
 // Mock the components
 vi.mock('../../components/ResponseList', () => ({
 	__esModule: true,
-	default: ({ responses }) => (
+	default: ({ responses }: any) => (
 		<div data-testid="response-list">{Object.keys(responses).length} responses</div>
 	),
 }));
