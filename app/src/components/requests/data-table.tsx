@@ -25,7 +25,7 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Icon } from '@/components/ui/icon';
+import { LucideIcon } from '@/components/ui/lucide-icon';
 import {
 	DropdownMenu,
 	DropdownMenuCheckboxItem,
@@ -192,9 +192,9 @@ export function DataTable<TData, TValue>({
 							onClick={pauseAutoRefresh}
 							className="text-xs bg-green-500/10 border-green-500/30 text-green-300 hover:bg-green-500/20"
 						>
-							<Icon
-								name="fiber_manual_record"
-								className="h-4 w-4 mr-1 text-green-500 animate-pulse"
+							<LucideIcon
+								name="circle"
+								className="h-4 w-4 mr-1 text-green-500 animate-pulse fill-current"
 							/>
 							Live Tail
 						</Button>
@@ -207,7 +207,7 @@ export function DataTable<TData, TValue>({
 								onClick={enableAutoRefresh}
 								className="text-xs bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20"
 							>
-								<Icon name="refresh" className="h-4 w-4 mr-1" />
+								<LucideIcon name="refresh" className="h-4 w-4 mr-1" />
 								Ativar Auto-Refresh
 							</Button>
 						)
@@ -222,7 +222,7 @@ export function DataTable<TData, TValue>({
 							}}
 							className="text-xs bg-red-500/10 border-red-500/30 text-red-300 hover:bg-red-500/20"
 						>
-							<Icon name="delete" className="h-4 w-4 mr-1" />
+							<LucideIcon name="trash" className="h-4 w-4 mr-1" />
 							Limpar Histórico
 						</Button>
 					)}
@@ -381,7 +381,7 @@ export function DataTable<TData, TValue>({
 							className="h-8 w-8 p-0"
 							aria-label="Ir para primeira página"
 						>
-							<Icon name="first_page" className="h-4 w-4" />
+							<LucideIcon name="chevrons-left" className="h-4 w-4" />
 						</Button>
 						<Button
 							variant="outline"
@@ -394,7 +394,7 @@ export function DataTable<TData, TValue>({
 							className="h-8 w-8 p-0"
 							aria-label="Ir para página anterior"
 						>
-							<Icon name="navigate_before" className="h-4 w-4" />
+							<LucideIcon name="chevron-left" className="h-4 w-4" />
 						</Button>
 
 						{/* Números de página */}
@@ -453,7 +453,7 @@ export function DataTable<TData, TValue>({
 							className="h-8 w-8 p-0"
 							aria-label="Ir para próxima página"
 						>
-							<Icon name="navigate_next" className="h-4 w-4" />
+							<LucideIcon name="chevron-right" className="h-4 w-4" />
 						</Button>
 						<Button
 							variant="outline"
@@ -466,7 +466,7 @@ export function DataTable<TData, TValue>({
 							className="h-8 w-8 p-0"
 							aria-label="Ir para última página"
 						>
-							<Icon name="last_page" className="h-4 w-4" />
+							<LucideIcon name="chevrons-right" className="h-4 w-4" />
 						</Button>
 					</div>
 				</div>
