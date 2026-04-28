@@ -26,5 +26,7 @@ jobs:
         run: npm run typecheck
       - name: Build
         run: npm run build
+      - name: Lint extension shape
+        run: npm run lint:ext
       - name: Test (Vitest)
         run: npm test
