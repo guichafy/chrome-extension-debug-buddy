@@ -13,12 +13,7 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { InterceptedResponse } from '../../hooks/useResponses';
-import {
-	compareDurations,
-	formatDuration,
-	formatDurationWithMock,
-	getDurationColorClass,
-} from './duration';
+import { compareDurations, formatDurationWithMock, getDurationColorClass } from './duration';
 
 // Tipo para representar uma requisição
 export type RequestRow = {
