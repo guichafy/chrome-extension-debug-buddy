@@ -140,7 +140,7 @@ export const columns: ColumnDef<Rule>[] = [
 				<Button
 					variant={rule.enabled ? 'default' : 'outline'}
 					size="sm"
-					className={`px-2 py-1 h-8 ${rule.enabled ? 'bg-green-500 hover:bg-green-600' : 'text-gray-500'}`}
+					className={`px-2 py-1 h-8 ${rule.enabled ? 'bg-success hover:bg-success/90 text-success-foreground' : 'text-muted-foreground'}`}
 					onClick={() => onToggle(rule.id)}
 				>
 					{rule.enabled ? 'Ativo' : 'Inativo'}

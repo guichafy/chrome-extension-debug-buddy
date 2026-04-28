@@ -41,7 +41,7 @@ const ResponseList: React.FC<ResponseListProps> = ({
 	const responseIds = Object.keys(responses);
 
 	if (responseIds.length === 0) {
-		return <p className="text-gray-500 p-4 no-responses">Nenhuma requisição encontrada</p>;
+		return <p className="text-muted-foreground p-4 no-responses">Nenhuma requisição encontrada</p>;
 	}
 
 	// Ordenar por timestamp (mais recente primeiro)
@@ -73,7 +73,7 @@ const ResponseList: React.FC<ResponseListProps> = ({
 			case 'PATCH':
 				return 'bg-purple-500 hover:bg-purple-500/90';
 			default:
-				return 'bg-gray-500 hover:bg-gray-500/90';
+				return 'bg-muted hover:bg-muted/90';
 		}
 	};
 
