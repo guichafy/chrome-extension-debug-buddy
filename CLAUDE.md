@@ -118,7 +118,7 @@ Output `entryFileNames: '[name].js'` is required so `manifest.json`'s `service_w
 
 ## TypeScript & lint
 
-- **TS is intentionally non-strict** (`strict: false`, `noImplicitAny: false`, `strictNullChecks: false`, etc. — see `app/tsconfig.json`). Don't tighten globally without coordinating; lots of code relies on the looseness (e.g. `message: any` in the background listener). Phase 4 of the refactor will revisit this.
+- **TS is strict** (`strict: true` in `app/tsconfig.json`). `noImplicitAny`, `strictNullChecks`, `strictFunctionTypes`, `strictBindCallApply`, `strictPropertyInitialization`, `noImplicitThis`, `alwaysStrict`, `useUnknownInCatchVariables` are all enforced. `tsc --noEmit` runs in CI as a separate step from `lint` and `build`. `noUnusedLocals`/`noUnusedParameters` are deliberately off (matching Biome's `noUnusedImports`/`noUnusedVariables` posture). When a third-party type is too loose to model precisely (rare), use `as any` with a one-line comment OR `// @ts-expect-error: <motivo>` with a TODO and an issue link — both should be uncommon.
 - **Biome** (`app/biome.json`) is the single linter+formatter. Recommended rules with project-specific disables (`noExplicitAny`, `noUnusedVariables`, `noUnusedImports`, `noConsoleLog`, `useOptionalChain`, `noForEach`, etc.). Test files (`**/__tests__/**`) further disable `useButtonType` and `useValidAnchor`.
 - Files ignored by Biome: `dist`, `node_modules`, `coverage`, `lib`, `images`, `package-lock.json`, `**/codemirror.d.ts`. Plus everything in `.gitignore` via `vcs.useIgnoreFile: true`.
 
