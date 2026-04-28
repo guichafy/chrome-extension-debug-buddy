@@ -55,6 +55,21 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 	const [activeTab, setActiveTab] = useState<'match' | 'then'>('match');
 	const [isSaving, setIsSaving] = useState(false);
 
+	// Workaround para bug conhecido do Radix UI:
+	// quando um <Select> (usado em MatcherEditor/ActionEditor) é aberto dentro
+	// deste <Dialog> e o Dialog fecha antes do Select limpar seus estilos,
+	// `pointer-events: none` permanece no <body>, deixando a página inerte
+	// até reload. Restauramos manualmente quando o dialog fecha.
+	// Ref: https://github.com/radix-ui/primitives/issues/1241
+	useEffect(() => {
+		if (!open) {
+			const timer = setTimeout(() => {
+				document.body.style.pointerEvents = '';
+			}, 0);
+			return () => clearTimeout(timer);
+		}
+	}, [open]);
+
 	// Atualizar o estado quando a regra mudar
 	useEffect(() => {
 		if (rule) {
