@@ -1,4 +1,9 @@
-import { formatDuration, getDurationColorClass, compareDurations } from '../duration';
+import {
+	formatDuration,
+	formatDurationWithMock,
+	getDurationColorClass,
+	compareDurations,
+} from '../duration';
 
 describe('formatDuration', () => {
 	it('retorna "—" quando duration é undefined', () => {
@@ -36,6 +41,24 @@ describe('getDurationColorClass', () => {
 	it('retorna âmbar para tempos lentos (> 1000ms)', () => {
 		expect(getDurationColorClass(1001)).toBe('text-amber-600');
 		expect(getDurationColorClass(5000)).toBe('text-amber-600');
+	});
+});
+
+describe('formatDurationWithMock', () => {
+	test('sem mockLatency retorna apenas duração formatada', () => {
+		expect(formatDurationWithMock(123, undefined)).toBe('123ms');
+	});
+
+	test('com mockLatency anexa entre parênteses', () => {
+		expect(formatDurationWithMock(5012, 5000)).toBe('5s 12ms (mock 5000ms)');
+	});
+
+	test('com duração ausente e mockLatency presente', () => {
+		expect(formatDurationWithMock(undefined, 1000)).toBe('— (mock 1000ms)');
+	});
+
+	test('sem mockLatency e sem duração retorna apenas —', () => {
+		expect(formatDurationWithMock(undefined, undefined)).toBe('—');
 	});
 });
 

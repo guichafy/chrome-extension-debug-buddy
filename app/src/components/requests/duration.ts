@@ -16,6 +16,12 @@ export function getDurationColorClass(durationMs: number | undefined): string {
 	return 'text-green-600';
 }
 
+export function formatDurationWithMock(durationMs?: number, mockLatencyMs?: number): string {
+	const base = formatDuration(durationMs);
+	if (mockLatencyMs === undefined) return base;
+	return `${base} (mock ${mockLatencyMs}ms)`;
+}
+
 // Comparador para sortingFn da tabela. Valores ausentes vão para o fim.
 export function compareDurations(a: number | undefined, b: number | undefined): number {
 	if (a == null && b == null) return 0;

@@ -13,7 +13,12 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { InterceptedResponse } from '../../hooks/useResponses';
-import { compareDurations, formatDuration, getDurationColorClass } from './duration';
+import {
+	compareDurations,
+	formatDuration,
+	formatDurationWithMock,
+	getDurationColorClass,
+} from './duration';
 
 // Tipo para representar uma requisição
 export type RequestRow = {
@@ -77,10 +82,11 @@ export const columns: ColumnDef<RequestRow>[] = [
 		},
 		cell: ({ row }) => {
 			const duration = row.original.request.duration;
+			const mockLatencyMs = row.original.request.mockLatencyMs;
 			const colorClass = getDurationColorClass(duration);
 			return (
 				<span className={`text-xs font-medium ${colorClass} whitespace-nowrap`}>
-					{formatDuration(duration)}
+					{formatDurationWithMock(duration, mockLatencyMs)}
 				</span>
 			);
 		},

@@ -900,6 +900,10 @@ async function applyMockResponse(
 		const headerArray = headersRecordToArray(responseHeaders);
 		const bodyValidation = validateMockBody(originalRequest.method, mock.status, mock.body);
 		const latencyMs = resolveMockLatencyMs(mock.latency);
+		// Quirk do Chrome DevTools: quando a resposta é entregue via Fetch.fulfillRequest,
+		// a coluna "Time" do painel Network não reflete o delay aplicado aqui — ela mostra
+		// apenas o tempo até o Fetch.requestPaused chegar. A latência real é aplicada (a página
+		// JS espera o delay), e nossa UI mostra o valor em mockLatencyMs para o usuário.
 		await wait(latencyMs);
 
 		// Obter o texto do status para o código
