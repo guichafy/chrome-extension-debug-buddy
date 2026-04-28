@@ -79,8 +79,8 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.2.0",
-    "@vitest/coverage-v8": "^1.6.1",
-    "@vitest/ui": "^1.6.1",
+    "@vitest/coverage-v8": "^4.1.5",
+    "@vitest/ui": "^4.1.5",
     "archiver": "^7.0.1",
     "chrome-webstore-upload-cli": "^3.5.0",
     "conventional-changelog-conventionalcommits": "^8.0.0",
@@ -93,7 +93,7 @@
     "typescript": "^5.3.3",
     "vite": "^6.3.4",
     "vite-plugin-static-copy": "^2.3.1",
-    "vitest": "^1.6.1",
+    "vitest": "^4.1.5",
     "web-ext": "^8.10.0"
   }
 }
