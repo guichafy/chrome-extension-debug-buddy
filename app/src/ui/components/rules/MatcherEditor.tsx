@@ -11,13 +11,7 @@ import {
 } from '@/ui/components/shadcn/select';
 import { Checkbox } from '@/ui/components/shadcn/checkbox';
 import { Icon } from '@/ui/components/shadcn/icon';
-import {
-	Matcher,
-	UrlMatcher,
-	MethodMatcher,
-	HeaderMatcher,
-	BodyMatcher,
-} from '@/backend/types/rules';
+import { Matcher, UrlMatcher, MethodMatcher, HeaderMatcher, BodyMatcher } from '@/types/rules';
 
 interface MatcherEditorProps {
 	matcher: Matcher;

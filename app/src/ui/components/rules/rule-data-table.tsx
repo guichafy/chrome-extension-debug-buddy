@@ -23,7 +23,7 @@ import {
 } from '@/ui/components/shadcn/table';
 import { Button } from '@/ui/components/shadcn/button';
 import { Input } from '@/ui/components/shadcn/input';
-import { Rule } from '@/backend/types/rules';
+import { Rule } from '@/types/rules';
 
 interface DataTableProps<TData, TValue> {
 	columns: ColumnDef<TData, TValue>[];

@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Icon } from '@/ui/components/shadcn/icon';
-import { cn } from '@/backend/lib/utils';
+import { cn } from '@/lib/utils';
 import {
 	SidebarMenu,
 	SidebarMenuItem,

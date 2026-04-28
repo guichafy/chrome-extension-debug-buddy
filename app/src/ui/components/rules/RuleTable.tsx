@@ -1,5 +1,5 @@
 import React from 'react';
-import { Rule } from '@/backend/types/rules';
+import { Rule } from '@/types/rules';
 import { DataTable } from './rule-data-table';
 import { columns } from './rule-columns';
 

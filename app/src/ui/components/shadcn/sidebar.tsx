@@ -4,7 +4,7 @@ import { VariantProps, cva } from 'class-variance-authority';
 import { PanelLeft } from 'lucide-react';
 
 import { useIsMobile } from '@/ui/components/hooks/use-mobile';
-import { cn } from '@/backend/lib/utils';
+import { cn } from '@/lib/utils';
 import { Button } from '@/ui/components/shadcn/button';
 import { Input } from '@/ui/components/shadcn/input';
 import { Separator } from '@/ui/components/shadcn/separator';

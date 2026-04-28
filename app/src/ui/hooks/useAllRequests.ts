@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { InterceptedResponse } from './useResponses';
-import { indexedDBService } from '@/backend/services/indexedDB';
+import { indexedDBService } from '@/lib/indexedDB';
 
 // Hook puramente reativo: o background é a fonte de verdade da persistência
 // (`background.ts` grava no IndexedDB ao receber Fetch.requestPaused, mock,

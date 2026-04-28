@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { InterceptedResponse, ResponseModifications } from '@/backend/types/intercepted';
+import type { InterceptedResponse, ResponseModifications } from '@/types/intercepted';
 
 export type { InterceptedResponse, ResponseModifications };
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ActionEditor } from '../ActionEditor';
-import type { MockAction } from '@/backend/types/rules';
+import type { MockAction } from '@/types/rules';
 
 describe('ActionEditor', () => {
 	const selectTab = async (name: string) => {

@@ -22,7 +22,7 @@ import {
 	MethodMatcher,
 	HeaderMatcher,
 	MockAction,
-} from '@/backend/types/rules';
+} from '@/types/rules';
 import { MatcherEditor } from './MatcherEditor';
 import { ActionEditor } from './ActionEditor';
 

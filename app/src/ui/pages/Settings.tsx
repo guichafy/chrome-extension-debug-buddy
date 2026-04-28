@@ -11,7 +11,7 @@ import { Icon } from '@/ui/components/shadcn/icon';
 import RuleTable from '@/ui/components/rules/RuleTable';
 import RuleEditor from '@/ui/components/rules/RuleEditor';
 import { useRules } from '@/ui/hooks/useRules';
-import { Rule } from '@/backend/types/rules';
+import { Rule } from '@/types/rules';
 
 const Settings: React.FC = () => {
 	const { rules, addRule, updateRule, removeRule, toggleRuleEnabled } = useRules();
