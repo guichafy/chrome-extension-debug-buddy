@@ -2,6 +2,18 @@ import '@testing-library/jest-dom/vitest';
 import { TextDecoder, TextEncoder } from 'node:util';
 import { vi } from 'vitest';
 
+// Polyfill para File.prototype.text (ausente em versões antigas do jsdom)
+if (typeof File !== 'undefined' && !File.prototype.text) {
+	File.prototype.text = function () {
+		return new Promise<string>((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(reader.result as string);
+			reader.onerror = () => reject(reader.error);
+			reader.readAsText(this);
+		});
+	};
+}
+
 // Polyfills para TextEncoder/TextDecoder
 if (typeof globalThis.TextEncoder === 'undefined') {
 	(globalThis as any).TextEncoder = TextEncoder;
