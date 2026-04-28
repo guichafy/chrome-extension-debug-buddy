@@ -34,6 +34,7 @@ const CommandCenter: React.FC = () => {
 
 	const [clearDialogOpen, setClearDialogOpen] = useState(false);
 	const [quickMockOpen, setQuickMockOpen] = useState(false);
+	const [recentRuleName, setRecentRuleName] = useState<string | null>(null);
 
 	const handleClearHistory = async () => {
 		await clearAllRequests();
@@ -63,7 +64,16 @@ const CommandCenter: React.FC = () => {
 
 			<section className="min-h-0 overflow-hidden border-t lg:border-l lg:border-t-0">
 				<RequestInspector
-					request={selected}
+					request={
+						selected
+							? {
+									...selected,
+									// Sentinela provisória: indica que existe uma regra recém-criada via Quick Mock
+									// vinculada a esta request. O id real será exposto em task futura (issue follow-up).
+									generatedRuleId: recentRuleName ? 'pending-link' : selected.generatedRuleId,
+								}
+							: null
+					}
 					requestId={selectedId}
 					onApprove={approveResponse}
 					onIgnore={ignoreResponse}
@@ -82,6 +92,7 @@ const CommandCenter: React.FC = () => {
 					onOpenChange={setQuickMockOpen}
 					request={selected}
 					requestId={selectedId}
+					onCreated={(name) => setRecentRuleName(name)}
 				/>
 			)}
 

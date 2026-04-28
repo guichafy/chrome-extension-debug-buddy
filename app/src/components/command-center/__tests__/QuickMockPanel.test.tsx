@@ -68,4 +68,19 @@ describe('QuickMockPanel', () => {
 		expect(checkbox).not.toBeNull();
 		expect(checkbox!.getAttribute('data-state')).toBe('unchecked');
 	});
+
+	test('chama onCreated após salvar com o nome da regra', async () => {
+		const onCreated = vi.fn();
+		render(
+			<QuickMockPanel
+				open
+				onOpenChange={vi.fn()}
+				request={baseRequest as any}
+				requestId="r1"
+				onCreated={onCreated}
+			/>,
+		);
+		fireEvent.click(screen.getByRole('button', { name: /Salvar mock/i }));
+		await waitFor(() => expect(onCreated).toHaveBeenCalledWith('Mock para api.example.com/users'));
+	});
 });
