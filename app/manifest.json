@@ -1,7 +1,7 @@
 {
   "name": "Debug Buddy",
   "short_name": "DbgBuddy",
-  "description": "Intercept and log network requests based on URL patterns. Modify responses and create mocks for web development.",
+  "description": "Inspect, intercept, and mock HTTP responses in Chrome to test how your app handles network failures without touching the backend.",
   "version": "0.0.3",
   "manifest_version": 3,
   "icons": {
@@ -49,5 +49,5 @@
     }
   ],
   "author": "Chafy Studio",
-  "homepage_url": "https://github.com/Chafy-Studio/chrome-interceptor"
+  "homepage_url": "https://github.com/guichafy/chrome-extension-debug-buddy"
 }

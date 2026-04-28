@@ -4,7 +4,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 ## Project
 
-**Debug Buddy** — Manifest V3 Chrome extension (`app/manifest.json` lists name `Debug Buddy`, slug `chrome-interceptor` in `package.json`) that intercepts and modifies network responses via the `chrome.debugger` Fetch domain. Used to inject failures, mock responses, and pause requests for inspection while developing web apps.
+**Debug Buddy** — Manifest V3 Chrome extension (name `Debug Buddy` in both `app/manifest.json` and `app/package.json` slug `debug-buddy`) that intercepts and modifies network responses via the `chrome.debugger` Fetch domain. Used to inject failures, mock responses, and pause requests for inspection while developing web apps.
 
 GitHub repo: `guichafy/chrome-extension-debug-buddy`. Issues track known bugs and feature requests — read them with `gh issue list` before changing related code.
 
