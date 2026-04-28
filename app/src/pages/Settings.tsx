@@ -1,16 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import {
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle,
-	CardDescription,
-} from '@/ui/components/shadcn/card';
-import { Button } from '@/ui/components/shadcn/button';
-import { Icon } from '@/ui/components/shadcn/icon';
-import RuleTable from '@/ui/components/rules/RuleTable';
-import RuleEditor from '@/ui/components/rules/RuleEditor';
-import { useRules } from '@/ui/hooks/useRules';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
+import RuleTable from '@/components/rules/RuleTable';
+import RuleEditor from '@/components/rules/RuleEditor';
+import { useRules } from '@/hooks/useRules';
 import { Rule } from '@/types/rules';
 
 const Settings: React.FC = () => {

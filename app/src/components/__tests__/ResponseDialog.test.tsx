@@ -4,7 +4,7 @@ import ResponseDialog from '../ResponseDialog';
 import { InterceptedResponse } from '../../hooks/useResponses';
 
 // Mock para os componentes do shadcn-ui
-vi.mock('../shadcn/dialog', () => ({
+vi.mock('../ui/dialog', () => ({
 	Dialog: ({ children, open }: any) => (open ? <div data-testid="dialog">{children}</div> : null),
 	DialogContent: ({ children, className }: any) => (
 		<div data-testid="dialog-content" className={className}>
@@ -22,7 +22,7 @@ vi.mock('../shadcn/dialog', () => ({
 	DialogDescription: ({ children }: any) => <div data-testid="dialog-description">{children}</div>,
 }));
 
-vi.mock('../shadcn/card', () => ({
+vi.mock('../ui/card', () => ({
 	Card: ({ children, className }: any) => (
 		<div data-testid="card" className={className}>
 			{children}
@@ -35,7 +35,7 @@ vi.mock('../shadcn/card', () => ({
 	),
 }));
 
-vi.mock('../shadcn/badge', () => ({
+vi.mock('../ui/badge', () => ({
 	Badge: ({ children, variant, className }: any) => (
 		<span data-testid="badge" data-variant={variant} className={className}>
 			{children}
@@ -43,7 +43,7 @@ vi.mock('../shadcn/badge', () => ({
 	),
 }));
 
-vi.mock('../shadcn/button', () => ({
+vi.mock('../ui/button', () => ({
 	Button: ({ children, onClick, variant, size, className, disabled }: any) => (
 		<button
 			data-testid="button"
@@ -58,7 +58,7 @@ vi.mock('../shadcn/button', () => ({
 	),
 }));
 
-vi.mock('../shadcn/input', () => ({
+vi.mock('../ui/input', () => ({
 	Input: ({ id, value, onChange, disabled, className, type }: any) => (
 		<input
 			data-testid="input"
@@ -72,7 +72,7 @@ vi.mock('../shadcn/input', () => ({
 	),
 }));
 
-vi.mock('../shadcn/icon', () => ({
+vi.mock('../ui/icon', () => ({
 	Icon: ({ name, className, ...props }: any) => (
 		<span data-testid={props['data-testid'] ?? 'icon'} data-name={name} className={className}>
 			{name}
@@ -80,7 +80,7 @@ vi.mock('../shadcn/icon', () => ({
 	),
 }));
 
-vi.mock('../shadcn/tabs', () => ({
+vi.mock('../ui/tabs', () => ({
 	Tabs: ({ children, defaultValue, className }: any) => (
 		<div data-testid="tabs" data-default-value={defaultValue} className={className}>
 			{children}
@@ -103,7 +103,7 @@ vi.mock('../shadcn/tabs', () => ({
 	),
 }));
 
-vi.mock('../shadcn/scroll-area', () => ({
+vi.mock('../ui/scroll-area', () => ({
 	ScrollArea: ({ children, className }: any) => (
 		<div data-testid="scroll-area" className={className}>
 			{children}

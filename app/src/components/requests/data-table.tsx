@@ -21,17 +21,17 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
-} from '@/ui/components/shadcn/table';
+} from '@/components/ui/table';
 
-import { Button } from '@/ui/components/shadcn/button';
-import { Input } from '@/ui/components/shadcn/input';
-import { Icon } from '@/ui/components/shadcn/icon';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Icon } from '@/components/ui/icon';
 import {
 	DropdownMenu,
 	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
 	DropdownMenuTrigger,
-} from '@/ui/components/shadcn/dropdown-menu';
+} from '@/components/ui/dropdown-menu';
 
 interface DataTableProps<TData, TValue> {
 	columns: ColumnDef<TData, TValue>[];

@@ -2,8 +2,8 @@
 
 import { ColumnDef } from '@tanstack/react-table';
 import { ArrowUpDown, Edit, MoreHorizontal } from 'lucide-react';
-import { Button } from '@/ui/components/shadcn/button';
-import { Icon } from '@/ui/components/shadcn/icon';
+import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -11,9 +11,9 @@ import {
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
-} from '@/ui/components/shadcn/dropdown-menu';
+} from '@/components/ui/dropdown-menu';
 import { Rule, Matcher } from '@/types/rules';
-import { Badge } from '@/ui/components/shadcn/badge';
+import { Badge } from '@/components/ui/badge';
 
 // Função para obter uma descrição resumida dos matchers
 const getMatcherSummary = (matchers: Matcher[]): string => {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, within } from '@testing-library/react';
-import { AppSidebar } from '../AppSidebar';
+import { AppSidebar } from '../layout/AppSidebar';
 
 // Mock para o react-router-dom
 vi.mock('react-router-dom', () => ({
@@ -8,7 +8,7 @@ vi.mock('react-router-dom', () => ({
 }));
 
 // Mock para os componentes do shadcn-ui sidebar
-vi.mock('@/ui/components/shadcn/sidebar', () => ({
+vi.mock('@/components/ui/sidebar', () => ({
 	Sidebar: ({ children, className }: any) => (
 		<div data-testid="shadcn-sidebar" className={className}>
 			{children}
@@ -31,7 +31,7 @@ vi.mock('@/ui/components/shadcn/sidebar', () => ({
 }));
 
 // Mock para o componente NavMain
-vi.mock('../NavMain', () => ({
+vi.mock('../layout/NavMain', () => ({
 	NavMain: ({ items }: any) => (
 		<div data-testid="nav-main">
 			{items.map((item: any) => (
@@ -53,7 +53,7 @@ vi.mock('lucide-react', () => ({
 }));
 
 // Mock para os componentes Avatar
-vi.mock('@/ui/components/shadcn/avatar', () => ({
+vi.mock('@/components/ui/avatar', () => ({
 	Avatar: ({ children, className }: any) => (
 		<div data-testid="avatar" className={className}>
 			{children}
@@ -67,7 +67,7 @@ vi.mock('@/ui/components/shadcn/avatar', () => ({
 }));
 
 // Mock para os componentes DropdownMenu
-vi.mock('@/ui/components/shadcn/dropdown-menu', () => ({
+vi.mock('@/components/ui/dropdown-menu', () => ({
 	DropdownMenu: ({ children }: any) => <div data-testid="dropdown-menu">{children}</div>,
 	DropdownMenuTrigger: ({ children, asChild }: any) => (
 		<div data-testid="dropdown-menu-trigger" data-asChild={asChild}>

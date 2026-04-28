@@ -1,16 +1,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/ui/components/shadcn/button';
-import { Icon } from '@/ui/components/shadcn/icon';
-import { Separator } from '@/ui/components/shadcn/separator';
-import { SidebarTrigger } from '@/ui/components/shadcn/sidebar';
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from '@/ui/components/shadcn/tooltip';
-import { Badge } from '@/ui/components/shadcn/badge';
+import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
+import { Separator } from '@/components/ui/separator';
+import { SidebarTrigger } from '@/components/ui/sidebar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
 
 interface SiteHeaderProps {
 	targetTab: {

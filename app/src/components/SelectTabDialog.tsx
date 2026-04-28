@@ -1,15 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-	DialogDescription,
-} from './shadcn/dialog';
-import { Button } from './shadcn/button';
-import { Icon } from './shadcn/icon';
-import { ScrollArea } from './shadcn/scroll-area';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './shadcn/tooltip';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { Button } from './ui/button';
+import { Icon } from './ui/icon';
+import { ScrollArea } from './ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 
 interface Tab {
 	id?: number;

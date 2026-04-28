@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import {
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle,
-	CardDescription,
-} from '@/ui/components/shadcn/card';
-import { Button } from '@/ui/components/shadcn/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import RequestTable from '../components/RequestTable';
 import ResponseDialog from '../components/ResponseDialog';
 import { useAllRequests } from '../hooks/useAllRequests';
@@ -25,7 +19,7 @@ import {
 	AlertDialogFooter,
 	AlertDialogHeader,
 	AlertDialogTitle,
-} from '@/ui/components/shadcn/alert-dialog';
+} from '@/components/ui/alert-dialog';
 
 type HistoryView = 'all' | 'pending' | 'history' | 'mocked' | 'failed';
 

@@ -1,8 +1,8 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { ChevronsUpDown, LogOut, Settings, User } from 'lucide-react';
-import { Icon } from '@/ui/components/shadcn/icon';
-import { NavMain } from '@/ui/components/NavMain';
+import { Icon } from '@/components/ui/icon';
+import { NavMain } from '@/components/layout/NavMain';
 import {
 	Sidebar,
 	SidebarContent,
@@ -12,8 +12,8 @@ import {
 	SidebarMenuItem,
 	SidebarMenuButton,
 	useSidebar,
-} from '@/ui/components/shadcn/sidebar';
-import { Avatar, AvatarFallback } from '@/ui/components/shadcn/avatar';
+} from '@/components/ui/sidebar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -22,7 +22,7 @@ import {
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
-} from '@/ui/components/shadcn/dropdown-menu';
+} from '@/components/ui/dropdown-menu';
 
 // Dados de navegação
 const navItems = [

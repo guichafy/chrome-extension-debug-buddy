@@ -20,9 +20,9 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
-} from '@/ui/components/shadcn/table';
-import { Button } from '@/ui/components/shadcn/button';
-import { Input } from '@/ui/components/shadcn/input';
+} from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Rule } from '@/types/rules';
 
 interface DataTableProps<TData, TValue> {
