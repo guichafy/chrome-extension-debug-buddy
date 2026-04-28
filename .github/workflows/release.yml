@@ -3,6 +3,10 @@ name: Release
 on:
   push:
     branches: [main]
+  # Allow maintainers to trigger a release run manually from the Actions tab.
+  # Useful when GitHub silently skipped a push event (e.g. when this workflow
+  # file was first added) or to force semantic-release to re-evaluate.
+  workflow_dispatch:
 
 # Skip the release run if the push was made by semantic-release itself
 # (defense in depth on top of the [skip ci] token in its commit message).
