@@ -2,7 +2,7 @@
   "name": "Debug Buddy",
   "short_name": "DbgBuddy",
   "description": "Intercept and log network requests based on URL patterns. Modify responses and create mocks for web development.",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "manifest_version": 3,
   "icons": {
     "16": "images/icon_16px.png",
