@@ -11,9 +11,9 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        index: path.resolve(__dirname, 'index.html'),
-        background: path.resolve(__dirname, 'src/backend/background.ts'),
-        main: path.resolve(__dirname, 'src/ui/main.tsx'),
+        options: path.resolve(__dirname, 'options.html'),
+        background: path.resolve(__dirname, 'src/entrypoints/background.ts'),
+        main: path.resolve(__dirname, 'src/entrypoints/options/main.tsx'),
       },
       output: {
         entryFileNames: '[name].js',

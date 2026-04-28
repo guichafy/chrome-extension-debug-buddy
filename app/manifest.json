@@ -33,7 +33,7 @@
       "128": "images/icon_128px.png"
     }
   },
-  "options_page": "index.html",
+  "options_page": "options.html",
   "web_accessible_resources": [
     {
       "resources": ["styles.css", "images/*"],
