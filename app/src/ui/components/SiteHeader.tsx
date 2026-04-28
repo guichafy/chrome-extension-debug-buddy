@@ -56,8 +56,8 @@ export function SiteHeader({
 												isDebugging
 													? pendingResponsesCount > 0
 														? 'status-indicator-blinking'
-														: 'bg-green-500'
-													: 'bg-gray-400'
+														: 'bg-success'
+													: 'bg-muted-foreground/40'
 											}`}
 										/>
 										<h1 className="text-base font-medium">
