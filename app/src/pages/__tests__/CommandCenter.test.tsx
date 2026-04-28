@@ -71,7 +71,8 @@ describe('CommandCenter', () => {
 			</MemoryRouter>,
 		);
 
-		expect(screen.getByText(/Selecione uma requisição/)).toBeInTheDocument();
+		// inspector desmontado quando nenhuma request selecionada
+		expect(screen.queryByText(/Selecione uma requisição/)).toBeNull();
 
 		const row = screen.getByText('https://api.example.com/u');
 		fireEvent.click(row);
@@ -79,6 +80,18 @@ describe('CommandCenter', () => {
 		expect(screen.queryByText(/Selecione uma requisição/)).toBeNull();
 		expect(screen.getAllByText(/api.example.com/).length).toBeGreaterThan(0);
 		expect(document.querySelector('[role="dialog"]')).toBeNull();
+	});
+
+	test('tabela ocupa largura cheia quando nenhuma request está selecionada', () => {
+		render(
+			<MemoryRouter>
+				<CommandCenter />
+			</MemoryRouter>,
+		);
+
+		// inspector não montado → apenas 1 section (timeline)
+		const sections = document.querySelectorAll('section');
+		expect(sections.length).toBe(1);
 	});
 
 	test('alternar entre duas requests reflete o conteúdo correto no inspector', () => {

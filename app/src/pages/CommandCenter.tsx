@@ -8,6 +8,7 @@ import { useRequestSelection } from '@/hooks/useRequestSelection';
 import { RequestTimeline } from '@/components/command-center/RequestTimeline';
 import { RequestInspector } from '@/components/command-center/RequestInspector';
 import { QuickMockPanel } from '@/components/command-center/QuickMockPanel';
+import { cn } from '@/lib/utils';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -56,8 +57,13 @@ const CommandCenter: React.FC = () => {
 	};
 
 	return (
-		<div className="grid h-[calc(100vh-3.5rem)] min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(360px,38%)]">
-			<section className="min-h-0 overflow-auto p-4">
+		<div className="flex h-full min-h-0 flex-col lg:flex-row">
+			<section
+				className={cn(
+					'flex min-h-0 flex-col overflow-hidden p-4',
+					selectedId ? 'lg:w-[34%] lg:min-w-[320px] lg:flex-shrink-0' : 'flex-1',
+				)}
+			>
 				<RequestTimeline
 					requests={filteredRequests}
 					selectedId={selectedId}
@@ -71,28 +77,27 @@ const CommandCenter: React.FC = () => {
 				/>
 			</section>
 
-			<section className="min-h-0 overflow-hidden border-t lg:border-l lg:border-t-0">
-				<RequestInspector
-					request={
-						selected
-							? {
-									...selected,
-									generatedRuleId: recentRuleId ?? selected.generatedRuleId,
-								}
-							: null
-					}
-					requestId={selectedId}
-					onApprove={approveResponse}
-					onIgnore={ignoreResponse}
-					onCreateMock={handleCreateMock}
-					onOpenInRulesLab={(ruleId) => navigate(`/rules-lab?rule=${ruleId}`)}
-					onReplay={() => {
-						/* Tratado dentro da aba Replay do inspector — Phase 5 */
-					}}
-					onClose={clear}
-					rules={rules}
-				/>
-			</section>
+			{selectedId && (
+				<section className="flex min-h-0 flex-1 flex-col overflow-hidden border-t lg:border-l lg:border-t-0">
+					<RequestInspector
+						request={
+							selected
+								? {
+										...selected,
+										generatedRuleId: recentRuleId ?? selected.generatedRuleId,
+									}
+								: null
+						}
+						requestId={selectedId}
+						onApprove={approveResponse}
+						onIgnore={ignoreResponse}
+						onCreateMock={handleCreateMock}
+						onOpenInRulesLab={(ruleId) => navigate(`/rules-lab?rule=${ruleId}`)}
+						onClose={clear}
+						rules={rules}
+					/>
+				</section>
+			)}
 
 			{quickMockOpen && selected && selectedId && (
 				<QuickMockPanel
