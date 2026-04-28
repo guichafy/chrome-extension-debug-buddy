@@ -61,7 +61,7 @@ const CommandCenter: React.FC = () => {
 			<section
 				className={cn(
 					'flex min-h-0 flex-col overflow-hidden p-4',
-					selectedId ? 'lg:w-[34%] lg:min-w-[320px] lg:flex-shrink-0' : 'flex-1',
+					selectedId ? 'lg:w-[28%] lg:min-w-[320px] lg:flex-shrink-0' : 'flex-1',
 				)}
 			>
 				<RequestTimeline
@@ -78,7 +78,7 @@ const CommandCenter: React.FC = () => {
 			</section>
 
 			{selectedId && (
-				<section className="flex min-h-0 flex-1 flex-col overflow-hidden border-t lg:border-l lg:border-t-0">
+				<section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-t lg:border-l lg:border-t-0">
 					<RequestInspector
 						request={
 							selected

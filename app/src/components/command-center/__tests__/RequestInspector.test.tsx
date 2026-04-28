@@ -125,7 +125,10 @@ describe('RequestInspector', () => {
 		);
 		await selectTab('Response');
 		expect(screen.getByText('content-type')).toBeInTheDocument();
-		expect(screen.getByText('{"id":42}')).toBeInTheDocument();
+		// JSON é pretty-printed pelo BodyViewer — checa partes do conteúdo no <pre>
+		const pre = document.querySelector('pre');
+		expect(pre?.textContent).toContain('"id"');
+		expect(pre?.textContent).toContain('42');
 	});
 
 	test('aba Response mostra comparação quando há regra mock ativa', async () => {

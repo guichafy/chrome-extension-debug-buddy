@@ -8,6 +8,7 @@ import type { InterceptedResponse, ResponseModifications } from '@/types/interce
 import type { Rule } from '@/types/rules';
 import { formatDuration } from '@/components/requests/duration';
 import { buildReplayView } from '@/lib/replayHistory';
+import { BodyViewer } from './BodyViewer';
 
 interface RequestInspectorProps {
 	request: InterceptedResponse | null;
@@ -57,7 +58,7 @@ export function RequestInspector({
 	};
 
 	return (
-		<aside className="flex h-full min-h-0 flex-col border-l bg-background">
+		<aside className="flex h-full min-h-0 min-w-0 w-full flex-col border-l bg-background">
 			<header
 				className="grid items-center gap-2 border-b px-4 py-3"
 				style={{ gridTemplateColumns: 'auto minmax(0, 1fr) auto auto auto' }}
@@ -173,15 +174,7 @@ export function RequestInspector({
 						</div>
 						<div>
 							<h3 className="mb-1 text-sm font-medium">Body</h3>
-							{request.request?.postData ? (
-								<pre className="max-h-72 overflow-auto rounded-md border bg-muted/30 p-3 font-mono text-xs">
-									{request.request.postData}
-								</pre>
-							) : (
-								<div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
-									Sem request body.
-								</div>
-							)}
+							<BodyViewer body={request.request?.postData} label="Body" expandedHeight={false} />
 						</div>
 					</TabsContent>
 
@@ -195,15 +188,13 @@ export function RequestInspector({
 						</div>
 						<div>
 							<h3 className="mb-1 text-sm font-medium">Body</h3>
-							{responseBody === undefined ? (
-								<div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
-									{request.bodyUnavailableReason ?? 'Corpo da resposta indisponível.'}
-								</div>
-							) : (
-								<pre className="max-h-[420px] overflow-auto rounded-md border bg-muted/20 p-3 font-mono text-xs">
-									{responseBody}
-								</pre>
-							)}
+							<BodyViewer
+								body={responseBody}
+								mimeType={request.mimeType}
+								bodyUnavailableReason={request.bodyUnavailableReason}
+								label="Body"
+								expandedHeight
+							/>
 						</div>
 
 						{/* comparação inline com mock atual */}
@@ -242,6 +233,13 @@ function HeaderTable({
 	);
 }
 
+function mockMimeType(headers: Record<string, string> | undefined): string | undefined {
+	if (!headers) return undefined;
+	const key = Object.keys(headers).find((k) => k.toLowerCase() === 'content-type');
+	if (!key) return undefined;
+	return headers[key]?.split(';')[0]?.trim();
+}
+
 function MockComparison({
 	request,
 	rules,
@@ -264,12 +262,11 @@ function MockComparison({
 				{view.currentMock.status} {view.currentMock.statusPhrase ?? ''}
 			</div>
 			{view.currentMock.body !== undefined && (
-				<div>
-					<span className="font-medium">Body mock:</span>
-					<pre className="mt-1 max-h-60 overflow-auto rounded border bg-background p-2 font-mono text-xs">
-						{view.currentMock.body}
-					</pre>
-				</div>
+				<BodyViewer
+					body={view.currentMock.body}
+					mimeType={mockMimeType(view.currentMock.headers)}
+					label="Body mock"
+				/>
 			)}
 			<p className="text-muted-foreground">
 				A resposta acima (capturada) é o que veio do servidor antes da regra. O bloco azul mostra o
