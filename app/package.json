@@ -94,6 +94,6 @@
     "vite": "^6.3.4",
     "vite-plugin-static-copy": "^2.3.1",
     "vitest": "^1.6.1",
-    "web-ext": "^8.10.0"
+    "web-ext": "^10.1.0"
   }
 }
