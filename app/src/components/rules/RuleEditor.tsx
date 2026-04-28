@@ -55,19 +55,57 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 	const [activeTab, setActiveTab] = useState<'match' | 'then'>('match');
 	const [isSaving, setIsSaving] = useState(false);
 
-	// Workaround para bug conhecido do Radix UI:
-	// quando um <Select> (usado em MatcherEditor/ActionEditor) é aberto dentro
-	// deste <Dialog> e o Dialog fecha antes do Select limpar seus estilos,
-	// `pointer-events: none` permanece no <body>, deixando a página inerte
-	// até reload. Restauramos manualmente quando o dialog fecha.
+	// Workaround para bug conhecido do Radix UI Dialog (v1.1.x):
+	// o Radix usa `react-remove-scroll` para travar o body, aplicando
+	// `pointer-events: none` no <body>. Em casos com Selects aninhados
+	// (MatcherEditor/ActionEditor) ou quando o Dialog é controlado
+	// externamente, o cleanup do scroll lock não roda corretamente —
+	// a página inteira fica inerte até reload.
 	// Ref: https://github.com/radix-ui/primitives/issues/1241
-	useEffect(() => {
-		if (!open) {
-			const timer = setTimeout(() => {
-				document.body.style.pointerEvents = '';
-			}, 0);
-			return () => clearTimeout(timer);
+	//
+	// Fix em 3 camadas:
+	//  1. onCloseAutoFocus no DialogContent: limpa imediatamente quando
+	//     o Radix dispara o foco de retorno (post-animação).
+	//  2. handleOpenChange wrapper: agenda múltiplos resets em timings
+	//     diferentes para sobreviver à animação de 200ms do Radix.
+	//  3. useEffect de fallback: garante limpeza ao desmontar.
+	const restoreBodyPointerEvents = () => {
+		document.body.style.pointerEvents = '';
+	};
+
+	const handleOpenChange = (newOpen: boolean) => {
+		onOpenChange(newOpen);
+		if (!newOpen) {
+			// Agendar múltiplos resets para sobreviver à cleanup tardia do Radix
+			// (animação de fade+zoom dura ~200ms; scroll lock cleanup ~300ms).
+			restoreBodyPointerEvents();
+			requestAnimationFrame(restoreBodyPointerEvents);
+			setTimeout(restoreBodyPointerEvents, 50);
+			setTimeout(restoreBodyPointerEvents, 200);
+			setTimeout(restoreBodyPointerEvents, 500);
 		}
+	};
+
+	useEffect(() => {
+		// Fallback: se o parent fechar o dialog externamente (sem passar por
+		// handleOpenChange), ainda restaurar pointer-events. Múltiplos timings
+		// para sobreviver à animação do Radix.
+		const reset = () => {
+			document.body.style.pointerEvents = '';
+		};
+		if (!open) {
+			reset();
+			const t1 = setTimeout(reset, 50);
+			const t2 = setTimeout(reset, 200);
+			const t3 = setTimeout(reset, 500);
+			return () => {
+				clearTimeout(t1);
+				clearTimeout(t2);
+				clearTimeout(t3);
+			};
+		}
+		// Cleanup ao desmontar enquanto open: também restaurar.
+		return reset;
 	}, [open]);
 
 	// Atualizar o estado quando a regra mudar
@@ -164,7 +202,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 			const success = await onSave(updatedRule);
 
 			if (success) {
-				onOpenChange(false);
+				handleOpenChange(false);
 			}
 		} finally {
 			setIsSaving(false);
@@ -172,8 +210,16 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 	};
 
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-2xl md:max-w-4xl max-h-[90vh] flex flex-col">
+		<Dialog open={open} onOpenChange={handleOpenChange}>
+			<DialogContent
+				className="sm:max-w-2xl md:max-w-4xl max-h-[90vh] flex flex-col"
+				onCloseAutoFocus={(e) => {
+					// Prevenir comportamento default que pode deixar o scroll lock pendurado;
+					// limpar imediatamente é mais confiável.
+					e.preventDefault();
+					restoreBodyPointerEvents();
+				}}
+			>
 				<DialogHeader>
 					<DialogTitle>{mode === 'create' ? 'Adicionar Nova Regra' : 'Editar Regra'}</DialogTitle>
 					<DialogDescription>
@@ -289,7 +335,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 					<Button
 						type="button"
 						variant="outline"
-						onClick={() => onOpenChange(false)}
+						onClick={() => handleOpenChange(false)}
 						disabled={isSaving}
 					>
 						Cancelar
