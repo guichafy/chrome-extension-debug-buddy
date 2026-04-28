@@ -122,7 +122,7 @@ if (process.env.NODE_ENV !== 'production') {
 chrome.action.onClicked.addListener(() => {
 	chrome.tabs.create(
 		{
-			url: chrome.runtime.getURL('index.html'),
+			url: chrome.runtime.getURL('options.html'),
 		},
 		(tab) => {
 			// Guardar o ID da aba do interceptor
