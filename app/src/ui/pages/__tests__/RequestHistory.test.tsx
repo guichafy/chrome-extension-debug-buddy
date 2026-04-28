@@ -21,7 +21,7 @@ vi.mock('@/backend/services/indexedDB', () => ({
 // Simplified RequestTable mock with search input
 vi.mock('../../components/RequestTable', () => ({
 	__esModule: true,
-	default: ({ searchValue, onSearchChange }) => (
+	default: ({ searchValue, onSearchChange }: any) => (
 		<div data-testid="request-table">
 			<input
 				data-testid="search-input"

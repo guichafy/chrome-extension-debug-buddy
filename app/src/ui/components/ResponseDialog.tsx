@@ -181,7 +181,7 @@ const ResponseDialog: React.FC<ResponseDialogProps> = ({
 				'image/svg+xml',
 			];
 			const isImage = response.mimeType && supportedImageTypes.includes(response.mimeType);
-			setIsImageResponse(isImage);
+			setIsImageResponse(Boolean(isImage));
 
 			// Se for uma imagem, preparar os dados para exibição
 			if (isImage && response.body) {

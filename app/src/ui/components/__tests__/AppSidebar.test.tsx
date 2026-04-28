@@ -4,37 +4,37 @@ import { AppSidebar } from '../AppSidebar';
 
 // Mock para o react-router-dom
 vi.mock('react-router-dom', () => ({
-	NavLink: ({ children }) => <a href="#">{children}</a>,
+	NavLink: ({ children }: any) => <a href="#">{children}</a>,
 }));
 
 // Mock para os componentes do shadcn-ui sidebar
 vi.mock('@/ui/components/shadcn/sidebar', () => ({
-	Sidebar: ({ children, className }) => (
+	Sidebar: ({ children, className }: any) => (
 		<div data-testid="shadcn-sidebar" className={className}>
 			{children}
 		</div>
 	),
-	SidebarContent: ({ children }) => <div data-testid="sidebar-content">{children}</div>,
-	SidebarHeader: ({ children }) => <div data-testid="sidebar-header">{children}</div>,
-	SidebarFooter: ({ children }) => <div data-testid="sidebar-footer">{children}</div>,
-	SidebarMenu: ({ children }) => <div data-testid="sidebar-menu">{children}</div>,
-	SidebarMenuItem: ({ children }) => <div data-testid="sidebar-menu-item">{children}</div>,
-	SidebarMenuButton: ({ children, asChild, className, size }) => (
+	SidebarContent: ({ children }: any) => <div data-testid="sidebar-content">{children}</div>,
+	SidebarHeader: ({ children }: any) => <div data-testid="sidebar-header">{children}</div>,
+	SidebarFooter: ({ children }: any) => <div data-testid="sidebar-footer">{children}</div>,
+	SidebarMenu: ({ children }: any) => <div data-testid="sidebar-menu">{children}</div>,
+	SidebarMenuItem: ({ children }: any) => <div data-testid="sidebar-menu-item">{children}</div>,
+	SidebarMenuButton: ({ children, asChild, className, size }: any) => (
 		<div data-testid="sidebar-menu-button" className={className} data-size={size}>
 			{children}
 		</div>
 	),
-	SidebarMenuBadge: ({ children }) => <div data-testid="sidebar-menu-badge">{children}</div>,
-	SidebarProvider: ({ children }) => <div data-testid="sidebar-provider">{children}</div>,
+	SidebarMenuBadge: ({ children }: any) => <div data-testid="sidebar-menu-badge">{children}</div>,
+	SidebarProvider: ({ children }: any) => <div data-testid="sidebar-provider">{children}</div>,
 	SidebarTrigger: () => <button data-testid="sidebar-trigger">Toggle</button>,
 	useSidebar: () => ({ isMobile: false }),
 }));
 
 // Mock para o componente NavMain
 vi.mock('../NavMain', () => ({
-	NavMain: ({ items }) => (
+	NavMain: ({ items }: any) => (
 		<div data-testid="nav-main">
-			{items.map((item) => (
+			{items.map((item: any) => (
 				<div key={item.path} data-testid="nav-item">
 					{item.title}
 					{item.count > 0 && <span data-testid="nav-item-count">{item.count}</span>}
@@ -54,12 +54,12 @@ vi.mock('lucide-react', () => ({
 
 // Mock para os componentes Avatar
 vi.mock('@/ui/components/shadcn/avatar', () => ({
-	Avatar: ({ children, className }) => (
+	Avatar: ({ children, className }: any) => (
 		<div data-testid="avatar" className={className}>
 			{children}
 		</div>
 	),
-	AvatarFallback: ({ children, className }) => (
+	AvatarFallback: ({ children, className }: any) => (
 		<div data-testid="avatar-fallback" className={className}>
 			{children}
 		</div>
@@ -68,13 +68,13 @@ vi.mock('@/ui/components/shadcn/avatar', () => ({
 
 // Mock para os componentes DropdownMenu
 vi.mock('@/ui/components/shadcn/dropdown-menu', () => ({
-	DropdownMenu: ({ children }) => <div data-testid="dropdown-menu">{children}</div>,
-	DropdownMenuTrigger: ({ children, asChild }) => (
+	DropdownMenu: ({ children }: any) => <div data-testid="dropdown-menu">{children}</div>,
+	DropdownMenuTrigger: ({ children, asChild }: any) => (
 		<div data-testid="dropdown-menu-trigger" data-asChild={asChild}>
 			{children}
 		</div>
 	),
-	DropdownMenuContent: ({ children, className, side, align, sideOffset }) => (
+	DropdownMenuContent: ({ children, className, side, align, sideOffset }: any) => (
 		<div
 			data-testid="dropdown-menu-content"
 			className={className}
@@ -85,13 +85,13 @@ vi.mock('@/ui/components/shadcn/dropdown-menu', () => ({
 			{children}
 		</div>
 	),
-	DropdownMenuLabel: ({ children, className }) => (
+	DropdownMenuLabel: ({ children, className }: any) => (
 		<div data-testid="dropdown-menu-label" className={className}>
 			{children}
 		</div>
 	),
-	DropdownMenuGroup: ({ children }) => <div data-testid="dropdown-menu-group">{children}</div>,
-	DropdownMenuItem: ({ children }) => <div data-testid="dropdown-menu-item">{children}</div>,
+	DropdownMenuGroup: ({ children }: any) => <div data-testid="dropdown-menu-group">{children}</div>,
+	DropdownMenuItem: ({ children }: any) => <div data-testid="dropdown-menu-item">{children}</div>,
 	DropdownMenuSeparator: () => <div data-testid="dropdown-menu-separator" />,
 }));
 
