@@ -10,7 +10,6 @@ import {
 	SidebarMenu,
 	SidebarMenuItem,
 	SidebarMenuButton,
-	useSidebar,
 } from '@/components/ui/sidebar';
 
 // Dados de navegação
@@ -25,8 +24,6 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 }
 
 export function AppSidebar({ pendingResponsesCount, mocksCount, ...props }: AppSidebarProps) {
-	const { isMobile: _isMobile } = useSidebar();
-
 	return (
 		<Sidebar collapsible="offcanvas" {...props}>
 			<SidebarHeader>
