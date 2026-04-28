@@ -1,7 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { ChevronsUpDown, LogOut, Settings, User } from 'lucide-react';
-import { Icon } from '@/components/ui/icon';
+import type { LucideIconName } from '@/components/ui/lucide-icon';
 import { NavMain } from '@/components/layout/NavMain';
 import {
 	Sidebar,
@@ -13,30 +12,11 @@ import {
 	SidebarMenuButton,
 	useSidebar,
 } from '@/components/ui/sidebar';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuGroup,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
 // Dados de navegação
-const navItems = [
-	{
-		title: 'Histórico',
-		path: '/request-history',
-		icon: 'history',
-		count: 0,
-	},
-	{
-		title: 'Configurações',
-		path: '/',
-		icon: 'settings',
-	},
+const navItems: Array<{ title: string; path: string; icon: LucideIconName; count: number }> = [
+	{ title: 'Command Center', path: '/command-center', icon: 'layout', count: 0 },
+	{ title: 'Rules Lab', path: '/rules-lab', icon: 'flask', count: 0 },
 ];
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
@@ -45,18 +25,7 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 }
 
 export function AppSidebar({ pendingResponsesCount, mocksCount, ...props }: AppSidebarProps) {
-	const { isMobile } = useSidebar();
-
-	// Atualizar contadores
-	const items = React.useMemo(() => {
-		return navItems.map((item) => {
-			// Não mostrar contador para requisições no sidebar, pois já está no header
-			if (item.path === '/requests') {
-				return { ...item, count: 0 };
-			}
-			return item;
-		});
-	}, []);
+	const { isMobile: _isMobile } = useSidebar();
 
 	return (
 		<Sidebar collapsible="offcanvas" {...props}>
@@ -73,63 +42,10 @@ export function AppSidebar({ pendingResponsesCount, mocksCount, ...props }: AppS
 				</SidebarMenu>
 			</SidebarHeader>
 			<SidebarContent>
-				<NavMain items={items} />
+				<NavMain items={navItems} />
 			</SidebarContent>
 			<SidebarFooter>
 				<SidebarMenu>
-					{/* <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton
-                  size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                >
-                  <Avatar className="h-8 w-8 rounded-lg">
-                    <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
-                      <User className="h-4 w-4" />
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">Usuário</span>
-                    <span className="truncate text-xs text-muted-foreground">Desenvolvedor</span>
-                  </div>
-                  <ChevronsUpDown className="ml-auto size-4" />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-                side={isMobile ? "bottom" : "right"}
-                align="end"
-                sideOffset={4}
-              >
-                <DropdownMenuLabel className="p-0 font-normal">
-                  <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                    <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
-                        <User className="h-4 w-4" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-semibold">Usuário</span>
-                      <span className="truncate text-xs text-muted-foreground">Desenvolvedor</span>
-                    </div>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <DropdownMenuItem>
-                    <Settings className="mr-2 h-4 w-4" />
-                    Configurações
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sair
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem> */}
 					<SidebarMenuItem>
 						<div className="flex flex-col items-start px-3 py-2">
 							<span className="text-xs text-muted-foreground">Desenvolvido por</span>

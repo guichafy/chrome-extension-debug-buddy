@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Icon } from '@/components/ui/icon';
+import type { LucideIconName } from '@/components/ui/lucide-icon';
+import { LucideIcon } from '@/components/ui/lucide-icon';
 import { cn } from '@/lib/utils';
 import {
 	SidebarMenu,
@@ -12,7 +13,7 @@ import {
 interface NavItem {
 	title: string;
 	path: string;
-	icon: string;
+	icon: LucideIconName;
 	count?: number;
 }
 
@@ -40,7 +41,7 @@ export function NavMain({ items, className }: NavMainProps) {
 									}
 									end={item.path === '/'}
 								>
-									<Icon name={item.icon} className="mr-2" />
+									<LucideIcon name={item.icon} className="mr-2 h-4 w-4" />
 									<span>{item.title}</span>
 									{item.count !== undefined && item.count > 0 && (
 										<SidebarMenuBadge>{item.count}</SidebarMenuBadge>
