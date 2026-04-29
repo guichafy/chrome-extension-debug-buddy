@@ -145,9 +145,11 @@ export const SelectTabDialog: React.FC<SelectTabDialogProps> = ({
 				<div className="flex flex-col gap-3 border-y border-border bg-muted/30 px-6 py-4">
 					<div className="flex items-center gap-3">
 						<TabSearchBar value={query} onChange={setQuery} inputRef={inputRef} />
-						<span className="whitespace-nowrap text-xs text-muted-foreground">
-							{allTabs.length} {allTabs.length === 1 ? 'aba' : 'abas'}
-						</span>
+						{state === 'ready' && (
+							<span className="whitespace-nowrap text-xs text-muted-foreground">
+								{allTabs.length} {allTabs.length === 1 ? 'aba' : 'abas'}
+							</span>
+						)}
 					</div>
 					{state === 'ready' && allTabs.length > 0 && (
 						<DomainChipFilter
