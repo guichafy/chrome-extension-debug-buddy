@@ -25,6 +25,7 @@ jobs:
     name: Cut release
     runs-on: ubuntu-latest
     if: github.actor != 'github-actions[bot]' && !contains(github.event.head_commit.message, '[skip ci]')
+    environment: ChromeStore
     defaults:
       run:
         working-directory: app
@@ -46,6 +47,7 @@ jobs:
       - name: Lint extension shape
         run: npm run lint:ext
       - name: Run semantic-release
+        id: release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GIT_AUTHOR_NAME: github-actions[bot]
@@ -59,3 +61,29 @@ jobs:
           # message config; HUSKY=0 is defense in depth.
           HUSKY: '0'
         run: npx semantic-release
+
+      # Republica o build após o semantic-release atualizar manifest.json
+      # para que o ZIP enviado à CWS contenha exatamente a versão recém-cortada.
+      - name: Rebuild com a nova versão
+        if: steps.release.outputs.new_version_published == 'true'
+        run: npm run build
+
+      - name: Publish to Chrome Web Store (rascunho)
+        if: steps.release.outputs.new_version_published == 'true' && steps.release.outputs.release_channel == 'stable'
+        env:
+          CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+        run: npm run publish:cws
+
+      - name: Abrir issue se o upload na CWS falhar
+        if: failure() && steps.release.outputs.new_version_published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: v${{ steps.release.outputs.new_version }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue create \
+            --title "CWS publish falhou para ${TAG}" \
+            --body "O step *Publish to Chrome Web Store* falhou para a release [\`${TAG}\`](${RUN_URL}). A GitHub Release foi criada mas a extensão NÃO foi enviada ao Chrome Web Store. Investigue os logs do run e re-execute manualmente via Actions → Publish to Chrome Web Store → Run workflow."

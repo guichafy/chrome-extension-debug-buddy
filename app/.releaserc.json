@@ -60,7 +60,8 @@
 		[
 			"@semantic-release/exec",
 			{
-				"prepareCmd": "node scripts/sync-manifest-version.mjs ${nextRelease.version}"
+				"prepareCmd": "node scripts/sync-manifest-version.mjs ${nextRelease.version}",
+				"publishCmd": "node scripts/notify-release-published.mjs ${nextRelease.version} ${nextRelease.channel || 'stable'}"
 			}
 		],
 		[

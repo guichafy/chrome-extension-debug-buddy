@@ -1,14 +1,14 @@
 name: Publish to Chrome Web Store
 
+# Re-publish manual da extensão. O publish automático em cada release
+# acontece dentro de `release.yml` (chained após semantic-release) — esse
+# desenho contorna a regra do GitHub que impede `release.published` de
+# disparar workflows quando a release foi criada com o GITHUB_TOKEN.
+#
+# Use este workflow para:
+#   - Retry quando o step de publish do release.yml falhou.
+#   - Ramp-up: subir o rascunho que já está na CWS para "publicar a todos".
 on:
-  # Dispara automaticamente quando o workflow Release publica uma nova
-  # GitHub Release (semantic-release cria a tag vX.Y.Z e a Release).
-  # Pre-releases são ignoradas (a CWS não aceita versões com sufixo
-  # como 1.0.0-rc.1 e o validate-extension.mjs rejeitaria o upload).
-  # O upload sai como rascunho — submissão para revisão é manual no
-  # Chrome Web Store Developer Dashboard.
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       publish:
@@ -23,8 +23,6 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    # workflow_dispatch sempre roda; release events só rodam para versões estáveis.
-    if: github.event_name == 'workflow_dispatch' || github.event.release.prerelease != true
     environment: ChromeStore
     defaults:
       run:
@@ -50,18 +48,8 @@ jobs:
           CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
           CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.publish }}" = "true" ]; then
+          if [ "${{ inputs.publish }}" = "true" ]; then
             npm run publish:cws -- --publish
           else
             npm run publish:cws
           fi
-      - name: Abrir issue se o upload falhar (somente em release events)
-        if: failure() && github.event_name == 'release'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.event.release.tag_name }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          gh issue create \
-            --title "CWS publish falhou para ${TAG}" \
-            --body "O workflow *Publish to Chrome Web Store* falhou para a release [\`${TAG}\`](${RUN_URL}). A GitHub Release foi criada mas a extensão NÃO foi enviada ao Chrome Web Store. Investigue os logs do run e re-execute manualmente via Actions → Publish to Chrome Web Store → Run workflow."
