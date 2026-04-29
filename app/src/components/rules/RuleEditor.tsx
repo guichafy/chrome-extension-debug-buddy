@@ -1,30 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
 	Dialog,
 	DialogContent,
-	DialogHeader,
-	DialogTitle,
 	DialogDescription,
 	DialogFooter,
+	DialogHeader,
+	DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { LucideIcon } from '@/components/ui/lucide-icon';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-	Rule,
-	Matcher,
-	Action,
-	UrlMatcher,
-	MethodMatcher,
-	HeaderMatcher,
-	MockAction,
-} from '@/types/rules';
-import { MatcherEditor } from './MatcherEditor';
+import { LucideIcon } from '@/components/ui/lucide-icon';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { createPresetRule } from '@/domain/rulePresets';
+import { Action, Matcher, Rule, RulePresetId } from '@/types/rules';
 import { ActionEditor } from './ActionEditor';
+import { MatcherEditor } from './MatcherEditor';
+import { PresetWelcome } from './PresetWelcome';
 
 interface RuleEditorProps {
 	open: boolean;
@@ -34,41 +28,30 @@ interface RuleEditorProps {
 	onSave: (rule: Omit<Rule, 'id' | 'createdAt' | 'updatedAt'>) => Promise<boolean>;
 }
 
+type EditorView = 'welcome' | 'editor';
+
+const DEFAULT_MATCHERS: Matcher[] = [
+	{ type: 'url', enabled: true, pattern: '', isRegex: false },
+	{ type: 'method', enabled: true, method: 'ANY' },
+];
+
+const DEFAULT_ACTION: Action = {
+	type: 'mock',
+	enabled: true,
+	status: 200,
+	headers: {},
+};
+
 const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange, onSave }) => {
-	// Estado para a regra sendo editada
+	const [view, setView] = useState<EditorView>(mode === 'edit' ? 'editor' : 'welcome');
+	const [cameFromWelcome, setCameFromWelcome] = useState(false);
 	const [name, setName] = useState(rule?.name || 'Nova Regra');
-	const [matchers, setMatchers] = useState<Matcher[]>(
-		rule?.matchers || [
-			{ type: 'url', enabled: true, pattern: '', isRegex: false },
-			{ type: 'method', enabled: true, method: 'ANY' },
-		],
-	);
-	const [action, setAction] = useState<Action>(
-		rule?.action || {
-			type: 'mock',
-			enabled: true,
-			status: 200,
-			headers: {},
-		},
-	);
+	const [matchers, setMatchers] = useState<Matcher[]>(rule?.matchers ?? DEFAULT_MATCHERS);
+	const [action, setAction] = useState<Action>(rule?.action ?? DEFAULT_ACTION);
 	const [enabled, setEnabled] = useState(rule?.enabled !== false);
 	const [activeTab, setActiveTab] = useState<'match' | 'then'>('match');
 	const [isSaving, setIsSaving] = useState(false);
 
-	// Workaround para bug conhecido do Radix UI Dialog (v1.1.x):
-	// o Radix usa `react-remove-scroll` para travar o body, aplicando
-	// `pointer-events: none` no <body>. Em casos com Selects aninhados
-	// (MatcherEditor/ActionEditor) ou quando o Dialog é controlado
-	// externamente, o cleanup do scroll lock não roda corretamente —
-	// a página inteira fica inerte até reload.
-	// Ref: https://github.com/radix-ui/primitives/issues/1241
-	//
-	// Fix em 3 camadas:
-	//  1. onCloseAutoFocus no DialogContent: limpa imediatamente quando
-	//     o Radix dispara o foco de retorno (post-animação).
-	//  2. handleOpenChange wrapper: agenda múltiplos resets em timings
-	//     diferentes para sobreviver à animação de 200ms do Radix.
-	//  3. useEffect de fallback: garante limpeza ao desmontar.
 	const restoreBodyPointerEvents = () => {
 		document.body.style.pointerEvents = '';
 	};
@@ -76,8 +59,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 	const handleOpenChange = (newOpen: boolean) => {
 		onOpenChange(newOpen);
 		if (!newOpen) {
-			// Agendar múltiplos resets para sobreviver à cleanup tardia do Radix
-			// (animação de fade+zoom dura ~200ms; scroll lock cleanup ~300ms).
 			restoreBodyPointerEvents();
 			requestAnimationFrame(restoreBodyPointerEvents);
 			setTimeout(restoreBodyPointerEvents, 50);
@@ -87,9 +68,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 	};
 
 	useEffect(() => {
-		// Fallback: se o parent fechar o dialog externamente (sem passar por
-		// handleOpenChange), ainda restaurar pointer-events. Múltiplos timings
-		// para sobreviver à animação do Radix.
 		const reset = () => {
 			document.body.style.pointerEvents = '';
 		};
@@ -104,38 +82,62 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 				clearTimeout(t3);
 			};
 		}
-		// Cleanup ao desmontar enquanto open: também restaurar.
 		return reset;
 	}, [open]);
 
-	// Atualizar o estado quando a regra mudar
 	useEffect(() => {
-		if (rule) {
+		if (!open) return;
+		if (mode === 'edit' && rule) {
 			setName(rule.name);
 			setMatchers(rule.matchers);
 			setAction(rule.action);
 			setEnabled(rule.enabled);
-		} else {
-			// Valores padrão para uma nova regra
-			setName('Nova Regra');
-			setMatchers([
-				{ type: 'url', enabled: true, pattern: '', isRegex: false },
-				{ type: 'method', enabled: true, method: 'ANY' },
-			]);
-			setAction({
-				type: 'mock',
-				enabled: true,
-				status: 200,
-				headers: {},
-			});
-			setEnabled(true);
+			setView('editor');
+			setCameFromWelcome(false);
+			setActiveTab('match');
+			return;
 		}
-	}, [rule]);
+		if (mode === 'create') {
+			setName('Nova Regra');
+			setMatchers(DEFAULT_MATCHERS);
+			setAction(DEFAULT_ACTION);
+			setEnabled(true);
+			setView('welcome');
+			setCameFromWelcome(false);
+			setActiveTab('match');
+		}
+	}, [open, mode, rule]);
 
-	// Adicionar um novo matcher
+	const applyPresetDraft = (presetId: RulePresetId) => {
+		const draft = createPresetRule(presetId);
+		const matchersForEditing = draft.matchers.map((m) =>
+			m.type === 'url' ? { ...m, enabled: true } : m,
+		);
+		setName(draft.name);
+		setMatchers(matchersForEditing);
+		setAction(draft.action);
+		setEnabled(draft.enabled);
+		setActiveTab('match');
+		setCameFromWelcome(true);
+		setView('editor');
+	};
+
+	const startBlank = () => {
+		setName('Nova Regra');
+		setMatchers(DEFAULT_MATCHERS);
+		setAction(DEFAULT_ACTION);
+		setEnabled(true);
+		setActiveTab('match');
+		setCameFromWelcome(true);
+		setView('editor');
+	};
+
+	const goBackToWelcome = () => {
+		setView('welcome');
+	};
+
 	const addMatcher = (type: Matcher['type']) => {
 		let newMatcher: Matcher;
-
 		switch (type) {
 			case 'url':
 				newMatcher = { type: 'url', enabled: true, pattern: '', isRegex: false };
@@ -144,7 +146,13 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 				newMatcher = { type: 'method', enabled: true, method: 'ANY' };
 				break;
 			case 'header':
-				newMatcher = { type: 'header', enabled: true, name: '', value: '', headerType: 'request' };
+				newMatcher = {
+					type: 'header',
+					enabled: true,
+					name: '',
+					value: '',
+					headerType: 'request',
+				};
 				break;
 			case 'body':
 				newMatcher = { type: 'body', enabled: true, pattern: '', isRegex: false };
@@ -152,55 +160,45 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 			default:
 				return;
 		}
-
 		setMatchers([...matchers, newMatcher]);
 	};
 
-	// Remover um matcher
 	const removeMatcher = (index: number) => {
 		const newMatchers = [...matchers];
 		newMatchers.splice(index, 1);
 		setMatchers(newMatchers);
 	};
 
-	// Atualizar um matcher
 	const updateMatcher = (index: number, updatedMatcher: Matcher) => {
 		const newMatchers = [...matchers];
 		newMatchers[index] = updatedMatcher;
 		setMatchers(newMatchers);
 	};
 
-	// Atualizar a ação
-	const updateAction = (updatedAction: Action) => {
-		setAction(updatedAction);
-	};
-
-	// Salvar a regra
 	const handleSave = async () => {
 		if (!name.trim()) {
 			alert('Por favor, insira um nome para a regra');
 			return;
 		}
 
-		// Verificar se há pelo menos um matcher de URL
-		const hasUrlMatcher = matchers.some((m) => m.type === 'url');
-		if (!hasUrlMatcher) {
-			alert('A regra deve ter pelo menos um matcher de URL');
+		const enabledUrlMatcher = matchers.find((m) => m.type === 'url' && m.enabled);
+		if (!enabledUrlMatcher) {
+			alert('A regra precisa de um matcher de URL habilitado');
+			return;
+		}
+		if (enabledUrlMatcher.type === 'url' && enabledUrlMatcher.pattern.trim().length === 0) {
+			alert('Preencha o padrão da URL antes de salvar');
 			return;
 		}
 
 		setIsSaving(true);
-
 		try {
-			const updatedRule = {
+			const success = await onSave({
 				name: name.trim(),
 				enabled,
 				matchers,
 				action,
-			};
-
-			const success = await onSave(updatedRule);
-
+			});
 			if (success) {
 				handleOpenChange(false);
 			}
@@ -209,151 +207,175 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 		}
 	};
 
+	const isWelcome = view === 'welcome';
+	const showBackToWelcome = view === 'editor' && cameFromWelcome && mode === 'create';
+
 	return (
 		<Dialog open={open} onOpenChange={handleOpenChange}>
 			<DialogContent
-				className="sm:max-w-2xl md:max-w-4xl max-h-[90vh] flex flex-col"
+				className="flex max-h-[90vh] flex-col sm:max-w-2xl md:max-w-3xl"
 				onCloseAutoFocus={(e) => {
-					// Prevenir comportamento default que pode deixar o scroll lock pendurado;
-					// limpar imediatamente é mais confiável.
 					e.preventDefault();
 					restoreBodyPointerEvents();
 				}}
 			>
 				<DialogHeader>
-					<DialogTitle>{mode === 'create' ? 'Adicionar Nova Regra' : 'Editar Regra'}</DialogTitle>
+					{showBackToWelcome && (
+						<button
+							type="button"
+							onClick={goBackToWelcome}
+							className="mb-1 inline-flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+						>
+							<LucideIcon name="arrow-left" className="h-3 w-3" />
+							Voltar
+						</button>
+					)}
+					<DialogTitle>
+						{mode === 'edit' ? 'Editar Regra' : isWelcome ? 'Nova regra' : 'Configurar regra'}
+					</DialogTitle>
 					<DialogDescription>
-						{mode === 'create'
-							? 'Configure uma nova regra de interceptação'
-							: 'Modifique os detalhes da regra de interceptação'}
+						{mode === 'edit'
+							? 'Modifique os detalhes da regra de interceptação.'
+							: isWelcome
+								? 'Comece de um preset ou em branco.'
+								: 'Configure uma nova regra de interceptação.'}
 					</DialogDescription>
 				</DialogHeader>
 
-				<ScrollArea className="flex-1 overflow-y-auto pr-4">
-					<div className="mb-4">
-						<Label htmlFor="ruleName">Nome da Regra</Label>
-						<Input
-							id="ruleName"
-							value={name}
-							onChange={(e) => setName(e.target.value)}
-							placeholder="Ex: API de Login"
-							className="w-full"
-						/>
-					</div>
+				{isWelcome ? (
+					<PresetWelcome onSelectBlank={startBlank} onSelectPreset={applyPresetDraft} />
+				) : (
+					<>
+						<ScrollArea className="flex-1 overflow-y-auto pr-4">
+							<div className="mb-4">
+								<Label htmlFor="ruleName">Nome da Regra</Label>
+								<Input
+									id="ruleName"
+									value={name}
+									onChange={(e) => setName(e.target.value)}
+									placeholder="Ex: API de Login"
+									className="w-full"
+								/>
+							</div>
 
-					<Tabs
-						value={activeTab}
-						onValueChange={(value) => setActiveTab(value as 'match' | 'then')}
-					>
-						<TabsList className="w-full mb-4">
-							<TabsTrigger value="match" className="flex-1">
-								Match
-							</TabsTrigger>
-							<TabsTrigger value="then" className="flex-1">
-								Then
-							</TabsTrigger>
-						</TabsList>
+							<Tabs
+								value={activeTab}
+								onValueChange={(value) => setActiveTab(value as 'match' | 'then')}
+							>
+								<TabsList className="mb-4 w-full">
+									<TabsTrigger value="match" className="flex-1">
+										Match
+									</TabsTrigger>
+									<TabsTrigger value="then" className="flex-1">
+										Then
+									</TabsTrigger>
+								</TabsList>
 
-						<TabsContent value="match" className="space-y-4">
-							<div className="bg-muted p-4 rounded-lg">
-								<h3 className="text-lg font-medium mb-2">Condições de Match</h3>
-								<p className="text-sm text-muted-foreground mb-4">
-									Defina as condições para que esta regra seja aplicada a uma requisição.
-								</p>
+								<TabsContent value="match" className="space-y-4">
+									<div className="rounded-lg bg-muted p-4">
+										<h3 className="mb-2 text-lg font-medium">Condições de Match</h3>
+										<p className="mb-4 text-sm text-muted-foreground">
+											Defina as condições para que esta regra seja aplicada a uma requisição.
+										</p>
 
-								{matchers.map((matcher, index) => (
-									<div key={index} className="mb-4 p-3 border rounded-lg bg-card">
-										<MatcherEditor
-											matcher={matcher}
-											onChange={(updatedMatcher) => updateMatcher(index, updatedMatcher)}
-											onRemove={() => removeMatcher(index)}
-											canRemove={matchers.length > 1}
-										/>
+										{matchers.map((matcher, index) => (
+											<div
+												key={`${matcher.type}-${index}`}
+												className="mb-4 rounded-lg border bg-card p-3"
+											>
+												<MatcherEditor
+													matcher={matcher}
+													onChange={(updatedMatcher) => updateMatcher(index, updatedMatcher)}
+													onRemove={() => removeMatcher(index)}
+													canRemove={matchers.length > 1}
+												/>
+											</div>
+										))}
+
+										<div className="mt-4">
+											<Button
+												type="button"
+												variant="outline"
+												onClick={() => addMatcher('url')}
+												className="mr-2"
+											>
+												<LucideIcon name="plus" className="mr-1 h-4 w-4" />
+												URL
+											</Button>
+											<Button
+												type="button"
+												variant="outline"
+												onClick={() => addMatcher('method')}
+												className="mr-2"
+											>
+												<LucideIcon name="plus" className="mr-1 h-4 w-4" />
+												Método
+											</Button>
+											<Button
+												type="button"
+												variant="outline"
+												onClick={() => addMatcher('header')}
+												className="mr-2"
+											>
+												<LucideIcon name="plus" className="mr-1 h-4 w-4" />
+												Header
+											</Button>
+											<Button type="button" variant="outline" onClick={() => addMatcher('body')}>
+												<LucideIcon name="plus" className="mr-1 h-4 w-4" />
+												Body
+											</Button>
+										</div>
 									</div>
-								))}
+								</TabsContent>
 
-								<div className="mt-4">
-									<Button
-										type="button"
-										variant="outline"
-										onClick={() => addMatcher('url')}
-										className="mr-2"
-									>
-										<LucideIcon name="plus" className="mr-1 h-4 w-4" />
-										URL
-									</Button>
-									<Button
-										type="button"
-										variant="outline"
-										onClick={() => addMatcher('method')}
-										className="mr-2"
-									>
-										<LucideIcon name="plus" className="mr-1 h-4 w-4" />
-										Método
-									</Button>
-									<Button
-										type="button"
-										variant="outline"
-										onClick={() => addMatcher('header')}
-										className="mr-2"
-									>
-										<LucideIcon name="plus" className="mr-1 h-4 w-4" />
-										Header
-									</Button>
-									<Button type="button" variant="outline" onClick={() => addMatcher('body')}>
-										<LucideIcon name="plus" className="mr-1 h-4 w-4" />
-										Body
-									</Button>
-								</div>
+								<TabsContent value="then" className="space-y-4">
+									<div className="rounded-lg bg-muted p-4">
+										<h3 className="mb-2 text-lg font-medium">Ação</h3>
+										<p className="mb-4 text-sm text-muted-foreground">
+											Defina a ação a ser executada quando a requisição corresponder às condições de
+											match.
+										</p>
+
+										<ActionEditor action={action} onChange={setAction} />
+									</div>
+								</TabsContent>
+							</Tabs>
+
+							<div className="mt-4 flex items-center space-x-2">
+								<Checkbox
+									id="rule-enabled"
+									checked={enabled}
+									onCheckedChange={(checked) => setEnabled(checked === true)}
+								/>
+								<Label htmlFor="rule-enabled">Regra ativa</Label>
 							</div>
-						</TabsContent>
+						</ScrollArea>
 
-						<TabsContent value="then" className="space-y-4">
-							<div className="bg-muted p-4 rounded-lg">
-								<h3 className="text-lg font-medium mb-2">Ação</h3>
-								<p className="text-sm text-muted-foreground mb-4">
-									Defina a ação a ser executada quando a requisição corresponder às condições de
-									match.
-								</p>
-
-								<ActionEditor action={action} onChange={updateAction} />
-							</div>
-						</TabsContent>
-					</Tabs>
-
-					<div className="flex items-center space-x-2 mt-4">
-						<Checkbox
-							id="rule-enabled"
-							checked={enabled}
-							onCheckedChange={(checked) => setEnabled(checked === true)}
-						/>
-						<Label htmlFor="rule-enabled">Regra ativa</Label>
-					</div>
-				</ScrollArea>
-
-				<DialogFooter className="mt-4">
-					<Button
-						type="button"
-						variant="outline"
-						onClick={() => handleOpenChange(false)}
-						disabled={isSaving}
-					>
-						Cancelar
-					</Button>
-					<Button
-						type="button"
-						onClick={handleSave}
-						disabled={isSaving}
-						className="primary-button flex items-center gap-2"
-					>
-						{isSaving ? (
-							<LucideIcon name="refresh" className="h-4 w-4 animate-spin" />
-						) : (
-							<LucideIcon name={mode === 'create' ? 'plus' : 'save'} className="h-4 w-4" />
-						)}
-						{mode === 'create' ? 'Adicionar' : 'Salvar'}
-					</Button>
-				</DialogFooter>
+						<DialogFooter className="mt-4">
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => handleOpenChange(false)}
+								disabled={isSaving}
+							>
+								Cancelar
+							</Button>
+							<Button
+								type="button"
+								onClick={handleSave}
+								disabled={isSaving}
+								className="primary-button flex items-center gap-2"
+							>
+								{isSaving ? (
+									<LucideIcon name="refresh" className="h-4 w-4 animate-spin" />
+								) : (
+									<LucideIcon name={mode === 'create' ? 'plus' : 'save'} className="h-4 w-4" />
+								)}
+								{mode === 'create' ? 'Adicionar' : 'Salvar'}
+							</Button>
+						</DialogFooter>
+					</>
+				)}
 			</DialogContent>
 		</Dialog>
 	);

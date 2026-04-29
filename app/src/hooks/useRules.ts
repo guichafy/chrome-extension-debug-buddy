@@ -124,7 +124,7 @@ export function useRules() {
 	// (urlPatterns/mocks) é responsabilidade do background — ver
 	// app/src/lib/legacyMigration.ts.
 	// Também subscreve chrome.storage.onChanged para refletir escritas externas
-	// (ex: importação de regras via RulesImportExport) sem precisar recarregar.
+	// (ex: importação de regras feita pelo Rules Lab) sem precisar recarregar.
 	useEffect(() => {
 		loadRules();
 
