@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
-import SelectTabDialog from '../components/SelectTabDialog';
+import { SelectTabDialog } from '../components/select-tab/SelectTabDialog';
 import { AppSidebar } from '../components/layout/AppSidebar';
 import { SiteHeader } from '../components/layout/SiteHeader';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
