@@ -1,3 +1,9 @@
+## [0.2.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.1.1...v0.2.0) (2026-04-29)
+
+### Features
+
+* **styles:** update design tokens and dark theme variables for improved UI consistency ([419313b](https://github.com/guichafy/chrome-extension-debug-buddy/commit/419313b265aada81d811d86d6ecadeb438324169))
+
 ## [0.1.1](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.1.0...v0.1.1) (2026-04-28)
 
 ### Bug Fixes
