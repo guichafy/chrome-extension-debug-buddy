@@ -1,3 +1,9 @@
+## [0.5.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.4.0...v0.5.0) (2026-04-29)
+
+### Features
+
+* **rules-lab:** consolida tela em "Gestão de Regras" ([a34c5f2](https://github.com/guichafy/chrome-extension-debug-buddy/commit/a34c5f251985529ca1fcb8c192f9b3fd4435db81))
+
 ## [0.4.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.3.0...v0.4.0) (2026-04-29)
 
 ### Features
