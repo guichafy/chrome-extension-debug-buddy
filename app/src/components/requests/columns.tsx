@@ -4,7 +4,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { ArrowUpDown, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LucideIcon, type LucideIconName } from '@/components/ui/lucide-icon';
+import { LucideIcon } from '@/components/ui/lucide-icon';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -14,6 +14,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { InterceptedResponse } from '../../hooks/useResponses';
 import { compareDurations, formatDurationWithMock, getDurationColorClass } from './duration';
+import { getRequestState, getStateBadgeMeta, getStatePriority } from '@/lib/requestState';
+import { cn } from '@/lib/utils';
 
 // Tipo para representar uma requisição
 export type RequestRow = {
@@ -102,56 +104,23 @@ export const columns: ColumnDef<RequestRow>[] = [
 			);
 		},
 		sortingFn: (rowA, rowB) => {
-			const requestA = rowA.original.request;
-			const requestB = rowB.original.request;
-
-			// Definir prioridade para ordenação
-			const getPriority = (request: InterceptedResponse) => {
-				if (request.captureError) return 0; // Falha de captura
-				if (request.isWaiting) return 1; // Aguardando
-				if (request.isWaiting === false) return 2; // Interceptado
-				if (request.isMocked) return 3; // Mockado
-				return 4; // Proxy
-			};
-
-			return getPriority(requestA) - getPriority(requestB);
+			return (
+				getStatePriority(getRequestState(rowA.original.request)) -
+				getStatePriority(getRequestState(rowB.original.request))
+			);
 		},
 		cell: ({ row }) => {
-			const request = row.original.request;
-			const isIntercepted = !!request.isWaiting;
-			const wasIntercepted = request.isWaiting === false;
-			const isMocked = request.isMocked === true;
-			const hasCaptureError = !!request.captureError;
-
-			let variant: 'destructive' | 'default' | 'outline' | 'secondary' = 'outline';
-			let label = 'Proxy';
-			let iconName: LucideIconName = 'check-circle';
-
-			if (hasCaptureError) {
-				variant = 'destructive';
-				label = 'Falha';
-				iconName = 'alert-triangle';
-			} else if (isIntercepted) {
-				variant = 'destructive';
-				label = 'Aguardando';
-				iconName = 'hourglass';
-			} else if (wasIntercepted) {
-				variant = 'default';
-				label = 'Modificado';
-				iconName = 'edit';
-			} else if (isMocked) {
-				variant = 'secondary';
-				label = 'Mockado';
-				iconName = 'copy';
-			}
-
+			const meta = getStateBadgeMeta(getRequestState(row.original.request));
 			return (
 				<Badge
-					variant={variant}
-					className="text-xs whitespace-nowrap inline-flex items-center gap-1"
+					variant={meta.variant}
+					className={cn(
+						'text-xs whitespace-nowrap inline-flex items-center gap-1',
+						meta.pulse && 'animate-pulse',
+					)}
 				>
-					<LucideIcon name={iconName} className="h-3 w-3" />
-					{label}
+					<LucideIcon name={meta.iconName} className="h-3 w-3" />
+					{meta.label}
 				</Badge>
 			);
 		},
@@ -205,24 +174,17 @@ export const columns: ColumnDef<RequestRow>[] = [
 		},
 		cell: ({ row }) => {
 			const request = row.original.request;
-			const isIntercepted = !!request.isWaiting;
-			const wasIntercepted = request.isWaiting === false;
-			const isMocked = request.isMocked === true;
-			const hasCaptureError = !!request.captureError;
-
-			// Adicionar uma classe de borda à esquerda para indicar o status
-			let borderClass = '';
-			if (hasCaptureError) {
-				borderClass = 'border-l-2 border-l-red-500 pl-2';
-			} else if (isIntercepted) {
-				borderClass = 'border-l-2 border-l-red-500 pl-2';
-			} else if (wasIntercepted) {
-				borderClass = 'border-l-2 border-l-blue-500 pl-2';
-			} else if (isMocked) {
-				borderClass = 'border-l-2 border-l-purple-500 pl-2';
-			}
-
-			return <span className={`truncate block max-w-[300px] ${borderClass}`}>{request.url}</span>;
+			// Para state=pending o halo respirando da linha (pending-row-halo no
+			// data-table) já cobre o destaque — pending/proxy ficam sem borda aqui.
+			const borderClassByState = {
+				failed: 'border-l-2 border-l-destructive pl-2',
+				modified: 'border-l-2 border-l-info pl-2',
+				mocked: 'border-l-2 border-l-primary pl-2',
+				pending: '',
+				proxy: '',
+			} as const;
+			const borderClass = borderClassByState[getRequestState(request)];
+			return <span className={cn('truncate block max-w-[300px]', borderClass)}>{request.url}</span>;
 		},
 		size: 300,
 	},

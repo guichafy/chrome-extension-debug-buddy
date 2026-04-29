@@ -49,7 +49,6 @@ const Layout: React.FC = () => {
 				<SiteHeader
 					targetTab={targetTab}
 					isDebugging={isDebugging}
-					pendingResponsesCount={Object.keys(pendingResponses).length}
 					onSelectTabClick={() => setSelectTabDialogOpen(true)}
 					onStartDebugging={() => startDebugging()}
 					onStopDebugging={() => stopDebugging()}

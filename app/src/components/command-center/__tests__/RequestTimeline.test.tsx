@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 import { RequestTimeline } from '../RequestTimeline';
@@ -23,8 +22,8 @@ describe('RequestTimeline', () => {
 				requests={requests as any}
 				selectedId={null}
 				onSelect={onSelect}
-				searchValue=""
-				onSearchChange={vi.fn()}
+				filters={[]}
+				onFiltersChange={vi.fn()}
 				onClearHistory={vi.fn()}
 				autoRefreshEnabled
 				pauseAutoRefresh={vi.fn()}
@@ -42,8 +41,8 @@ describe('RequestTimeline', () => {
 				requests={requests as any}
 				selectedId="r1"
 				onSelect={vi.fn()}
-				searchValue=""
-				onSearchChange={vi.fn()}
+				filters={[]}
+				onFiltersChange={vi.fn()}
 				onClearHistory={vi.fn()}
 				autoRefreshEnabled
 				pauseAutoRefresh={vi.fn()}

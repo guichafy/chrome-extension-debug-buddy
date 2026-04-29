@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { InterceptedResponse } from './useResponses';
 import { indexedDBService } from '@/lib/indexedDB';
+import type { Filter } from '@/types/filters';
+import { buildFilterGroups, matchesFilterGroups } from '@/lib/filterMatching';
 
 // Hook puramente reativo: o background é a fonte de verdade da persistência
 // (`background.ts` grava no IndexedDB ao receber Fetch.requestPaused, mock,
@@ -16,7 +18,7 @@ export function useAllRequests() {
 	const [currentRequestId, setCurrentRequestId] = useState<string | null>(null);
 	const [currentRequest, setCurrentRequest] = useState<InterceptedResponse | null>(null);
 	const [loading, setLoading] = useState(true);
-	const [filter, setFilter] = useState('');
+	const [filters, setFilters] = useState<Filter[]>([]);
 	const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
 	const [dbInitialized, setDbInitialized] = useState(false);
 
@@ -85,15 +87,15 @@ export function useAllRequests() {
 		}
 	}, [clearCurrentRequest]);
 
-	const filteredRequests = (() => {
-		if (!filter) return allRequests;
-		const needle = filter.toLowerCase();
+	const filteredRequests = useMemo(() => {
+		if (filters.length === 0) return allRequests;
+		const groups = buildFilterGroups(filters);
 		const filtered: Record<string, InterceptedResponse> = {};
 		for (const [id, request] of Object.entries(allRequests)) {
-			if (request?.url?.toLowerCase().includes(needle)) filtered[id] = request;
+			if (request && matchesFilterGroups(request, groups)) filtered[id] = request;
 		}
 		return filtered;
-	})();
+	}, [allRequests, filters]);
 
 	useEffect(() => {
 		reloadFromDB();
@@ -135,8 +137,8 @@ export function useAllRequests() {
 		getRequestDetails,
 		clearCurrentRequest,
 		clearAllRequests,
-		filter,
-		setFilter,
+		filters,
+		setFilters,
 		pauseAutoRefresh,
 		enableAutoRefresh,
 		autoRefreshEnabled,

@@ -37,26 +37,28 @@ interface DataTableProps<TData, TValue> {
 	columns: ColumnDef<TData, TValue>[];
 	data: TData[];
 	onSelect: (requestId: string) => void;
-	searchValue: string;
-	onSearchChange: (value: string) => void;
 	pauseAutoRefresh?: () => void;
 	enableAutoRefresh?: () => void;
 	autoRefreshEnabled?: boolean;
 	onClearHistory?: () => void;
 	selectedRowId?: string;
+	/** Slot opcional para a barra de filtros — renderizado acima da tabela. */
+	filterSlot?: React.ReactNode;
+	/** Linhas que devem receber a classe pending-row-halo. */
+	pendingRowIds?: Set<string>;
 }
 
 export function DataTable<TData, TValue>({
 	columns,
 	data,
 	onSelect,
-	searchValue,
-	onSearchChange,
 	pauseAutoRefresh,
 	enableAutoRefresh,
 	autoRefreshEnabled,
 	onClearHistory,
 	selectedRowId,
+	filterSlot,
+	pendingRowIds,
 }: DataTableProps<TData, TValue>) {
 	// Estados para a tabela
 	const [sorting, setSorting] = React.useState<SortingState>([
@@ -77,18 +79,16 @@ export function DataTable<TData, TValue>({
 	// Ref para armazenar o estado da paginação atual
 	const paginationRef = React.useRef(pagination);
 
-	// Estado para o filtro global
-	const [globalFilter, setGlobalFilter] = React.useState(searchValue);
-
-	// Atualizar o filtro global quando o valor de pesquisa mudar
+	// Voltar para a primeira página sempre que o conjunto de dados mudar de tamanho
+	// (ex.: novo filtro aplicado upstream) — preserva o comportamento anterior de
+	// reset ao alterar a busca, agora calculado a partir do count visível.
+	const previousLengthRef = React.useRef(data.length);
 	React.useEffect(() => {
-		setGlobalFilter(searchValue);
-		// Voltar para a primeira página ao iniciar uma nova busca
-		setPagination((prev) => ({
-			...prev,
-			pageIndex: 0,
-		}));
-	}, [searchValue]);
+		if (previousLengthRef.current !== data.length) {
+			previousLengthRef.current = data.length;
+			setPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }));
+		}
+	}, [data.length]);
 
 	// Definir visibilidade inicial das colunas
 	React.useEffect(() => {
@@ -134,32 +134,10 @@ export function DataTable<TData, TValue>({
 			columnVisibility,
 			rowSelection,
 			pagination,
-			globalFilter,
 		},
 		meta: {
 			onSelect,
 		},
-		globalFilterFn: (row, columnId, filterValue) => {
-			// Se não houver valor de filtro, retorna true
-			if (!filterValue) return true;
-
-			const searchLower = String(filterValue).toLowerCase();
-
-			// @ts-expect-error - Acessar a estrutura específica dos dados
-			const request = row.original?.request;
-			if (!request) return false;
-
-			// Verificar cada campo relevante
-			return (
-				(request.url && request.url.toLowerCase().includes(searchLower)) ||
-				(request.method && request.method.toLowerCase().includes(searchLower)) ||
-				(request.status && String(request.status).includes(searchLower)) ||
-				(request.statusText && request.statusText.toLowerCase().includes(searchLower)) ||
-				(request.type && request.type.toLowerCase().includes(searchLower)) ||
-				(request.mimeType && request.mimeType.toLowerCase().includes(searchLower))
-			);
-		},
-		onGlobalFilterChange: setGlobalFilter,
 	});
 
 	// Simplificado para evitar problemas de roteamento
@@ -177,15 +155,8 @@ export function DataTable<TData, TValue>({
 
 	return (
 		<div className="space-y-4 flex flex-col min-h-0">
-			<div className="flex flex-col sm:flex-row items-center justify-between gap-4 flex-shrink-0">
-				<div className="flex w-full sm:w-auto items-center gap-2">
-					<Input
-						placeholder="Pesquisar em qualquer campo..."
-						value={searchValue}
-						onChange={(event) => onSearchChange(event.target.value)}
-						className="w-full sm:max-w-sm"
-					/>
-				</div>
+			<div className="flex flex-col sm:flex-row items-start justify-between gap-4 flex-shrink-0">
+				<div className="flex w-full sm:flex-1 items-center gap-2">{filterSlot}</div>
 				<div className="flex items-center gap-2">
 					{autoRefreshEnabled && pauseAutoRefresh ? (
 						<Button
@@ -297,37 +268,40 @@ export function DataTable<TData, TValue>({
 					</TableHeader>
 					<TableBody>
 						{table.getRowModel().rows?.length ? (
-							table.getRowModel().rows.map((row) => (
-								<TableRow
-									key={row.id}
-									data-state={
-										// @ts-expect-error - acessar id via original
-										row.original.id === selectedRowId
-											? 'selected'
-											: row.getIsSelected()
+							table.getRowModel().rows.map((row) => {
+								// @ts-expect-error - acessar id via original
+								const rowRequestId: string = row.original.id;
+								const isPendingRow = pendingRowIds?.has(rowRequestId) ?? false;
+								return (
+									<TableRow
+										key={row.id}
+										data-state={
+											rowRequestId === selectedRowId
 												? 'selected'
-												: undefined
-									}
-									className="cursor-pointer hover:bg-muted/50 data-[state=selected]:bg-accent"
-									onClick={() => {
-										// @ts-expect-error - acessar id via original
-										const requestId = row.original.id;
-										onSelect(requestId);
-									}}
-								>
-									{row.getVisibleCells().map((cell) => (
-										<TableCell
-											key={cell.id}
-											style={{
-												width:
-													cell.column.getSize() !== 150 ? `${cell.column.getSize()}px` : undefined,
-											}}
-										>
-											{flexRender(cell.column.columnDef.cell, cell.getContext())}
-										</TableCell>
-									))}
-								</TableRow>
-							))
+												: row.getIsSelected()
+													? 'selected'
+													: undefined
+										}
+										data-pending={isPendingRow ? 'true' : undefined}
+										className="cursor-pointer hover:bg-muted/50 data-[state=selected]:bg-accent data-[pending=true]:pending-row-halo"
+										onClick={() => onSelect(rowRequestId)}
+									>
+										{row.getVisibleCells().map((cell) => (
+											<TableCell
+												key={cell.id}
+												style={{
+													width:
+														cell.column.getSize() !== 150
+															? `${cell.column.getSize()}px`
+															: undefined,
+												}}
+											>
+												{flexRender(cell.column.columnDef.cell, cell.getContext())}
+											</TableCell>
+										))}
+									</TableRow>
+								);
+							})
 						) : (
 							<TableRow>
 								<TableCell colSpan={columns.length} className="h-24 text-center">

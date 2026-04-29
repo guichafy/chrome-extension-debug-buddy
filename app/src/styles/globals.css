@@ -179,15 +179,30 @@
 	}
 }
 
-@keyframes blink {
-	0% {
-		background-color: rgb(34, 197, 94);
+/* Halo respirando aplicado às linhas pendentes na tabela do Command Center.
+   Combina uma barra inset à esquerda (cor warning) e um glow externo sutil. */
+@keyframes pending-row-breath {
+	0%,
+	100% {
+		box-shadow: inset 4px 0 0 var(--color-warning), inset 0 0 0 1px
+			color-mix(in oklch, var(--color-warning) 18%, transparent);
+		background-color: color-mix(in oklch, var(--color-warning) 6%, transparent);
 	}
 	50% {
-		background-color: rgb(239, 68, 68);
+		box-shadow: inset 4px 0 0 var(--color-warning), inset 0 0 0 1px
+			color-mix(in oklch, var(--color-warning) 38%, transparent);
+		background-color: color-mix(in oklch, var(--color-warning) 12%, transparent);
+	}
+}
+
+/* Pulse horizontal contido para o banner de pendentes — gradient varrendo
+   da esquerda para a direita, similar a uma barra de carregamento gentil. */
+@keyframes pending-banner-sweep {
+	0% {
+		background-position: -150% 0;
 	}
 	100% {
-		background-color: rgb(34, 197, 94);
+		background-position: 150% 0;
 	}
 }
 
@@ -203,6 +218,37 @@
 	}
 }
 
-.status-indicator-blinking {
-	animation: blink 1.5s infinite;
+.pending-row-halo {
+	animation: pending-row-breath 1.8s ease-in-out infinite;
+}
+
+.pending-banner-sweep {
+	background-image: linear-gradient(
+		90deg,
+		transparent 0%,
+		color-mix(in oklch, var(--color-warning) 18%, transparent) 50%,
+		transparent 100%
+	);
+	background-size: 200% 100%;
+	background-repeat: no-repeat;
+	animation: pending-banner-sweep 2.4s ease-in-out infinite;
+}
+
+/* Caixa estilo "tecla" para hotkeys — usada no PendingActionDock e no banner. */
+.kbd {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1.5rem;
+	height: 1.5rem;
+	padding: 0 0.4rem;
+	border-radius: 0.25rem;
+	background-color: color-mix(in oklch, var(--color-foreground) 8%, transparent);
+	border: 1px solid var(--color-border);
+	font-family: var(--font-mono);
+	font-size: 0.7rem;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	color: var(--color-foreground);
+	box-shadow: 0 1px 0 color-mix(in oklch, var(--color-foreground) 6%, transparent);
 }

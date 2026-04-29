@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { InterceptedResponse } from '@/types/intercepted';
 import { useAllRequests } from '@/hooks/useAllRequests';
@@ -8,6 +8,9 @@ import { useRequestSelection } from '@/hooks/useRequestSelection';
 import { RequestTimeline } from '@/components/command-center/RequestTimeline';
 import { RequestInspector } from '@/components/command-center/RequestInspector';
 import { QuickMockPanel } from '@/components/command-center/QuickMockPanel';
+import { PendingAlertBanner } from '@/components/command-center/PendingAlertBanner';
+import { PendingActionDock } from '@/components/command-center/PendingActionDock';
+import { usePendingHotkeys } from '@/components/command-center/usePendingHotkeys';
 import { cn } from '@/lib/utils';
 import {
 	AlertDialog,
@@ -24,14 +27,14 @@ const CommandCenter: React.FC = () => {
 	const navigate = useNavigate();
 	const {
 		filteredRequests,
-		filter,
-		setFilter,
+		filters,
+		setFilters,
 		pauseAutoRefresh,
 		enableAutoRefresh,
 		autoRefreshEnabled,
 		clearAllRequests,
 	} = useAllRequests();
-	const { approveResponse, ignoreResponse } = useResponses();
+	const { approveResponse, ignoreResponse, pendingResponses } = useResponses();
 	const { rules } = useRules();
 	const { selectedId, selected, select, clear } = useRequestSelection(filteredRequests);
 
@@ -39,8 +42,24 @@ const CommandCenter: React.FC = () => {
 	const [quickMockOpen, setQuickMockOpen] = useState(false);
 	const [recentRuleId, setRecentRuleId] = useState<string | null>(null);
 
+	// Lista ordenada (timestamp asc) + posição do selecionado em uma única passada.
+	// Usado para navegação J/K e para "Aprovar próximo" ter um alvo determinístico.
+	const { pendingIdsOrdered, pendingCount, selectedPendingIndex, hasSelectedPending } =
+		useMemo(() => {
+			const entries = Object.entries(pendingResponses).sort(
+				(a, b) => (a[1]?.timestamp ?? 0) - (b[1]?.timestamp ?? 0),
+			);
+			const ids = entries.map(([id]) => id);
+			const idx = selectedId ? ids.indexOf(selectedId) : -1;
+			return {
+				pendingIdsOrdered: ids,
+				pendingCount: ids.length,
+				selectedPendingIndex: idx >= 0 ? idx : null,
+				hasSelectedPending: idx >= 0,
+			};
+		}, [pendingResponses, selectedId]);
+
 	// Limpar o id da regra recém-criada quando o usuário troca de request selecionado.
-	// selectedId é dependência intencional: o efeito deve disparar a cada troca de seleção.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: selectedId é o gatilho da limpeza
 	useEffect(() => {
 		setRecentRuleId(null);
@@ -56,20 +75,69 @@ const CommandCenter: React.FC = () => {
 		setQuickMockOpen(true);
 	};
 
+	const approveNext = useCallback(async () => {
+		const nextId = hasSelectedPending && selectedId ? selectedId : pendingIdsOrdered[0];
+		if (!nextId) return;
+		await approveResponse(nextId, {});
+	}, [approveResponse, hasSelectedPending, pendingIdsOrdered, selectedId]);
+
+	const ignoreCurrent = useCallback(async () => {
+		const targetId = hasSelectedPending && selectedId ? selectedId : pendingIdsOrdered[0];
+		if (!targetId) return;
+		await ignoreResponse(targetId);
+	}, [hasSelectedPending, ignoreResponse, pendingIdsOrdered, selectedId]);
+
+	const ignoreAll = useCallback(async () => {
+		for (const id of pendingIdsOrdered) {
+			// Sequencial para preservar a ordem das respostas no background.
+			await ignoreResponse(id);
+		}
+	}, [ignoreResponse, pendingIdsOrdered]);
+
+	const navigateNext = useCallback(() => {
+		if (pendingIdsOrdered.length === 0) return;
+		const idx = selectedPendingIndex ?? -1;
+		const nextIndex = (idx + 1 + pendingIdsOrdered.length) % pendingIdsOrdered.length;
+		const target = pendingIdsOrdered[nextIndex];
+		if (target) select(target);
+	}, [pendingIdsOrdered, select, selectedPendingIndex]);
+
+	const navigatePrev = useCallback(() => {
+		if (pendingIdsOrdered.length === 0) return;
+		const idx = selectedPendingIndex ?? 0;
+		const nextIndex = (idx - 1 + pendingIdsOrdered.length) % pendingIdsOrdered.length;
+		const target = pendingIdsOrdered[nextIndex];
+		if (target) select(target);
+	}, [pendingIdsOrdered, select, selectedPendingIndex]);
+
+	usePendingHotkeys({
+		enabled: pendingCount > 0,
+		onApprove: approveNext,
+		onIgnore: ignoreCurrent,
+		onNext: navigateNext,
+		onPrev: navigatePrev,
+		onEscape: clear,
+	});
+
 	return (
 		<div className="flex h-full min-h-0 flex-col lg:flex-row">
 			<section
 				className={cn(
-					'flex min-h-0 flex-col overflow-hidden p-4',
+					'flex min-h-0 flex-col gap-3 overflow-hidden p-4',
 					selectedId ? 'lg:w-[28%] lg:min-w-[320px] lg:flex-shrink-0' : 'flex-1',
 				)}
 			>
+				<PendingAlertBanner
+					pendingCount={pendingCount}
+					onApproveNext={approveNext}
+					onIgnoreAll={ignoreAll}
+				/>
 				<RequestTimeline
 					requests={filteredRequests}
 					selectedId={selectedId}
 					onSelect={select}
-					searchValue={filter}
-					onSearchChange={setFilter}
+					filters={filters}
+					onFiltersChange={setFilters}
 					onClearHistory={() => setClearDialogOpen(true)}
 					autoRefreshEnabled={autoRefreshEnabled}
 					pauseAutoRefresh={pauseAutoRefresh}
@@ -108,6 +176,12 @@ const CommandCenter: React.FC = () => {
 					onCreated={(rule) => setRecentRuleId(rule.id)}
 				/>
 			)}
+
+			<PendingActionDock
+				pendingCount={pendingCount}
+				currentIndex={selectedPendingIndex}
+				hasSelectedPending={hasSelectedPending}
+			/>
 
 			<AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
 				<AlertDialogContent>
