@@ -27,6 +27,7 @@ if (typeof globalThis.TextDecoder === 'undefined') {
 (globalThis as any).chrome = {
 	runtime: {
 		sendMessage: vi.fn(),
+		lastError: undefined as { message: string } | undefined,
 		onMessage: {
 			addListener: vi.fn(),
 			removeListener: vi.fn(),
