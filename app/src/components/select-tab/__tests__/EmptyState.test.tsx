@@ -29,4 +29,9 @@ describe('EmptyState', () => {
 		fireEvent.click(screen.getByRole('button', { name: /Tentar novamente/ }));
 		expect(onRetry).toHaveBeenCalled();
 	});
+
+	it('variant="error" exibe "Erro desconhecido" quando error não é fornecido', () => {
+		render(<EmptyState variant="error" onRetry={vi.fn()} />);
+		expect(screen.getByText('Erro desconhecido')).toBeInTheDocument();
+	});
 });
