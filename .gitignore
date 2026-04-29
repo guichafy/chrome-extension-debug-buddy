@@ -62,3 +62,6 @@ dist/last-update.json
 
 # husky internals (auto-generated)
 .husky/_/
+
+# Superpowers brainstorming companion (per-session mockups)
+.superpowers/
