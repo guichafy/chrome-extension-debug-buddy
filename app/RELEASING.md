@@ -11,8 +11,8 @@ This doc describes how a new version of Debug Buddy reaches the Chrome Web Store
    - commits the bump back to `main` with `[skip ci]` (no recursion),
    - creates the git tag `vx.y.z`,
    - publishes a GitHub Release with auto-generated notes.
-3. Trigger the **Publish to Chrome Web Store** GitHub Action (Actions tab → Run workflow). Or run `npm run publish:cws` locally with secrets set.
-4. Confirm the new version is live on the Web Store.
+3. The **Publish to Chrome Web Store** workflow auto-triggers on `release: published` and uploads the ZIP **as a draft** to the Chrome Web Store (no `--publish`). Manual `workflow_dispatch` is still available for hot-fixes or re-uploads.
+4. Open the [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole) → Debug Buddy → click **"Submit for review"** to send the draft to Google's review queue. Confirm the new version is live afterward.
 
 There is **no intermediate release PR** to review. Conventional commit messages on the merging PR ARE the source of truth.
 
@@ -50,36 +50,46 @@ The whole flow runs in one workflow execution (~2 min). No intermediate PR.
 
 ### 3. (One-time setup) Configure CWS secrets
 
-Skip this section if it's already done. Required GitHub repository secrets:
+Skip this section if it's already done. Secrets live in the **`ChromeStore` GitHub Environment** (Settings → Environments → ChromeStore → "Add environment secret"), not at the repo level. The workflow declares `environment: ChromeStore` to scope access. Required:
 
 | Secret | What it is | How to get |
 |---|---|---|
 | `CWS_EXTENSION_ID` | The extension's CWS ID (long string in dashboard URL after `/detail/`) | https://chrome.google.com/webstore/devconsole |
-| `CWS_CLIENT_ID` | OAuth2 client ID for the CWS API | Google Cloud Console → APIs → Credentials |
+| `CWS_CLIENT_ID` | OAuth2 client ID (type: **Desktop app**) for the CWS API | Google Cloud Console → APIs → Credentials |
 | `CWS_CLIENT_SECRET` | OAuth2 client secret | Same place |
-| `CWS_REFRESH_TOKEN` | Long-lived OAuth2 refresh token | Run `npx chrome-webstore-upload-cli token` once locally and follow the prompt |
+| `CWS_REFRESH_TOKEN` | Long-lived OAuth2 refresh token | Run `npx -y chrome-webstore-upload-keys` locally, follow the browser prompt; the terminal prints the token. Use the same Google account that owns the extension on the Web Store. |
 
-Step-by-step token setup: see [chrome-webstore-upload-cli docs](https://github.com/fregante/chrome-webstore-upload-cli#getting-an-api-key-and-refresh-token).
-
-Add each secret via GitHub → repo settings → Secrets and variables → Actions → New repository secret.
+Add each secret via GitHub → repo Settings → Environments → `ChromeStore` → New environment secret.
 
 ### 4. Publish to Chrome Web Store
 
-The Release workflow only creates the GitHub Release. **It does NOT push to the Chrome Web Store** (intentional — gives a maintainer the chance to review what's about to ship).
+The `Release` workflow creates the GitHub Release. The `Publish to Chrome Web Store` workflow then auto-triggers on `release: published` and uploads the ZIP **as a draft** (no `--publish`). The "Submit for review" click stays manual on purpose — it gives a maintainer a chance to eyeball what's about to ship and Google's review queue cannot be aborted once submitted.
 
-**Option A — GitHub Actions (recommended for production releases):**
+**Option A — Automatic on every release (default):**
+1. Merge a Conventional Commit to `main`. The `Release` workflow runs.
+2. The `Publish to Chrome Web Store` workflow auto-triggers on the new GitHub Release and uploads the ZIP as a draft (~3 min).
+3. Visit the [CWS Developer Dashboard](https://chrome.google.com/webstore/devconsole) → Debug Buddy → confirm the **Draft** column shows the new version → click **"Submit for review"**.
+4. Wait for Google's review (1–48h). You receive an email when it's approved or rejected.
+
+**Pre-releases are skipped.** The job has `if: github.event_name == 'workflow_dispatch' || github.event.release.prerelease != true`, so manually-marked pre-release tags (e.g. `v1.0.0-rc.1`) don't trigger upload. The Chrome Web Store rejects versions with suffixes anyway. Use `workflow_dispatch` if you ever need to force-upload from a non-stable tag.
+
+**On failure, an issue is opened.** If the auto-triggered run fails (token expired, network blip, validator regression, etc.), the workflow opens a `CWS publish falhou para vX.Y.Z` issue tagged with the run URL. Fix the underlying issue and re-trigger via `workflow_dispatch`. Requires `issues: write` permission on the workflow's `GITHUB_TOKEN` (declared in the workflow's `permissions` block).
+
+**Environment approval (optional).** The job is scoped to the `ChromeStore` GitHub Environment. If the environment is configured with **Required reviewers** (Settings → Environments → ChromeStore), every run — including the automatic one after release — pauses until a maintainer approves it on the Actions UI. The `Deployment branches and tags` setting on the same environment should be restricted to `main` and the `v*.*.*` tag pattern to keep secrets out of feature-branch workflows.
+
+**Option B — Manual workflow_dispatch (re-runs, hot-fixes):**
 1. Actions tab → "Publish to Chrome Web Store" → "Run workflow".
 2. Branch: `main` (the tagged version is what's checked out).
 3. Toggle "Auto-publish to all users":
-   - **Off (default):** Uploads as a draft. Visit the CWS dashboard to review and click "Publish" manually.
-   - **On:** Goes live to all users immediately after Google's review (typically 1–48h).
+   - **Off (default):** Uploads as a draft (same as Option A). Visit the CWS dashboard to "Submit for review" manually.
+   - **On:** Skips the draft step — goes straight to Google's review and auto-publishes once approved.
 4. Click "Run workflow" and watch the action complete.
 
-**Option B — Local CLI (for hot-patching or testing):**
+**Option C — Local CLI (for hot-patching or testing):**
 1. Set the four `CWS_*` env vars in your shell (use a password manager, not `.env` checked into git).
 2. `cd app && npm run publish:cws` (upload-only draft) OR `npm run publish:cws -- --publish` (auto-publish).
 
-**Option C — Dry run (just build the ZIP, don't upload):**
+**Option D — Dry run (just build the ZIP, don't upload):**
 ```bash
 cd app && npm run package
 ```
@@ -121,7 +131,8 @@ The PR CI (`ci.yml`) only triggers on `pull_request`, not `push`, so the bot's c
 - **Release workflow ran but didn't tag/release:** The push had only no-release commits (docs, chore, style, etc.). Check the workflow log for "no release published". To force a release, land a `fix:` or `feat:` commit (even a trivial one).
 - **Release workflow failed at `git push`:** The bot doesn't have permission. Check `permissions: contents: write` is set in the workflow YAML (should be).
 - **`lint:ext` fails on release:** The PR CI step would have caught it; if it slipped through, fix the manifest issue and reland on a new fix commit.
-- **CWS upload fails with `invalid_grant`:** The refresh token expired. Regenerate via `npx chrome-webstore-upload-cli token` and update the `CWS_REFRESH_TOKEN` secret.
+- **CWS upload fails with `invalid_grant`:** The refresh token expired or was revoked. Regenerate via `npx -y chrome-webstore-upload-keys` (uses the same OAuth client) and update the `CWS_REFRESH_TOKEN` secret in the `ChromeStore` environment.
+- **Workflow fails with "secret not found":** The `Publish to Chrome Web Store` job needs `environment: ChromeStore` set. Check that all four secrets (`CWS_EXTENSION_ID`, `CWS_CLIENT_ID`, `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN`) exist on that environment, not on repo-level Actions secrets.
 - **Version mismatch between `package.json` and `manifest.json`:** Should never happen — `sync-manifest-version.mjs` keeps them in sync via the exec plugin. If they diverge, manually patch and reland on a new fix commit.
 - **Need to roll back a release:** Chrome Web Store doesn't support deleting a published version. Best path: bump a patch version with the rollback as a `fix:` commit and republish. The bad version stays in the store but new installs get the patched one.
 - **`workflow_dispatch` button doesn't appear:** Only repo collaborators with `Actions` write permission can trigger it. Ask a maintainer.
