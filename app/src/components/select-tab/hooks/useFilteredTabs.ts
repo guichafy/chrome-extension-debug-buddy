@@ -38,7 +38,7 @@ const computeHostname = (url: string): string => {
 const queryTabs = (): Promise<RawTab[]> =>
 	new Promise((resolve, reject) => {
 		try {
-			const maybe = chrome.tabs.query({ currentWindow: true }, (tabs) => {
+			const maybe: unknown = chrome.tabs.query({ currentWindow: true }, (tabs) => {
 				const lastError = chrome.runtime.lastError;
 				if (lastError) {
 					reject(new Error(lastError.message ?? 'Erro desconhecido em chrome.tabs.query'));
