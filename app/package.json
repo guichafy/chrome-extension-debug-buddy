@@ -1,6 +1,6 @@
 {
   "name": "debug-buddy",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Inspect, intercept, and mock HTTP responses in Chrome to test how your app handles network failures without touching the backend.",
   "main": "background.js",

@@ -1,3 +1,31 @@
+## [0.3.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.2.0...v0.3.0) (2026-04-29)
+
+### Features
+
+* **select-tab:** adicionar container SelectTabDialog com teclado e estados ([151f4fc](https://github.com/guichafy/chrome-extension-debug-buddy/commit/151f4fcc8f4ea225f515f63aee8ced5fc76ef09e))
+* **select-tab:** adicionar DomainChipFilter com contagem e estado ativo ([f706775](https://github.com/guichafy/chrome-extension-debug-buddy/commit/f7067751c2b7512388a9afc63363adcadff06aee))
+* **select-tab:** adicionar EmptyState com variantes loading/no-tabs/no-results/error ([9224f20](https://github.com/guichafy/chrome-extension-debug-buddy/commit/9224f20c772a17084ca7350be9b3455e55d52c57))
+* **select-tab:** adicionar hook useFilteredTabs com filtros e tratamento de erro ([321a1e5](https://github.com/guichafy/chrome-extension-debug-buddy/commit/321a1e564fd4e1a6d39a80869e5ae8ccafa279e3))
+* **select-tab:** adicionar TabList como listbox com aria-activedescendant ([08f760a](https://github.com/guichafy/chrome-extension-debug-buddy/commit/08f760ac2b78f21a9365c9ef6f109504832d2b70))
+* **select-tab:** adicionar TabRow com favicon, badge Atual e role=option ([d240405](https://github.com/guichafy/chrome-extension-debug-buddy/commit/d24040573f2dd99116d3149e6534c147f52b3f7f))
+* **select-tab:** adicionar TabSearchBar com ícone, atalho / e foco via ref ([130813e](https://github.com/guichafy/chrome-extension-debug-buddy/commit/130813ea249dc2ec4d485f3fd3a24b2cb4aaf6fe))
+
+### Bug Fixes
+
+* **select-tab:** ajustar tipagem do useFilteredTabs e tests ([fe2a5b0](https://github.com/guichafy/chrome-extension-debug-buddy/commit/fe2a5b09f8e712135466541a593ed9fb4c72f4a8))
+* **select-tab:** mover biome-ignore do useFilteredTabs para a posição correta ([f6b9a73](https://github.com/guichafy/chrome-extension-debug-buddy/commit/f6b9a73569b33578e32ad7a857c610bf2f2ed8e8))
+* **select-tab:** ocultar contador de abas durante carregamento ([217d0dc](https://github.com/guichafy/chrome-extension-debug-buddy/commit/217d0dc24c8a92e300c62573279ac5a3e71b35f0))
+* **select-tab:** silenciar warning useExhaustiveDependencies em useFilteredTabs ([5a212c2](https://github.com/guichafy/chrome-extension-debug-buddy/commit/5a212c2588bae3d4d51089b4d81a6bb020da6973))
+
+### Refactoring
+
+* **select-tab:** substituir SelectTabDialog antigo pela nova estrutura ([8cc4efc](https://github.com/guichafy/chrome-extension-debug-buddy/commit/8cc4efc296b0e650ed0560e5fdd8a64d8e22407b))
+
+### Documentation
+
+* **plan:** adicionar plano de implementação do redesign do SelectTabDialog ([8319448](https://github.com/guichafy/chrome-extension-debug-buddy/commit/8319448b6f7ae473b2e5b7bb1381d52ad15010c8))
+* **spec:** adicionar design do redesign do SelectTabDialog ([da814fd](https://github.com/guichafy/chrome-extension-debug-buddy/commit/da814fdc8a15e93d43531e879b5d67493b2dd2ca))
+
 ## [0.2.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.1.1...v0.2.0) (2026-04-29)
 
 ### Features
