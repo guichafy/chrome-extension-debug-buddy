@@ -15,7 +15,12 @@ interface FilterBarProps {
 	requests: Record<string, InterceptedResponse>;
 }
 
+type PopoverInteractOutsideEvent = Parameters<
+	NonNullable<React.ComponentPropsWithoutRef<typeof PopoverContent>['onInteractOutside']>
+>[0];
+
 export function FilterBar({ filters, onFiltersChange, requests }: FilterBarProps) {
+	const rootRef = React.useRef<HTMLDivElement>(null);
 	const inputRef = React.useRef<HTMLInputElement>(null);
 	const [draft, setDraft] = React.useState('');
 	const [open, setOpen] = React.useState(false);
@@ -69,6 +74,13 @@ export function FilterBar({ filters, onFiltersChange, requests }: FilterBarProps
 		setOpen(true);
 	};
 
+	const handlePopoverInteractOutside = React.useCallback((event: PopoverInteractOutsideEvent) => {
+		const target = event.target;
+		if (target instanceof Node && rootRef.current?.contains(target)) {
+			event.preventDefault();
+		}
+	}, []);
+
 	const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
 		if (event.key === 'Backspace' && draft === '' && filters.length > 0) {
 			event.preventDefault();
@@ -94,6 +106,7 @@ export function FilterBar({ filters, onFiltersChange, requests }: FilterBarProps
 			<Popover open={open} onOpenChange={setOpen}>
 				<PopoverAnchor asChild>
 					<div
+						ref={rootRef}
 						className={cn(
 							'group relative flex min-h-10 w-full flex-wrap items-center gap-1.5 rounded-md border bg-background px-2 py-1.5 text-sm shadow-xs transition-colors',
 							'focus-within:border-ring focus-within:ring-1 focus-within:ring-ring',
@@ -146,6 +159,7 @@ export function FilterBar({ filters, onFiltersChange, requests }: FilterBarProps
 					sideOffset={6}
 					className="w-[min(640px,calc(100vw-2rem))] p-0"
 					onOpenAutoFocus={(event) => event.preventDefault()}
+					onInteractOutside={handlePopoverInteractOutside}
 				>
 					<Command shouldFilter={false}>
 						<CommandList>
