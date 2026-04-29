@@ -65,6 +65,7 @@ export function useFilteredTabs(
 	const [allTabs, setAllTabs] = useState<Tab[]>([]);
 	const [version, setVersion] = useState(0);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: version só serve de gatilho para reload, não é lido dentro do efeito
 	useEffect(() => {
 		if (!open) return;
 		let cancelled = false;
@@ -93,7 +94,6 @@ export function useFilteredTabs(
 		return () => {
 			cancelled = true;
 		};
-		// biome-ignore lint/correctness/useExhaustiveDependencies: version só serve de gatilho para reload, não é lido dentro do efeito
 	}, [open, version]);
 
 	const reload = useCallback(() => setVersion((v) => v + 1), []);
