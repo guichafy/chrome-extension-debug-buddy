@@ -1,4 +1,3 @@
-import React from 'react';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { useFilteredTabs } from '../useFilteredTabs';
 import { INVALID_HOSTNAME } from '../../types';
@@ -107,7 +106,7 @@ describe('useFilteredTabs', () => {
 		]);
 		const { result, rerender } = renderHook(
 			({ d }: { d: string | null }) => useFilteredTabs(true, '', d),
-			{ initialProps: { d: null } },
+			{ initialProps: { d: null as string | null } },
 		);
 		await waitFor(() => expect(result.current.state).toBe('ready'));
 		expect(result.current.filteredTabs).toHaveLength(2);
