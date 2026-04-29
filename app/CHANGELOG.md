@@ -1,3 +1,9 @@
+## [0.4.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.3.0...v0.4.0) (2026-04-29)
+
+### Features
+
+* **command-center:** filtros multi-critério e destaque para pendentes ([e98bc0d](https://github.com/guichafy/chrome-extension-debug-buddy/commit/e98bc0d9e1ede19b0623547f19ad574bcf7f4992))
+
 ## [0.3.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.2.0...v0.3.0) (2026-04-29)
 
 ### Features
