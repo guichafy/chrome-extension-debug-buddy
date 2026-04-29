@@ -57,17 +57,3 @@ export function detectContentType(rawContent: string): 'json' | 'html' | 'text' 
 	// Padrão para texto
 	return 'text';
 }
-
-/**
- * Obtém o modo correto para o CodeMirror
- */
-export function getCodeMirrorMode(type: string): string | { name: string; json: boolean } {
-	switch (type) {
-		case 'json':
-			return { name: 'javascript', json: true };
-		case 'html':
-			return 'htmlmixed';
-		default:
-			return 'text';
-	}
-}

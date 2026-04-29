@@ -1,8 +1,9 @@
-import React from 'react';
+import { lazy } from 'react';
 import { createHashRouter, Navigate } from 'react-router-dom';
 import Layout from './pages/Layout';
-import CommandCenter from './pages/CommandCenter';
-import RulesLab from './pages/RulesLab';
+
+const CommandCenter = lazy(() => import('./pages/CommandCenter'));
+const RulesLab = lazy(() => import('./pages/RulesLab'));
 
 const router = createHashRouter([
 	{

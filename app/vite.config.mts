@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import path from 'path';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   root: '.',
   build: {
     outDir: 'dist',
@@ -20,7 +20,7 @@ export default defineConfig({
         entryFileNames: '[name].js',
       },
     },
-    sourcemap: true,
+    sourcemap: mode !== 'production',
   },
   resolve: {
     alias: {
@@ -35,8 +35,7 @@ export default defineConfig({
       targets: [
         { src: 'manifest.json', dest: '.' },
         { src: 'images', dest: '.' },
-        { src: 'lib', dest: '.' },
       ],
     }),
   ],
-}); 
+})); 
