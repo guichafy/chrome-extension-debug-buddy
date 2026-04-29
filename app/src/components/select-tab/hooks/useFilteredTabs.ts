@@ -93,6 +93,7 @@ export function useFilteredTabs(
 		return () => {
 			cancelled = true;
 		};
+		// biome-ignore lint/correctness/useExhaustiveDependencies: version só serve de gatilho para reload, não é lido dentro do efeito
 	}, [open, version]);
 
 	const reload = useCallback(() => setVersion((v) => v + 1), []);
