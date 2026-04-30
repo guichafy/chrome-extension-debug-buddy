@@ -299,7 +299,18 @@ chrome.runtime.onMessage.addListener(
 			return false; // Indicates we've responded synchronously
 		} else if (message.action === 'clearAllRequests') {
 			allRequests = {};
-			sessionMarker = { ...EMPTY_SESSION_MARKER };
+			// Se ainda estamos debugando, re-anchora a sessão para "agora": o usuário
+			// quer ver as próximas requests, não congelar o histórico em branco.
+			// Quando não há debug ativo, zera tudo (próximo startDebugging seta novamente).
+			if (isDebugging) {
+				sessionMarker = {
+					sessionStartedAt: Date.now(),
+					currentPageUrl: null,
+					currentPageNavigatedAt: null,
+				};
+			} else {
+				sessionMarker = { ...EMPTY_SESSION_MARKER };
+			}
 			persistSessionMarker();
 			broadcastSessionMarker();
 			indexedDBService
