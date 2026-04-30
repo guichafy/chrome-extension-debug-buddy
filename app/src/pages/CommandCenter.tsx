@@ -35,7 +35,8 @@ const CommandCenter: React.FC = () => {
 		clearAllRequests,
 	} = useAllRequests();
 
-	const { approveResponse, ignoreResponse, pendingResponses } = useResponses();
+	const { approveResponse, approveResponseWithEdit, ignoreResponse, pendingResponses } =
+		useResponses();
 	const { rules } = useRules();
 	const { selectedId, selected, select, clear } = useRequestSelection(filteredRequests);
 
@@ -132,6 +133,7 @@ const CommandCenter: React.FC = () => {
 					pendingCount={pendingCount}
 					onApproveNext={approveNext}
 					onIgnoreAll={ignoreAll}
+					onViewPending={() => navigate('/pending')}
 				/>
 				<RequestTimeline
 					requests={filteredRequests}
@@ -161,6 +163,7 @@ const CommandCenter: React.FC = () => {
 						onApprove={approveResponse}
 						onIgnore={ignoreResponse}
 						onCreateMock={handleCreateMock}
+						onApproveWithEdit={approveResponseWithEdit}
 						onOpenInRulesLab={(ruleId) => navigate(`/rules-lab?rule=${ruleId}`)}
 						onClose={clear}
 						rules={rules}

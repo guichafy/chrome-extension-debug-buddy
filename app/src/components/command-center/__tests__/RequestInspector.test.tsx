@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 import type { InterceptedResponse } from '@/types/intercepted';
@@ -29,6 +28,7 @@ const noopHandlers = {
 	onApprove: vi.fn(),
 	onIgnore: vi.fn(),
 	onCreateMock: vi.fn(),
+	onApproveWithEdit: vi.fn(async () => ({ success: true })),
 	onOpenInRulesLab: vi.fn(),
 	onClose: vi.fn(),
 };
@@ -78,7 +78,7 @@ describe('RequestInspector', () => {
 		expect(screen.getByText(/Body too large to capture/)).toBeInTheDocument();
 	});
 
-	test('mostra ações de pendente quando isWaiting=true', () => {
+	test('mostra split button de aprovação e badge "Aguardando decisão" quando isWaiting=true', () => {
 		render(
 			<RequestInspector
 				request={baseRequest({ isWaiting: true })}
@@ -87,11 +87,12 @@ describe('RequestInspector', () => {
 				{...noopHandlers}
 			/>,
 		);
-		expect(screen.getByRole('button', { name: /Aprovar/i })).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: /Ignorar/i })).toBeInTheDocument();
+		expect(screen.getByTestId('pending-actions-approve')).toBeInTheDocument();
+		expect(screen.getByTestId('pending-actions-more')).toBeInTheDocument();
+		expect(screen.getByTestId('awaiting-decision-badge')).toBeInTheDocument();
 	});
 
-	test('esconde ações de pendente quando isWaiting!=true', () => {
+	test('mostra indicador "Resolvida" e esconde split button quando isWaiting!=true', () => {
 		render(
 			<RequestInspector
 				request={baseRequest({ isWaiting: false })}
@@ -100,7 +101,54 @@ describe('RequestInspector', () => {
 				{...noopHandlers}
 			/>,
 		);
-		expect(screen.queryByRole('button', { name: /Aprovar/i })).toBeNull();
+		expect(screen.queryByTestId('pending-actions-approve')).toBeNull();
+		expect(screen.getByTestId('pending-actions-resolved')).toBeInTheDocument();
+		expect(screen.queryByTestId('awaiting-decision-badge')).toBeNull();
+	});
+
+	test('click no botão primário "Aprovar" dispara onApprove com modificações vazias', async () => {
+		const onApprove = vi.fn().mockResolvedValue(true);
+		render(
+			<RequestInspector
+				request={baseRequest({ isWaiting: true })}
+				requestId="r1"
+				rules={[]}
+				{...noopHandlers}
+				onApprove={onApprove}
+			/>,
+		);
+		fireEvent.click(screen.getByTestId('pending-actions-approve'));
+		await waitFor(() => expect(onApprove).toHaveBeenCalledWith('r1', {}));
+	});
+
+	test('hotkey Enter dispara onApprove quando isWaiting=true', async () => {
+		const onApprove = vi.fn().mockResolvedValue(true);
+		render(
+			<RequestInspector
+				request={baseRequest({ isWaiting: true })}
+				requestId="r1"
+				rules={[]}
+				{...noopHandlers}
+				onApprove={onApprove}
+			/>,
+		);
+		fireEvent.keyDown(window, { key: 'Enter' });
+		await waitFor(() => expect(onApprove).toHaveBeenCalledWith('r1', {}));
+	});
+
+	test('hotkey M dispara onCreateMock quando isWaiting=true', () => {
+		const onCreateMock = vi.fn();
+		render(
+			<RequestInspector
+				request={baseRequest({ isWaiting: true })}
+				requestId="r1"
+				rules={[]}
+				{...noopHandlers}
+				onCreateMock={onCreateMock}
+			/>,
+		);
+		fireEvent.keyDown(window, { key: 'm' });
+		expect(onCreateMock).toHaveBeenCalledTimes(1);
 	});
 
 	test('aba Request mostra headers e body unidos', async () => {

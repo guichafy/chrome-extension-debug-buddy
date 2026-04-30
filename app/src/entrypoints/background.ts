@@ -514,6 +514,63 @@ chrome.runtime.onMessage.addListener(
 					});
 				return true; // Indicates we'll respond asynchronously
 			}
+		} else if (message.action === 'approveResponseWithEdit') {
+			// Edição one-shot: o usuário ajusta status/headers/body de uma response
+			// pausada via EditResponseDialog e devolvemos via Fetch.fulfillRequest.
+			// Diferente de approveResponse: não há fallback para continueRequest se
+			// fulfill falhar — a edição precisa ser visível como erro na UI.
+			const { requestId, status, headers, body } = message as {
+				requestId?: string;
+				status?: number;
+				headers?: Record<string, string>;
+				body?: string;
+			};
+
+			if (!requestId || !pendingResponses[requestId]) {
+				sendResponse({ success: false, error: 'Response not found' });
+				return false;
+			}
+			if (typeof status !== 'number') {
+				sendResponse({
+					success: false,
+					error: 'Status code obrigatorio para edicao one-shot',
+				});
+				return false;
+			}
+			if (!headers) {
+				sendResponse({
+					success: false,
+					error: 'Headers obrigatorios para edicao one-shot',
+				});
+				return false;
+			}
+			if (typeof body !== 'string') {
+				sendResponse({
+					success: false,
+					error: 'Body obrigatorio para edicao one-shot',
+				});
+				return false;
+			}
+
+			applyEditedResponse(requestId, { status, headers, body })
+				.then(() => {
+					delete pendingResponses[requestId];
+					patchRequest(requestId, {
+						isWaiting: false,
+						editedAtRuntime: true,
+						status,
+						statusText: getHttpStatusPhrase(status),
+						headers,
+						body,
+						response: { headers, body },
+					});
+					sendResponse({ success: true });
+				})
+				.catch((error) => {
+					console.error(`Erro ao aplicar edicao one-shot em ${requestId}:`, error);
+					sendResponse({ success: false, error: getErrorMessage(error) });
+				});
+			return true; // Indicates we'll respond asynchronously
 		}
 
 		return false;
@@ -575,6 +632,37 @@ async function getDecodedResponseBody(requestId: string): Promise<string> {
 	} catch (error) {
 		throw new Error(`Erro ao decodificar base64 para ${requestId}: ${getErrorMessage(error)}`);
 	}
+}
+
+// Edição one-shot: aplica status/headers/body editados pelo usuário via
+// EditResponseDialog. Ao contrário de `applyResponseModifications`, NÃO faz
+// fallback para `continueRequest` em caso de erro — a regra "no fallbacks" do
+// projeto exige que a falha seja propagada para a UI (toast). O body é sempre
+// re-encodado em base64 antes do envio (CDP aceita texto plano via base64Encoded
+// também, mas usamos base64 unificado para evitar perder caracteres não-ASCII).
+async function applyEditedResponse(
+	requestId: string,
+	edited: { status: number; headers: Record<string, string>; body: string },
+): Promise<void> {
+	if (!attachedTabId) {
+		throw new Error('Nenhuma sessao de depuracao ativa');
+	}
+	const pendingResponse = pendingResponses[requestId];
+	if (!pendingResponse) {
+		throw new Error('Response not found');
+	}
+
+	const statusPhrase = getHttpStatusPhrase(edited.status);
+	const headersArray = headersRecordToArray(edited.headers);
+	const encodedBody = encodeBodyToBase64(edited.body);
+
+	await sendDebuggerCommand('Fetch.fulfillRequest', {
+		requestId,
+		responseCode: edited.status,
+		responsePhrase: statusPhrase,
+		responseHeaders: headersArray,
+		body: encodedBody,
+	});
 }
 
 // Apply modifications to a response

@@ -1,14 +1,14 @@
 {
-  "id": "d9b54d10-2e9e-45e2-b59c-e0505fe3348c",
+  "id": "58a5e662-76a4-4acc-b515-74ef65950fc6",
   "status": "running",
-  "startedAt": "2026-04-30T06:03:19.574Z",
-  "updatedAt": "2026-04-30T08:09:47.926Z",
+  "startedAt": "2026-04-30T17:15:09.782Z",
+  "updatedAt": "2026-04-30T17:36:03.272Z",
   "agentPlugin": "claude",
-  "trackerPlugin": "beads",
-  "epicId": "chrome-extension-debug-buddy-jc0",
-  "currentIteration": 18,
+  "trackerPlugin": "beads-bv",
+  "epicId": "chrome-extension-debug-buddy-wlr",
+  "currentIteration": 3,
   "maxIterations": 0,
   "totalTasks": 0,
-  "tasksCompleted": 18,
+  "tasksCompleted": 3,
   "cwd": "/Users/guichafy/Workspaces/chrome-extension-debug-buddy"
 }

@@ -1,126 +1,48 @@
 {
   "version": 1,
-  "sessionId": "d9b54d10-2e9e-45e2-b59c-e0505fe3348c",
+  "sessionId": "58a5e662-76a4-4acc-b515-74ef65950fc6",
   "status": "running",
-  "startedAt": "2026-04-30T06:03:33.753Z",
-  "updatedAt": "2026-04-30T08:09:47.923Z",
-  "currentIteration": 18,
+  "startedAt": "2026-04-30T17:15:12.847Z",
+  "updatedAt": "2026-04-30T17:38:15.244Z",
+  "currentIteration": 3,
   "maxIterations": 0,
-  "tasksCompleted": 18,
+  "tasksCompleted": 3,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
-    "plugin": "beads",
-    "epicId": "chrome-extension-debug-buddy-jc0",
-    "totalTasks": 18,
+    "plugin": "beads-bv",
+    "epicId": "chrome-extension-debug-buddy-wlr",
+    "totalTasks": 5,
     "tasks": [
       {
-        "id": "chrome-extension-debug-buddy-jc0.1",
-        "title": "US-001: Renomear modify para transform em todo o codigo",
+        "id": "chrome-extension-debug-buddy-wlr.1",
+        "title": "US-001: Rota dedicada /pending com lista de responses pausadas",
         "status": "completed",
         "completedInSession": true
       },
       {
-        "id": "chrome-extension-debug-buddy-jc0.2",
-        "title": "US-002: Prioridade de matching ordenada (primeira que casa vence)",
+        "id": "chrome-extension-debug-buddy-wlr.2",
+        "title": "US-002: Banner de pendentes ganha botão 'Ver pausadas'",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "chrome-extension-debug-buddy-wlr.3",
+        "title": "US-004: Edição one-shot de Response (status, headers, body) antes de aprovar",
         "status": "completed",
         "completedInSession": true
       },
       {
-        "id": "chrome-extension-debug-buddy-jc0.3",
-        "title": "US-003: Redesign da listagem de regras com shadcn Table",
+        "id": "chrome-extension-debug-buddy-wlr.4",
+        "title": "US-005: RequestInspector adota split button com hierarquia clara",
         "status": "completed",
         "completedInSession": true
       },
       {
-        "id": "chrome-extension-debug-buddy-jc0.4",
-        "title": "US-004: Busca e filtro na listagem de regras",
-        "status": "completed",
-        "completedInSession": true
-      },
-      {
-        "id": "chrome-extension-debug-buddy-jc0.5",
-        "title": "US-005: Toggle enabled/disabled por regra",
-        "status": "completed",
-        "completedInSession": true
-      },
-      {
-        "id": "chrome-extension-debug-buddy-jc0.6",
-        "title": "US-006: Duplicar regra a partir da listagem",
-        "status": "completed",
-        "completedInSession": true
-      },
-      {
-        "id": "chrome-extension-debug-buddy-jc0.7",
-        "title": "US-007: Reordenar regras com drag-and-drop",
-        "status": "completed",
-        "completedInSession": true
-      },
-      {
-        "id": "chrome-extension-debug-buddy-jc0.8",
-        "title": "US-008: Importar e exportar regras em JSON",
-        "status": "completed",
-        "completedInSession": true
-      },
-      {
-        "id": "chrome-extension-debug-buddy-jc0.9",
-        "title": "US-009: Wizard multi-step em Dialog grande para criacao/edicao",
-        "status": "completed",
-        "completedInSession": true
-      },
-      {
-        "id": "chrome-extension-debug-buddy-jc0.10",
-        "title": "US-010: Step Tipo do wizard com selecao visual em cards",
-        "status": "completed",
-        "completedInSession": true
-      },
-      {
-        "id": "chrome-extension-debug-buddy-jc0.11",
-        "title": "US-011: Biblioteca de templates curados de regras",
-        "status": "completed",
-        "completedInSession": true
-      },
-      {
-        "id": "chrome-extension-debug-buddy-jc0.12",
-        "title": "US-012: Step Matcher unificado com preview ao vivo",
-        "status": "completed",
-        "completedInSession": true
-      },
-      {
-        "id": "chrome-extension-debug-buddy-jc0.13",
-        "title": "US-013: Editor de acao Mock com status, headers e body",
-        "status": "completed",
-        "completedInSession": true
-      },
-      {
-        "id": "chrome-extension-debug-buddy-jc0.14",
-        "title": "US-014: Editor de acao Delay com presets",
-        "status": "completed",
-        "completedInSession": true
-      },
-      {
-        "id": "chrome-extension-debug-buddy-jc0.15",
-        "title": "US-015: Editor de acao Breakpoint com descricao",
-        "status": "completed",
-        "completedInSession": true
-      },
-      {
-        "id": "chrome-extension-debug-buddy-jc0.16",
-        "title": "US-016: Editor de Transform em modo declarativo (JSONPath)",
-        "status": "completed",
-        "completedInSession": true
-      },
-      {
-        "id": "chrome-extension-debug-buddy-jc0.17",
-        "title": "US-017: Editor de Transform em modo avancado JS",
-        "status": "completed",
-        "completedInSession": true
-      },
-      {
-        "id": "chrome-extension-debug-buddy-jc0.18",
-        "title": "US-018: Step Revisar e Salvar com diff em modo edicao",
-        "status": "completed",
-        "completedInSession": true
+        "id": "chrome-extension-debug-buddy-wlr.5",
+        "title": "US-003: Tabela de /pending oferece ações inline por linha",
+        "status": "open",
+        "completedInSession": false
       }
     ]
   },
@@ -128,182 +50,32 @@
     {
       "iteration": 1,
       "status": "completed",
-      "taskId": "chrome-extension-debug-buddy-jc0.1",
-      "taskTitle": "US-001: Renomear modify para transform em todo o codigo",
+      "taskId": "chrome-extension-debug-buddy-wlr.1",
+      "taskTitle": "US-001: Rota dedicada /pending com lista de responses pausadas",
       "taskCompleted": true,
-      "durationMs": 335393,
-      "startedAt": "2026-04-30T06:04:04.511Z",
-      "endedAt": "2026-04-30T06:09:39.904Z"
+      "durationMs": 335486,
+      "startedAt": "2026-04-30T17:15:30.612Z",
+      "endedAt": "2026-04-30T17:21:06.098Z"
     },
     {
       "iteration": 2,
       "status": "completed",
-      "taskId": "chrome-extension-debug-buddy-jc0.9",
-      "taskTitle": "US-009: Wizard multi-step em Dialog grande para criacao/edicao",
+      "taskId": "chrome-extension-debug-buddy-wlr.3",
+      "taskTitle": "US-004: Edição one-shot de Response (status, headers, body) antes de aprovar",
       "taskCompleted": true,
-      "durationMs": 367918,
-      "startedAt": "2026-04-30T06:09:50.459Z",
-      "endedAt": "2026-04-30T06:15:58.377Z"
+      "durationMs": 536404,
+      "startedAt": "2026-04-30T17:21:11.212Z",
+      "endedAt": "2026-04-30T17:30:07.616Z"
     },
     {
       "iteration": 3,
       "status": "completed",
-      "taskId": "chrome-extension-debug-buddy-jc0.3",
-      "taskTitle": "US-003: Redesign da listagem de regras com shadcn Table",
+      "taskId": "chrome-extension-debug-buddy-wlr.4",
+      "taskTitle": "US-005: RequestInspector adota split button com hierarquia clara",
       "taskCompleted": true,
-      "durationMs": 361232,
-      "startedAt": "2026-04-30T06:16:08.064Z",
-      "endedAt": "2026-04-30T06:22:09.296Z"
-    },
-    {
-      "iteration": 4,
-      "status": "completed",
-      "taskId": "chrome-extension-debug-buddy-jc0.2",
-      "taskTitle": "US-002: Prioridade de matching ordenada (primeira que casa vence)",
-      "taskCompleted": true,
-      "durationMs": 224636,
-      "startedAt": "2026-04-30T06:22:21.724Z",
-      "endedAt": "2026-04-30T06:26:06.360Z"
-    },
-    {
-      "iteration": 5,
-      "status": "completed",
-      "taskId": "chrome-extension-debug-buddy-jc0.12",
-      "taskTitle": "US-012: Step Matcher unificado com preview ao vivo",
-      "taskCompleted": true,
-      "durationMs": 632506,
-      "startedAt": "2026-04-30T06:26:17.102Z",
-      "endedAt": "2026-04-30T06:36:49.608Z"
-    },
-    {
-      "iteration": 6,
-      "status": "completed",
-      "taskId": "chrome-extension-debug-buddy-jc0.18",
-      "taskTitle": "US-018: Step Revisar e Salvar com diff em modo edicao",
-      "taskCompleted": true,
-      "durationMs": 534376,
-      "startedAt": "2026-04-30T06:37:00.705Z",
-      "endedAt": "2026-04-30T06:45:55.081Z"
-    },
-    {
-      "iteration": 7,
-      "status": "completed",
-      "taskId": "chrome-extension-debug-buddy-jc0.10",
-      "taskTitle": "US-010: Step Tipo do wizard com selecao visual em cards",
-      "taskCompleted": true,
-      "durationMs": 228861,
-      "startedAt": "2026-04-30T06:46:06.041Z",
-      "endedAt": "2026-04-30T06:49:54.902Z"
-    },
-    {
-      "iteration": 8,
-      "status": "completed",
-      "taskId": "chrome-extension-debug-buddy-jc0.16",
-      "taskTitle": "US-016: Editor de Transform em modo declarativo (JSONPath)",
-      "taskCompleted": true,
-      "durationMs": 534593,
-      "startedAt": "2026-04-30T06:50:06.033Z",
-      "endedAt": "2026-04-30T06:59:00.626Z"
-    },
-    {
-      "iteration": 9,
-      "status": "completed",
-      "taskId": "chrome-extension-debug-buddy-jc0.15",
-      "taskTitle": "US-015: Editor de acao Breakpoint com descricao",
-      "taskCompleted": true,
-      "durationMs": 379650,
-      "startedAt": "2026-04-30T06:59:10.029Z",
-      "endedAt": "2026-04-30T07:05:29.679Z"
-    },
-    {
-      "iteration": 10,
-      "status": "completed",
-      "taskId": "chrome-extension-debug-buddy-jc0.14",
-      "taskTitle": "US-014: Editor de acao Delay com presets",
-      "taskCompleted": true,
-      "durationMs": 302736,
-      "startedAt": "2026-04-30T07:05:42.154Z",
-      "endedAt": "2026-04-30T07:10:44.890Z"
-    },
-    {
-      "iteration": 11,
-      "status": "completed",
-      "taskId": "chrome-extension-debug-buddy-jc0.13",
-      "taskTitle": "US-013: Editor de acao Mock com status, headers e body",
-      "taskCompleted": true,
-      "durationMs": 402382,
-      "startedAt": "2026-04-30T07:10:55.397Z",
-      "endedAt": "2026-04-30T07:17:37.779Z"
-    },
-    {
-      "iteration": 12,
-      "status": "completed",
-      "taskId": "chrome-extension-debug-buddy-jc0.7",
-      "taskTitle": "US-007: Reordenar regras com drag-and-drop",
-      "taskCompleted": true,
-      "durationMs": 621206,
-      "startedAt": "2026-04-30T07:17:48.430Z",
-      "endedAt": "2026-04-30T07:28:09.636Z"
-    },
-    {
-      "iteration": 13,
-      "status": "completed",
-      "taskId": "chrome-extension-debug-buddy-jc0.5",
-      "taskTitle": "US-005: Toggle enabled/disabled por regra",
-      "taskCompleted": true,
-      "durationMs": 368907,
-      "startedAt": "2026-04-30T07:28:19.963Z",
-      "endedAt": "2026-04-30T07:34:28.870Z"
-    },
-    {
-      "iteration": 14,
-      "status": "completed",
-      "taskId": "chrome-extension-debug-buddy-jc0.17",
-      "taskTitle": "US-017: Editor de Transform em modo avancado JS",
-      "taskCompleted": true,
-      "durationMs": 675720,
-      "startedAt": "2026-04-30T07:34:38.164Z",
-      "endedAt": "2026-04-30T07:45:53.884Z"
-    },
-    {
-      "iteration": 15,
-      "status": "completed",
-      "taskId": "chrome-extension-debug-buddy-jc0.11",
-      "taskTitle": "US-011: Biblioteca de templates curados de regras",
-      "taskCompleted": true,
-      "durationMs": 542447,
-      "startedAt": "2026-04-30T07:46:03.724Z",
-      "endedAt": "2026-04-30T07:55:06.171Z"
-    },
-    {
-      "iteration": 16,
-      "status": "completed",
-      "taskId": "chrome-extension-debug-buddy-jc0.8",
-      "taskTitle": "US-008: Importar e exportar regras em JSON",
-      "taskCompleted": true,
-      "durationMs": 119849,
-      "startedAt": "2026-04-30T07:55:19.108Z",
-      "endedAt": "2026-04-30T07:57:18.957Z"
-    },
-    {
-      "iteration": 17,
-      "status": "completed",
-      "taskId": "chrome-extension-debug-buddy-jc0.6",
-      "taskTitle": "US-006: Duplicar regra a partir da listagem",
-      "taskCompleted": true,
-      "durationMs": 241107,
-      "startedAt": "2026-04-30T07:57:29.704Z",
-      "endedAt": "2026-04-30T08:01:30.811Z"
-    },
-    {
-      "iteration": 18,
-      "status": "completed",
-      "taskId": "chrome-extension-debug-buddy-jc0.4",
-      "taskTitle": "US-004: Busca e filtro na listagem de regras",
-      "taskCompleted": true,
-      "durationMs": 483523,
-      "startedAt": "2026-04-30T08:01:42.219Z",
-      "endedAt": "2026-04-30T08:09:45.742Z"
+      "durationMs": 349336,
+      "startedAt": "2026-04-30T17:30:12.187Z",
+      "endedAt": "2026-04-30T17:36:01.523Z"
     }
   ],
   "skippedTaskIds": [],

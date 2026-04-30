@@ -1,4 +1,3 @@
-import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -10,6 +9,7 @@ import { findMatchingRuleAction } from '@/domain/ruleMatching';
 import { formatDuration } from '@/components/requests/duration';
 import { buildReplayView } from '@/lib/replayHistory';
 import { BodyViewer } from './BodyViewer';
+import { PendingResponseActions } from './PendingResponseActions';
 
 interface RequestInspectorProps {
 	request: InterceptedResponse | null;
@@ -17,6 +17,10 @@ interface RequestInspectorProps {
 	onApprove: (requestId: string, modifications: ResponseModifications) => Promise<boolean>;
 	onIgnore: (requestId: string) => Promise<boolean>;
 	onCreateMock: (request: InterceptedResponse, requestId: string) => void;
+	onApproveWithEdit: (
+		requestId: string,
+		payload: { status: number; headers: Record<string, string>; body: string },
+	) => Promise<{ success: boolean; error?: string }>;
 	onOpenInRulesLab: (ruleId: string) => void;
 	onClose: () => void;
 	rules: Rule[];
@@ -34,6 +38,7 @@ export function RequestInspector({
 	onApprove,
 	onIgnore,
 	onCreateMock,
+	onApproveWithEdit,
 	onOpenInRulesLab,
 	onClose,
 	rules,
@@ -68,38 +73,50 @@ export function RequestInspector({
 			? matchedBreakpoint.action.description?.trim() || undefined
 			: undefined;
 
-	const handleApprove = async () => {
-		await onApprove(requestId, {});
-	};
-	const handleIgnore = async () => {
-		await onIgnore(requestId);
+	const handleApproveWrapper = async (id: string) => {
+		await onApprove(id, {});
 	};
 
 	return (
 		<aside className="flex h-full min-h-0 min-w-0 w-full flex-col border-l bg-background">
 			<header
-				className="grid items-center gap-2 border-b px-4 py-3"
-				style={{ gridTemplateColumns: 'auto minmax(0, 1fr) auto auto auto' }}
+				className="flex flex-col gap-2 border-b px-4 py-3"
+				data-testid="request-inspector-header"
 			>
-				<Badge variant="outline" className="font-mono text-xs">
-					{request.method ?? 'Método ausente'}
-				</Badge>
-				<span className="truncate font-mono text-xs" title={request.url}>
-					{truncateMiddle(request.url)}
-				</span>
-				<Badge variant="outline" className="text-xs">
-					{request.status}
-				</Badge>
-				<span className="text-xs text-muted-foreground">{formatDuration(request.duration)}</span>
-				<Button
-					variant="ghost"
-					size="icon"
-					onClick={onClose}
-					aria-label="Fechar inspector"
-					className="h-8 w-8"
+				<div
+					className="grid items-center gap-2"
+					style={{ gridTemplateColumns: 'auto minmax(0, 1fr) auto auto auto' }}
 				>
-					<LucideIcon name="x" className="h-4 w-4" />
-				</Button>
+					<Badge variant="outline" className="font-mono text-xs">
+						{request.method ?? 'Método ausente'}
+					</Badge>
+					<span className="truncate font-mono text-xs" title={request.url}>
+						{truncateMiddle(request.url)}
+					</span>
+					<Badge variant="outline" className="text-xs">
+						{request.status}
+					</Badge>
+					<span className="text-xs text-muted-foreground">{formatDuration(request.duration)}</span>
+					<Button
+						variant="ghost"
+						size="icon"
+						onClick={onClose}
+						aria-label="Fechar inspector"
+						className="h-8 w-8"
+					>
+						<LucideIcon name="x" className="h-4 w-4" />
+					</Button>
+				</div>
+				{isPending && (
+					<Badge
+						variant="warning"
+						className="w-fit gap-1 text-xs"
+						data-testid="awaiting-decision-badge"
+					>
+						<LucideIcon name="hourglass" className="h-3 w-3 animate-pulse" />
+						Aguardando decisão
+					</Badge>
+				)}
 			</header>
 
 			{request.captureError && (
@@ -131,17 +148,31 @@ export function RequestInspector({
 				</div>
 			)}
 
-			<div className="flex flex-wrap gap-2 px-4 pb-3">
-				<Button
+			<div className="flex flex-wrap items-center gap-2 px-4 pb-3">
+				<PendingResponseActions
+					request={request}
+					requestId={requestId}
+					isWaiting={isPending}
+					onApprove={handleApproveWrapper}
+					onIgnore={onIgnore}
+					onCreateMock={onCreateMock}
+					onApproveWithEdit={onApproveWithEdit}
+					hotkeysEnabled={isPending}
 					size="sm"
-					variant="default"
-					onClick={() => onCreateMock(request, requestId)}
 					disabled={Boolean(request.captureError)}
-					className="gap-2"
-				>
-					<LucideIcon name="copy" className="h-4 w-4" />
-					Criar Mock
-				</Button>
+				/>
+				{!isPending && (
+					<Button
+						size="sm"
+						variant="outline"
+						onClick={() => onCreateMock(request, requestId)}
+						disabled={Boolean(request.captureError)}
+						className="gap-2"
+					>
+						<LucideIcon name="copy" className="h-4 w-4" />
+						Criar Mock
+					</Button>
+				)}
 				{request.generatedRuleId && (
 					<Button
 						size="sm"
@@ -152,18 +183,6 @@ export function RequestInspector({
 						<LucideIcon name="flask" className="h-4 w-4" />
 						Abrir no Rules Lab
 					</Button>
-				)}
-				{isPending && (
-					<>
-						<Button size="sm" variant="default" onClick={handleApprove} className="gap-2">
-							<LucideIcon name="check" className="h-4 w-4" />
-							Aprovar
-						</Button>
-						<Button size="sm" variant="outline" onClick={handleIgnore} className="gap-2">
-							<LucideIcon name="x" className="h-4 w-4" />
-							Ignorar
-						</Button>
-					</>
 				)}
 			</div>
 
