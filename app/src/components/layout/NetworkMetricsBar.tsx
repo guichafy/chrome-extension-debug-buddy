@@ -311,9 +311,10 @@ function FailedDetailView({ data }: { data: FailedDetail }) {
 						key={`${entry.url}-${entry.status}`}
 						className="flex items-center justify-between gap-3"
 					>
-						<TruncatedUrl url={`${entry.method ?? ''} ${entry.url}`.trim()} />
+						<TruncatedUrl url={entry.method ? `${entry.method} ${entry.url}` : entry.url} />
 						<span className="text-destructive">
-							{entry.status} {entry.statusText ?? ''}
+							{entry.status}
+							{entry.statusText ? ` ${entry.statusText}` : ''}
 						</span>
 					</div>
 				))}
