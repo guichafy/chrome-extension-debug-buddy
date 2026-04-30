@@ -7,12 +7,14 @@ interface PendingAlertBannerProps {
 	pendingCount: number;
 	onApproveNext: () => void;
 	onIgnoreAll: () => void;
+	onViewPending: () => void;
 }
 
 export function PendingAlertBanner({
 	pendingCount,
 	onApproveNext,
 	onIgnoreAll,
+	onViewPending,
 }: PendingAlertBannerProps) {
 	if (pendingCount === 0) return null;
 
@@ -41,6 +43,15 @@ export function PendingAlertBanner({
 				</div>
 			</div>
 			<div className="flex items-center gap-2">
+				<Button
+					type="button"
+					size="sm"
+					variant="outline"
+					onClick={onViewPending}
+					className="border-warning/40 text-foreground hover:bg-warning/15"
+				>
+					Ver pausadas ({pendingCount})
+				</Button>
 				<Button
 					type="button"
 					size="sm"

@@ -49,6 +49,13 @@ export interface InterceptedResponse {
 	};
 	/** ID da regra gerada via Quick Mock a partir desta request, quando aplicável. */
 	generatedRuleId?: string;
+	/**
+	 * Marca uma resposta que foi editada one-shot via `EditResponseDialog` antes
+	 * de ser aprovada. Diferente de `isMocked` (regra persistente) — esta edição
+	 * ocorreu apenas na requisição em questão. Usada pelo histórico para mostrar
+	 * um badge "editada" distinguindo edição manual de modificações via mock.
+	 */
+	editedAtRuntime?: boolean;
 }
 
 export interface ResponseModifications {

@@ -115,6 +115,7 @@ describe('AppSidebar Component', () => {
 
 		// Verifica se os labels da navegação estão presentes
 		expect(screen.getByText('Command Center')).toBeInTheDocument();
+		expect(screen.getByText('Pausadas')).toBeInTheDocument();
 		expect(screen.getByText('Rules Lab')).toBeInTheDocument();
 	});
 
@@ -133,10 +134,17 @@ describe('AppSidebar Component', () => {
 
 		// Verifica se os itens de navegação estão presentes
 		const navItems = screen.getAllByTestId('nav-item');
-		expect(navItems.length).toBe(2); // Command Center, Rules Lab
+		expect(navItems.length).toBe(3); // Command Center, Pausadas, Rules Lab
 
-		// Verifica se não há contadores visíveis no sidebar
+		// Verifica se a contagem de pausadas é exibida
 		const counts = screen.queryAllByTestId('nav-item-count');
-		expect(counts.length).toBe(0); // Não deve haver contadores no sidebar
+		expect(counts.length).toBe(1); // Apenas o item "Pausadas" tem contador
+		expect(counts[0]).toHaveTextContent('5');
+	});
+
+	test('não exibe contador de pausadas quando count=0', () => {
+		render(<AppSidebar pendingResponsesCount={0} />);
+		const counts = screen.queryAllByTestId('nav-item-count');
+		expect(counts.length).toBe(0);
 	});
 });

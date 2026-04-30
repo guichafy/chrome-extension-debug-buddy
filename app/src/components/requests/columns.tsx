@@ -148,21 +148,34 @@ export const columns: ColumnDef<RequestRow>[] = [
 			);
 		},
 		cell: ({ row }) => {
-			const meta = getStateBadgeMeta(getRequestState(row.original.request));
+			const request = row.original.request;
+			const meta = getStateBadgeMeta(getRequestState(request));
 			return (
-				<Badge
-					variant={meta.variant}
-					className={cn(
-						'text-xs whitespace-nowrap inline-flex items-center gap-1',
-						meta.pulse && 'animate-pulse',
+				<div className="flex flex-wrap items-center gap-1">
+					<Badge
+						variant={meta.variant}
+						className={cn(
+							'text-xs whitespace-nowrap inline-flex items-center gap-1',
+							meta.pulse && 'animate-pulse',
+						)}
+					>
+						<LucideIcon name={meta.iconName} className="h-3 w-3" />
+						{meta.label}
+					</Badge>
+					{request.editedAtRuntime === true && (
+						<Badge
+							variant="outline"
+							className="text-xs whitespace-nowrap inline-flex items-center gap-1"
+							data-testid={`edited-runtime-badge-${row.original.id}`}
+						>
+							<LucideIcon name="edit" className="h-3 w-3" />
+							editada
+						</Badge>
 					)}
-				>
-					<LucideIcon name={meta.iconName} className="h-3 w-3" />
-					{meta.label}
-				</Badge>
+				</div>
 			);
 		},
-		size: 100,
+		size: 140,
 	},
 	{
 		accessorKey: 'method',

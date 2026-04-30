@@ -88,6 +88,51 @@ export function useResponses() {
 		[pendingResponses, currentResponseId],
 	);
 
+	// Edição one-shot: envia status/headers/body editados via approveResponseWithEdit.
+	// Devolve `{ success, error }` para que a UI (EditResponseDialog) renderize o
+	// erro como toast — regra "no fallbacks" exige propagação explícita.
+	const approveResponseWithEdit = useCallback(
+		async (
+			requestId: string,
+			payload: { status: number; headers: Record<string, string>; body: string },
+		): Promise<{ success: boolean; error?: string }> => {
+			try {
+				const response = await chrome.runtime.sendMessage({
+					action: 'approveResponseWithEdit',
+					requestId,
+					...payload,
+				});
+
+				if (response && response.success) {
+					// Background já fez patchRequest com isWaiting=false; o broadcast
+					// requestUpdated chega depois, mas removemos localmente já para
+					// reagir imediatamente no inspetor que disparou a edição.
+					setPendingResponses((prev) => {
+						if (!prev[requestId]) return prev;
+						const next = { ...prev };
+						delete next[requestId];
+						return next;
+					});
+					if (currentResponseId === requestId) {
+						setCurrentResponseId(null);
+						setCurrentResponse(null);
+					}
+					return { success: true };
+				}
+				return {
+					success: false,
+					error: response?.error ?? 'Erro desconhecido ao aplicar edição.',
+				};
+			} catch (error) {
+				return {
+					success: false,
+					error: error instanceof Error ? error.message : String(error),
+				};
+			}
+		},
+		[currentResponseId],
+	);
+
 	// Ignorar uma resposta (continua sem modificações)
 	const ignoreResponse = useCallback(
 		async (requestId: string): Promise<boolean> => {
@@ -156,6 +201,25 @@ export function useResponses() {
 						});
 					}
 				}
+			} else if (message.action === 'requestUpdated') {
+				// Quando o background sinaliza que uma request saiu do estado pausado
+				// (isWaiting=false após aprovação/ignore por outro caminho), removemos
+				// localmente para que a tabela de pausadas reaja em tempo real.
+				const updates = message.updates;
+				const requestId = message.requestId;
+				if (!requestId || !updates) return;
+				if (updates.isWaiting === false) {
+					setPendingResponses((prev) => {
+						if (!prev[requestId]) return prev;
+						const next = { ...prev };
+						delete next[requestId];
+						return next;
+					});
+					if (currentResponseId === requestId) {
+						setCurrentResponseId(null);
+						setCurrentResponse(null);
+					}
+				}
 			}
 		};
 
@@ -185,6 +249,7 @@ export function useResponses() {
 		loadPendingResponses,
 		getResponseDetails,
 		approveResponse,
+		approveResponseWithEdit,
 		ignoreResponse,
 		clearCurrentResponse,
 	};

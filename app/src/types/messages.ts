@@ -15,6 +15,7 @@ export type MessageAction =
 	| 'clearAllRequests'
 	| 'getResponseDetails'
 	| 'approveResponse'
+	| 'approveResponseWithEdit'
 	| 'newPendingResponse'
 	| 'responseBodyReady'
 	| 'newRequest'
