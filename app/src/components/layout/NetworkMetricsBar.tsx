@@ -200,7 +200,7 @@ function Pill({ icon, label, name, accent, detail, onClick, disabled, children }
 		<TooltipProvider>
 			<Tooltip>
 				<TooltipTrigger asChild>{trigger}</TooltipTrigger>
-				<TooltipContent side="bottom" className="max-w-sm" forceMount aria-label={label}>
+				<TooltipContent side="bottom" className="max-w-sm">
 					{detail ?? label}
 				</TooltipContent>
 			</Tooltip>
