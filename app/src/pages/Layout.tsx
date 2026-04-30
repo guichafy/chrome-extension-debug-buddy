@@ -1,14 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { SelectTabDialog } from '../components/select-tab/SelectTabDialog';
 import { AppSidebar } from '../components/layout/AppSidebar';
 import { SiteHeader } from '../components/layout/SiteHeader';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useDebugging } from '../hooks/useDebugging';
 import { useResponses } from '../hooks/useResponses';
 import { useAllRequests } from '../hooks/useAllRequests';
 import { useSessionMarker } from '../hooks/useSessionMarker';
 import { useNetworkMetrics } from '../hooks/useNetworkMetrics';
+
+const RouteFallback: React.FC = () => (
+	<div className="flex flex-col gap-3 p-6">
+		<Skeleton className="h-8 w-48" />
+		<Skeleton className="h-4 w-full max-w-md" />
+		<div className="mt-4 grid gap-2">
+			<Skeleton className="h-10 w-full" />
+			<Skeleton className="h-10 w-full" />
+			<Skeleton className="h-10 w-full" />
+		</div>
+	</div>
+);
 
 const Layout: React.FC = () => {
 	const { isDebugging, targetTab, startDebugging, stopDebugging } = useDebugging();
@@ -61,7 +74,9 @@ const Layout: React.FC = () => {
 				/>
 
 				<div className="main-content-container flex-1 min-h-0 overflow-hidden">
-					<Outlet />
+					<Suspense fallback={<RouteFallback />}>
+						<Outlet />
+					</Suspense>
 				</div>
 			</SidebarInset>
 		</SidebarProvider>

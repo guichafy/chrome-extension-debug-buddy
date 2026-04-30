@@ -1,3 +1,9 @@
+## [0.5.1](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.5.0...v0.5.1) (2026-04-29)
+
+### Performance
+
+* **build:** reduz dist/ de 6MB para 856KB removendo assets mortos e habilitando code-split ([d9ab9bc](https://github.com/guichafy/chrome-extension-debug-buddy/commit/d9ab9bc7cedc439e207c93af03b86deaccd2a379))
+
 ## [0.5.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.4.0...v0.5.0) (2026-04-29)
 
 ### Features
