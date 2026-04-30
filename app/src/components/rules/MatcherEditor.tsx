@@ -83,35 +83,45 @@ export const MatcherEditor: React.FC<MatcherEditorProps> = ({
 		</div>
 	);
 
-	// Editor para matcher de método HTTP
-	const renderMethodMatcherEditor = (methodMatcher: MethodMatcher) => (
-		<div className="space-y-2">
-			<Label className="font-medium">Método HTTP</Label>
-			<Select
-				value={methodMatcher.method}
-				onValueChange={(value) => {
-					onChange({
-						...methodMatcher,
-						method: value,
-					});
-				}}
-			>
-				<SelectTrigger>
-					<SelectValue placeholder="Selecione um método" />
-				</SelectTrigger>
-				<SelectContent>
-					<SelectItem value="ANY">Qualquer método</SelectItem>
-					<SelectItem value="GET">GET</SelectItem>
-					<SelectItem value="POST">POST</SelectItem>
-					<SelectItem value="PUT">PUT</SelectItem>
-					<SelectItem value="DELETE">DELETE</SelectItem>
-					<SelectItem value="PATCH">PATCH</SelectItem>
-					<SelectItem value="HEAD">HEAD</SelectItem>
-					<SelectItem value="OPTIONS">OPTIONS</SelectItem>
-				</SelectContent>
-			</Select>
-		</div>
-	);
+	// Editor para matcher de método HTTP. O schema aceita `method: string | string[]`
+	// (multi-select usado pelo `UnifiedMatcherEditor` do wizard). Aqui na lista
+	// avancada, exibimos apenas a primeira opcao da lista para o Select; ao salvar,
+	// gravamos sempre como string unica.
+	const renderMethodMatcherEditor = (methodMatcher: MethodMatcher) => {
+		const selectedValue = Array.isArray(methodMatcher.method)
+			? methodMatcher.method.includes('ANY')
+				? 'ANY'
+				: (methodMatcher.method[0] ?? 'ANY')
+			: methodMatcher.method;
+		return (
+			<div className="space-y-2">
+				<Label className="font-medium">Método HTTP</Label>
+				<Select
+					value={selectedValue}
+					onValueChange={(value) => {
+						onChange({
+							...methodMatcher,
+							method: value,
+						});
+					}}
+				>
+					<SelectTrigger>
+						<SelectValue placeholder="Selecione um método" />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="ANY">Qualquer método</SelectItem>
+						<SelectItem value="GET">GET</SelectItem>
+						<SelectItem value="POST">POST</SelectItem>
+						<SelectItem value="PUT">PUT</SelectItem>
+						<SelectItem value="DELETE">DELETE</SelectItem>
+						<SelectItem value="PATCH">PATCH</SelectItem>
+						<SelectItem value="HEAD">HEAD</SelectItem>
+						<SelectItem value="OPTIONS">OPTIONS</SelectItem>
+					</SelectContent>
+				</Select>
+			</div>
+		);
+	};
 
 	// Editor para matcher de header
 	const renderHeaderMatcherEditor = (headerMatcher: HeaderMatcher) => (

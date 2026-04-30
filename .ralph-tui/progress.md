@@ -10,6 +10,10 @@ after each iteration and it's included in prompts for context.
 - **Dialog grande responsivo**: `className="flex max-h-[85vh] w-[90vw] max-w-[60rem] flex-col overflow-hidden sm:max-w-[60rem]"` no `DialogContent` produz ~960px com cap em 90vw e altura em 85vh com scroll interno via `ScrollArea`.
 - **Listagem de regras com shadcn Table**: `app/src/components/rules-lab/RulesList.tsx` usa `Table`/`TableHeader`/`TableBody`/`TableRow` com colunas Ordem (priority numero), Status (toggle), Tipo (Badge colorida via `getActionVisuals`), Matcher (URL+metodo via `getMatcherSummary`), Acao (resumo via `getActionSummary`), Atualizado e Acoes. Linhas individuais ficam em `RuleTableRow.tsx`. A coluna Ordem reflete o indice 1-based na ordem original do array `rules` (passado via prop `orderById: Map<string, number>` calculada em `RulesLab.tsx`) — alinha com a regra "primeira que casa vence" do background.
 - **Visuals por tipo de acao**: `getActionVisuals(action)` retorna `iconName`/`label`/`bgClass`/`textClass`/`borderClass` consistentes em toda a UI. Usar em badges, cards e icones para que cada tipo (mock=violet, delay=amber, transform=sky, breakpoint=rose) tenha cor unica.
+- **Wildcard matching em URL matcher**: padroes contendo `*` no `UrlMatcher.pattern` (modo nao-regex) sao convertidos para regex via `wildcardToRegex` em `app/src/domain/ruleMatching.ts`, escapando demais meta-caracteres. Padroes sem `*` mantem comportamento de `includes()`. O modo `isRegex: true` continua usando `new RegExp(...)`.
+- **Multi-select de metodo HTTP**: `MethodMatcher.method` agora aceita `string | string[]` (array para multi-select com 'ANY' como wildcard especial). `methodMatcherCasaInput` em `ruleMatching.ts` lida com ambos os formatos. Componentes legados (`MatcherEditor`) tratam array via primeiro elemento; novos editores usam array. `getMatcherSummary` em `ruleVisuals.ts` formata array como `GET|POST`.
+- **Painel de preview com explainMatchers**: `app/src/domain/ruleMatching.ts` exporta `explainMatchers(matchers, input)` retornando `{overall, checks: [{matcher, pass, reason}]}` para alimentar UIs de preview. Matchers desabilitados aparecem com pass=true mas reason "(desabilitado)" — refletindo o comportamento de runtime que ignora-os mas nao os bloqueia.
+- **UnifiedMatcherEditor (URL+method)**: `app/src/components/rules/UnifiedMatcherEditor.tsx` consolida URL pattern + method multi-select em layout 2-col (editor a esquerda, preview a direita) usando `grid lg:grid-cols-[1fr_minmax(0,_22rem)]`. Header/body matchers aparecem em "Matchers avancados" abaixo via legacy `MatcherEditor`. Buscar via `findIndex` em vez de `find` para preservar posicao no array (importante porque ordem do array do schema importa).
 
 ---
 
@@ -66,4 +70,40 @@ after each iteration and it's included in prompts for context.
   - O `DialogFooter` shadcn usa `flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2` por padrao. Para o wizard com Cancelar a esquerda e navegacao a direita, sobrescrevi com `!flex-row !justify-between` (precisa do `!` para vencer o sm: do shadcn). Padrao util para outros wizards.
   - O `cameFromWelcome` so deve mostrar o link "Voltar" no step `type` (primeiro step). Caso contrario o usuario poderia voltar para a welcome a partir de qualquer step e perder o draft.
   - Ao re-abrir o dialog em modo edit, `setMaxStepIndexReached(STEPS.length - 1)` desbloqueia todos os steps de uma vez (atende AC "pular direto para qualquer step valido"). Em create, fica em 0 e cresce conforme o usuario avanca via Proximo.
+---
+
+
+## 2026-04-30 - chrome-extension-debug-buddy-jc0.2
+- US-002: Prioridade de matching ordenada (primeira que casa vence)
+- O comportamento "primeira que casa vence" ja existia em `findMatchingRuleAction` (loop com `return` na primeira regra mock/breakpoint que casa). Esta US adiciona documentacao explicita + cobertura de teste.
+- Files changed:
+  - `app/src/domain/ruleMatching.ts`: bloco de comentario acima de `findMatchingRuleAction` documentando a regra de prioridade, comportamento de regras desabilitadas e nota sobre delay/transform (que sao puladas hoje porque o background ainda nao consome esses tipos — quando forem implementados, devem retornar aqui igualmente para preservar a regra).
+  - `app/src/entrypoints/background.ts`: novo bloco de comentario no header (logo apos o bloco de persistencia) explicando que o array `rules` e a ordem oficial de avaliacao, que reflete drag-and-drop da UI e que `chrome.storage.onChanged` reabsorve mudancas em tempo real.
+  - `app/src/domain/__tests__/ruleMatching.test.ts`: novo `describe('prioridade de matching (primeira que casa vence)')` com 5 testes — duas mock rules casando (primeira vence), mock antes de breakpoint, breakpoint antes de mock, reordenar o array muda quem vence, regra desabilitada nao bloqueia subsequente.
+- **Learnings:**
+  - `findMatchingRuleAction` ja retornava `MatchedRuleAction` apenas para acoes mock/breakpoint. Acoes delay/transform (que existem no schema mas ainda nao sao consumidas pelo background) NAO interrompem a iteracao hoje — elas nao bloqueariam uma regra mock subsequente. Essa pendencia foi documentada via comentario inline e marcada para revisao quando delay/transform forem implementados de verdade. Nao expandi o escopo para resolver agora porque a acao delay/transform nao tem efeito de runtime ainda — incluir aqui adicionaria comportamento sem cobertura ponta-a-ponta.
+  - O array `chrome.storage.local.rules` ja preserva a ordem nativamente (e um `Array<Rule>`) e o listener de `chrome.storage.onChanged` em `background.ts` substitui `rules = changes.rules.newValue || []`, entao reorder em UI vira nova prioridade na proxima request sem trabalho extra.
+  - O loop de matching usa `if (!rule.enabled || !rule.action.enabled) continue;` ANTES do `matcherMatches(rule, input)`. Isso significa que uma regra desabilitada e tratada como "inexistente" para fins de prioridade — ela nao bloqueia a regra seguinte mesmo que tenha matchers identicos. Validei via teste explicito.
+---
+
+
+
+## 2026-04-30 - chrome-extension-debug-buddy-jc0.12
+- US-012: Step Matcher unificado com preview ao vivo
+- Files changed:
+  - `app/src/types/rules.ts`: `MethodMatcher.method` agora aceita `string | string[]` para suportar multi-select
+  - `app/src/domain/ruleMatching.ts`: extraido `singleMatcherMatches`, adicionado `wildcardToRegex` (padroes nao-regex com `*` viram regex escapando outros meta-chars), `methodMatcherCasaInput` (suporta string/array/ANY), e novas exports `explainMatchers`/`MatcherCheck`/`MatchersExplanation` para preview
+  - `app/src/components/rules/UnifiedMatcherEditor.tsx`: novo componente de 600+ linhas — layout 2-col com editor (URL pattern + Regex toggle + method multi-select via Buttons toggle + erros inline + secao "avancada" para header/body matchers) + painel direito de preview (Input para test URL, Select para test method, output verde/vermelho com ícone, lista por-matcher com check/x/circle)
+  - `app/src/components/rules/RuleEditor.tsx`: substitui o `MatcherEditor` por `UnifiedMatcherEditor` no step matcher; remove helpers `addMatcher`/`removeMatcher`/`updateMatcher` (movidos para o UnifiedMatcherEditor); valida que metodo nao esta vazio em `validateForSave`
+  - `app/src/components/rules/MatcherEditor.tsx`: ajustado `renderMethodMatcherEditor` para coercer `method: string | string[]` para string no Select (pega 'ANY' se presente, senao primeiro elemento) — preserva tipagem do shadcn Select
+  - `app/src/components/rules-lab/ruleVisuals.ts`: `getMatcherSummary` formata array de metodos como `GET|POST` em vez de quebrar com array stringificado
+  - `app/src/domain/__tests__/ruleMatching.test.ts`: 9 novos testes — wildcards (4), multi-method (3), explainMatchers (5)
+  - `app/src/components/rules/__tests__/UnifiedMatcherEditor.test.tsx`: novo arquivo com 14 testes cobrindo URL input, method toggle (add/remove/ANY-replace), erros inline, preview verde/vermelho, secao avancada de header/body, toggle Regex
+- **Learnings:**
+  - Biome 2.x classifica `role="status"` em `<div>` e `role="group"` em `<div>` como `lint/a11y/useSemanticElements` (erro). Solucao: trocar por elementos semanticos (`<output>` e `<fieldset>` respectivamente) — `output` aceita `aria-live` natively e `fieldset` aceita `<legend className="sr-only">` para nomear o grupo sem visual.
+  - LucideIcon names disponiveis sao restritos pelo registro em `app/src/components/ui/lucide-icon.tsx`. Tentei usar `circle-check`, `circle-x`, `circle-dashed` mas nao estao mapeados — o registro tem `check-circle`, `x-circle`, `circle`. Sempre verificar o ICONS map antes de usar nomes novos. Diagnosticos do TS pegam isso instantaneamente porque `LucideIconName` e um union type strict.
+  - `Matcher.method = string | string[]` exige defesa em todo lugar que le `m.method`: `getMatcherSummary` (formatacao), `MatcherEditor` (Select coerce), `validateForSave` (length=0 caso array). Optei por keep-string-or-array em vez de migracao destrutiva para nao quebrar regras existentes — consistente com o `convertLegacyStorage` que sempre escreveu `method: string`.
+  - Ao editar wildcards, escapar primeiro os meta-chars regex e SO ENTAO transformar `*` em `.*`. Se trocar a ordem (transformar `*` primeiro), o `.` literal no input do usuario seria escapado errado. Teste explicito (`/api/v1.0/*`) cobre isso para evitar regressao.
+  - O `findIndex`+`splice` para mutacoes do array de matchers preserva ordem original — essencial porque rules sao serializadas em `chrome.storage.local` e a ordem do array eh visivel via `getMatcherSummary` e drag-and-drop futuro. Usei isso em vez de `find`+spread.
+  - `aria-invalid={urlPatternError || undefined}` e o pattern correto para um boolean attribute em React: passar `false` literal nao remove o atributo, passar `undefined` remove. Importante para que o teste com `toHaveAttribute('aria-invalid', 'true')` funcione.
 ---

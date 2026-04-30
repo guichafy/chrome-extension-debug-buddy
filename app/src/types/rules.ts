@@ -16,10 +16,11 @@ export interface UrlMatcher extends BaseMatcher {
 	isRegex: boolean;
 }
 
-// Matcher para métodos HTTP
+// Matcher para métodos HTTP. Aceita um único método (string) ou multi-seleção
+// (array). 'ANY' em qualquer das formas casa qualquer método.
 export interface MethodMatcher extends BaseMatcher {
 	type: 'method';
-	method: string; // GET, POST, PUT, DELETE, etc.
+	method: string | string[];
 }
 
 // Matcher para headers

@@ -32,8 +32,8 @@ import {
 	getMatcherSummary,
 } from '@/components/rules-lab/ruleVisuals';
 import { ActionEditor } from './ActionEditor';
-import { MatcherEditor } from './MatcherEditor';
 import { PresetWelcome } from './PresetWelcome';
+import { UnifiedMatcherEditor } from './UnifiedMatcherEditor';
 
 interface RuleEditorProps {
 	open: boolean;
@@ -239,45 +239,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 		setInitialSnapshot('');
 	};
 
-	const addMatcher = (type: Matcher['type']) => {
-		let newMatcher: Matcher;
-		switch (type) {
-			case 'url':
-				newMatcher = { type: 'url', enabled: true, pattern: '', isRegex: false };
-				break;
-			case 'method':
-				newMatcher = { type: 'method', enabled: true, method: 'ANY' };
-				break;
-			case 'header':
-				newMatcher = {
-					type: 'header',
-					enabled: true,
-					name: '',
-					value: '',
-					headerType: 'request',
-				};
-				break;
-			case 'body':
-				newMatcher = { type: 'body', enabled: true, pattern: '', isRegex: false };
-				break;
-			default:
-				return;
-		}
-		setMatchers([...matchers, newMatcher]);
-	};
-
-	const removeMatcher = (index: number) => {
-		const newMatchers = [...matchers];
-		newMatchers.splice(index, 1);
-		setMatchers(newMatchers);
-	};
-
-	const updateMatcher = (index: number, updatedMatcher: Matcher) => {
-		const newMatchers = [...matchers];
-		newMatchers[index] = updatedMatcher;
-		setMatchers(newMatchers);
-	};
-
 	const validateForSave = (): { ok: true } | { ok: false; message: string; step: WizardStep } => {
 		if (!name.trim()) {
 			return { ok: false, message: 'Por favor, insira um nome para a regra', step: 'matcher' };
@@ -296,6 +257,21 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 				message: 'Preencha o padrão da URL antes de salvar',
 				step: 'matcher',
 			};
+		}
+		const enabledMethodMatcher = matchers.find((m) => m.type === 'method' && m.enabled);
+		if (enabledMethodMatcher && enabledMethodMatcher.type === 'method') {
+			const methods = Array.isArray(enabledMethodMatcher.method)
+				? enabledMethodMatcher.method
+				: enabledMethodMatcher.method
+					? [enabledMethodMatcher.method]
+					: [];
+			if (methods.length === 0) {
+				return {
+					ok: false,
+					message: 'Selecione ao menos um método HTTP ou desative o matcher de método',
+					step: 'matcher',
+				};
+			}
 		}
 		return { ok: true };
 	};
@@ -404,42 +380,14 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 
 	const renderMatcherStep = () => (
 		<div className="space-y-3">
-			<div className="rounded-lg bg-muted p-4">
-				<h3 className="mb-2 text-lg font-medium">Condições de Match</h3>
+			<div>
+				<h3 className="mb-1 text-lg font-medium">Condições de Match</h3>
 				<p className="mb-4 text-sm text-muted-foreground">
-					Defina as condições para que esta regra seja aplicada a uma requisição.
+					Defina o padrão de URL e os métodos HTTP que disparam esta regra. O painel à direita
+					mostra em tempo real se a regra casaria uma URL de teste.
 				</p>
-
-				{matchers.map((matcher, index) => (
-					<div key={`${matcher.type}-${index}`} className="mb-4 rounded-lg border bg-card p-3">
-						<MatcherEditor
-							matcher={matcher}
-							onChange={(updatedMatcher) => updateMatcher(index, updatedMatcher)}
-							onRemove={() => removeMatcher(index)}
-							canRemove={matchers.length > 1}
-						/>
-					</div>
-				))}
-
-				<div className="mt-4 flex flex-wrap gap-2">
-					<Button type="button" variant="outline" onClick={() => addMatcher('url')}>
-						<LucideIcon name="plus" className="mr-1 h-4 w-4" />
-						URL
-					</Button>
-					<Button type="button" variant="outline" onClick={() => addMatcher('method')}>
-						<LucideIcon name="plus" className="mr-1 h-4 w-4" />
-						Método
-					</Button>
-					<Button type="button" variant="outline" onClick={() => addMatcher('header')}>
-						<LucideIcon name="plus" className="mr-1 h-4 w-4" />
-						Header
-					</Button>
-					<Button type="button" variant="outline" onClick={() => addMatcher('body')}>
-						<LucideIcon name="plus" className="mr-1 h-4 w-4" />
-						Body
-					</Button>
-				</div>
 			</div>
+			<UnifiedMatcherEditor matchers={matchers} onChange={setMatchers} />
 		</div>
 	);
 

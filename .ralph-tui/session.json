@@ -3,10 +3,10 @@
   "sessionId": "d9b54d10-2e9e-45e2-b59c-e0505fe3348c",
   "status": "running",
   "startedAt": "2026-04-30T06:03:33.753Z",
-  "updatedAt": "2026-04-30T06:22:10.152Z",
-  "currentIteration": 2,
+  "updatedAt": "2026-04-30T06:36:51.013Z",
+  "currentIteration": 4,
   "maxIterations": 0,
-  "tasksCompleted": 2,
+  "tasksCompleted": 4,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -23,14 +23,14 @@
       {
         "id": "chrome-extension-debug-buddy-jc0.2",
         "title": "US-002: Prioridade de matching ordenada (primeira que casa vence)",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "chrome-extension-debug-buddy-jc0.3",
         "title": "US-003: Redesign da listagem de regras com shadcn Table",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "chrome-extension-debug-buddy-jc0.4",
@@ -144,6 +144,26 @@
       "durationMs": 367918,
       "startedAt": "2026-04-30T06:09:50.459Z",
       "endedAt": "2026-04-30T06:15:58.377Z"
+    },
+    {
+      "iteration": 3,
+      "status": "completed",
+      "taskId": "chrome-extension-debug-buddy-jc0.3",
+      "taskTitle": "US-003: Redesign da listagem de regras com shadcn Table",
+      "taskCompleted": true,
+      "durationMs": 361232,
+      "startedAt": "2026-04-30T06:16:08.064Z",
+      "endedAt": "2026-04-30T06:22:09.296Z"
+    },
+    {
+      "iteration": 4,
+      "status": "completed",
+      "taskId": "chrome-extension-debug-buddy-jc0.2",
+      "taskTitle": "US-002: Prioridade de matching ordenada (primeira que casa vence)",
+      "taskCompleted": true,
+      "durationMs": 224636,
+      "startedAt": "2026-04-30T06:22:21.724Z",
+      "endedAt": "2026-04-30T06:26:06.360Z"
     }
   ],
   "skippedTaskIds": [],

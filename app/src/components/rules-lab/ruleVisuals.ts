@@ -81,8 +81,12 @@ export function getMatcherSummary(matchers: Matcher[]): string {
 
 	const parts: string[] = [];
 
-	if (method && method.type === 'method' && method.method !== 'ANY') {
-		parts.push(method.method);
+	if (method && method.type === 'method') {
+		const methods = Array.isArray(method.method) ? method.method : [method.method];
+		const explicit = methods.filter((m) => m && m !== 'ANY');
+		if (explicit.length > 0) {
+			parts.push(explicit.join('|'));
+		}
 	}
 
 	if (url && url.type === 'url') {

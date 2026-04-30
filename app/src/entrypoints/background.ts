@@ -75,6 +75,14 @@ async function loadSessionMarker(): Promise<void> {
 // interceptação não perde dado (era a causa raiz do "request interceptada some
 // do histórico" e do issue #4).
 
+// Prioridade de matching: o array `rules` é a ordem oficial de avaliação.
+// `findMatchingRuleAction` (em `domain/ruleMatching`) itera nessa mesma
+// ordem e devolve a PRIMEIRA regra cuja matcher casa o request — "primeira
+// que casa vence". A ordem do array reflete o que o usuário vê e arrasta na
+// UI; `chrome.storage.onChanged` reabsorve a nova ordem em tempo real.
+// Regras com `enabled === false` ou `action.enabled === false` são puladas
+// e não bloqueiam regras subsequentes.
+
 function broadcastToUI(action: string, payload: Record<string, unknown>): void {
 	if (interceptorTabId === null) return;
 	chrome.tabs.sendMessage(interceptorTabId, { action, ...payload }).catch(() => {
