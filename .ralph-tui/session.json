@@ -3,7 +3,7 @@
   "sessionId": "d9b54d10-2e9e-45e2-b59c-e0505fe3348c",
   "status": "running",
   "startedAt": "2026-04-30T06:03:33.753Z",
-  "updatedAt": "2026-04-30T06:04:05.667Z",
+  "updatedAt": "2026-04-30T06:09:40.769Z",
   "currentIteration": 0,
   "maxIterations": 0,
   "tasksCompleted": 0,
@@ -127,8 +127,6 @@
   "iterations": [],
   "skippedTaskIds": [],
   "cwd": "/Users/guichafy/Workspaces/chrome-extension-debug-buddy",
-  "activeTaskIds": [
-    "chrome-extension-debug-buddy-jc0.1"
-  ],
+  "activeTaskIds": [],
   "subagentPanelVisible": false
 }

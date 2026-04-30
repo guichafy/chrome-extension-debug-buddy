@@ -41,7 +41,7 @@ function RulesLab() {
 			all: rules.length,
 			mock: 0,
 			delay: 0,
-			modify: 0,
+			transform: 0,
 			breakpoint: 0,
 		};
 		for (const rule of rules) {

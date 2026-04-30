@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { convertLegacyStorage } from '../legacyMigration';
+import type { Rule } from '@/types/rules';
+import { convertLegacyStorage, renameModifyToTransform } from '../legacyMigration';
 
 const FIXED_NOW = 1700000000000;
 let counter = 0;
@@ -197,5 +198,67 @@ describe('convertLegacyStorage', () => {
 		);
 		expect(out.rules).toEqual([]);
 		expect(out.hadLegacyData).toBe(true);
+	});
+
+	test('renames legacy `modify` action type to `transform` em regras existentes', () => {
+		counter = 0;
+		const legacyRule = {
+			id: 'r-modify',
+			name: 'old modify rule',
+			enabled: true,
+			matchers: [{ type: 'url' as const, enabled: true, pattern: '/api', isRegex: false }],
+			action: { type: 'modify', enabled: true, status: 200 },
+			createdAt: 1,
+			updatedAt: 1,
+		} as unknown as Rule;
+		const out = convertLegacyStorage({ rules: [legacyRule] }, FIXED_NOW, seqId);
+		expect(out.rules[0].action.type).toBe('transform');
+		expect(out.hadLegacyData).toBe(true);
+	});
+});
+
+describe('renameModifyToTransform', () => {
+	test('substitui type modify por transform e contabiliza renames', () => {
+		const rules = [
+			{
+				id: 'a',
+				name: 'a',
+				enabled: true,
+				matchers: [],
+				action: { type: 'modify', enabled: true },
+				createdAt: 0,
+				updatedAt: 0,
+			},
+			{
+				id: 'b',
+				name: 'b',
+				enabled: true,
+				matchers: [],
+				action: { type: 'mock', enabled: true, status: 200, headers: {} },
+				createdAt: 0,
+				updatedAt: 0,
+			},
+		] as unknown as Rule[];
+		const result = renameModifyToTransform(rules);
+		expect(result.renamed).toBe(1);
+		expect(result.rules[0].action.type).toBe('transform');
+		expect(result.rules[1].action.type).toBe('mock');
+	});
+
+	test('zero renames quando nao ha modify', () => {
+		const rules = [
+			{
+				id: 'a',
+				name: 'a',
+				enabled: true,
+				matchers: [],
+				action: { type: 'breakpoint', enabled: true },
+				createdAt: 0,
+				updatedAt: 0,
+			},
+		] as Rule[];
+		const result = renameModifyToTransform(rules);
+		expect(result.renamed).toBe(0);
+		expect(result.rules).toEqual(rules);
 	});
 });

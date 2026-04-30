@@ -19,6 +19,6 @@ export type {
 	MockAction,
 	MockLatency,
 	DelayAction,
-	ModifyAction,
+	TransformAction,
 	BreakpointAction,
 } from './rules';

@@ -1,5 +1,5 @@
 import { indexedDBService } from '@/lib/indexedDB';
-import { runLegacyMigration } from '@/lib/legacyMigration';
+import { runLegacyMigration, runModifyToTransformMigration } from '@/lib/legacyMigration';
 import { NetworkTimingTracker } from '@/lib/networkTiming';
 import type {
 	InterceptedResponse,
@@ -154,13 +154,18 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 	if (result.migrated) {
 		console.log('[background] Legacy storage migrated to rules format.');
 	}
+	const transformResult = await runModifyToTransformMigration();
+	if (transformResult.migrated) {
+		console.log(`[background] Renamed ${transformResult.renamed} modify rules to transform.`);
+	}
 });
 
 // Roda a migração também no startup do navegador (extensão já instalada).
-// Idempotente — runLegacyMigration() checa legacy_migrated_at antes de agir.
+// Idempotente — cada runner checa seu próprio flag antes de agir.
 chrome.runtime.onStartup.addListener(async () => {
 	console.log('[background] onStartup');
 	await runLegacyMigration();
+	await runModifyToTransformMigration();
 });
 
 // Listener para mudanças no storage (para atualizar regras em tempo real)

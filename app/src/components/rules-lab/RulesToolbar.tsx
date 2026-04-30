@@ -28,7 +28,7 @@ const FILTER_OPTIONS: { id: RulesActionFilter; label: string }[] = [
 	{ id: 'all', label: 'Todas' },
 	{ id: 'mock', label: 'Mock' },
 	{ id: 'delay', label: 'Latência' },
-	{ id: 'modify', label: 'Modificar' },
+	{ id: 'transform', label: 'Transform' },
 	{ id: 'breakpoint', label: 'Breakpoint' },
 ];
 

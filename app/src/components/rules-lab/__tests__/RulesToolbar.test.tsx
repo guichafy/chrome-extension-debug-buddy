@@ -7,7 +7,7 @@ function defaults() {
 		all: 5,
 		mock: 3,
 		delay: 1,
-		modify: 0,
+		transform: 0,
 		breakpoint: 1,
 	};
 	return {
@@ -27,7 +27,7 @@ describe('RulesToolbar', () => {
 		render(<RulesToolbar {...props} />);
 		expect(screen.getByTestId('filter-chip-all')).toHaveTextContent(/Todas\s*5/);
 		expect(screen.getByTestId('filter-chip-mock')).toHaveTextContent(/Mock\s*3/);
-		expect(screen.getByTestId('filter-chip-modify')).toHaveTextContent(/Modificar\s*0/);
+		expect(screen.getByTestId('filter-chip-transform')).toHaveTextContent(/Transform\s*0/);
 	});
 
 	test('clicar chip chama onActionFilterChange', () => {

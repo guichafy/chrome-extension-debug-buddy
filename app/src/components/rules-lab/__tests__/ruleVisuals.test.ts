@@ -6,7 +6,7 @@ describe('getActionVisuals', () => {
 	test.each([
 		['mock', 'server-crash'],
 		['delay', 'timer'],
-		['modify', 'file-edit'],
+		['transform', 'file-edit'],
 		['breakpoint', 'octagon-alert'],
 	])('retorna ícone certo para action %s', (type, iconName) => {
 		const action = buildAction(type as Action['type']);
@@ -99,8 +99,8 @@ function buildAction(type: Action['type']): Action {
 			return { type: 'mock', enabled: true, status: 200, headers: {} };
 		case 'delay':
 			return { type: 'delay', enabled: true, timeMs: 100 };
-		case 'modify':
-			return { type: 'modify', enabled: true };
+		case 'transform':
+			return { type: 'transform', enabled: true };
 		case 'breakpoint':
 			return { type: 'breakpoint', enabled: true };
 	}

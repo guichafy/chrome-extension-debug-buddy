@@ -42,7 +42,7 @@ export interface BodyMatcher extends BaseMatcher {
 export type Matcher = UrlMatcher | MethodMatcher | HeaderMatcher | BodyMatcher;
 
 // Tipos de ações disponíveis
-export type ActionType = 'mock' | 'delay' | 'modify' | 'breakpoint';
+export type ActionType = 'mock' | 'delay' | 'transform' | 'breakpoint';
 
 // Interface base para todas as ações
 export interface BaseAction {
@@ -78,9 +78,9 @@ export interface DelayAction extends BaseAction {
 	timeMs: number;
 }
 
-// Ação para modificar a requisição/resposta
-export interface ModifyAction extends BaseAction {
-	type: 'modify';
+// Ação para transformar a resposta (chama o servidor remoto e modifica o resultado)
+export interface TransformAction extends BaseAction {
+	type: 'transform';
 	status?: number;
 	addHeaders?: Record<string, string>;
 	removeHeaders?: string[];
@@ -94,7 +94,7 @@ export interface BreakpointAction extends BaseAction {
 }
 
 // União de todos os tipos de ações
-export type Action = MockAction | DelayAction | ModifyAction | BreakpointAction;
+export type Action = MockAction | DelayAction | TransformAction | BreakpointAction;
 
 // Interface para uma regra completa
 export interface Rule {

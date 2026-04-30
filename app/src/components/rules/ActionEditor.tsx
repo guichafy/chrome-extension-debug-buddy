@@ -38,8 +38,8 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange }) 
 				return renderMockActionEditor(action as MockAction);
 			case 'delay':
 				return renderDelayActionEditor(action);
-			case 'modify':
-				return renderModifyActionEditor(action);
+			case 'transform':
+				return renderTransformActionEditor(action);
 			case 'breakpoint':
 				return renderBreakpointActionEditor(action as BreakpointAction);
 			default:
@@ -429,13 +429,13 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange }) 
 		</div>
 	);
 
-	// Editor para ação de modificação (placeholder para futuras implementações)
-	const renderModifyActionEditor = (modifyAction: Action) => (
+	// Editor para ação de transformação (placeholder para futuras implementações)
+	const renderTransformActionEditor = (transformAction: Action) => (
 		<div className="space-y-4">
 			<div>
 				<Label className="font-medium">Tipo de Ação</Label>
 				<Select
-					value={modifyAction.type}
+					value={transformAction.type}
 					onValueChange={(value: 'mock' | 'breakpoint') => {
 						if (value === 'mock') {
 							onChange(createEmptyMockAction());

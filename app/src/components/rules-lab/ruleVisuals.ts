@@ -24,10 +24,10 @@ export function getActionVisuals(action: Action): ActionVisuals {
 				bgClass: 'bg-amber-500/10',
 				textClass: 'text-amber-300',
 			};
-		case 'modify':
+		case 'transform':
 			return {
 				iconName: 'file-edit',
-				label: 'Modificar',
+				label: 'Transform',
 				bgClass: 'bg-sky-500/10',
 				textClass: 'text-sky-300',
 			};
@@ -58,8 +58,8 @@ export function getActionSummary(action: Action): string {
 		}
 		case 'delay':
 			return `Atrasar ${action.timeMs}ms`;
-		case 'modify':
-			return action.status ? `Modificar (status ${action.status})` : 'Modificar resposta';
+		case 'transform':
+			return action.status ? `Transform (status ${action.status})` : 'Transform resposta';
 		case 'breakpoint':
 			return action.description ? `Breakpoint — ${action.description}` : 'Breakpoint';
 		default: {
