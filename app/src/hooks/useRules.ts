@@ -75,6 +75,50 @@ export function useRules() {
 		[rules],
 	);
 
+	// Duplicar uma regra existente: cria uma nova com novo `id`, sufixo
+	// "(cópia)" no nome, `enabled: false` (para evitar duplicação acidental
+	// de comportamento), e a insere imediatamente após a regra original na
+	// ordem do array — preservando a prioridade de matching.
+	const duplicateRule = useCallback(
+		async (id: string): Promise<Rule | null> => {
+			try {
+				const sourceIndex = rules.findIndex((rule) => rule.id === id);
+				if (sourceIndex === -1) {
+					console.error(`Regra com ID ${id} não encontrada`);
+					return null;
+				}
+
+				const source = rules[sourceIndex];
+				const now = Date.now();
+				// Deep clone defensivo: evita compartilhamento de referências
+				// entre original e cópia em estado in-memory antes do round-trip
+				// via chrome.storage (que serializa para JSON).
+				const clonedMatchers: Matcher[] = JSON.parse(JSON.stringify(source.matchers));
+				const clonedAction: Action = JSON.parse(JSON.stringify(source.action));
+
+				const cloned: Rule = {
+					id: uuidv4(),
+					name: `${source.name} (cópia)`,
+					enabled: false,
+					matchers: clonedMatchers,
+					action: clonedAction,
+					createdAt: now,
+					updatedAt: now,
+				};
+
+				const newRules = [...rules];
+				newRules.splice(sourceIndex + 1, 0, cloned);
+				await chrome.storage.local.set({ rules: newRules });
+				setRules(newRules);
+				return cloned;
+			} catch (error) {
+				console.error('Erro ao duplicar regra:', error);
+				return null;
+			}
+		},
+		[rules],
+	);
+
 	// Remover uma regra pelo ID
 	const removeRule = useCallback(
 		async (id: string): Promise<boolean> => {
@@ -195,6 +239,7 @@ export function useRules() {
 		addRule,
 		updateRule,
 		removeRule,
+		duplicateRule,
 		toggleRuleEnabled,
 		reorderRules,
 		moveRule,

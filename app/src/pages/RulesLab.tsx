@@ -22,8 +22,16 @@ interface SaveToastState {
 }
 
 function RulesLab() {
-	const { rules, addRule, updateRule, removeRule, toggleRuleEnabled, reorderRules, moveRule } =
-		useRules();
+	const {
+		rules,
+		addRule,
+		updateRule,
+		removeRule,
+		duplicateRule,
+		toggleRuleEnabled,
+		reorderRules,
+		moveRule,
+	} = useRules();
 	const [editingRule, setEditingRule] = useState<Rule | null>(null);
 	const [isCreating, setIsCreating] = useState(false);
 	const [search, setSearch] = useState('');
@@ -163,7 +171,14 @@ function RulesLab() {
 	};
 
 	const handleDuplicate = async (rule: Rule) => {
-		await addRule(`${rule.name} (cópia)`, rule.matchers, rule.action);
+		const previousRules = rules;
+		const created = await duplicateRule(rule.id);
+		if (created) {
+			setSaveToast({
+				message: `Regra "${created.name}" criada (desativada)`,
+				previousRules,
+			});
+		}
 	};
 
 	return (
