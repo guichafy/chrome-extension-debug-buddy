@@ -210,26 +210,92 @@ function Pill({ icon, label, name, accent, detail, onClick, disabled, children }
 
 // =====================================================================
 // Detail views — micro-componentes locais para o conteúdo do tooltip de cada pill.
+// Estética: telemetria precisa. Números em mono tabular para alinhar colunas;
+// rank explícito (01/02/03) nos top-N; URLs sem protocolo, truncadas no fim;
+// section labels uppercase com tracking. Inspiração: Linear / Vercel Analytics.
 // =====================================================================
 
-function TotalDetailView({ data }: { data: TotalDetail }) {
+const SECTION_LABEL = 'mb-1.5 text-[10px] uppercase tracking-[0.08em] text-muted-foreground/80';
+const ROW = 'flex items-center gap-2 text-xs';
+const RANK = 'w-5 shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/60';
+const NUM = 'font-mono tabular-nums shrink-0';
+const FOOTER_HINT =
+	'mt-2.5 -mx-3 -mb-2 px-3 pt-2 pb-1.5 border-t border-border/60 text-[10px] text-blue-400/90';
+const EMPTY = 'text-xs text-muted-foreground italic';
+
+// Strip protocol pra ganhar caracteres úteis no truncamento.
+function compactUrl(raw: string): string {
+	return raw.replace(/^https?:\/\//, '');
+}
+
+function UrlCell({ url, prefix }: { url: string; prefix?: string }) {
 	return (
-		<div className="space-y-2 text-xs">
+		<span className="flex-1 truncate text-[11px] text-foreground/90" title={url}>
+			{prefix && <span className="text-muted-foreground/70 mr-1">{prefix}</span>}
+			{compactUrl(url)}
+		</span>
+	);
+}
+
+function TotalDetailView({ data }: { data: TotalDetail }) {
+	const { '2xx': ok, '3xx': redir, '4xx5xx': bad } = data.byStatusRange;
+	const total = ok + redir + bad;
+	return (
+		<div className="space-y-2.5">
 			<div>
-				<div className="text-[9px] uppercase text-muted-foreground mb-1">Por método</div>
-				<div>
-					{data.byMethod.length === 0
-						? '—'
-						: data.byMethod.map(([method, n]) => `${method} ${n}`).join(' · ')}
-				</div>
+				<div className={SECTION_LABEL}>Métodos</div>
+				{data.byMethod.length === 0 ? (
+					<span className={EMPTY}>—</span>
+				) : (
+					<div className="flex flex-wrap gap-1.5">
+						{data.byMethod.map(([method, n]) => (
+							<span
+								key={method}
+								className="inline-flex items-center gap-1.5 rounded bg-foreground/[0.06] px-1.5 py-0.5 text-[11px]"
+							>
+								<span className="text-foreground/85">{method}</span>
+								<span className="font-mono tabular-nums text-foreground/60">{n}</span>
+							</span>
+						))}
+					</div>
+				)}
 			</div>
 			<div>
-				<div className="text-[9px] uppercase text-muted-foreground mb-1">Por faixa de status</div>
-				<div className="flex gap-3">
-					<span className="text-emerald-500">2xx {data.byStatusRange['2xx']}</span>
-					<span className="text-blue-400">3xx {data.byStatusRange['3xx']}</span>
-					<span className="text-destructive">4xx/5xx {data.byStatusRange['4xx5xx']}</span>
+				<div className={SECTION_LABEL}>Status</div>
+				<div className="flex items-center gap-3 text-[11px]">
+					<span className="inline-flex items-center gap-1.5">
+						<span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+						<span className="text-foreground/80">2xx</span>
+						<span className="font-mono tabular-nums text-foreground">{ok}</span>
+					</span>
+					<span className="inline-flex items-center gap-1.5">
+						<span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+						<span className="text-foreground/80">3xx</span>
+						<span className="font-mono tabular-nums text-foreground">{redir}</span>
+					</span>
+					<span className="inline-flex items-center gap-1.5">
+						<span className="h-1.5 w-1.5 rounded-full bg-destructive" />
+						<span className="text-foreground/80">4xx/5xx</span>
+						<span className="font-mono tabular-nums text-foreground">{bad}</span>
+					</span>
 				</div>
+				{total > 0 && (
+					<div className="mt-1.5 flex h-1 w-full overflow-hidden rounded-full bg-muted/40">
+						{ok > 0 && (
+							<span className="bg-emerald-500" style={{ flex: ok }} aria-label={`2xx ${ok}`} />
+						)}
+						{redir > 0 && (
+							<span className="bg-blue-400" style={{ flex: redir }} aria-label={`3xx ${redir}`} />
+						)}
+						{bad > 0 && (
+							<span
+								className="bg-destructive"
+								style={{ flex: bad }}
+								aria-label={`4xx/5xx ${bad}`}
+							/>
+						)}
+					</div>
+				)}
 			</div>
 		</div>
 	);
@@ -237,16 +303,17 @@ function TotalDetailView({ data }: { data: TotalDetail }) {
 
 function BytesDetailView({ data }: { data: BytesDetail }) {
 	if (data.top.length === 0) {
-		return <span className="text-xs">Nenhum transfer size capturado.</span>;
+		return <span className={EMPTY}>Nenhum transfer size capturado.</span>;
 	}
 	return (
-		<div className="text-xs">
-			<div className="text-[9px] uppercase text-muted-foreground mb-1">Top 3 por bytes</div>
-			<div className="space-y-0.5">
-				{data.top.map((entry) => (
-					<div key={entry.url} className="flex items-center justify-between gap-3">
-						<TruncatedUrl url={entry.url} />
-						<span>{formatBytes(entry.transferSize)}</span>
+		<div>
+			<div className={SECTION_LABEL}>Top transferências</div>
+			<div className="space-y-1">
+				{data.top.map((entry, i) => (
+					<div key={entry.url} className={ROW}>
+						<span className={RANK}>{String(i + 1).padStart(2, '0')}</span>
+						<UrlCell url={entry.url} />
+						<span className={`${NUM} text-foreground/85`}>{formatBytes(entry.transferSize)}</span>
 					</div>
 				))}
 			</div>
@@ -256,86 +323,93 @@ function BytesDetailView({ data }: { data: BytesDetail }) {
 
 function TtfbDetailView({ data }: { data: TtfbDetail | null }) {
 	if (data == null) {
-		return <span className="text-xs">Nenhum TTFB capturado.</span>;
+		return <span className={EMPTY}>Nenhum TTFB capturado.</span>;
 	}
 	return (
-		<div className="text-xs">
-			<div className="text-[9px] uppercase text-muted-foreground mb-1">Distribuição de TTFB</div>
-			<div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
-				<span>p50</span>
-				<span className="text-emerald-500 text-right">{formatMs(data.p50)}</span>
-				<span>p95</span>
-				<span className="text-amber-500 text-right">{formatMs(data.p95)}</span>
-				<span>máx</span>
-				<span className="text-destructive text-right">{formatMs(data.max)}</span>
+		<div>
+			<div className={SECTION_LABEL}>Latência TTFB</div>
+			<div className="grid grid-cols-3 gap-3">
+				<TtfbCell label="p50" value={data.p50} accent="text-emerald-500" />
+				<TtfbCell label="p95" value={data.p95} accent="text-amber-500" />
+				<TtfbCell label="máx" value={data.max} accent="text-destructive" />
 			</div>
+		</div>
+	);
+}
+
+function TtfbCell({ label, value, accent }: { label: string; value: number; accent: string }) {
+	return (
+		<div className="flex flex-col gap-0.5">
+			<span className="text-[10px] uppercase tracking-wider text-muted-foreground/70">{label}</span>
+			<span className={`font-mono tabular-nums text-sm leading-none ${accent}`}>
+				{formatMs(value)}
+			</span>
 		</div>
 	);
 }
 
 function SlowDetailView({ data }: { data: SlowDetail }) {
 	if (data.top.length === 0) {
-		return <span className="text-xs">Nenhuma request lenta.</span>;
+		return <span className={EMPTY}>Nenhuma request lenta.</span>;
 	}
 	return (
-		<div className="text-xs">
-			<div className="text-[9px] uppercase text-muted-foreground mb-1">Top 3 mais lentas</div>
-			<div className="space-y-0.5">
-				{data.top.map((entry) => (
-					<div
-						key={`${entry.url}-${entry.durationMs}`}
-						className="flex items-center justify-between gap-3"
-					>
-						<TruncatedUrl url={entry.url} />
-						<span className="text-amber-500">{formatMs(entry.durationMs)}</span>
-					</div>
-				))}
-			</div>
-			<div className="mt-2 pt-2 border-t border-border text-[10px] text-blue-400">
-				→ Click pra ver no Command Center
-			</div>
-		</div>
-	);
-}
-
-function FailedDetailView({ data }: { data: FailedDetail }) {
-	if (data.list.length === 0) {
-		return <span className="text-xs">Nenhuma falha.</span>;
-	}
-	return (
-		<div className="text-xs">
-			<div className="text-[9px] uppercase text-muted-foreground mb-1">Falhas registradas</div>
-			<div className="space-y-0.5">
-				{data.list.map((entry) => (
-					<div
-						key={`${entry.url}-${entry.status}`}
-						className="flex items-center justify-between gap-3"
-					>
-						<TruncatedUrl url={entry.method ? `${entry.method} ${entry.url}` : entry.url} />
-						<span className="text-destructive">
-							{entry.status}
-							{entry.statusText ? ` ${entry.statusText}` : ''}
+		<div>
+			<div className={SECTION_LABEL}>Mais lentas</div>
+			<div className="space-y-1">
+				{data.top.map((entry, i) => (
+					<div key={`${entry.url}-${entry.durationMs}`} className={ROW}>
+						<span className={RANK}>{String(i + 1).padStart(2, '0')}</span>
+						<UrlCell url={entry.url} />
+						<span className={`${NUM} ${slowDurationTone(entry.durationMs)}`}>
+							{formatMs(entry.durationMs)}
 						</span>
 					</div>
 				))}
 			</div>
-			<div className="mt-2 pt-2 border-t border-border text-[10px] text-blue-400">
-				→ Click pra ver no Command Center
-			</div>
+			<div className={FOOTER_HINT}>→ Click pra abrir no Command Center</div>
 		</div>
 	);
 }
 
-// Trunca URL preservando o final (mais informativo). Usa direction: rtl + bdi
-// para que o ellipsis fique no INÍCIO do texto.
-function TruncatedUrl({ url }: { url: string }) {
+function slowDurationTone(ms: number): string {
+	if (ms >= 3000) return 'text-destructive';
+	return 'text-amber-500';
+}
+
+function FailedDetailView({ data }: { data: FailedDetail }) {
+	if (data.list.length === 0) {
+		return <span className={EMPTY}>Nenhuma falha.</span>;
+	}
+	return (
+		<div>
+			<div className={SECTION_LABEL}>Falhas</div>
+			<div className="space-y-1">
+				{data.list.map((entry, i) => (
+					<div key={`${entry.url}-${entry.status}-${i}`} className={ROW}>
+						<StatusBadge status={entry.status} />
+						{entry.method && (
+							<span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/70 shrink-0">
+								{entry.method}
+							</span>
+						)}
+						<UrlCell url={entry.url} />
+					</div>
+				))}
+			</div>
+			<div className={FOOTER_HINT}>→ Click pra abrir no Command Center</div>
+		</div>
+	);
+}
+
+function StatusBadge({ status }: { status: number }) {
+	// 5xx mais grave que 4xx — gradação sutil de tom.
+	const tone =
+		status >= 500 ? 'bg-destructive/20 text-destructive' : 'bg-amber-500/15 text-amber-500';
 	return (
 		<span
-			className="max-w-[240px] truncate"
-			style={{ direction: 'rtl', textAlign: 'left' }}
-			title={url}
+			className={`inline-flex h-4 min-w-[1.75rem] items-center justify-center rounded px-1 font-mono text-[10px] tabular-nums shrink-0 ${tone}`}
 		>
-			<bdi>{url}</bdi>
+			{status}
 		</span>
 	);
 }
