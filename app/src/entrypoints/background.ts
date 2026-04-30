@@ -104,9 +104,14 @@ async function patchRequest(
 	broadcastToUI('requestUpdated', { requestId, updates });
 }
 
-const timingTracker = new NetworkTimingTracker((fetchRequestId, duration) => {
-	patchRequest(fetchRequestId, { duration, durationSource: 'network' });
-});
+const timingTracker = new NetworkTimingTracker(
+	(fetchRequestId, duration) => {
+		patchRequest(fetchRequestId, { duration, durationSource: 'network' });
+	},
+	(fetchRequestId, networkTiming) => {
+		patchRequest(fetchRequestId, { networkTiming });
+	},
+);
 
 // Initialize when the extension is installed or updated
 chrome.runtime.onInstalled.addListener(async (details) => {
