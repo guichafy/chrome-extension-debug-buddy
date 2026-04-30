@@ -3,10 +3,10 @@
   "sessionId": "d9b54d10-2e9e-45e2-b59c-e0505fe3348c",
   "status": "running",
   "startedAt": "2026-04-30T06:03:33.753Z",
-  "updatedAt": "2026-04-30T06:36:51.013Z",
-  "currentIteration": 4,
+  "updatedAt": "2026-04-30T06:45:56.050Z",
+  "currentIteration": 5,
   "maxIterations": 0,
-  "tasksCompleted": 4,
+  "tasksCompleted": 5,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -83,8 +83,8 @@
       {
         "id": "chrome-extension-debug-buddy-jc0.12",
         "title": "US-012: Step Matcher unificado com preview ao vivo",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "chrome-extension-debug-buddy-jc0.13",
@@ -164,6 +164,16 @@
       "durationMs": 224636,
       "startedAt": "2026-04-30T06:22:21.724Z",
       "endedAt": "2026-04-30T06:26:06.360Z"
+    },
+    {
+      "iteration": 5,
+      "status": "completed",
+      "taskId": "chrome-extension-debug-buddy-jc0.12",
+      "taskTitle": "US-012: Step Matcher unificado com preview ao vivo",
+      "taskCompleted": true,
+      "durationMs": 632506,
+      "startedAt": "2026-04-30T06:26:17.102Z",
+      "endedAt": "2026-04-30T06:36:49.608Z"
     }
   ],
   "skippedTaskIds": [],

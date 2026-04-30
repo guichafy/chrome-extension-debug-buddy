@@ -96,6 +96,12 @@ interface DraftSnapshot {
 
 const snapshot = (s: DraftSnapshot): string => JSON.stringify(s);
 
+interface FieldError {
+	id: string;
+	message: string;
+	step: WizardStep;
+}
+
 const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange, onSave }) => {
 	const [view, setView] = useState<EditorView>(mode === 'edit' ? 'editor' : 'welcome');
 	const [cameFromWelcome, setCameFromWelcome] = useState(false);
@@ -239,24 +245,28 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 		setInitialSnapshot('');
 	};
 
-	const validateForSave = (): { ok: true } | { ok: false; message: string; step: WizardStep } => {
+	const validationErrors = useMemo<FieldError[]>(() => {
+		const errors: FieldError[] = [];
 		if (!name.trim()) {
-			return { ok: false, message: 'Por favor, insira um nome para a regra', step: 'matcher' };
+			errors.push({
+				id: 'name-empty',
+				message: 'Informe um nome para a regra',
+				step: 'type',
+			});
 		}
 		const enabledUrlMatcher = matchers.find((m) => m.type === 'url' && m.enabled);
 		if (!enabledUrlMatcher) {
-			return {
-				ok: false,
+			errors.push({
+				id: 'url-matcher-missing',
 				message: 'A regra precisa de um matcher de URL habilitado',
 				step: 'matcher',
-			};
-		}
-		if (enabledUrlMatcher.type === 'url' && enabledUrlMatcher.pattern.trim().length === 0) {
-			return {
-				ok: false,
+			});
+		} else if (enabledUrlMatcher.type === 'url' && enabledUrlMatcher.pattern.trim().length === 0) {
+			errors.push({
+				id: 'url-pattern-empty',
 				message: 'Preencha o padrão da URL antes de salvar',
 				step: 'matcher',
-			};
+			});
 		}
 		const enabledMethodMatcher = matchers.find((m) => m.type === 'method' && m.enabled);
 		if (enabledMethodMatcher && enabledMethodMatcher.type === 'method') {
@@ -266,21 +276,21 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 					? [enabledMethodMatcher.method]
 					: [];
 			if (methods.length === 0) {
-				return {
-					ok: false,
+				errors.push({
+					id: 'method-empty',
 					message: 'Selecione ao menos um método HTTP ou desative o matcher de método',
 					step: 'matcher',
-				};
+				});
 			}
 		}
-		return { ok: true };
-	};
+		return errors;
+	}, [name, matchers]);
+
+	const hasErrors = validationErrors.length > 0;
 
 	const handleSave = async () => {
-		const validation = validateForSave();
-		if (!validation.ok) {
-			alert(validation.message);
-			setStep(validation.step);
+		if (hasErrors) {
+			setStep(validationErrors[0].step);
 			return;
 		}
 
@@ -439,10 +449,166 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 						</div>
 					</dl>
 				</div>
-				<p className="text-xs text-muted-foreground">
-					Confira o resumo acima antes de salvar. Um diff visual entre o estado original e o novo
-					será adicionado em uma próxima entrega.
-				</p>
+
+				{renderDiffSection()}
+
+				{hasErrors ? (
+					<div
+						className="rounded-lg border border-destructive/40 bg-destructive/10 p-4"
+						data-testid="rule-wizard-errors"
+					>
+						<div className="mb-2 flex items-center gap-2 text-sm font-medium text-destructive">
+							<LucideIcon name="alert-triangle" className="h-4 w-4" />
+							Corrija os itens abaixo antes de salvar
+						</div>
+						<ul className="space-y-1 text-sm">
+							{validationErrors.map((err) => (
+								<li key={err.id}>
+									<button
+										type="button"
+										onClick={() => goToStep(err.step)}
+										className="inline-flex items-start gap-2 text-left text-destructive hover:underline"
+										data-testid={`rule-wizard-error-${err.id}`}
+									>
+										<LucideIcon name="x-circle" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+										<span>
+											{err.message}
+											<span className="ml-1 text-xs text-muted-foreground">
+												(passo {STEP_META[err.step].label})
+											</span>
+										</span>
+									</button>
+								</li>
+							))}
+						</ul>
+					</div>
+				) : (
+					<div
+						className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-200"
+						data-testid="rule-wizard-ready"
+					>
+						<div className="flex items-center gap-2 font-medium">
+							<LucideIcon name="check-circle" className="h-4 w-4" />
+							Pronto para salvar
+						</div>
+						<p className="mt-1 text-xs text-emerald-200/80">
+							Todos os campos obrigatórios estão preenchidos.
+						</p>
+					</div>
+				)}
+			</div>
+		);
+	};
+
+	const renderDiffSection = () => {
+		if (mode !== 'edit' || !rule) return null;
+
+		const beforeMatcherSummary = getMatcherSummary(rule.matchers);
+		const afterMatcherSummary = getMatcherSummary(matchers);
+		const beforeActionSummary = getActionSummary(rule.action);
+		const afterActionSummary = getActionSummary(action);
+
+		const matchersChanged = JSON.stringify(rule.matchers) !== JSON.stringify(matchers);
+		const actionChanged = JSON.stringify(rule.action) !== JSON.stringify(action);
+		const nameChanged = rule.name !== name;
+		const enabledChanged = rule.enabled !== enabled;
+
+		const anyChange = nameChanged || enabledChanged || matchersChanged || actionChanged;
+
+		if (!anyChange) {
+			return (
+				<div
+					className="rounded-lg border border-muted-foreground/20 bg-muted/40 p-3 text-xs text-muted-foreground"
+					data-testid="rule-wizard-diff-empty"
+				>
+					Nenhuma alteração realizada — salvar manterá a regra como está.
+				</div>
+			);
+		}
+
+		const rows: Array<{
+			id: string;
+			label: string;
+			before: string;
+			after: string;
+			changed: boolean;
+		}> = [
+			{
+				id: 'name',
+				label: 'Nome',
+				before: rule.name,
+				after: name,
+				changed: nameChanged,
+			},
+			{
+				id: 'enabled',
+				label: 'Estado',
+				before: rule.enabled ? 'Ativa' : 'Pausada',
+				after: enabled ? 'Ativa' : 'Pausada',
+				changed: enabledChanged,
+			},
+			{
+				id: 'matcher',
+				label: 'Matcher',
+				before: beforeMatcherSummary,
+				after: afterMatcherSummary,
+				changed: matchersChanged,
+			},
+			{
+				id: 'action',
+				label: 'Ação',
+				before: beforeActionSummary,
+				after: afterActionSummary,
+				changed: actionChanged,
+			},
+		];
+
+		return (
+			<div className="rounded-lg border bg-card p-4" data-testid="rule-wizard-diff">
+				<div className="mb-2 flex items-center gap-2 text-sm font-medium">
+					<LucideIcon name="rotate-ccw" className="h-4 w-4 text-muted-foreground" />
+					Alterações em relação à regra atual
+				</div>
+				<dl className="space-y-2 text-sm">
+					{rows.map((row) => (
+						<div
+							key={row.id}
+							className={cn(
+								'grid grid-cols-[110px_1fr] items-start gap-2 rounded px-2 py-1',
+								row.changed && 'bg-amber-500/10 ring-1 ring-amber-500/30',
+							)}
+							data-testid={`rule-wizard-diff-row-${row.id}`}
+							data-changed={row.changed ? 'true' : 'false'}
+						>
+							<dt
+								className={cn(
+									'text-xs font-medium uppercase tracking-wide',
+									row.changed ? 'text-amber-300' : 'text-muted-foreground',
+								)}
+							>
+								{row.label}
+							</dt>
+							<dd className="break-all">
+								{row.changed ? (
+									<span className="flex flex-wrap items-center gap-1.5">
+										<span className="rounded bg-rose-500/10 px-1.5 py-0.5 text-rose-300 line-through">
+											{row.before || '—'}
+										</span>
+										<LucideIcon
+											name="arrow-right"
+											className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+										/>
+										<span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-emerald-300">
+											{row.after || '—'}
+										</span>
+									</span>
+								) : (
+									<span className="text-muted-foreground">{row.after || '—'}</span>
+								)}
+							</dd>
+						</div>
+					))}
+				</dl>
 			</div>
 		);
 	};
@@ -588,8 +754,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 										<Button
 											type="button"
 											onClick={handleSave}
-											disabled={isSaving}
+											disabled={isSaving || hasErrors}
 											className="primary-button flex items-center gap-2"
+											data-testid="rule-wizard-save"
 										>
 											{isSaving ? (
 												<LucideIcon name="refresh" className="h-4 w-4 animate-spin" />

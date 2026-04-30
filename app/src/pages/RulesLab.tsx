@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import RuleEditor from '@/components/rules/RuleEditor';
@@ -6,6 +6,7 @@ import { RulesEmptyState } from '@/components/rules-lab/RulesEmptyState';
 import { RulesImportDialog, type ImportStrategy } from '@/components/rules-lab/RulesImportDialog';
 import { RulesList } from '@/components/rules-lab/RulesList';
 import { RulesPageHeader } from '@/components/rules-lab/RulesPageHeader';
+import { RuleSaveToast } from '@/components/rules-lab/RuleSaveToast';
 import {
 	type RulesActionFilter,
 	type RulesSortOption,
@@ -14,6 +15,11 @@ import {
 import { useRules } from '@/hooks/useRules';
 import { serializeRules, validateRuleImport } from '@/domain/rulesIO';
 import type { Rule } from '@/types/rules';
+
+interface SaveToastState {
+	message: string;
+	previousRules: Rule[];
+}
 
 function RulesLab() {
 	const { rules, addRule, updateRule, removeRule, toggleRuleEnabled } = useRules();
@@ -24,8 +30,17 @@ function RulesLab() {
 	const [sort, setSort] = useState<RulesSortOption>('updated_desc');
 	const [importPreview, setImportPreview] = useState<Rule[] | null>(null);
 	const [importError, setImportError] = useState<string | null>(null);
+	const [saveToast, setSaveToast] = useState<SaveToastState | null>(null);
 	const fileInputRef = useRef<HTMLInputElement | null>(null);
 	const [searchParams] = useSearchParams();
+
+	const dismissSaveToast = useCallback(() => setSaveToast(null), []);
+
+	const undoLastSave = useCallback(async () => {
+		if (!saveToast) return;
+		await chrome.storage.local.set({ rules: saveToast.previousRules });
+		setSaveToast(null);
+	}, [saveToast]);
 
 	const triggerImportPicker = () => fileInputRef.current?.click();
 
@@ -221,9 +236,14 @@ function RulesLab() {
 					if (!open) setIsCreating(false);
 				}}
 				onSave={async (newRule) => {
+					const previousRules = rules;
 					const created = await addRule(newRule.name, newRule.matchers, newRule.action);
 					if (created) {
 						setIsCreating(false);
+						setSaveToast({
+							message: `Regra "${created.name}" adicionada`,
+							previousRules,
+						});
 					}
 					return created !== null;
 				}}
@@ -238,12 +258,26 @@ function RulesLab() {
 						if (!open) setEditingRule(null);
 					}}
 					onSave={async (updated) => {
+						const previousRules = rules;
 						const ok = await updateRule(editingRule.id, updated);
-						if (ok) setEditingRule(null);
+						if (ok) {
+							setEditingRule(null);
+							setSaveToast({
+								message: `Regra "${updated.name}" atualizada`,
+								previousRules,
+							});
+						}
 						return ok;
 					}}
 				/>
 			)}
+
+			<RuleSaveToast
+				open={saveToast !== null}
+				message={saveToast?.message ?? ''}
+				onUndo={undoLastSave}
+				onDismiss={dismissSaveToast}
+			/>
 		</div>
 	);
 }

@@ -142,23 +142,108 @@ describe('RuleEditor wizard', () => {
 		expect(screen.getByText(/Mock 200/)).toBeInTheDocument();
 	});
 
-	test('Salvar valida URL e pula para o step Matcher se invalida', () => {
+	test('Save desabilitado e erros agregados quando URL pattern vazio', () => {
 		const ruleSemPattern: Rule = {
 			...baseRule,
 			matchers: [{ type: 'url', enabled: true, pattern: '', isRegex: false }],
 		};
 		const onSave = vi.fn();
-		const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
 		render(
 			<RuleEditor open mode="edit" rule={ruleSemPattern} onOpenChange={vi.fn()} onSave={onSave} />,
 		);
 
 		fireEvent.click(screen.getByTestId('rule-wizard-step-review'));
-		fireEvent.click(screen.getByRole('button', { name: /Salvar/ }));
+		const saveBtn = screen.getByTestId('rule-wizard-save');
+		expect(saveBtn).toBeDisabled();
 
-		expect(alertSpy).toHaveBeenCalledWith('Preencha o padrão da URL antes de salvar');
+		const errors = screen.getByTestId('rule-wizard-errors');
+		expect(errors).toHaveTextContent('Preencha o padrão da URL antes de salvar');
+
+		fireEvent.click(saveBtn);
 		expect(onSave).not.toHaveBeenCalled();
+	});
+
+	test('clicar em erro listado navega para o step correspondente', () => {
+		const ruleSemPattern: Rule = {
+			...baseRule,
+			matchers: [{ type: 'url', enabled: true, pattern: '', isRegex: false }],
+		};
+		render(
+			<RuleEditor open mode="edit" rule={ruleSemPattern} onOpenChange={vi.fn()} onSave={vi.fn()} />,
+		);
+
+		fireEvent.click(screen.getByTestId('rule-wizard-step-review'));
+		fireEvent.click(screen.getByTestId('rule-wizard-error-url-pattern-empty'));
+
 		expect(screen.getByTestId('rule-wizard-step-matcher')).toHaveAttribute('aria-current', 'step');
-		alertSpy.mockRestore();
+	});
+
+	test('em modo edit sem alteracoes mostra mensagem de "nenhuma alteracao" e Save habilitado', () => {
+		render(<RuleEditor open mode="edit" rule={baseRule} onOpenChange={vi.fn()} onSave={vi.fn()} />);
+
+		fireEvent.click(screen.getByTestId('rule-wizard-step-review'));
+
+		expect(screen.getByTestId('rule-wizard-diff-empty')).toBeInTheDocument();
+		expect(screen.queryByTestId('rule-wizard-diff')).not.toBeInTheDocument();
+		expect(screen.getByTestId('rule-wizard-save')).not.toBeDisabled();
+		expect(screen.getByTestId('rule-wizard-ready')).toBeInTheDocument();
+	});
+
+	test('em modo edit com alteracoes destaca campos modificados no diff', () => {
+		render(<RuleEditor open mode="edit" rule={baseRule} onOpenChange={vi.fn()} onSave={vi.fn()} />);
+
+		fireEvent.change(screen.getByLabelText(/Nome da Regra/), {
+			target: { value: 'Novo Nome' },
+		});
+		fireEvent.click(screen.getByTestId('rule-wizard-step-review'));
+
+		const diff = screen.getByTestId('rule-wizard-diff');
+		expect(diff).toBeInTheDocument();
+
+		const nameRow = within(diff).getByTestId('rule-wizard-diff-row-name');
+		expect(nameRow).toHaveAttribute('data-changed', 'true');
+		expect(nameRow).toHaveTextContent('API mockada');
+		expect(nameRow).toHaveTextContent('Novo Nome');
+
+		const matcherRow = within(diff).getByTestId('rule-wizard-diff-row-matcher');
+		expect(matcherRow).toHaveAttribute('data-changed', 'false');
+	});
+
+	test('em modo create nao renderiza diff section', () => {
+		render(<RuleEditor open mode="create" onOpenChange={vi.fn()} onSave={vi.fn()} />);
+		fireEvent.click(screen.getByTestId('preset-blank'));
+
+		// Preenche URL e avanca ate review (URL precisa ter pattern para Save habilitar)
+		fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
+		fireEvent.change(screen.getByTestId('unified-url-input'), {
+			target: { value: '/api/test' },
+		});
+		fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
+		fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
+
+		expect(screen.queryByTestId('rule-wizard-diff')).not.toBeInTheDocument();
+		expect(screen.queryByTestId('rule-wizard-diff-empty')).not.toBeInTheDocument();
+		expect(screen.getByTestId('rule-wizard-save')).not.toBeDisabled();
+	});
+
+	test('Save habilitado dispara onSave com payload completo', async () => {
+		const onSave = vi.fn().mockResolvedValue(true);
+		render(<RuleEditor open mode="edit" rule={baseRule} onOpenChange={vi.fn()} onSave={onSave} />);
+
+		fireEvent.change(screen.getByLabelText(/Nome da Regra/), {
+			target: { value: 'API atualizada' },
+		});
+		fireEvent.click(screen.getByTestId('rule-wizard-step-review'));
+		fireEvent.click(screen.getByTestId('rule-wizard-save'));
+
+		expect(onSave).toHaveBeenCalledTimes(1);
+		expect(onSave).toHaveBeenCalledWith(
+			expect.objectContaining({
+				name: 'API atualizada',
+				enabled: true,
+				matchers: baseRule.matchers,
+				action: baseRule.action,
+			}),
+		);
 	});
 });

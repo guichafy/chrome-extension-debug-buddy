@@ -36,9 +36,8 @@ describe('RuleEditor welcome flow', () => {
 		expect(screen.getByRole('button', { name: /Voltar/ })).toBeInTheDocument();
 	});
 
-	test('preset selecionado bloqueia save com URL vazia', () => {
+	test('preset selecionado bloqueia save com URL vazia (botao desabilitado + erro listado)', () => {
 		const onSave = vi.fn().mockResolvedValue(true);
-		const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
 		render(<RuleEditor open mode="create" onOpenChange={vi.fn()} onSave={onSave} />);
 		fireEvent.click(screen.getByTestId('preset-http_error_500'));
 
@@ -46,10 +45,15 @@ describe('RuleEditor welcome flow', () => {
 		fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
 		fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
 		fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
-		fireEvent.click(screen.getByRole('button', { name: /Adicionar/ }));
-		expect(alertSpy).toHaveBeenCalledWith('Preencha o padrão da URL antes de salvar');
+
+		const saveBtn = screen.getByRole('button', { name: /Adicionar/ });
+		expect(saveBtn).toBeDisabled();
+		expect(screen.getByTestId('rule-wizard-errors')).toHaveTextContent(
+			'Preencha o padrão da URL antes de salvar',
+		);
+
+		fireEvent.click(saveBtn);
 		expect(onSave).not.toHaveBeenCalled();
-		alertSpy.mockRestore();
 	});
 
 	test('clicar "Em branco" transita para editor com defaults', () => {
