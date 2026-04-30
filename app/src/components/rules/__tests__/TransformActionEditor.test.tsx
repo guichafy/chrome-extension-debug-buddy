@@ -1,14 +1,36 @@
 import React from 'react';
-import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { TransformActionEditor } from '../TransformActionEditor';
 import type { TransformAction, TransformOperation } from '@/types/rules';
+import type { AdvancedScriptResult } from '@/lib/advancedScriptRunner';
 
 const baseAction = (operations: TransformOperation[] = []): TransformAction => ({
 	type: 'transform',
 	enabled: true,
 	mode: 'declarative',
 	operations,
+});
+
+const advancedAction = (overrides: Partial<TransformAction> = {}): TransformAction => ({
+	type: 'transform',
+	enabled: true,
+	mode: 'advanced',
+	advancedScript: 'return { ok: true };',
+	...overrides,
+});
+
+const stubRunner = (impl?: (script: string, response: unknown) => AdvancedScriptResult) =>
+	vi.fn<(script: string, response: unknown) => Promise<AdvancedScriptResult>>(
+		async (script: string, response: unknown): Promise<AdvancedScriptResult> => {
+			if (impl) return impl(script, response);
+			return { ok: true, output: response } as AdvancedScriptResult;
+		},
+	);
+
+beforeEach(() => {
+	// Garante que cada teste reinicia em estado limpo de timers/fakes.
+	vi.useRealTimers();
 });
 
 describe('TransformActionEditor — empty state', () => {
@@ -187,5 +209,189 @@ describe('TransformActionEditor — onChange grava mode declarativo', () => {
 		fireEvent.change(screen.getByTestId('transform-op-path-0'), { target: { value: '$.bar' } });
 		const next = onChange.mock.calls[0][0] as TransformAction;
 		expect(next.mode).toBe('declarative');
+	});
+});
+
+describe('TransformActionEditor — toggle declarativo/avançado', () => {
+	it('renderiza ambos os triggers de tabs', () => {
+		render(<TransformActionEditor action={baseAction()} onChange={vi.fn()} />);
+		expect(screen.getByTestId('transform-mode-declarative')).toBeInTheDocument();
+		expect(screen.getByTestId('transform-mode-advanced')).toBeInTheDocument();
+	});
+
+	it('clicar em "Avançado (JS)" emite onChange com mode=advanced e popula script default', async () => {
+		const onChange = vi.fn();
+		render(<TransformActionEditor action={baseAction()} onChange={onChange} />);
+		// Radix Tabs: usar mouseDown em vez de click para acionar o trigger.
+		fireEvent.mouseDown(screen.getByTestId('transform-mode-advanced'));
+		await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
+		const next = onChange.mock.calls[0][0] as TransformAction;
+		expect(next.mode).toBe('advanced');
+		expect((next.advancedScript ?? '').length).toBeGreaterThan(0);
+	});
+
+	it('mantém advancedScript existente ao alternar para advanced', async () => {
+		const onChange = vi.fn();
+		const action: TransformAction = {
+			type: 'transform',
+			enabled: true,
+			mode: 'declarative',
+			advancedScript: 'return 42;',
+			operations: [],
+		};
+		render(<TransformActionEditor action={action} onChange={onChange} />);
+		fireEvent.mouseDown(screen.getByTestId('transform-mode-advanced'));
+		await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
+		const next = onChange.mock.calls[0][0] as TransformAction;
+		expect(next.mode).toBe('advanced');
+		expect(next.advancedScript).toBe('return 42;');
+	});
+
+	it('clicar em "Declarativo" volta para mode=declarative preservando operations', async () => {
+		const onChange = vi.fn();
+		const action = advancedAction({
+			operations: [{ id: 'a', type: 'replace', path: '$.x', value: '1' }],
+		});
+		render(
+			<TransformActionEditor action={action} onChange={onChange} scriptRunner={stubRunner()} />,
+		);
+		fireEvent.mouseDown(screen.getByTestId('transform-mode-declarative'));
+		await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
+		const next = onChange.mock.calls[0][0] as TransformAction;
+		expect(next.mode).toBe('declarative');
+		expect(next.operations).toHaveLength(1);
+	});
+});
+
+describe('TransformActionEditor — modo avançado', () => {
+	it('exibe aviso de segurança quando em modo avançado', () => {
+		render(
+			<TransformActionEditor
+				action={advancedAction()}
+				onChange={vi.fn()}
+				scriptRunner={stubRunner()}
+			/>,
+		);
+		const warning = screen.getByTestId('transform-advanced-security-warning');
+		expect(warning).toBeInTheDocument();
+		expect(warning.textContent).toMatch(/service worker da extensão/);
+		expect(warning.textContent).toMatch(/só rode código que você confia/);
+	});
+
+	it('mostra a assinatura fixa da função', () => {
+		render(
+			<TransformActionEditor
+				action={advancedAction()}
+				onChange={vi.fn()}
+				scriptRunner={stubRunner()}
+			/>,
+		);
+		expect(screen.getByTestId('transform-advanced-signature-prefix').textContent).toContain(
+			'(response)',
+		);
+		expect(screen.getByTestId('transform-advanced-signature-suffix')).toBeInTheDocument();
+	});
+
+	it('editar o script propaga via onChange com mode=advanced', () => {
+		const onChange = vi.fn();
+		render(
+			<TransformActionEditor
+				action={advancedAction()}
+				onChange={onChange}
+				scriptRunner={stubRunner()}
+			/>,
+		);
+		fireEvent.change(screen.getByTestId('transform-advanced-script'), {
+			target: { value: 'return { changed: true };' },
+		});
+		const next = onChange.mock.calls[0][0] as TransformAction;
+		expect(next.mode).toBe('advanced');
+		expect(next.advancedScript).toBe('return { changed: true };');
+	});
+
+	it('preview executa o script via runner e mostra a saída', async () => {
+		const runner = stubRunner((_script, response) => {
+			const r = response as Record<string, unknown>;
+			return { ok: true, output: { ...r, transformed: true } };
+		});
+		render(
+			<TransformActionEditor
+				action={advancedAction({ advancedScript: 'return { ...response, transformed: true };' })}
+				onChange={vi.fn()}
+				scriptRunner={runner}
+			/>,
+		);
+		const out = await screen.findByTestId('transform-advanced-preview-output');
+		expect(out.textContent).toContain('"transformed": true');
+		expect(runner).toHaveBeenCalled();
+	});
+
+	it('preview re-executa quando o sample input muda', async () => {
+		const runner = stubRunner((_script, response) => ({ ok: true, output: response }));
+		render(
+			<TransformActionEditor
+				action={advancedAction({ advancedScript: 'return response;' })}
+				onChange={vi.fn()}
+				scriptRunner={runner}
+			/>,
+		);
+		await screen.findByTestId('transform-advanced-preview-output');
+		const callsBefore = runner.mock.calls.length;
+		fireEvent.change(screen.getByTestId('transform-advanced-sample'), {
+			target: { value: '{"hello":"world"}' },
+		});
+		await waitFor(() => {
+			expect(runner.mock.calls.length).toBeGreaterThan(callsBefore);
+		});
+		const out = await screen.findByTestId('transform-advanced-preview-output');
+		expect(out.textContent).toContain('"hello": "world"');
+	});
+
+	it('expoe erro de execução do runner sem fallback silencioso', async () => {
+		const runner = stubRunner(() => ({
+			ok: false,
+			error: 'TypeError: Cannot read properties of undefined',
+		}));
+		render(
+			<TransformActionEditor
+				action={advancedAction({ advancedScript: 'return response.foo.bar;' })}
+				onChange={vi.fn()}
+				scriptRunner={runner}
+			/>,
+		);
+		const err = await screen.findByTestId('transform-advanced-preview-error');
+		expect(err.textContent).toContain('TypeError');
+	});
+
+	it('mostra erro quando JSON de exemplo é inválido em modo avançado', async () => {
+		const runner = stubRunner();
+		render(
+			<TransformActionEditor action={advancedAction()} onChange={vi.fn()} scriptRunner={runner} />,
+		);
+		fireEvent.change(screen.getByTestId('transform-advanced-sample'), {
+			target: { value: '{invalid json' },
+		});
+		await screen.findByTestId('transform-advanced-preview-error');
+		// Runner não deve ter sido chamado com sample inválido (após mudança).
+		const callsAfterInvalid = runner.mock.calls.length;
+		// Forçamos um pequeno settle.
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 0));
+		});
+		expect(runner.mock.calls.length).toBe(callsAfterInvalid);
+	});
+
+	it('mostra erro quando script está vazio sem chamar o runner', async () => {
+		const runner = stubRunner();
+		render(
+			<TransformActionEditor
+				action={advancedAction({ advancedScript: '' })}
+				onChange={vi.fn()}
+				scriptRunner={runner}
+			/>,
+		);
+		const err = await screen.findByTestId('transform-advanced-preview-error');
+		expect(err.textContent?.toLowerCase()).toContain('escreva o corpo da função');
+		expect(runner).not.toHaveBeenCalled();
 	});
 });

@@ -79,6 +79,35 @@ describe('getActionSummary', () => {
 		);
 	});
 
+	test('transform em modo avançado com script mostra "script avançado"', () => {
+		expect(
+			getActionSummary({
+				type: 'transform',
+				enabled: true,
+				mode: 'advanced',
+				advancedScript: 'return response;',
+			}),
+		).toBe('Transform · script avançado');
+	});
+
+	test('transform em modo avançado sem script mostra "script vazio"', () => {
+		expect(
+			getActionSummary({
+				type: 'transform',
+				enabled: true,
+				mode: 'advanced',
+				advancedScript: '',
+			}),
+		).toBe('Transform · script vazio');
+		expect(
+			getActionSummary({
+				type: 'transform',
+				enabled: true,
+				mode: 'advanced',
+			}),
+		).toBe('Transform · script vazio');
+	});
+
 	test('breakpoint sem descrição', () => {
 		expect(getActionSummary({ type: 'breakpoint', enabled: true })).toBe('Breakpoint');
 	});

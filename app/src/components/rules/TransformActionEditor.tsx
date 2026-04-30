@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { LucideIcon } from '@/components/ui/lucide-icon';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
 	Select,
 	SelectContent,
@@ -12,12 +13,28 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import type { TransformAction, TransformOperation, TransformOperationType } from '@/types/rules';
+import type {
+	TransformAction,
+	TransformMode,
+	TransformOperation,
+	TransformOperationType,
+} from '@/types/rules';
 import { applyOperations, parseJsonPath, parseOperationValue } from '@/domain/jsonPatcher';
+import {
+	type AdvancedScriptResult,
+	runAdvancedScript,
+	type RunAdvancedScriptOptions,
+} from '@/lib/advancedScriptRunner';
 
 interface TransformActionEditorProps {
 	action: TransformAction;
 	onChange: (action: TransformAction) => void;
+	/** Hook de teste — sobrescreve o runner padrão para evitar iframe em jsdom. */
+	scriptRunner?: (
+		script: string,
+		response: unknown,
+		options?: RunAdvancedScriptOptions,
+	) => Promise<AdvancedScriptResult>;
 }
 
 const DEFAULT_SAMPLE_RESPONSE = `{
@@ -25,6 +42,13 @@ const DEFAULT_SAMPLE_RESPONSE = `{
   "name": "Alice",
   "tags": ["admin", "beta"]
 }`;
+
+const DEFAULT_ADVANCED_SCRIPT = `// "response" é o JSON parseado da resposta original.
+// Retorne o objeto/valor que substituirá a resposta.
+return {
+  ...response,
+  modifiedAt: new Date().toISOString(),
+};`;
 
 const newId = (): string => {
 	if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -66,9 +90,24 @@ function validateOperation(op: TransformOperation): OperationValidation {
 export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 	action,
 	onChange,
+	scriptRunner,
 }) => {
 	const operations = useMemo<TransformOperation[]>(() => action.operations ?? [], [action]);
+	const mode: TransformMode = action.mode ?? 'declarative';
+	const advancedScript = action.advancedScript ?? '';
 	const [sampleInput, setSampleInput] = useState<string>(DEFAULT_SAMPLE_RESPONSE);
+
+	const handleModeChange = (next: string) => {
+		const target = next as TransformMode;
+		if (target === mode) return;
+		const patch: Partial<TransformAction> = { mode: target };
+		// Quando entra em advanced pela primeira vez, popula com um script
+		// inicial de exemplo para guiar o usuário (apenas se vazio).
+		if (target === 'advanced' && advancedScript.length === 0) {
+			patch.advancedScript = DEFAULT_ADVANCED_SCRIPT;
+		}
+		onChange({ ...action, ...patch });
+	};
 
 	const commitOperations = (next: TransformOperation[]): void => {
 		onChange({
@@ -121,7 +160,6 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 		if (operations.length === 0) {
 			return { ok: true as const, output: sampleParse.value };
 		}
-		// Se já há erros de path/valor, não tenta executar — sinaliza isso.
 		const firstInvalid = operationValidations.findIndex((v) => v.pathError || v.valueError);
 		if (firstInvalid >= 0) {
 			const v = operationValidations[firstInvalid];
@@ -133,6 +171,36 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 		}
 		return applyOperations(sampleParse.value, operations);
 	}, [sampleParse, operations, operationValidations]);
+
+	// --- Preview do modo avançado (assíncrono) -------------------------
+	const [advancedResult, setAdvancedResult] = useState<AdvancedScriptResult | null>(null);
+	const [advancedRunning, setAdvancedRunning] = useState<boolean>(false);
+	const advancedRequestId = useRef(0);
+	const runner = scriptRunner ?? runAdvancedScript;
+
+	useEffect(() => {
+		if (mode !== 'advanced') return;
+		if (!sampleParse.ok) {
+			setAdvancedResult({ ok: false, error: sampleParse.error });
+			setAdvancedRunning(false);
+			return;
+		}
+		if (advancedScript.trim().length === 0) {
+			setAdvancedResult({
+				ok: false,
+				error: 'Escreva o corpo da função antes de visualizar o preview.',
+			});
+			setAdvancedRunning(false);
+			return;
+		}
+		const requestId = ++advancedRequestId.current;
+		setAdvancedRunning(true);
+		runner(advancedScript, sampleParse.value).then((r) => {
+			if (requestId !== advancedRequestId.current) return;
+			setAdvancedResult(r);
+			setAdvancedRunning(false);
+		});
+	}, [mode, advancedScript, sampleParse, runner]);
 
 	const renderOperationRow = (op: TransformOperation, index: number) => {
 		const validation = operationValidations[index];
@@ -268,7 +336,7 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 		);
 	};
 
-	const renderPreviewOutput = (): React.ReactNode => {
+	const renderDeclarativePreviewOutput = (): React.ReactNode => {
 		if (previewResult.ok) {
 			return (
 				<pre
@@ -299,7 +367,7 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 		);
 	};
 
-	return (
+	const renderDeclarativeMode = () => (
 		<div className="space-y-4">
 			<div>
 				<h4 className="text-sm font-medium">Transform declarativo</h4>
@@ -360,15 +428,170 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 						<Label className="text-xs font-medium uppercase text-muted-foreground">
 							Saída transformada
 						</Label>
-						<div className="mt-1">{renderPreviewOutput()}</div>
+						<div className="mt-1">{renderDeclarativePreviewOutput()}</div>
 					</div>
 				</div>
 			</div>
 		</div>
+	);
+
+	const renderAdvancedPreviewOutput = (): React.ReactNode => {
+		if (advancedRunning && advancedResult === null) {
+			return (
+				<div
+					className="rounded border bg-muted/40 p-2 text-xs text-muted-foreground"
+					data-testid="transform-advanced-preview-pending"
+				>
+					Executando script…
+				</div>
+			);
+		}
+		if (!advancedResult) {
+			return (
+				<div
+					className="rounded border bg-muted/40 p-2 text-xs text-muted-foreground"
+					data-testid="transform-advanced-preview-idle"
+				>
+					Aguardando script e resposta de exemplo válida.
+				</div>
+			);
+		}
+		if (advancedResult.ok) {
+			return (
+				<pre
+					className="max-h-72 overflow-auto rounded border bg-muted/40 p-2 text-xs"
+					data-testid="transform-advanced-preview-output"
+				>
+					{JSON.stringify(advancedResult.output, null, 2)}
+				</pre>
+			);
+		}
+		return (
+			<output
+				className="block rounded border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive"
+				data-testid="transform-advanced-preview-error"
+				aria-live="polite"
+			>
+				<div className="flex items-center gap-1 font-medium">
+					<LucideIcon name="alert-triangle" className="h-3.5 w-3.5" />
+					Falha no preview
+				</div>
+				<p className="mt-1">{advancedResult.error}</p>
+			</output>
+		);
+	};
+
+	const renderAdvancedMode = () => (
+		<div className="space-y-4">
+			<div>
+				<h4 className="text-sm font-medium">Transform avançado (JavaScript)</h4>
+				<p className="mt-1 text-xs text-muted-foreground">
+					Escreva uma função que recebe a resposta original e retorna a versão transformada. Útil
+					para casos que não cabem no editor declarativo.
+				</p>
+			</div>
+
+			<output
+				className="block rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-200"
+				data-testid="transform-advanced-security-warning"
+				aria-live="polite"
+			>
+				<div className="flex items-center gap-2 font-medium">
+					<LucideIcon name="alert-triangle" className="h-4 w-4" />
+					Aviso de segurança
+				</div>
+				<p className="mt-1">
+					Código executa no service worker da extensão; só rode código que você confia.
+				</p>
+			</output>
+
+			<div className="grid gap-4 lg:grid-cols-[1fr_minmax(0,_22rem)]">
+				<div className="space-y-2">
+					<Label className="text-xs font-medium uppercase text-muted-foreground">
+						Função (JavaScript)
+					</Label>
+					<div className="rounded-md border bg-muted/30 p-2">
+						<div
+							className="select-none px-2 pt-1 font-mono text-xs text-muted-foreground"
+							data-testid="transform-advanced-signature-prefix"
+						>
+							const transform = (response) ={'>'} {'{'}
+						</div>
+						<Textarea
+							className="mt-1 min-h-[200px] resize-y border-0 bg-transparent font-mono text-xs focus-visible:ring-0"
+							value={advancedScript}
+							onChange={(e) =>
+								onChange({ ...action, mode: 'advanced', advancedScript: e.target.value })
+							}
+							placeholder="return { ...response };"
+							spellCheck={false}
+							aria-label="Corpo da função de transformação avançada"
+							data-testid="transform-advanced-script"
+						/>
+						<div
+							className="select-none px-2 pb-1 font-mono text-xs text-muted-foreground"
+							data-testid="transform-advanced-signature-suffix"
+						>
+							{'};'}
+						</div>
+					</div>
+					<p className="text-xs text-muted-foreground">
+						A assinatura é fixa: a função recebe <code className="font-mono">response</code> (JSON
+						parseado) e deve retornar o objeto/valor que substituirá a resposta.
+					</p>
+				</div>
+
+				<div className="space-y-3">
+					<div>
+						<Label className="text-xs font-medium uppercase text-muted-foreground">
+							Resposta de exemplo
+						</Label>
+						<Textarea
+							className="mt-1 h-40 font-mono text-xs"
+							value={sampleInput}
+							onChange={(e) => setSampleInput(e.target.value)}
+							placeholder='{"foo": "bar"}'
+							aria-invalid={!sampleParse.ok}
+							data-testid="transform-advanced-sample"
+						/>
+						{!sampleParse.ok && (
+							<p className="mt-1 text-xs text-destructive">{sampleParse.error}</p>
+						)}
+					</div>
+					<div>
+						<Label className="text-xs font-medium uppercase text-muted-foreground">
+							Saída transformada
+						</Label>
+						<div className="mt-1">{renderAdvancedPreviewOutput()}</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	);
+
+	return (
+		<Tabs
+			value={mode}
+			onValueChange={handleModeChange}
+			className="space-y-4"
+			data-testid="transform-mode-tabs"
+		>
+			<TabsList>
+				<TabsTrigger value="declarative" data-testid="transform-mode-declarative">
+					Declarativo
+				</TabsTrigger>
+				<TabsTrigger value="advanced" data-testid="transform-mode-advanced">
+					Avançado (JS)
+				</TabsTrigger>
+			</TabsList>
+			<TabsContent value="declarative">{renderDeclarativeMode()}</TabsContent>
+			<TabsContent value="advanced">{renderAdvancedMode()}</TabsContent>
+		</Tabs>
 	);
 };
 
 export const __TEST_HELPERS = {
 	createOperation,
 	OPERATION_TYPE_LABEL,
+	DEFAULT_ADVANCED_SCRIPT,
 };

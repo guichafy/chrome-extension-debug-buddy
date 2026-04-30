@@ -64,6 +64,10 @@ export function getActionSummary(action: Action): string {
 		case 'delay':
 			return `Atrasar ${action.timeMs}ms`;
 		case 'transform': {
+			if (action.mode === 'advanced') {
+				const hasScript = (action.advancedScript ?? '').trim().length > 0;
+				return hasScript ? 'Transform · script avançado' : 'Transform · script vazio';
+			}
 			const opsCount = action.operations?.length ?? 0;
 			if (opsCount > 0) {
 				return `Transform · ${opsCount} ${opsCount === 1 ? 'operação' : 'operações'}`;

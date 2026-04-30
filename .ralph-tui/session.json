@@ -3,10 +3,10 @@
   "sessionId": "d9b54d10-2e9e-45e2-b59c-e0505fe3348c",
   "status": "running",
   "startedAt": "2026-04-30T06:03:33.753Z",
-  "updatedAt": "2026-04-30T07:34:30.270Z",
-  "currentIteration": 12,
+  "updatedAt": "2026-04-30T07:45:54.823Z",
+  "currentIteration": 13,
   "maxIterations": 0,
-  "tasksCompleted": 12,
+  "tasksCompleted": 13,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -41,8 +41,8 @@
       {
         "id": "chrome-extension-debug-buddy-jc0.5",
         "title": "US-005: Toggle enabled/disabled por regra",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "chrome-extension-debug-buddy-jc0.6",
@@ -244,6 +244,16 @@
       "durationMs": 621206,
       "startedAt": "2026-04-30T07:17:48.430Z",
       "endedAt": "2026-04-30T07:28:09.636Z"
+    },
+    {
+      "iteration": 13,
+      "status": "completed",
+      "taskId": "chrome-extension-debug-buddy-jc0.5",
+      "taskTitle": "US-005: Toggle enabled/disabled por regra",
+      "taskCompleted": true,
+      "durationMs": 368907,
+      "startedAt": "2026-04-30T07:28:19.963Z",
+      "endedAt": "2026-04-30T07:34:28.870Z"
     }
   ],
   "skippedTaskIds": [],

@@ -35,6 +35,11 @@
     "default_path": "sidepanel.html"
   },
   "options_page": "options.html",
+  "sandbox": {
+    "pages": [
+      "sandbox.html"
+    ]
+  },
   "web_accessible_resources": [
     {
       "resources": [
