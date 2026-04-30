@@ -171,3 +171,140 @@ describe('matchesFilters — combinações', () => {
 		expect(matchesFilters(makeRequest({ method: 'PUT', status: 404 }), filters)).toBe(false);
 	});
 });
+
+describe('matchesFilter — duration', () => {
+	function req(overrides: Partial<InterceptedResponse> = {}): InterceptedResponse {
+		return {
+			url: 'https://example.com/',
+			status: 200,
+			statusText: 'OK',
+			headers: {},
+			type: 'XHR',
+			timestamp: 1000,
+			...overrides,
+		};
+	}
+
+	it('gte casa quando duration ≥ valor', () => {
+		expect(
+			matchesFilter(req({ duration: 1500 }), {
+				id: 'f',
+				field: 'duration',
+				operator: 'gte',
+				value: '1000',
+			}),
+		).toBe(true);
+		expect(
+			matchesFilter(req({ duration: 999 }), {
+				id: 'f',
+				field: 'duration',
+				operator: 'gte',
+				value: '1000',
+			}),
+		).toBe(false);
+	});
+
+	it('lte casa quando duration ≤ valor', () => {
+		expect(
+			matchesFilter(req({ duration: 500 }), {
+				id: 'f',
+				field: 'duration',
+				operator: 'lte',
+				value: '1000',
+			}),
+		).toBe(true);
+	});
+
+	it('is casa equality exato', () => {
+		expect(
+			matchesFilter(req({ duration: 1000 }), {
+				id: 'f',
+				field: 'duration',
+				operator: 'is',
+				value: '1000',
+			}),
+		).toBe(true);
+		expect(
+			matchesFilter(req({ duration: 1001 }), {
+				id: 'f',
+				field: 'duration',
+				operator: 'is',
+				value: '1000',
+			}),
+		).toBe(false);
+	});
+
+	it('request sem duration definida nunca casa em duration', () => {
+		expect(
+			matchesFilter(req(), {
+				id: 'f',
+				field: 'duration',
+				operator: 'gte',
+				value: '0',
+			}),
+		).toBe(false);
+		expect(
+			matchesFilter(req(), {
+				id: 'f',
+				field: 'duration',
+				operator: 'lte',
+				value: '99999',
+			}),
+		).toBe(false);
+	});
+
+	it('valor não-numérico não casa', () => {
+		expect(
+			matchesFilter(req({ duration: 1000 }), {
+				id: 'f',
+				field: 'duration',
+				operator: 'gte',
+				value: 'abc',
+			}),
+		).toBe(false);
+	});
+});
+
+describe('matchesFilter — timestamp', () => {
+	function req(overrides: Partial<InterceptedResponse> = {}): InterceptedResponse {
+		return {
+			url: 'https://example.com/',
+			status: 200,
+			statusText: 'OK',
+			headers: {},
+			type: 'XHR',
+			timestamp: 1714425600000,
+			...overrides,
+		};
+	}
+
+	it('gte casa quando timestamp ≥ valor', () => {
+		expect(
+			matchesFilter(req(), {
+				id: 'f',
+				field: 'timestamp',
+				operator: 'gte',
+				value: '1714425500000',
+			}),
+		).toBe(true);
+		expect(
+			matchesFilter(req(), {
+				id: 'f',
+				field: 'timestamp',
+				operator: 'gte',
+				value: '1714425700000',
+			}),
+		).toBe(false);
+	});
+
+	it('lte casa quando timestamp ≤ valor', () => {
+		expect(
+			matchesFilter(req(), {
+				id: 'f',
+				field: 'timestamp',
+				operator: 'lte',
+				value: '1714425700000',
+			}),
+		).toBe(true);
+	});
+});

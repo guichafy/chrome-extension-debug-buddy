@@ -112,6 +112,10 @@ function buildFieldValueSuggestions(
 		case 'url':
 			if (value.length === 0) return [];
 			return [buildSuggestion(value, 'contains', 'URL contém', `url:${value}`)];
+		case 'duration':
+			return [];
+		case 'timestamp':
+			return [];
 		case 'free':
 			return [];
 	}

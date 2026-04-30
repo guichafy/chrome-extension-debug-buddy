@@ -94,6 +94,37 @@ export function matchesFilter(request: InterceptedResponse, filter: Filter): boo
 			const state = getRequestState(request);
 			return state === (value as RequestState);
 		}
+		case 'duration': {
+			if (typeof request.duration !== 'number') return false;
+			const trimmed = filter.value.trim();
+			if (trimmed === '') return true;
+			const numericValue = Number(trimmed);
+			if (Number.isNaN(numericValue)) return false;
+			switch (filter.operator) {
+				case 'is':
+					return request.duration === numericValue;
+				case 'gte':
+					return request.duration >= numericValue;
+				case 'lte':
+					return request.duration <= numericValue;
+				default:
+					return false;
+			}
+		}
+		case 'timestamp': {
+			const trimmed = filter.value.trim();
+			if (trimmed === '') return true;
+			const numericValue = Number(trimmed);
+			if (Number.isNaN(numericValue)) return false;
+			switch (filter.operator) {
+				case 'gte':
+					return request.timestamp >= numericValue;
+				case 'lte':
+					return request.timestamp <= numericValue;
+				default:
+					return false;
+			}
+		}
 	}
 }
 
