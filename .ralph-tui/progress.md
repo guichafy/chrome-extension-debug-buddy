@@ -26,6 +26,7 @@ after each iteration and it's included in prompts for context.
 - **Parsing de valor JSON estrito (sem fallback string)**: ao contrario do que considerei inicialmente (try parse JSON; se falhar, usar string crua), optei por exigir JSON valido sempre — strings precisam de aspas (`"hello"`). Justificativa: aceitar `hello` como string mascara intenc?o ambigua (usuario pode estar tentando digitar JSON com erro). Texto inline orienta o usuario. Honra a regra "no fallbacks" do projeto.
 - **`crypto.randomUUID()` em service worker e jsdom**: disponivel em ambos. Helper `newId()` tem fallback para `Math.random` so para ambientes legados, mas tests/runtime sempre pegam o UUID real.
 - **Re-matchar regra no inspector em vez de propagar metadados via InterceptedResponse**: `RequestInspector` chama `findMatchingRuleAction(rules, {url, method, headers: request.request?.headers ?? {}, body: request.request?.postData})` quando `isWaiting=true` para descobrir a regra breakpoint que pausou o request — entao surge o `description` ao usuario. Vantagens: (1) sem schema bloat em `InterceptedResponse`, (2) sempre fresh (se o usuario editou a descricao depois da pausa, reflete imediatamente), (3) zero migracao para registros antigos. Use `request.request?.headers` (nao `request.headers` top-level) porque o quirk documentado eh que top-level header sao response headers (issue #19).
+- **Input numerico controlado com validacao sem fallback**: padrao em `app/src/components/rules/DelayActionEditor.tsx` — manter `inputValue` como string local + `error: string | null`. `handleInputChange` valida via regex `/^\d+$/` e `Number.parseInt(...)` antes de propagar `onChange` ao pai. Strings invalidas (vazia, com letras, decimais, negativas) pintam erro inline + nao chamam `onChange` — alinhado com regra "no fallbacks". `useEffect([action.timeMs])` ressincroniza o input quando o pai atualiza (ex.: preset clicado recebe `timeMs` diretamente em props apos `onChange`). Para presets, usar `<Button aria-pressed/data-selected>` em vez de `role=radio` em `<button>` (a11y biome).
 
 ---
 
@@ -205,4 +206,19 @@ after each iteration and it's included in prompts for context.
 - **JSONPath subset em `domain/jsonPatcher.ts`**: parser sem deps, tagged union, sem mutacao do input.
 - **Editor declarativo com preview reativo**: layout 2-col + `useMemo` para validacoes + `useMemo` para preview que se autocorrige a cada keystroke.
 - **Parsing de valor JSON estrito**: prefere erro a fallback ambiguo.
+---
+
+
+## 2026-04-30 - chrome-extension-debug-buddy-jc0.14
+- US-014: Editor de acao Delay com input em ms + presets clicaveis (500ms, 1s, 3s, 5s, 10s)
+- Files changed:
+  - `app/src/components/rules/DelayActionEditor.tsx`: novo componente dedicado. Input numerico controlado (string local + erro inline), 5 presets como `<Button>` com `aria-pressed/data-selected`, painel explicativo amber (cor visual do tipo Delay) com texto "O servidor remoto sera chamado normalmente; a resposta sera segurada por X ms antes de devolver ao cliente". Sem fallback silencioso: valores invalidos (negativos, decimais, vazios, nao numericos) param em erro inline e NAO propagam onChange — alinhado com a regra "no fallbacks" do projeto.
+  - `app/src/components/rules/ActionEditor.tsx`: substituido o placeholder `renderDelayActionEditor` (que so mostrava um Select de "Tipo de Acao" sem editar timeMs) pelo novo componente `DelayActionEditor`. Removido `createEmptyMockAction` (era usado apenas pelo placeholder antigo).
+  - `app/src/components/rules/__tests__/DelayActionEditor.test.tsx`: 12 testes cobrindo (1) entrada numerica valida, (2) aceita 0, (3) rejeita negativo/string/vazio/decimal, (4) presets exigidos renderizados, (5) clique em preset emite onChange, (6) preset selecionado destacado por aria-pressed, (7) clicar em preset limpa erro de input, (8) texto explicativo correto e dinamico.
+- **Learnings:**
+  - O placeholder anterior (`renderDelayActionEditor`) nao tocava em `timeMs` — apenas oferecia um Select para mudar o tipo da acao para mock/breakpoint. Como o wizard novo (US-010) ja faz a selecao de tipo no step "Tipo", esse Select virou ruido. Confirmar que removemos sem regressao via teste end-to-end (RuleEditor.wizard).
+  - Em validacao de Input numerico controlado, a estrategia que funciona melhor e: manter `inputValue` como string local + propagar `onChange` ao pai SO quando a string casa o regex `/^\d+$/`. Sincronizar de volta via `useEffect` quando o pai muda `action.timeMs` (ex.: clique em preset re-renderiza com novo timeMs vindo do pai). Tentei inicialmente delegar tudo para `onChange` e ler de volta, mas isso colide com o caso "string parcial enquanto digita" (ex.: o usuario apaga `1000` e digita `2`, no meio do caminho a string fica vazia/`2`).
+  - Biome 2.x `lint/a11y/useSemanticElements` ainda rejeita `role="group"` em `<div>` quando o conteudo equivale a `<fieldset>` — usei `<fieldset><legend>` para agrupar os presets, sem custo visual extra (legend ja serve de label).
+  - Cor amber (definida em `getActionVisuals` para o tipo `delay`) reaproveitada no painel info para consistencia visual com a badge da listagem.
+  - O texto explicativo do PRD usa "será" (ASCII `sera` no acceptance criteria) — escrevi com diacriticos corretos no codigo, conforme a regra do projeto sobre pt-BR.
 ---

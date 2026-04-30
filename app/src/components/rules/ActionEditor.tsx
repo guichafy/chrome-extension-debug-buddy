@@ -11,21 +11,22 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Action, MockAction, BreakpointAction, MockLatency, TransformAction } from '@/types/rules';
+import {
+	Action,
+	MockAction,
+	BreakpointAction,
+	DelayAction,
+	MockLatency,
+	TransformAction,
+} from '@/types/rules';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TransformActionEditor } from './TransformActionEditor';
+import { DelayActionEditor } from './DelayActionEditor';
 
 interface ActionEditorProps {
 	action: Action;
 	onChange: (action: Action) => void;
 }
-
-const createEmptyMockAction = (): MockAction => ({
-	type: 'mock',
-	enabled: true,
-	status: 200,
-	headers: {},
-});
 
 export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange }) => {
 	const [activeTab, setActiveTab] = useState<string>('response');
@@ -38,7 +39,7 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange }) 
 			case 'mock':
 				return renderMockActionEditor(action as MockAction);
 			case 'delay':
-				return renderDelayActionEditor(action);
+				return renderDelayActionEditor(action as DelayAction);
 			case 'transform':
 				return renderTransformActionEditor(action as TransformAction);
 			case 'breakpoint':
@@ -396,38 +397,9 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange }) 
 		);
 	};
 
-	// Editor para ação de delay (placeholder para futuras implementações)
-	const renderDelayActionEditor = (delayAction: Action) => (
-		<div className="space-y-4">
-			<div>
-				<Label className="font-medium">Tipo de Ação</Label>
-				<Select
-					value={delayAction.type}
-					onValueChange={(value: 'mock' | 'breakpoint') => {
-						if (value === 'mock') {
-							onChange(createEmptyMockAction());
-						} else if (value === 'breakpoint') {
-							onChange({
-								type: value,
-								enabled: true,
-								description: 'Pausar para inspeção manual',
-							});
-						}
-					}}
-				>
-					<SelectTrigger>
-						<SelectValue placeholder="Selecione o tipo de ação" />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="mock">Mock Response</SelectItem>
-						<SelectItem value="breakpoint">Breakpoint</SelectItem>
-					</SelectContent>
-				</Select>
-			</div>
-			<p className="text-sm text-muted-foreground">
-				Apenas o tipo "Mock Response" está disponível nesta versão.
-			</p>
-		</div>
+	// Editor para ação de delay — input em ms + presets rápidos.
+	const renderDelayActionEditor = (delayAction: DelayAction) => (
+		<DelayActionEditor action={delayAction} onChange={onChange} />
 	);
 
 	// Editor para ação de transformação (declarativo, JSONPath)
