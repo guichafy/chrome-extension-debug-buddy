@@ -3,10 +3,10 @@
   "sessionId": "d9b54d10-2e9e-45e2-b59c-e0505fe3348c",
   "status": "running",
   "startedAt": "2026-04-30T06:03:33.753Z",
-  "updatedAt": "2026-04-30T08:09:46.678Z",
-  "currentIteration": 17,
+  "updatedAt": "2026-04-30T08:09:47.923Z",
+  "currentIteration": 18,
   "maxIterations": 0,
-  "tasksCompleted": 17,
+  "tasksCompleted": 18,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -35,8 +35,8 @@
       {
         "id": "chrome-extension-debug-buddy-jc0.4",
         "title": "US-004: Busca e filtro na listagem de regras",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "chrome-extension-debug-buddy-jc0.5",
@@ -294,6 +294,16 @@
       "durationMs": 241107,
       "startedAt": "2026-04-30T07:57:29.704Z",
       "endedAt": "2026-04-30T08:01:30.811Z"
+    },
+    {
+      "iteration": 18,
+      "status": "completed",
+      "taskId": "chrome-extension-debug-buddy-jc0.4",
+      "taskTitle": "US-004: Busca e filtro na listagem de regras",
+      "taskCompleted": true,
+      "durationMs": 483523,
+      "startedAt": "2026-04-30T08:01:42.219Z",
+      "endedAt": "2026-04-30T08:09:45.742Z"
     }
   ],
   "skippedTaskIds": [],
