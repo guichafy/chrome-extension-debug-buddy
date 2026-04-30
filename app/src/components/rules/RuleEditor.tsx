@@ -24,8 +24,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LucideIcon } from '@/components/ui/lucide-icon';
 import { cn } from '@/lib/utils';
-import { createPresetRule } from '@/domain/rulePresets';
-import { Action, Matcher, Rule, RulePresetId } from '@/types/rules';
+import { createTemplateRule } from '@/domain/ruleTemplates';
+import type { RuleTemplateId } from '@/domain/ruleTemplates';
+import { Action, Matcher, Rule } from '@/types/rules';
 import {
 	getActionSummary,
 	getActionVisuals,
@@ -240,8 +241,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 		setView('editor');
 	};
 
-	const applyPresetDraft = (presetId: RulePresetId) => {
-		const draft = createPresetRule(presetId);
+	const applyTemplateDraft = (templateId: RuleTemplateId) => {
+		const draft = createTemplateRule(templateId);
 		const matchersForEditing = draft.matchers.map((m) =>
 			m.type === 'url' ? { ...m, enabled: true } : m,
 		);
@@ -743,13 +744,13 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 							{mode === 'edit'
 								? 'Modifique os detalhes da regra de interceptação.'
 								: isWelcome
-									? 'Comece de um preset ou em branco.'
+									? 'Comece do zero ou escolha um template.'
 									: STEP_META[step].description}
 						</DialogDescription>
 					</DialogHeader>
 
 					{isWelcome ? (
-						<PresetWelcome onSelectBlank={startBlank} onSelectPreset={applyPresetDraft} />
+						<PresetWelcome onSelectBlank={startBlank} onSelectPreset={applyTemplateDraft} />
 					) : (
 						<>
 							<nav

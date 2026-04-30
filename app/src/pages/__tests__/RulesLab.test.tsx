@@ -55,7 +55,7 @@ describe('RulesLab', () => {
 		expect(screen.getByText(/2 regras · 1 ativa, 1 pausada/)).toBeInTheDocument();
 	});
 
-	test('clicar "+ Nova regra" abre welcome screen com presets', () => {
+	test('clicar "+ Nova regra" abre welcome screen com templates', () => {
 		render(
 			<MemoryRouter>
 				<RulesLab />
@@ -63,9 +63,10 @@ describe('RulesLab', () => {
 		);
 		const buttons = screen.getAllByRole('button', { name: /Nova regra/ });
 		fireEvent.click(buttons[0]);
-		expect(screen.getByText('Começar em branco')).toBeInTheDocument();
+		expect(screen.getByText('Começar do zero')).toBeInTheDocument();
+		expect(screen.getByText('Usar template')).toBeInTheDocument();
 		expect(screen.getByText('Erro 500 (Internal Server Error)')).toBeInTheDocument();
-		expect(screen.getByText('Latência fixa (1s)')).toBeInTheDocument();
+		expect(screen.getByText('Atrasar resposta em 3s')).toBeInTheDocument();
 	});
 
 	test('mostra empty state quando não há regras', () => {
