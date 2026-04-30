@@ -626,6 +626,17 @@ async function startDebugging(specificTabId: number | null = null): Promise<bool
 		await chrome.debugger.sendCommand({ tabId }, 'Network.enable');
 		console.log('Network domain enabled for timing capture');
 
+		// Habilita Page domain para receber Page.frameNavigated do main frame e
+		// resetar a janela "Página atual" do NetworkMetricsBar a cada navegação.
+		// Falha aqui não bloqueia a interceptação — a UI apenas vê tab "Página"
+		// desabilitada (currentPageNavigatedAt continua null).
+		try {
+			await chrome.debugger.sendCommand({ tabId }, 'Page.enable');
+			console.log('Page domain enabled for navigation tracking');
+		} catch (error) {
+			console.error('Erro ao habilitar Page domain:', error);
+		}
+
 		// Enable Fetch domain for request interception.
 		// Dois stages são necessários:
 		// - Request: permite aplicar mocks com latência *antes* de a request sair para a rede,
@@ -680,6 +691,13 @@ async function stopDebugging(): Promise<boolean> {
 		await chrome.debugger.sendCommand({ tabId: attachedTabId }, 'Fetch.disable');
 		console.log('Fetch domain disabled');
 
+		// Disable Page domain (não bloqueia se já estava desabilitado).
+		try {
+			await chrome.debugger.sendCommand({ tabId: attachedTabId }, 'Page.disable');
+		} catch (error) {
+			console.error('Erro ao desabilitar Page domain:', error);
+		}
+
 		// Disable network tracking
 		await chrome.debugger.sendCommand({ tabId: attachedTabId }, 'Network.disable');
 		console.log('Network tracking disabled');
@@ -712,6 +730,21 @@ function debuggerEventListener(
 	params: any,
 ): void {
 	if (debuggeeId.tabId !== attachedTabId) return;
+
+	if (message === 'Page.frameNavigated') {
+		const frame = params?.frame;
+		// Filtra: só main frame (parentId == null). Iframes têm parentId.
+		if (frame && frame.parentId == null && typeof frame.url === 'string') {
+			sessionMarker = {
+				...sessionMarker,
+				currentPageUrl: frame.url,
+				currentPageNavigatedAt: Date.now(),
+			};
+			persistSessionMarker();
+			broadcastSessionMarker();
+		}
+		return;
+	}
 
 	if (message.startsWith('Network.')) {
 		timingTracker.handleNetworkEvent(message, params);
