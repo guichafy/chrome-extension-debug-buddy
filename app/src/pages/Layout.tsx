@@ -10,8 +10,8 @@ import { useResponses } from '../hooks/useResponses';
 import { useAllRequests } from '../hooks/useAllRequests';
 import { useSessionMarker } from '../hooks/useSessionMarker';
 import { useNetworkMetrics } from '../hooks/useNetworkMetrics';
-import { encodeFiltersToParams } from '@/lib/filterUrlSerialization';
-import type { Filter } from '@/types/filters';
+import { encodeFiltersToParams, encodeSortToParam } from '@/lib/filterUrlSerialization';
+import type { Filter, Sort } from '@/types/filters';
 
 const Layout: React.FC = () => {
 	const navigate = useNavigate();
@@ -43,44 +43,79 @@ const Layout: React.FC = () => {
 		});
 	};
 
-	// Click handler unificado para as pills do NetworkMetricsBar.
-	// Constrói filtros que reproduzem o que a pill descreve, herdando a janela
-	// ativa (Sessão ou Página) como filtro de tempo. Navega para /command-center
-	// com os filtros serializados na URL — o /command-center hidrata na montagem.
+	// Click handler por pill. Cada pill tem um contrato distinto de URL no
+	// /command-center pra responder a pergunta natural daquela métrica:
+	//
+	//   total  → sort por timestamp desc                     (cronológico, default)
+	//   bytes  → sort por transferSize desc                  ("o que pesou mais?")
+	//   ttfb   → sort por ttfbMs desc                        ("o que demorou pra responder?")
+	//   slow   → filter duration ≥ 1000 + janela + sort dur. (drilldown nas lentas)
+	//   failed → filter status ≥ 400 + janela + sort time    (drilldown nas falhas)
+	//
+	// A janela ativa (Sessão/Página) só acompanha `slow`/`failed` — nas pills
+	// neutras o usuário quer explorar todo o histórico ordenado pela métrica,
+	// não restringir pelo tempo. Nada de URL idêntica entre pills neutras.
+	//
+	// Janela: como o estado da Tabs é interno do NetworkMetricsBar, usamos
+	// `currentPageNavigatedAt ?? sessionStartedAt` como heurística (combina com
+	// o tab default quando há página). Se o usuário tiver "Sessão" selecionada
+	// manualmente mas houver página, o filtro pode estreitar mais que a pill —
+	// aceitável v1; lift do estado é refactor maior fora de escopo.
 	const handlePillClick = useCallback(
 		(pill: PillName) => {
-			// Janela ativa é estado interno do NetworkMetricsBar; não temos acesso direto.
-			// Aproximação: usar `currentPageNavigatedAt` quando disponível, senão `sessionStartedAt`.
-			// Esta heurística casa com o estado padrão da Tabs: quando há página, ela é o foco
-			// (a pill exibida coincide). Caso o usuário esteja com a tab "Sessão" ativa,
-			// o filtro pode mostrar mais requests do que a pill — aceitável v1; caminho
-			// "exato" exige levantar `window` para o pai (refactor maior, fora de escopo).
 			const since = sessionMarker.currentPageNavigatedAt ?? sessionMarker.sessionStartedAt;
 			const filters: Filter[] = [];
-			if (since != null) {
-				filters.push({
-					id: crypto.randomUUID(),
-					field: 'timestamp',
-					operator: 'gte',
-					value: String(since),
-				});
+			let sort: Sort;
+
+			switch (pill) {
+				case 'total':
+					sort = { field: 'timestamp', dir: 'desc' };
+					break;
+				case 'bytes':
+					sort = { field: 'transferSize', dir: 'desc' };
+					break;
+				case 'ttfb':
+					sort = { field: 'ttfbMs', dir: 'desc' };
+					break;
+				case 'slow':
+					sort = { field: 'duration', dir: 'desc' };
+					filters.push({
+						id: crypto.randomUUID(),
+						field: 'duration',
+						operator: 'gte',
+						value: '1000',
+					});
+					if (since != null) {
+						filters.push({
+							id: crypto.randomUUID(),
+							field: 'timestamp',
+							operator: 'gte',
+							value: String(since),
+						});
+					}
+					break;
+				case 'failed':
+					sort = { field: 'timestamp', dir: 'desc' };
+					filters.push({
+						id: crypto.randomUUID(),
+						field: 'status',
+						operator: 'gte',
+						value: '400',
+					});
+					if (since != null) {
+						filters.push({
+							id: crypto.randomUUID(),
+							field: 'timestamp',
+							operator: 'gte',
+							value: String(since),
+						});
+					}
+					break;
 			}
-			if (pill === 'slow') {
-				filters.push({
-					id: crypto.randomUUID(),
-					field: 'duration',
-					operator: 'gte',
-					value: '1000',
-				});
-			} else if (pill === 'failed') {
-				filters.push({
-					id: crypto.randomUUID(),
-					field: 'status',
-					operator: 'gte',
-					value: '400',
-				});
-			}
+
 			const params = encodeFiltersToParams(filters);
+			const sortStr = encodeSortToParam(sort);
+			if (sortStr) params.set('sort', sortStr);
 			const query = params.toString();
 			navigate(query ? `/command-center?${query}` : '/command-center');
 		},

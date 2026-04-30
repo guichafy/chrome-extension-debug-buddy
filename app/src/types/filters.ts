@@ -41,6 +41,24 @@ export const FILTER_FIELD_LABELS: Record<FilterField, string> = {
 	timestamp: 'Janela de tempo',
 };
 
+// Sort: usado pelas pills para abrir o Command Center ordenado por uma métrica.
+// `transferSize` e `ttfbMs` não são colunas visíveis na tabela hoje — quando
+// usados, RequestTimeline pré-ordena os rows e passa initialSorting=[] pra
+// DataTable não re-ordenar.
+export type SortField =
+	| 'timestamp'
+	| 'duration'
+	| 'transferSize'
+	| 'ttfbMs'
+	| 'status'
+	| 'url'
+	| 'method';
+export type SortDir = 'asc' | 'desc';
+export interface Sort {
+	field: SortField;
+	dir: SortDir;
+}
+
 export const FILTER_OPERATOR_LABELS: Record<FilterOperator, string> = {
 	is: '=',
 	contains: 'contém',

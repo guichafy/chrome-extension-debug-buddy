@@ -1,7 +1,9 @@
-import type { Filter } from '@/types/filters';
+import type { Filter, Sort } from '@/types/filters';
 import {
 	decodeParamsToFilters,
+	decodeParamToSort,
 	encodeFiltersToParams,
+	encodeSortToParam,
 } from '../filterUrlSerialization';
 
 describe('encodeFiltersToParams', () => {
@@ -107,5 +109,55 @@ describe('decodeParamsToFilters', () => {
 			operator: 'contains',
 			value: 'with space:',
 		});
+	});
+});
+
+describe('encodeSortToParam', () => {
+	it('codifica null como string vazia', () => {
+		expect(encodeSortToParam(null)).toBe('');
+	});
+
+	it('codifica Sort como "field:dir"', () => {
+		const sort: Sort = { field: 'transferSize', dir: 'desc' };
+		expect(encodeSortToParam(sort)).toBe('transferSize:desc');
+	});
+
+	it('codifica direção asc também', () => {
+		const sort: Sort = { field: 'duration', dir: 'asc' };
+		expect(encodeSortToParam(sort)).toBe('duration:asc');
+	});
+});
+
+describe('decodeParamToSort', () => {
+	it('retorna null para null/undefined/vazio', () => {
+		expect(decodeParamToSort(null)).toBeNull();
+		expect(decodeParamToSort(undefined)).toBeNull();
+		expect(decodeParamToSort('')).toBeNull();
+	});
+
+	it('decodifica "field:dir" válidos', () => {
+		expect(decodeParamToSort('transferSize:desc')).toEqual({
+			field: 'transferSize',
+			dir: 'desc',
+		});
+		expect(decodeParamToSort('ttfbMs:asc')).toEqual({ field: 'ttfbMs', dir: 'asc' });
+		expect(decodeParamToSort('timestamp:desc')).toEqual({ field: 'timestamp', dir: 'desc' });
+	});
+
+	it('rejeita field desconhecido', () => {
+		expect(decodeParamToSort('foo:desc')).toBeNull();
+	});
+
+	it('rejeita direção desconhecida', () => {
+		expect(decodeParamToSort('duration:bogus')).toBeNull();
+	});
+
+	it('rejeita formato malformado', () => {
+		expect(decodeParamToSort('duration')).toBeNull();
+	});
+
+	it('round-trip', () => {
+		const sort: Sort = { field: 'ttfbMs', dir: 'asc' };
+		expect(decodeParamToSort(encodeSortToParam(sort))).toEqual(sort);
 	});
 });

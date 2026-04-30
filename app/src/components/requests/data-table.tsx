@@ -46,6 +46,12 @@ interface DataTableProps<TData, TValue> {
 	filterSlot?: React.ReactNode;
 	/** Linhas que devem receber a classe pending-row-halo. */
 	pendingRowIds?: Set<string>;
+	/**
+	 * Sort inicial. Default = `[{ id: 'timestamp', desc: true }]`. Passar `[]` quando
+	 * o consumidor já entrega `data` pré-ordenada (ex.: sort por campo sem coluna
+	 * visível) — assim o tanstack-table não re-ordena.
+	 */
+	initialSorting?: SortingState;
 }
 
 export function DataTable<TData, TValue>({
@@ -59,11 +65,12 @@ export function DataTable<TData, TValue>({
 	selectedRowId,
 	filterSlot,
 	pendingRowIds,
+	initialSorting,
 }: DataTableProps<TData, TValue>) {
 	// Estados para a tabela
-	const [sorting, setSorting] = React.useState<SortingState>([
-		{ id: 'timestamp', desc: true }, // Ordenar por timestamp decrescente por padrão
-	]);
+	const [sorting, setSorting] = React.useState<SortingState>(
+		initialSorting ?? [{ id: 'timestamp', desc: true }], // Ordenar por timestamp decrescente por padrão
+	);
 	const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
 	const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
 		requestType: false, // Ocultar a coluna 'requestType' por padrão

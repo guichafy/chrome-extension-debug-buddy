@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { decodeParamsToFilters } from '@/lib/filterUrlSerialization';
+import { decodeParamsToFilters, decodeParamToSort } from '@/lib/filterUrlSerialization';
 import type { InterceptedResponse } from '@/types/intercepted';
 import { useAllRequests } from '@/hooks/useAllRequests';
 import { useResponses } from '@/hooks/useResponses';
@@ -45,6 +45,10 @@ const CommandCenter: React.FC = () => {
 		const decoded = decodeParamsToFilters(searchParams);
 		if (decoded.length > 0) setFilters(decoded);
 	}, [searchParams]);
+
+	// Sort vindo de URL (?sort=field:dir). Memoizado pra evitar re-criar
+	// a referência a cada render do CommandCenter.
+	const sortFromUrl = useMemo(() => decodeParamToSort(searchParams.get('sort')), [searchParams]);
 
 	const { approveResponse, ignoreResponse, pendingResponses } = useResponses();
 	const { rules } = useRules();
@@ -154,6 +158,7 @@ const CommandCenter: React.FC = () => {
 					autoRefreshEnabled={autoRefreshEnabled}
 					pauseAutoRefresh={pauseAutoRefresh}
 					enableAutoRefresh={enableAutoRefresh}
+					sort={sortFromUrl ?? undefined}
 				/>
 			</section>
 
