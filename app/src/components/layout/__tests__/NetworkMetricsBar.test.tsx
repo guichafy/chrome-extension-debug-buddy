@@ -1,5 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { vi } from 'vitest';
 import type { MetricsAggregate } from '@/lib/networkMetrics';
+import type { SessionMarker } from '@/types/sessionMarker';
 import { NetworkMetricsBar } from '../NetworkMetricsBar';
 
 function agg(overrides: Partial<MetricsAggregate> = {}): MetricsAggregate {
@@ -13,6 +15,12 @@ function agg(overrides: Partial<MetricsAggregate> = {}): MetricsAggregate {
 	};
 }
 
+const emptyMarker: SessionMarker = {
+	sessionStartedAt: null,
+	currentPageUrl: null,
+	currentPageNavigatedAt: null,
+};
+
 describe('NetworkMetricsBar', () => {
 	it('mostra placeholder quando totalRequests da aba ativa é 0', () => {
 		render(
@@ -21,6 +29,7 @@ describe('NetworkMetricsBar', () => {
 				currentPage={agg()}
 				hasCurrentPage={false}
 				isDebugging={false}
+				sessionMarker={emptyMarker}
 			/>,
 		);
 		expect(screen.getByText(/sem requests/i)).toBeInTheDocument();
@@ -39,12 +48,12 @@ describe('NetworkMetricsBar', () => {
 				currentPage={agg()}
 				hasCurrentPage={true}
 				isDebugging={true}
+				sessionMarker={emptyMarker}
 			/>,
 		);
 		expect(screen.getByText('47')).toBeInTheDocument();
 		expect(screen.getByText('1.2 MB')).toBeInTheDocument();
 		expect(screen.getByText('245 ms')).toBeInTheDocument();
-		// pills "lentas" (3) e "falhas" (1) — qualquer um dos dois pode duplicar texto se igual
 		expect(screen.getAllByText('3').length).toBeGreaterThan(0);
 		expect(screen.getAllByText('1').length).toBeGreaterThan(0);
 	});
@@ -56,6 +65,7 @@ describe('NetworkMetricsBar', () => {
 				currentPage={agg({ totalRequests: 12 })}
 				hasCurrentPage={true}
 				isDebugging={true}
+				sessionMarker={emptyMarker}
 			/>,
 		);
 		expect(screen.getByText('47')).toBeInTheDocument();
@@ -71,6 +81,7 @@ describe('NetworkMetricsBar', () => {
 				currentPage={agg()}
 				hasCurrentPage={false}
 				isDebugging={true}
+				sessionMarker={emptyMarker}
 			/>,
 		);
 		const pageTab = screen.getByRole('tab', { name: /página/i });
@@ -84,6 +95,7 @@ describe('NetworkMetricsBar', () => {
 				currentPage={agg()}
 				hasCurrentPage={false}
 				isDebugging={true}
+				sessionMarker={emptyMarker}
 			/>,
 		);
 		const slowPill = container.querySelector('[data-pill="slow"]');
@@ -97,6 +109,7 @@ describe('NetworkMetricsBar', () => {
 				currentPage={agg()}
 				hasCurrentPage={false}
 				isDebugging={true}
+				sessionMarker={emptyMarker}
 			/>,
 		);
 		const failPill = container.querySelector('[data-pill="failed"]');
@@ -110,8 +123,74 @@ describe('NetworkMetricsBar', () => {
 				currentPage={agg()}
 				hasCurrentPage={false}
 				isDebugging={true}
+				sessionMarker={emptyMarker}
 			/>,
 		);
 		expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2);
+	});
+
+	it('Pill clicável vira <button> e chama onPillClick', () => {
+		const onClick = vi.fn();
+		render(
+			<NetworkMetricsBar
+				session={agg({ totalRequests: 5, slowCount: 2 })}
+				currentPage={agg()}
+				hasCurrentPage={false}
+				isDebugging={true}
+				sessionMarker={{
+					sessionStartedAt: 1000,
+					currentPageUrl: null,
+					currentPageNavigatedAt: null,
+				}}
+				onPillClick={onClick}
+			/>,
+		);
+		const slowButton = document.querySelector('[data-pill="slow"]');
+		expect(slowButton?.tagName).toBe('BUTTON');
+		(slowButton as HTMLButtonElement)?.click();
+		expect(onClick).toHaveBeenCalledWith('slow');
+	});
+
+	it('Pill binária com 0 fica aria-disabled', () => {
+		render(
+			<NetworkMetricsBar
+				session={agg({ totalRequests: 5, slowCount: 0, failedCount: 0 })}
+				currentPage={agg()}
+				hasCurrentPage={false}
+				isDebugging={true}
+				sessionMarker={{
+					sessionStartedAt: 1000,
+					currentPageUrl: null,
+					currentPageNavigatedAt: null,
+				}}
+				onPillClick={vi.fn()}
+			/>,
+		);
+		const slowEl = document.querySelector('[data-pill="slow"]');
+		expect(slowEl?.getAttribute('aria-disabled')).toBe('true');
+	});
+
+	it('renderiza TotalDetail no tooltip quando sessionDetails é fornecido', () => {
+		render(
+			<NetworkMetricsBar
+				session={agg({ totalRequests: 5 })}
+				currentPage={agg()}
+				hasCurrentPage={false}
+				isDebugging={true}
+				sessionMarker={{
+					sessionStartedAt: 1000,
+					currentPageUrl: null,
+					currentPageNavigatedAt: null,
+				}}
+				sessionDetails={{
+					total: { byMethod: [['GET', 5]], byStatusRange: { '2xx': 5, '3xx': 0, '4xx5xx': 0 } },
+					bytes: { top: [] },
+					ttfb: null,
+					slow: { top: [] },
+					failed: { list: [] },
+				}}
+			/>,
+		);
+		expect(screen.getByText('Por método')).toBeInTheDocument();
 	});
 });
