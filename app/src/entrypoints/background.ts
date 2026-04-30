@@ -8,6 +8,7 @@ import type {
 	ResponseModifications,
 	Rule,
 } from '@/types';
+import { EMPTY_SESSION_MARKER, type SessionMarker } from '@/types/sessionMarker';
 import {
 	encodeBodyToBase64,
 	getCaptureBodyUnavailableReason,
@@ -33,6 +34,34 @@ let interceptorTabId: number | null = null;
 let targetTabId: number | null = null;
 let targetTabTitle = '';
 let targetTabUrl = '';
+
+// SessionMarker: dois pontos de tempo que delimitam as janelas "Sessão" e
+// "Página atual" exibidas pelo NetworkMetricsBar do header. Persistido em
+// chrome.storage.local pra sobreviver ao reload do service worker (MV3).
+let sessionMarker: SessionMarker = { ...EMPTY_SESSION_MARKER };
+
+function broadcastSessionMarker(): void {
+	broadcastToUI('sessionMarkerUpdated', { sessionMarker });
+}
+
+async function persistSessionMarker(): Promise<void> {
+	try {
+		await chrome.storage.local.set({ sessionMarker });
+	} catch (err) {
+		console.error('Erro ao persistir sessionMarker:', err);
+	}
+}
+
+async function loadSessionMarker(): Promise<void> {
+	try {
+		const result = await chrome.storage.local.get(['sessionMarker']);
+		if (result.sessionMarker) {
+			sessionMarker = result.sessionMarker;
+		}
+	} catch (err) {
+		console.error('Erro ao carregar sessionMarker:', err);
+	}
+}
 
 // Background é a fonte de verdade da persistência. `persistRequest` grava
 // no in-memory cache + IndexedDB e broadcasta `newRequest` para a UI; quando
@@ -112,6 +141,10 @@ chrome.storage.local.get(['targetTabInfo'], (result) => {
 		console.log('Informações da aba alvo carregadas do armazenamento:', result.targetTabInfo);
 	}
 });
+
+// Restaura o sessionMarker persistido para que a UI veja os números congelados
+// da última sessão mesmo após o SW ser reciclado.
+loadSessionMarker();
 
 // Support for hot reload during development
 if (import.meta.env.MODE !== 'production') {
@@ -261,6 +294,9 @@ chrome.runtime.onMessage.addListener(
 			return false; // Indicates we've responded synchronously
 		} else if (message.action === 'clearAllRequests') {
 			allRequests = {};
+			sessionMarker = { ...EMPTY_SESSION_MARKER };
+			persistSessionMarker();
+			broadcastSessionMarker();
 			indexedDBService
 				.clearAllRequests()
 				.then(() => sendResponse({ success: true }))
@@ -269,6 +305,9 @@ chrome.runtime.onMessage.addListener(
 					sendResponse({ success: false, error: String(err) });
 				});
 			return true; // resposta assíncrona
+		} else if (message.action === 'getSessionMarker') {
+			sendResponse({ sessionMarker });
+			return false;
 		} else if (message.action === 'approveResponse') {
 			const { requestId, modifications } = message;
 
@@ -571,6 +610,16 @@ async function startDebugging(specificTabId: number | null = null): Promise<bool
 	try {
 		await chrome.debugger.attach({ tabId }, '1.3');
 		console.log(`Debugger attached to tab ${tabId}`);
+
+		// Reset do SessionMarker: nova sessão começa agora; "Página" zera até a
+		// próxima Page.frameNavigated do main frame.
+		sessionMarker = {
+			sessionStartedAt: Date.now(),
+			currentPageUrl: null,
+			currentPageNavigatedAt: null,
+		};
+		await persistSessionMarker();
+		broadcastSessionMarker();
 
 		// Habilita Network primeiro para que o requestId seja compartilhado com Fetch
 		// e a gente consiga casar timing real de início/fim com a requisição interceptada.
