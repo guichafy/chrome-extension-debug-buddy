@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import RulesLab from '../RulesLab';
 import { useRules } from '@/hooks/useRules';
@@ -18,6 +18,7 @@ const existingRule = {
 
 describe('RulesLab', () => {
 	beforeEach(() => {
+		sessionStorage.clear();
 		vi.mocked(useRules).mockReturnValue({
 			rules: [existingRule],
 			addRule: vi.fn().mockResolvedValue(existingRule),
@@ -25,6 +26,10 @@ describe('RulesLab', () => {
 			removeRule: vi.fn().mockResolvedValue(true),
 			toggleRuleEnabled: vi.fn().mockResolvedValue(true),
 		} as any);
+	});
+
+	afterEach(() => {
+		sessionStorage.clear();
 	});
 
 	test('mostra header, toolbar e lista quando há regras', () => {
@@ -96,5 +101,195 @@ describe('RulesLab', () => {
 			</MemoryRouter>,
 		);
 		expect(screen.getByText(/Editar Regra/i)).toBeInTheDocument();
+	});
+});
+
+describe('RulesLab — busca e filtros (US-004)', () => {
+	const mockRule = {
+		id: 'r-mock',
+		name: 'Mock login',
+		enabled: true,
+		matchers: [
+			{ type: 'method' as const, enabled: true, method: 'POST' },
+			{ type: 'url' as const, enabled: true, pattern: '/api/login', isRegex: false },
+		],
+		action: { type: 'mock' as const, enabled: true, status: 401, headers: {} },
+		createdAt: 1,
+		updatedAt: 1,
+	};
+	const delayRule = {
+		id: 'r-delay',
+		name: 'Delay search',
+		enabled: true,
+		matchers: [
+			{ type: 'method' as const, enabled: true, method: 'GET' },
+			{ type: 'url' as const, enabled: true, pattern: '/api/search', isRegex: false },
+		],
+		action: { type: 'delay' as const, enabled: true, timeMs: 500 },
+		createdAt: 2,
+		updatedAt: 2,
+	};
+	const transformAnyRule = {
+		id: 'r-transform',
+		name: 'Transform CORS',
+		enabled: true,
+		matchers: [{ type: 'url' as const, enabled: true, pattern: '/api/*', isRegex: false }],
+		action: { type: 'transform' as const, enabled: true, mode: 'declarative' as const },
+		createdAt: 3,
+		updatedAt: 3,
+	};
+	const breakpointRule = {
+		id: 'r-breakpoint',
+		name: 'Breakpoint admin',
+		enabled: true,
+		matchers: [
+			{ type: 'method' as const, enabled: true, method: ['DELETE', 'PUT'] },
+			{ type: 'url' as const, enabled: true, pattern: '/admin', isRegex: false },
+		],
+		action: { type: 'breakpoint' as const, enabled: true },
+		createdAt: 4,
+		updatedAt: 4,
+	};
+
+	const allRules = [mockRule, delayRule, transformAnyRule, breakpointRule];
+
+	beforeEach(() => {
+		sessionStorage.clear();
+		vi.mocked(useRules).mockReturnValue({
+			rules: allRules,
+			addRule: vi.fn(),
+			updateRule: vi.fn(),
+			removeRule: vi.fn(),
+			toggleRuleEnabled: vi.fn(),
+			duplicateRule: vi.fn(),
+			reorderRules: vi.fn(),
+			moveRule: vi.fn(),
+		} as any);
+	});
+
+	afterEach(() => {
+		sessionStorage.clear();
+	});
+
+	function renderLab() {
+		render(
+			<MemoryRouter>
+				<RulesLab />
+			</MemoryRouter>,
+		);
+	}
+
+	test('busca filtra por substring de nome em tempo real', () => {
+		renderLab();
+		fireEvent.change(screen.getByLabelText('Buscar regras'), { target: { value: 'login' } });
+		expect(screen.getByText('Mock login')).toBeInTheDocument();
+		expect(screen.queryByText('Delay search')).not.toBeInTheDocument();
+		expect(screen.queryByText('Transform CORS')).not.toBeInTheDocument();
+	});
+
+	test('busca filtra por substring de URL pattern', () => {
+		renderLab();
+		fireEvent.change(screen.getByLabelText('Buscar regras'), { target: { value: '/admin' } });
+		expect(screen.getByText('Breakpoint admin')).toBeInTheDocument();
+		expect(screen.queryByText('Mock login')).not.toBeInTheDocument();
+		expect(screen.queryByText('Delay search')).not.toBeInTheDocument();
+	});
+
+	test('filtro por tipo (multi-seleção): mock + delay', () => {
+		renderLab();
+		fireEvent.click(screen.getByTestId('filter-chip-type-mock'));
+		fireEvent.click(screen.getByTestId('filter-chip-type-delay'));
+		expect(screen.getByText('Mock login')).toBeInTheDocument();
+		expect(screen.getByText('Delay search')).toBeInTheDocument();
+		expect(screen.queryByText('Transform CORS')).not.toBeInTheDocument();
+		expect(screen.queryByText('Breakpoint admin')).not.toBeInTheDocument();
+	});
+
+	test('filtro por método (multi-seleção): GET + DELETE', () => {
+		renderLab();
+		fireEvent.click(screen.getByTestId('filter-chip-method-GET'));
+		expect(screen.getByText('Delay search')).toBeInTheDocument();
+		expect(screen.queryByText('Mock login')).not.toBeInTheDocument();
+
+		fireEvent.click(screen.getByTestId('filter-chip-method-DELETE'));
+		expect(screen.getByText('Delay search')).toBeInTheDocument();
+		expect(screen.getByText('Breakpoint admin')).toBeInTheDocument();
+		expect(screen.queryByText('Mock login')).not.toBeInTheDocument();
+	});
+
+	test('filtro de método ANY mostra apenas regras sem MethodMatcher', () => {
+		renderLab();
+		fireEvent.click(screen.getByTestId('filter-chip-method-ANY'));
+		expect(screen.getByText('Transform CORS')).toBeInTheDocument();
+		expect(screen.queryByText('Mock login')).not.toBeInTheDocument();
+		expect(screen.queryByText('Delay search')).not.toBeInTheDocument();
+	});
+
+	test('filtros e busca combinam (AND)', () => {
+		renderLab();
+		fireEvent.click(screen.getByTestId('filter-chip-type-mock'));
+		fireEvent.click(screen.getByTestId('filter-chip-type-delay'));
+		fireEvent.change(screen.getByLabelText('Buscar regras'), { target: { value: '/api/login' } });
+		expect(screen.getByText('Mock login')).toBeInTheDocument();
+		expect(screen.queryByText('Delay search')).not.toBeInTheDocument();
+	});
+
+	test('estado dos filtros persiste entre re-mounts (sessionStorage)', () => {
+		const { unmount } = render(
+			<MemoryRouter>
+				<RulesLab />
+			</MemoryRouter>,
+		);
+		fireEvent.click(screen.getByTestId('filter-chip-type-mock'));
+		fireEvent.change(screen.getByLabelText('Buscar regras'), { target: { value: 'login' } });
+		unmount();
+
+		render(
+			<MemoryRouter>
+				<RulesLab />
+			</MemoryRouter>,
+		);
+		expect(screen.getByLabelText('Buscar regras')).toHaveValue('login');
+		expect(screen.getByTestId('filter-chip-type-mock')).toHaveAttribute('aria-pressed', 'true');
+	});
+
+	test('botão "Limpar filtros" reseta busca, tipo e método', () => {
+		renderLab();
+		fireEvent.click(screen.getByTestId('filter-chip-type-mock'));
+		fireEvent.click(screen.getByTestId('filter-chip-method-POST'));
+		fireEvent.change(screen.getByLabelText('Buscar regras'), { target: { value: 'login' } });
+
+		fireEvent.click(screen.getByTestId('filter-clear'));
+
+		expect(screen.getByLabelText('Buscar regras')).toHaveValue('');
+		expect(screen.getByTestId('filter-chip-type-mock')).toHaveAttribute('aria-pressed', 'false');
+		expect(screen.getByTestId('filter-chip-method-POST')).toHaveAttribute('aria-pressed', 'false');
+		expect(screen.getByText('Mock login')).toBeInTheDocument();
+		expect(screen.getByText('Delay search')).toBeInTheDocument();
+	});
+
+	test('contagens dos chips de tipo refletem rules', () => {
+		renderLab();
+		expect(screen.getByTestId('filter-chip-type-mock')).toHaveTextContent(/Mock\s*1/);
+		expect(screen.getByTestId('filter-chip-type-delay')).toHaveTextContent(/Latência\s*1/);
+		expect(screen.getByTestId('filter-chip-type-transform')).toHaveTextContent(/Transform\s*1/);
+		expect(screen.getByTestId('filter-chip-type-breakpoint')).toHaveTextContent(/Breakpoint\s*1/);
+	});
+
+	test('contagens dos chips de método refletem rules', () => {
+		renderLab();
+		expect(screen.getByTestId('filter-chip-method-GET')).toHaveTextContent(/GET\s*1/);
+		expect(screen.getByTestId('filter-chip-method-POST')).toHaveTextContent(/POST\s*1/);
+		expect(screen.getByTestId('filter-chip-method-DELETE')).toHaveTextContent(/DELETE\s*1/);
+		expect(screen.getByTestId('filter-chip-method-PUT')).toHaveTextContent(/PUT\s*1/);
+		expect(screen.getByTestId('filter-chip-method-ANY')).toHaveTextContent(/ANY\s*1/);
+	});
+
+	test('mensagem "Nenhuma regra corresponde aos filtros" quando combinação vazia', () => {
+		renderLab();
+		fireEvent.change(screen.getByLabelText('Buscar regras'), {
+			target: { value: 'inexistente-xyz' },
+		});
+		expect(screen.getByText(/Nenhuma regra corresponde/)).toBeInTheDocument();
 	});
 });

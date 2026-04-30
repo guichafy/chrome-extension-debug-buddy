@@ -1,5 +1,5 @@
 import type { LucideIconName } from '@/components/ui/lucide-icon';
-import type { Action, Matcher } from '@/types/rules';
+import type { Action, Matcher, Rule } from '@/types/rules';
 
 export interface ActionVisuals {
 	iconName: LucideIconName;
@@ -114,4 +114,23 @@ export function getMatcherSummary(matchers: Matcher[]): string {
 	}
 
 	return parts.join(' ');
+}
+
+// Coleciona os métodos HTTP configurados nos MethodMatchers habilitados de uma
+// regra (sempre em UPPERCASE). Se nenhum MethodMatcher estiver habilitado ou
+// nenhum método tiver sido informado, retorna `['ANY']` para refletir que a
+// regra casa qualquer método. Usado pelo filtro multi-seleção na listagem.
+export function getRuleMethods(rule: Rule): string[] {
+	const methods: string[] = [];
+	for (const matcher of rule.matchers) {
+		if (matcher.type !== 'method' || !matcher.enabled) continue;
+		const arr = Array.isArray(matcher.method) ? matcher.method : [matcher.method];
+		for (const value of arr) {
+			if (!value) continue;
+			const upper = String(value).toUpperCase();
+			if (!methods.includes(upper)) methods.push(upper);
+		}
+	}
+	if (methods.length === 0) return ['ANY'];
+	return methods;
 }

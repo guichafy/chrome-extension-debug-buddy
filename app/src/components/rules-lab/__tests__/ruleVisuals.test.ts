@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'vitest';
-import type { Action, Matcher } from '@/types/rules';
-import { getActionSummary, getActionVisuals, getMatcherSummary } from '../ruleVisuals';
+import type { Action, Matcher, Rule } from '@/types/rules';
+import {
+	getActionSummary,
+	getActionVisuals,
+	getMatcherSummary,
+	getRuleMethods,
+} from '../ruleVisuals';
 
 describe('getActionVisuals', () => {
 	test.each([
@@ -151,6 +156,45 @@ describe('getMatcherSummary', () => {
 	test('"Sem condições" se nenhum matcher está habilitado', () => {
 		const matchers: Matcher[] = [{ type: 'url', enabled: false, pattern: '/x', isRegex: false }];
 		expect(getMatcherSummary(matchers)).toBe('Sem condições');
+	});
+});
+
+describe('getRuleMethods', () => {
+	function buildRule(matchers: Matcher[]): Rule {
+		return {
+			id: 'r1',
+			name: 'rule',
+			enabled: true,
+			matchers,
+			action: { type: 'mock', enabled: true, status: 200, headers: {} },
+			createdAt: 1,
+			updatedAt: 1,
+		};
+	}
+
+	test('retorna ["ANY"] quando não há MethodMatcher', () => {
+		const rule = buildRule([{ type: 'url', enabled: true, pattern: '/x', isRegex: false }]);
+		expect(getRuleMethods(rule)).toEqual(['ANY']);
+	});
+
+	test('retorna ["ANY"] quando MethodMatcher está desabilitado', () => {
+		const rule = buildRule([{ type: 'method', enabled: false, method: 'GET' }]);
+		expect(getRuleMethods(rule)).toEqual(['ANY']);
+	});
+
+	test('retorna método em UPPERCASE para MethodMatcher string', () => {
+		const rule = buildRule([{ type: 'method', enabled: true, method: 'get' }]);
+		expect(getRuleMethods(rule)).toEqual(['GET']);
+	});
+
+	test('expande array de métodos preservando ordem e dedupe', () => {
+		const rule = buildRule([{ type: 'method', enabled: true, method: ['POST', 'PUT', 'POST'] }]);
+		expect(getRuleMethods(rule)).toEqual(['POST', 'PUT']);
+	});
+
+	test('inclui ANY quando o matcher tem ANY explicitamente', () => {
+		const rule = buildRule([{ type: 'method', enabled: true, method: ['ANY', 'GET'] }]);
+		expect(getRuleMethods(rule)).toEqual(['ANY', 'GET']);
 	});
 });
 

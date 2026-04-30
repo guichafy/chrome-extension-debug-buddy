@@ -3,10 +3,10 @@
   "sessionId": "d9b54d10-2e9e-45e2-b59c-e0505fe3348c",
   "status": "running",
   "startedAt": "2026-04-30T06:03:33.753Z",
-  "updatedAt": "2026-04-30T08:01:31.717Z",
-  "currentIteration": 16,
+  "updatedAt": "2026-04-30T08:09:46.678Z",
+  "currentIteration": 17,
   "maxIterations": 0,
-  "tasksCompleted": 16,
+  "tasksCompleted": 17,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -47,8 +47,8 @@
       {
         "id": "chrome-extension-debug-buddy-jc0.6",
         "title": "US-006: Duplicar regra a partir da listagem",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "chrome-extension-debug-buddy-jc0.7",
@@ -284,6 +284,16 @@
       "durationMs": 119849,
       "startedAt": "2026-04-30T07:55:19.108Z",
       "endedAt": "2026-04-30T07:57:18.957Z"
+    },
+    {
+      "iteration": 17,
+      "status": "completed",
+      "taskId": "chrome-extension-debug-buddy-jc0.6",
+      "taskTitle": "US-006: Duplicar regra a partir da listagem",
+      "taskCompleted": true,
+      "durationMs": 241107,
+      "startedAt": "2026-04-30T07:57:29.704Z",
+      "endedAt": "2026-04-30T08:01:30.811Z"
     }
   ],
   "skippedTaskIds": [],
