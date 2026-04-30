@@ -1,46 +1,64 @@
 {
   "version": 1,
-  "sessionId": "58a5e662-76a4-4acc-b515-74ef65950fc6",
+  "sessionId": "399eec93-7b48-406f-bba2-b5f0fce4f267",
   "status": "running",
-  "startedAt": "2026-04-30T17:15:12.847Z",
-  "updatedAt": "2026-04-30T17:44:02.752Z",
-  "currentIteration": 4,
+  "startedAt": "2026-04-30T18:42:26.951Z",
+  "updatedAt": "2026-04-30T19:21:12.369Z",
+  "currentIteration": 7,
   "maxIterations": 0,
-  "tasksCompleted": 4,
+  "tasksCompleted": 7,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
-    "plugin": "beads-bv",
-    "epicId": "chrome-extension-debug-buddy-wlr",
-    "totalTasks": 5,
+    "plugin": "json",
+    "prdPath": "./app/tasks/prd.json",
+    "totalTasks": 8,
     "tasks": [
       {
-        "id": "chrome-extension-debug-buddy-wlr.1",
-        "title": "US-001: Rota dedicada /pending com lista de responses pausadas",
+        "id": "US-001",
+        "title": "Suporte a filtros via query string no Command Center",
         "status": "completed",
         "completedInSession": true
       },
       {
-        "id": "chrome-extension-debug-buddy-wlr.2",
-        "title": "US-002: Banner de pendentes ganha botão 'Ver pausadas'",
+        "id": "US-002",
+        "title": "Filtro state:pending no FilterBar",
         "status": "completed",
         "completedInSession": true
       },
       {
-        "id": "chrome-extension-debug-buddy-wlr.3",
-        "title": "US-004: Edição one-shot de Response (status, headers, body) antes de aprovar",
+        "id": "US-003",
+        "title": "Remoção da rota /pending e do item de menu Pausadas",
         "status": "completed",
         "completedInSession": true
       },
       {
-        "id": "chrome-extension-debug-buddy-wlr.4",
-        "title": "US-005: RequestInspector adota split button com hierarquia clara",
+        "id": "US-004",
+        "title": "Fusão de PendingAlertBanner em PendingActionDock",
         "status": "completed",
         "completedInSession": true
       },
       {
-        "id": "chrome-extension-debug-buddy-wlr.5",
-        "title": "US-003: Tabela de /pending oferece ações inline por linha",
+        "id": "US-005",
+        "title": "Ação Ignorar todos sem confirmação",
+        "status": "completed",
+        "completedInSession": true
+      },
+      {
+        "id": "US-006",
+        "title": "Renomear 'Aprovar e editar...' para 'Editar...'",
+        "status": "completed",
+        "completedInSession": true
+      },
+      {
+        "id": "US-007",
+        "title": "Substituir EditResponseDialog por Sheet lateral com Response completa",
+        "status": "completed",
+        "completedInSession": true
+      },
+      {
+        "id": "US-008",
+        "title": "Limpeza de hotkeys e mensagens órfãs",
         "status": "open",
         "completedInSession": false
       }
@@ -50,42 +68,72 @@
     {
       "iteration": 1,
       "status": "completed",
-      "taskId": "chrome-extension-debug-buddy-wlr.1",
-      "taskTitle": "US-001: Rota dedicada /pending com lista de responses pausadas",
+      "taskId": "US-001",
+      "taskTitle": "Suporte a filtros via query string no Command Center",
       "taskCompleted": true,
-      "durationMs": 335486,
-      "startedAt": "2026-04-30T17:15:30.612Z",
-      "endedAt": "2026-04-30T17:21:06.098Z"
+      "durationMs": 391480,
+      "startedAt": "2026-04-30T18:42:38.184Z",
+      "endedAt": "2026-04-30T18:49:09.664Z"
     },
     {
       "iteration": 2,
       "status": "completed",
-      "taskId": "chrome-extension-debug-buddy-wlr.3",
-      "taskTitle": "US-004: Edição one-shot de Response (status, headers, body) antes de aprovar",
+      "taskId": "US-002",
+      "taskTitle": "Filtro state:pending no FilterBar",
       "taskCompleted": true,
-      "durationMs": 536404,
-      "startedAt": "2026-04-30T17:21:11.212Z",
-      "endedAt": "2026-04-30T17:30:07.616Z"
+      "durationMs": 248196,
+      "startedAt": "2026-04-30T18:49:11.649Z",
+      "endedAt": "2026-04-30T18:53:19.845Z"
     },
     {
       "iteration": 3,
       "status": "completed",
-      "taskId": "chrome-extension-debug-buddy-wlr.4",
-      "taskTitle": "US-005: RequestInspector adota split button com hierarquia clara",
+      "taskId": "US-003",
+      "taskTitle": "Remoção da rota /pending e do item de menu Pausadas",
       "taskCompleted": true,
-      "durationMs": 349336,
-      "startedAt": "2026-04-30T17:30:12.187Z",
-      "endedAt": "2026-04-30T17:36:01.523Z"
+      "durationMs": 351354,
+      "startedAt": "2026-04-30T18:53:21.795Z",
+      "endedAt": "2026-04-30T18:59:13.149Z"
     },
     {
       "iteration": 4,
       "status": "completed",
-      "taskId": "chrome-extension-debug-buddy-wlr.2",
-      "taskTitle": "US-002: Banner de pendentes ganha botão 'Ver pausadas'",
+      "taskId": "US-004",
+      "taskTitle": "Fusão de PendingAlertBanner em PendingActionDock",
       "taskCompleted": true,
-      "durationMs": 128297,
-      "startedAt": "2026-04-30T17:36:06.051Z",
-      "endedAt": "2026-04-30T17:38:14.348Z"
+      "durationMs": 375122,
+      "startedAt": "2026-04-30T18:59:15.158Z",
+      "endedAt": "2026-04-30T19:05:30.280Z"
+    },
+    {
+      "iteration": 5,
+      "status": "completed",
+      "taskId": "US-005",
+      "taskTitle": "Ação Ignorar todos sem confirmação",
+      "taskCompleted": true,
+      "durationMs": 311032,
+      "startedAt": "2026-04-30T19:05:32.272Z",
+      "endedAt": "2026-04-30T19:10:43.304Z"
+    },
+    {
+      "iteration": 6,
+      "status": "completed",
+      "taskId": "US-006",
+      "taskTitle": "Renomear 'Aprovar e editar...' para 'Editar...'",
+      "taskCompleted": true,
+      "durationMs": 92942,
+      "startedAt": "2026-04-30T19:10:45.315Z",
+      "endedAt": "2026-04-30T19:12:18.257Z"
+    },
+    {
+      "iteration": 7,
+      "status": "completed",
+      "taskId": "US-007",
+      "taskTitle": "Substituir EditResponseDialog por Sheet lateral com Response completa",
+      "taskCompleted": true,
+      "durationMs": 339887,
+      "startedAt": "2026-04-30T19:12:20.251Z",
+      "endedAt": "2026-04-30T19:18:00.138Z"
     }
   ],
   "skippedTaskIds": [],

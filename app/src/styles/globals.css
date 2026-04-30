@@ -195,17 +195,6 @@
 	}
 }
 
-/* Pulse horizontal contido para o banner de pendentes — gradient varrendo
-   da esquerda para a direita, similar a uma barra de carregamento gentil. */
-@keyframes pending-banner-sweep {
-	0% {
-		background-position: -150% 0;
-	}
-	100% {
-		background-position: 150% 0;
-	}
-}
-
 @layer base {
 	* {
 		@apply border-border outline-ring/50;
@@ -222,19 +211,7 @@
 	animation: pending-row-breath 1.8s ease-in-out infinite;
 }
 
-.pending-banner-sweep {
-	background-image: linear-gradient(
-		90deg,
-		transparent 0%,
-		color-mix(in oklch, var(--color-warning) 18%, transparent) 50%,
-		transparent 100%
-	);
-	background-size: 200% 100%;
-	background-repeat: no-repeat;
-	animation: pending-banner-sweep 2.4s ease-in-out infinite;
-}
-
-/* Caixa estilo "tecla" para hotkeys — usada no PendingActionDock e no banner. */
+/* Caixa estilo "tecla" para hotkeys — usada no PendingActionDock. */
 .kbd {
 	display: inline-flex;
 	align-items: center;

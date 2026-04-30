@@ -98,7 +98,7 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
 describe('AppSidebar Component', () => {
 	// Teste básico de renderização
 	test('renderiza corretamente', () => {
-		render(<AppSidebar pendingResponsesCount={0} mocksCount={0} />);
+		render(<AppSidebar />);
 
 		// Verifica se o componente shadcn-sidebar está presente
 		expect(screen.getByTestId('shadcn-sidebar')).toBeTruthy();
@@ -115,35 +115,27 @@ describe('AppSidebar Component', () => {
 
 		// Verifica se os labels da navegação estão presentes
 		expect(screen.getByText('Command Center')).toBeInTheDocument();
-		expect(screen.getByText('Pausadas')).toBeInTheDocument();
 		expect(screen.getByText('Rules Lab')).toBeInTheDocument();
 	});
 
 	// Teste para verificar se o SidebarFooter exibe informações do desenvolvedor
 	test('renderiza o SidebarFooter com informações do desenvolvedor', () => {
-		render(<AppSidebar pendingResponsesCount={0} mocksCount={0} />);
+		render(<AppSidebar />);
 
 		// Verifica se a mensagem de autoria está presente
 		expect(screen.getByText('Desenvolvido por')).toBeTruthy();
 		expect(screen.getByText('Guilherme Chafy')).toBeTruthy();
 	});
 
-	// Teste para verificar se os contadores são passados corretamente para o NavMain
-	test('passa os contadores corretamente para o NavMain', () => {
-		render(<AppSidebar pendingResponsesCount={5} />);
+	// Após remoção do item "Pausadas", apenas Command Center e Rules Lab restam.
+	test('expõe somente Command Center e Rules Lab no menu', () => {
+		render(<AppSidebar />);
 
-		// Verifica se os itens de navegação estão presentes
 		const navItems = screen.getAllByTestId('nav-item');
-		expect(navItems.length).toBe(3); // Command Center, Pausadas, Rules Lab
+		expect(navItems.length).toBe(2);
+		expect(screen.queryByText('Pausadas')).not.toBeInTheDocument();
 
-		// Verifica se a contagem de pausadas é exibida
-		const counts = screen.queryAllByTestId('nav-item-count');
-		expect(counts.length).toBe(1); // Apenas o item "Pausadas" tem contador
-		expect(counts[0]).toHaveTextContent('5');
-	});
-
-	test('não exibe contador de pausadas quando count=0', () => {
-		render(<AppSidebar pendingResponsesCount={0} />);
+		// Nenhum item de navegação carrega contador depois da remoção do item "Pausadas".
 		const counts = screen.queryAllByTestId('nav-item-count');
 		expect(counts.length).toBe(0);
 	});

@@ -1,0 +1,186 @@
+{
+  "name": "Revisão da experiência de requisições pausadas (Command Center)",
+  "description": "Elimina rota /pending e PendingAlertBanner, unifica ações sobre requisições pausadas no PendingActionDock + filtro state:pending no Command Center, e substitui o EditResponseDialog por um Sheet lateral com Response completa editável.",
+  "branchName": "ralph/pending-command-center",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Suporte a filtros via query string no Command Center",
+      "description": "As a usuário que clica em 'Ver pausadas', I want que o filtro seja aplicado via URL (?filter=...) compatível com o FilterBar, so that o estado seja linkável, sobreviva a refresh e o FilterBar reflita o filtro ativo.",
+      "acceptanceCriteria": [
+        "app/src/pages/CommandCenter.tsx lê o estado inicial de filtros a partir de useSearchParams() (chave 'filter') na primeira renderização",
+        "Mudanças no FilterBar (setFilters) sincronizam para a URL via setSearchParams sem provocar re-render em loop",
+        "Formato da URL é estável e documentado em comentário curto no topo do parser (?filter=state:pending para o caso de pausadas; demais filtros existentes continuam suportados)",
+        "Navegação direta para /command-center?filter=state:pending carrega a tabela já filtrada para isWaiting === true",
+        "Limpar todos os chips remove o parâmetro filter da URL",
+        "Existe teste em app/src/pages/__tests__/CommandCenter.test.tsx (criar se não existir) cobrindo: leitura inicial da URL, escrita ao adicionar chip, escrita ao remover chip",
+        "npm run lint passes",
+        "npm test passes",
+        "npm run build passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-002",
+      "title": "Filtro state:pending no FilterBar",
+      "description": "As a usuário, I want um chip de filtro state:pending reconhecido pelo FilterBar so that consigo filtrar pausadas pela mesma sintaxe usada nos demais filtros.",
+      "acceptanceCriteria": [
+        "FilterBar reconhece state:pending como chip válido (sugestão no popover, parsing, render do chip removível)",
+        "useAllRequests (ou a função matchesFilterGroups) interpreta state:pending como isWaiting === true",
+        "Outros valores de state:* ainda inválidos não quebram a UI — são ignorados ou exibidos como chip desconhecido (definir comportamento explícito, sem fallback silencioso)",
+        "Teste cobre: state:pending só lista requests com isWaiting === true, ausência do chip lista todas",
+        "npm run lint passes",
+        "npm test passes",
+        "npm run build passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-001"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-003",
+      "title": "Remoção da rota /pending e do item de menu Pausadas",
+      "description": "As a usuário, I want que a rota /pending deixe de existir e o item de menu 'Pausadas' suma so that o Command Center seja a única superfície de listagem.",
+      "acceptanceCriteria": [
+        "app/src/pages/PendingResponses.tsx é removido",
+        "Entrada da rota /pending em app/src/routes.tsx é substituída por um redirect (<Navigate to=\"/command-center?filter=state:pending\" replace />) e marcada como rota legada (comentário curto explicando o motivo)",
+        "Item 'Pausadas' em app/src/components/layout/AppSidebar.tsx (linha 23) é removido junto com seu ícone, se não for usado em outro lugar",
+        "npm run build produz app/dist/ sem referências quebradas a /pending ou ao componente removido",
+        "Nenhum import órfão de PendingResponses permanece no repositório",
+        "npm run lint passes",
+        "npm test passes",
+        "npm run build passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-002"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-004",
+      "title": "Fusão de PendingAlertBanner em PendingActionDock",
+      "description": "As a usuário, I want uma única superfície (Dock) para ações sobre pausadas so that não exista redundância entre banner topo e dock inferior.",
+      "acceptanceCriteria": [
+        "app/src/components/command-center/PendingAlertBanner.tsx é removido",
+        "Todas as renderizações do PendingAlertBanner são removidas (verificar CommandCenter.tsx e qualquer outra página que o monte)",
+        "PendingActionDock passa a exibir, sempre que pendingCount > 0: contador (N pausadas), botão 'Ver pausadas' que navega para /command-center?filter=state:pending, botão 'Ignorar todos' (sem confirmação), botão primário 'Aprovar próximo', linha secundária com URL truncada da próxima requisição pausada, e atalhos A/I/J/K em forma compacta",
+        "Quando pendingCount === 0, o Dock não é renderizado",
+        "Existe teste cobrindo: render com 0 pausadas (não monta), render com N>0 mostra contador + URL + ações; clique em 'Ver pausadas' muda a URL para /command-center?filter=state:pending",
+        "npm run lint passes",
+        "npm test passes",
+        "npm run build passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-003"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-005",
+      "title": "Ação Ignorar todos sem confirmação",
+      "description": "As a usuário, I want que 'Ignorar todos' no Dock dispense imediatamente todas as requisições pausadas so that posso desfazer um pause em massa rapidamente.",
+      "acceptanceCriteria": [
+        "useResponses expõe um método ignoreAllPending() que itera sobre pendingResponses chamando ignoreResponse(id) para cada uma (ou despacha uma única action ignoreAllPending no background — decidir na implementação e documentar)",
+        "Botão 'Ignorar todos' no PendingActionDock chama esse método sem AlertDialog ou confirmação intermediária",
+        "Após o clique, pendingResponses fica vazio e o Dock desmonta automaticamente",
+        "Caso a estratégia seja despachar uma única mensagem, app/src/types/messages.ts recebe a action correspondente e o background a implementa percorrendo o mapa pendingResponses",
+        "Erros do Fetch.continueRequest (do background) não são silenciados — são propagados como console.error e a UI exibe um toast/erro visível (sem fallback que finja sucesso)",
+        "Teste cobre: clique no botão chama ignoreAllPending, estado é zerado, Dock desmonta",
+        "npm run lint passes",
+        "npm test passes",
+        "npm run build passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-004"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-006",
+      "title": "Renomear 'Aprovar e editar...' para 'Editar...'",
+      "description": "As a usuário, I want que a opção do dropdown inline de uma linha pausada seja apenas 'Editar...' so that não fique redundante com o 'Aprovar'.",
+      "acceptanceCriteria": [
+        "No dropdown inline da RequestTable (criado em US-003 da entrega anterior), o item passa a se chamar 'Editar...' em pt-BR",
+        "O aria-label e qualquer string visível ('Aprovar e editar', 'Approve and edit') foi atualizado",
+        "Testes existentes que asseguravam o label antigo são atualizados para o novo",
+        "npm run lint passes",
+        "npm test passes",
+        "npm run build passes"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-005"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-007",
+      "title": "Substituir EditResponseDialog por Sheet lateral com Response completa",
+      "description": "As a usuário ao clicar em 'Editar...' numa requisição pausada, I want um Sheet lateral mostrando a Response completa (Status Code, Response Headers, Response Body) editáveis e botões 'Aplicar e continuar' / 'Cancelar' so that consigo revisar tudo que será entregue ao client antes de aprovar.",
+      "acceptanceCriteria": [
+        "Componente atual app/src/components/command-center/EditResponseDialog.tsx é convertido (ou substituído por) um novo componente baseado no Sheet do shadcn-ui (lado direito), nome sugerido EditResponseSheet",
+        "O Sheet exibe campos editáveis e claramente rotulados: Status Code (input numérico com validação 100–599), Response Headers (editor chave/valor), Response Body (editor texto/JSON)",
+        "O Sheet exibe, em modo somente leitura, dados do request original que ajudam a contextualizar (Method + URL no header do Sheet). Headers de request não são exibidos como editáveis (consistente com a quirk do InterceptedResponse.headers — issue #19)",
+        "Botões: 'Aplicar e continuar' (primário) chama approveResponseWithEdit(id, edits); 'Cancelar' fecha o Sheet sem despachar nada",
+        "Validação: não envia se Status Code estiver fora de 100–599 ou se headers tiverem chave vazia. Erros aparecem inline (sem fallback silencioso)",
+        "Estado de 'submitting' desabilita os botões enquanto o background não responde; erro de mensageria exibe alerta visível",
+        "Componentes/estado removidos do antigo Dialog não deixam imports órfãos",
+        "Existe teste de unidade cobrindo: render com mock pendingResponse, edição de Status/Headers/Body, clique em 'Aplicar e continuar' dispara approveResponseWithEdit com payload correto, 'Cancelar' fecha sem despachar, validação bloqueia submit",
+        "Adicionar primitive Sheet via npm run shadcn:add sheet se ainda não estiver vendado em app/src/components/ui/",
+        "npm run lint passes",
+        "npm test passes",
+        "npm run build passes"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-006"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-008",
+      "title": "Limpeza de hotkeys e mensagens órfãs",
+      "description": "As a maintainer, I want que a remoção da rota /pending e do banner não deixe código morto so that o repositório fique consistente.",
+      "acceptanceCriteria": [
+        "app/src/components/command-center/usePendingHotkeys.ts continua funcional e passa a ser registrado apenas onde PendingActionDock é renderizado (verificar se já é o caso)",
+        "Nenhuma string /pending ou PendingAlertBanner permanece no código (exceto em routes.tsx no redirect intencional)",
+        "app/src/types/messages.ts reflete exatamente as actions usadas (sem ações deprecated do banner antigo)",
+        "git grep para PendingAlertBanner, Pausadas, /pending retorna apenas: ocorrências esperadas no routes.tsx (redirect), no Dock (label 'Ver pausadas'), e em testes",
+        "npm run lint passes",
+        "npm test passes",
+        "npm run build passes"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-007"
+      ],
+      "completionNotes": "Completed by agent"
+    }
+  ],
+  "metadata": {
+    "updatedAt": "2026-04-30T19:21:12.369Z"
+  }
+}

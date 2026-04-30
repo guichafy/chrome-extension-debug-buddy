@@ -12,15 +12,11 @@ import {
 	SidebarMenuButton,
 } from '@/components/ui/sidebar';
 
-interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-	pendingResponsesCount: number;
-	mocksCount?: number; // Opcional agora que não usamos mais
-}
+type AppSidebarProps = React.ComponentProps<typeof Sidebar>;
 
-export function AppSidebar({ pendingResponsesCount, mocksCount, ...props }: AppSidebarProps) {
+export function AppSidebar({ ...props }: AppSidebarProps) {
 	const navItems: Array<{ title: string; path: string; icon: LucideIconName; count: number }> = [
 		{ title: 'Command Center', path: '/command-center', icon: 'layout', count: 0 },
-		{ title: 'Pausadas', path: '/pending', icon: 'hourglass', count: pendingResponsesCount },
 		{ title: 'Rules Lab', path: '/rules-lab', icon: 'flask', count: 0 },
 	];
 

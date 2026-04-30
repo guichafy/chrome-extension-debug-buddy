@@ -105,14 +105,14 @@ describe('PendingResponseActions', () => {
 		expect(handlers.onIgnore).toHaveBeenCalledWith('r1');
 	});
 
-	test('item "Aprovar e editar" abre o EditResponseDialog', async () => {
+	test('item "Editar" abre o EditResponseSheet', async () => {
 		const handlers = noopHandlers();
 		render(
 			<PendingResponseActions request={baseRequest()} requestId="r1" isWaiting {...handlers} />,
 		);
 		fireEvent.click(screen.getByTestId('pending-actions-edit'));
 		await waitFor(() => {
-			expect(screen.getByTestId('edit-response-dialog')).toBeInTheDocument();
+			expect(screen.getByTestId('edit-response-sheet')).toBeInTheDocument();
 		});
 	});
 
@@ -147,7 +147,7 @@ describe('PendingResponseActions', () => {
 		expect(handlers.onCreateMock).toHaveBeenCalledWith(request, 'r1');
 	});
 
-	test('hotkey E abre o EditResponseDialog quando hotkeysEnabled', async () => {
+	test('hotkey E abre o EditResponseSheet quando hotkeysEnabled', async () => {
 		const handlers = noopHandlers();
 		render(
 			<PendingResponseActions
@@ -160,7 +160,7 @@ describe('PendingResponseActions', () => {
 		);
 		fireEvent.keyDown(window, { key: 'e' });
 		await waitFor(() => {
-			expect(screen.getByTestId('edit-response-dialog')).toBeInTheDocument();
+			expect(screen.getByTestId('edit-response-sheet')).toBeInTheDocument();
 		});
 	});
 

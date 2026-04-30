@@ -12,7 +12,7 @@ import { Kbd } from '@/components/ui/kbd';
 import { LucideIcon } from '@/components/ui/lucide-icon';
 import { cn } from '@/lib/utils';
 import type { InterceptedResponse } from '@/types/intercepted';
-import { EditResponseDialog } from './EditResponseDialog';
+import { EditResponseSheet } from './EditResponseSheet';
 
 interface PendingResponseActionsProps {
 	request: InterceptedResponse;
@@ -39,9 +39,10 @@ interface PendingResponseActionsProps {
 }
 
 /**
- * Split button compartilhado entre `RequestInspector` e a tabela de `/pending`.
+ * Split button compartilhado pelo `RequestInspector` e demais superfícies que decidem
+ * sobre uma requisição pausada.
  * Hierarquia: "Aprovar" como ação primária à esquerda; chevron à direita abre
- * dropdown com variações ("Aprovar e editar...", "Criar Mock") e a destrutiva
+ * dropdown com variações ("Editar...", "Criar Mock") e a destrutiva
  * "Ignorar" depois de um separador.
  */
 export function PendingResponseActions({
@@ -56,7 +57,7 @@ export function PendingResponseActions({
 	size = 'default',
 	disabled = false,
 }: PendingResponseActionsProps) {
-	const [editDialogOpen, setEditDialogOpen] = useState(false);
+	const [editSheetOpen, setEditSheetOpen] = useState(false);
 
 	if (!isWaiting) {
 		return (
@@ -81,14 +82,14 @@ export function PendingResponseActions({
 		onCreateMock(request, requestId);
 	};
 	const handleOpenEdit = () => {
-		setEditDialogOpen(true);
+		setEditSheetOpen(true);
 	};
 
 	// Atalhos locais Enter / E / M. "I" fica a cargo do listener global do
-	// CommandCenter (usePendingHotkeys). O dialog aberto e qualquer input/textarea
+	// CommandCenter (usePendingHotkeys). O sheet aberto e qualquer input/textarea
 	// devem suprimir os atalhos para não roubar foco do usuário.
 	useHotkeys({
-		enabled: hotkeysEnabled && !disabled && !editDialogOpen,
+		enabled: hotkeysEnabled && !disabled && !editSheetOpen,
 		onApprove: handleApprove,
 		onEdit: handleOpenEdit,
 		onCreateMock: handleCreateMock,
@@ -134,7 +135,7 @@ export function PendingResponseActions({
 							data-testid="pending-actions-edit"
 						>
 							<LucideIcon name="file-edit" className="mr-2 h-4 w-4" />
-							<span>Aprovar e editar…</span>
+							<span>Editar…</span>
 							<Kbd className="ml-auto">E</Kbd>
 						</DropdownMenuItem>
 						<DropdownMenuItem
@@ -165,9 +166,9 @@ export function PendingResponseActions({
 				</DropdownMenu>
 			</div>
 
-			<EditResponseDialog
-				open={editDialogOpen}
-				onOpenChange={setEditDialogOpen}
+			<EditResponseSheet
+				open={editSheetOpen}
+				onOpenChange={setEditSheetOpen}
 				request={request}
 				requestId={requestId}
 				onSubmit={onApproveWithEdit}
