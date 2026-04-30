@@ -1,3 +1,9 @@
+## [0.7.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.6.0...v0.7.0) (2026-04-30)
+
+### Features
+
+* **target-tab:** rastrear navegação e fechamento da aba alvo ([67b81e2](https://github.com/guichafy/chrome-extension-debug-buddy/commit/67b81e2eaa35931a4a88ee528838a00fe319ffb0))
+
 ## [0.6.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.5.1...v0.6.0) (2026-04-30)
 
 ### Features
