@@ -34,6 +34,10 @@ let interceptorTabId: number | null = null;
 let targetTabId: number | null = null;
 let targetTabTitle = '';
 let targetTabUrl = '';
+// `targetTabClosed` é true quando a aba alvo foi fechada (pelo usuário, navegador
+// ou por descarte) e ainda não foi substituída. Mantemos title/url do último
+// estado conhecido para que a UI possa mostrar "Aba indisponível: <título>".
+let targetTabClosed = false;
 
 // SessionMarker: dois pontos de tempo que delimitam as janelas "Sessão" e
 // "Página atual" exibidas pelo NetworkMetricsBar do header. Persistido em
@@ -75,6 +79,36 @@ function broadcastToUI(action: string, payload: Record<string, unknown>): void {
 	if (interceptorTabId === null) return;
 	chrome.tabs.sendMessage(interceptorTabId, { action, ...payload }).catch(() => {
 		// UI fechada ou navegando — sem problema; o IndexedDB já tem o dado.
+	});
+}
+
+// Eventos de ciclo de vida da aba alvo precisam alcançar tanto a página de
+// opções quanto o side panel. `broadcastToUI` só atinge o `interceptorTabId`,
+// então também emitimos via `chrome.runtime.sendMessage` para que qualquer
+// extension page aberta (options + sidepanel) receba o update.
+function broadcastTargetTabState(
+	action: 'targetTabSelected' | 'targetTabUpdated' | 'targetTabClosed',
+): void {
+	const payload = {
+		tabId: targetTabId,
+		tabTitle: targetTabTitle,
+		tabUrl: targetTabUrl,
+	};
+	broadcastToUI(action, payload);
+	chrome.runtime.sendMessage({ action, ...payload }).catch(() => {
+		// Sem listener ativo (todas as UIs fechadas) — o storage permanece como
+		// fonte de verdade e o próximo mount lerá `targetTabInfo`.
+	});
+}
+
+function persistTargetTabInfo(): void {
+	chrome.storage.local.set({
+		targetTabInfo: {
+			id: targetTabId,
+			title: targetTabTitle,
+			url: targetTabUrl,
+			closed: targetTabClosed,
+		},
 	});
 }
 
@@ -138,12 +172,53 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
 });
 
 // Carregar informações da aba alvo do armazenamento quando o background script é iniciado
-chrome.storage.local.get(['targetTabInfo'], (result) => {
-	if (result.targetTabInfo) {
-		targetTabId = result.targetTabInfo.id;
-		targetTabTitle = result.targetTabInfo.title || '';
-		targetTabUrl = result.targetTabInfo.url || '';
-		console.log('Informações da aba alvo carregadas do armazenamento:', result.targetTabInfo);
+chrome.storage.local.get(['targetTabInfo'], async (result) => {
+	if (!result.targetTabInfo) return;
+	const info = result.targetTabInfo as {
+		id: number | null;
+		title?: string;
+		url?: string;
+		closed?: boolean;
+	};
+	targetTabTitle = info.title || '';
+	targetTabUrl = info.url || '';
+	console.log('Informações da aba alvo carregadas do armazenamento:', info);
+
+	// Se já estava marcada como fechada, mantemos o estado e não revalidamos.
+	if (info.closed === true || typeof info.id !== 'number') {
+		targetTabId = null;
+		targetTabClosed = info.closed === true;
+		return;
+	}
+
+	// Revalida com o navegador: o service worker pode ter sido reiniciado
+	// enquanto a aba era fechada, e nesse caso `chrome.tabs.onRemoved` não
+	// rodou para o nosso listener. Sem essa checagem, a UI mostraria a aba
+	// antiga como disponível e `Iniciar Interceptação` falharia mais tarde.
+	//
+	// Setamos `targetTabId` ANTES do await para que `chrome.tabs.onRemoved`
+	// (registrado no top-level deste módulo) consiga detectar fechamento
+	// concorrente durante a janela `chrome.tabs.get`. Após o await, checamos
+	// se `targetTabClosed` foi flipado durante a espera — se sim, o estado
+	// do listener vence e não sobrescrevemos.
+	const candidateId = info.id;
+	targetTabId = candidateId;
+	try {
+		const tab = await chrome.tabs.get(candidateId);
+		if (targetTabClosed || targetTabId !== candidateId) {
+			// `onRemoved` (ou outro evento) já tomou conta do estado; não sobrescreve.
+			return;
+		}
+		if (tab.title) targetTabTitle = tab.title;
+		if (tab.url) targetTabUrl = tab.url;
+		persistTargetTabInfo();
+	} catch {
+		console.log(`Aba alvo persistida (id=${candidateId}) não existe mais — marcando como fechada`);
+		// Se `onRemoved` já tratou, não duplica trabalho; senão, marca como fechada.
+		if (targetTabClosed) return;
+		targetTabId = null;
+		targetTabClosed = true;
+		persistTargetTabInfo();
 	}
 });
 
@@ -172,7 +247,7 @@ chrome.action.onClicked.addListener(() => {
 	);
 });
 
-// Quando uma aba é fechada, verificar se é a aba do interceptor
+// Quando uma aba é fechada, verificar se é a aba do interceptor ou a aba alvo.
 chrome.tabs.onRemoved.addListener((tabId) => {
 	if (tabId === interceptorTabId) {
 		console.log('Aba do interceptor fechada, parando debugging');
@@ -182,6 +257,41 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 		if (isDebugging && attachedTabId !== null) {
 			stopDebugging().catch(console.error);
 		}
+	}
+
+	if (tabId === targetTabId) {
+		console.log(`Aba alvo (id=${tabId}) foi fechada — sinalizando indisponibilidade à UI`);
+		targetTabId = null;
+		targetTabClosed = true;
+		persistTargetTabInfo();
+		broadcastTargetTabState('targetTabClosed');
+		// `chrome.debugger.onDetach` cuidará de limpar `isDebugging`/`attachedTabId`
+		// quando a aba alvo era a que estava com o debugger anexado.
+	}
+});
+
+// Manter title/url em sincronia conforme o usuário navega na aba alvo.
+// Sem isso, o botão de seleção exibe um título/URL congelados da hora do pick.
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+	if (tabId !== targetTabId) return;
+
+	let changed = false;
+	const nextUrl = changeInfo.url ?? (tab.url && tab.url !== targetTabUrl ? tab.url : undefined);
+	if (nextUrl && nextUrl !== targetTabUrl) {
+		targetTabUrl = nextUrl;
+		changed = true;
+	}
+
+	const nextTitle =
+		changeInfo.title ?? (tab.title && tab.title !== targetTabTitle ? tab.title : undefined);
+	if (nextTitle && nextTitle !== targetTabTitle) {
+		targetTabTitle = nextTitle;
+		changed = true;
+	}
+
+	if (changed) {
+		persistTargetTabInfo();
+		broadcastTargetTabState('targetTabUpdated');
 	}
 });
 
@@ -263,34 +373,10 @@ chrome.runtime.onMessage.addListener(
 				targetTabId = message.tabId;
 				targetTabTitle = message.tabTitle || '';
 				targetTabUrl = message.tabUrl || '';
+				targetTabClosed = false;
 
-				// Salvar informações da aba no Chrome Storage para persistência
-				chrome.storage.local.set(
-					{
-						targetTabInfo: {
-							id: targetTabId,
-							title: targetTabTitle,
-							url: targetTabUrl,
-						},
-					},
-					() => {
-						console.log('Informações da aba alvo salvas no armazenamento');
-					},
-				);
-
-				// Notificar a página principal sobre a aba selecionada
-				if (interceptorTabId) {
-					chrome.tabs
-						.sendMessage(interceptorTabId, {
-							action: 'targetTabSelected',
-							tabId: targetTabId,
-							tabTitle: targetTabTitle,
-							tabUrl: targetTabUrl,
-						})
-						.catch(() => {
-							// Ignora erros se a página principal não estiver aberta
-						});
-				}
+				persistTargetTabInfo();
+				broadcastTargetTabState('targetTabSelected');
 
 				sendResponse({ success: true });
 			} else {

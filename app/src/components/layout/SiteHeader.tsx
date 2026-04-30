@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { LucideIcon } from '@/components/ui/lucide-icon';
+import { LucideIcon, type LucideIconName } from '@/components/ui/lucide-icon';
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -13,6 +13,7 @@ interface SiteHeaderProps {
 		id: number | null;
 		title: string;
 		url: string;
+		closed?: boolean;
 	};
 	isDebugging: boolean;
 	onSelectTabClick: () => void;
@@ -22,6 +23,14 @@ interface SiteHeaderProps {
 	sessionMarker: SessionMarker;
 	sessionDetails?: PillsDetailProp;
 	currentPageDetails?: PillsDetailProp;
+}
+
+type TabButtonState = 'empty' | 'available' | 'closed';
+
+function resolveTabButtonState(targetTab: SiteHeaderProps['targetTab']): TabButtonState {
+	if (targetTab.closed) return 'closed';
+	if (targetTab.id) return 'available';
+	return 'empty';
 }
 
 export function SiteHeader({
@@ -36,6 +45,22 @@ export function SiteHeader({
 	currentPageDetails,
 }: SiteHeaderProps) {
 	const hasCurrentPage = sessionMarker.currentPageNavigatedAt != null;
+	const tabState = resolveTabButtonState(targetTab);
+
+	const tabButtonIcon: LucideIconName = tabState === 'closed' ? 'alert-triangle' : 'tab';
+	const tabButtonLabel =
+		tabState === 'available'
+			? targetTab.title
+			: tabState === 'closed'
+				? 'Aba indisponível — selecionar outra'
+				: 'Selecionar Aba';
+	// Mantém `outline` como base mas pinta borda/ícone com a paleta destrutiva
+	// no estado fechado para sinalizar que ação é necessária.
+	const tabButtonClassName =
+		tabState === 'closed'
+			? 'flex items-center gap-2 max-w-[260px] border-destructive/60 text-destructive hover:bg-destructive/10 hover:text-destructive'
+			: 'flex items-center gap-2 max-w-[200px]';
+
 	return (
 		<header className="group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 flex h-14 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear pr-2">
 			<div className="flex w-full items-center justify-between px-4 lg:px-6">
@@ -62,20 +87,37 @@ export function SiteHeader({
 							<TooltipTrigger asChild>
 								<Button
 									variant="outline"
-									className="flex items-center gap-2 max-w-[200px]"
+									data-tab-state={tabState}
+									aria-label={
+										tabState === 'closed'
+											? `Aba indisponível: ${targetTab.title || 'aba selecionada anteriormente'}. Clique para selecionar outra.`
+											: undefined
+									}
+									className={tabButtonClassName}
 									onClick={onSelectTabClick}
 								>
-									<LucideIcon name="tab" className="h-4 w-4 flex-shrink-0" />
-									<span className="truncate">
-										{targetTab.id ? targetTab.title : 'Selecionar Aba'}
-									</span>
+									<LucideIcon name={tabButtonIcon} className="h-4 w-4 flex-shrink-0" />
+									<span className="truncate">{tabButtonLabel}</span>
 								</Button>
 							</TooltipTrigger>
-							{targetTab.id && (
+							{tabState === 'available' && (
 								<TooltipContent side="bottom" className="max-w-[300px] break-words">
 									<div>
 										<div className="font-medium">{targetTab.title}</div>
 										<div className="text-xs text-muted-foreground">{targetTab.url}</div>
+									</div>
+								</TooltipContent>
+							)}
+							{tabState === 'closed' && (
+								<TooltipContent side="bottom" className="max-w-[300px] break-words">
+									<div>
+										<div className="font-medium text-destructive">Aba não está mais disponível</div>
+										{targetTab.title && (
+											<div className="text-xs text-muted-foreground">
+												Última aba: {targetTab.title}
+											</div>
+										)}
+										<div className="mt-1 text-xs">Clique para selecionar uma nova aba.</div>
 									</div>
 								</TooltipContent>
 							)}
@@ -87,6 +129,7 @@ export function SiteHeader({
 							variant="default"
 							className="flex items-center gap-2"
 							onClick={onStartDebugging}
+							disabled={tabState !== 'available'}
 						>
 							<LucideIcon name="play" className="h-4 w-4" />
 							<span className="hidden sm:inline">Iniciar Interceptação</span>

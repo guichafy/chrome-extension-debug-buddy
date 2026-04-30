@@ -70,7 +70,7 @@ const emptyAggregate = {
 
 describe('SiteHeader Component', () => {
 	const mockProps = {
-		targetTab: { id: 123, title: 'Test Tab', url: 'https://example.com' },
+		targetTab: { id: 123, title: 'Test Tab', url: 'https://example.com', closed: false },
 		isDebugging: false,
 		onSelectTabClick: vi.fn(),
 		onStartDebugging: vi.fn(),
@@ -132,7 +132,7 @@ describe('SiteHeader Component', () => {
 	it('renderiza o ícone de aba como SVG (não texto Material Icons)', () => {
 		render(
 			<SiteHeader
-				targetTab={{ id: 1, title: 'Tab', url: 'https://example.com' }}
+				targetTab={{ id: 1, title: 'Tab', url: 'https://example.com', closed: false }}
 				isDebugging={false}
 				onSelectTabClick={vi.fn()}
 				onStartDebugging={vi.fn()}
@@ -144,5 +144,52 @@ describe('SiteHeader Component', () => {
 		const tabButton = screen.getByRole('button', { name: /Tab/i });
 		expect(tabButton.querySelector('svg')).not.toBeNull();
 		expect(tabButton.textContent).not.toContain('tab');
+	});
+
+	test('exibe estado de aba indisponível quando closed=true', () => {
+		const onSelectTabClick = vi.fn();
+		const onStartDebugging = vi.fn();
+		render(
+			<SiteHeader
+				targetTab={{ id: null, title: 'Aba Antiga', url: 'https://old.example.com', closed: true }}
+				isDebugging={false}
+				onSelectTabClick={onSelectTabClick}
+				onStartDebugging={onStartDebugging}
+				onStopDebugging={vi.fn()}
+				metrics={{ session: emptyAggregate, currentPage: emptyAggregate }}
+				sessionMarker={emptyMarker}
+			/>,
+		);
+
+		// Deve mostrar o aviso e ícone de alerta no botão de seleção.
+		expect(screen.getByText(/aba indispon[ií]vel/i)).toBeTruthy();
+		const alertIcon = document.querySelector('[data-name="alert-triangle"]');
+		expect(alertIcon).not.toBeNull();
+
+		// Botão "Iniciar Interceptação" deve ficar desabilitado para evitar
+		// tentativa de attach numa aba que já foi fechada.
+		const startButton = screen.getByText('Iniciar Interceptação').closest('button');
+		expect(startButton).not.toBeNull();
+		expect((startButton as HTMLButtonElement).disabled).toBe(true);
+
+		// Clicar no botão de seleção dispara o handler para abrir o modal.
+		fireEvent.click(screen.getByText(/aba indispon[ií]vel/i).closest('button')!);
+		expect(onSelectTabClick).toHaveBeenCalledTimes(1);
+		expect(onStartDebugging).not.toHaveBeenCalled();
+	});
+
+	test('quando nenhuma aba foi selecionada, botão Iniciar fica desabilitado', () => {
+		render(
+			<SiteHeader
+				{...{
+					...mockProps,
+					targetTab: { id: null, title: '', url: '', closed: false },
+				}}
+			/>,
+		);
+
+		const startButton = screen.getByText('Iniciar Interceptação').closest('button');
+		expect((startButton as HTMLButtonElement).disabled).toBe(true);
+		expect(screen.getByText('Selecionar Aba')).toBeTruthy();
 	});
 });

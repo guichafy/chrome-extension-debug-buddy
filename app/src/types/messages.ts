@@ -22,6 +22,8 @@ export type MessageAction =
 	| 'selectTargetTab'
 	| 'setTargetTab'
 	| 'targetTabSelected'
+	| 'targetTabUpdated'
+	| 'targetTabClosed'
 	| 'openSelectTabDialog'
 	| 'getSessionMarker'
 	| 'sessionMarkerUpdated';
