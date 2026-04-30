@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "chrome_extension_debug_buddy",
+  "project_id": "a84ea36d-a8cb-4d8e-bef7-2d8e3b8aada2"
+}
