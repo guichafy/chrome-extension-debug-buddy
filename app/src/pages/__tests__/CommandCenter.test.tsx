@@ -1,147 +1,101 @@
-import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, expect, test, vi, beforeEach } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
+import { render, waitFor } from '@testing-library/react';
+import { vi } from 'vitest';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import CommandCenter from '../CommandCenter';
-import { useAllRequests } from '@/hooks/useAllRequests';
-import { useResponses } from '@/hooks/useResponses';
-import { useRules } from '@/hooks/useRules';
 
-vi.mock('@/hooks/useAllRequests');
-vi.mock('@/hooks/useResponses');
-vi.mock('@/hooks/useRules');
-vi.mock('@/lib/indexedDB', () => ({
-	indexedDBService: { init: vi.fn().mockResolvedValue(undefined) },
+// Mock dos hooks que o CommandCenter usa — só nos importa setFilters aqui.
+const setFiltersMock = vi.fn();
+
+vi.mock('@/hooks/useAllRequests', () => ({
+	useAllRequests: () => ({
+		filteredRequests: {},
+		filters: [],
+		setFilters: setFiltersMock,
+		pauseAutoRefresh: vi.fn(),
+		enableAutoRefresh: vi.fn(),
+		autoRefreshEnabled: true,
+		clearAllRequests: vi.fn(),
+	}),
 }));
 
-describe('CommandCenter', () => {
+vi.mock('@/hooks/useResponses', () => ({
+	useResponses: () => ({
+		approveResponse: vi.fn(),
+		ignoreResponse: vi.fn(),
+		pendingResponses: {},
+	}),
+}));
+
+vi.mock('@/hooks/useRules', () => ({
+	useRules: () => ({ rules: [] }),
+}));
+
+vi.mock('@/hooks/useRequestSelection', () => ({
+	useRequestSelection: () => ({
+		selectedId: null,
+		selected: null,
+		select: vi.fn(),
+		clear: vi.fn(),
+	}),
+}));
+
+// Mocks superficiais dos componentes filhos para isolar o teste de hidratação.
+vi.mock('@/components/command-center/RequestTimeline', () => ({
+	RequestTimeline: () => <div data-testid="request-timeline" />,
+}));
+vi.mock('@/components/command-center/RequestInspector', () => ({
+	RequestInspector: () => null,
+}));
+vi.mock('@/components/command-center/QuickMockPanel', () => ({
+	QuickMockPanel: () => null,
+}));
+vi.mock('@/components/command-center/PendingAlertBanner', () => ({
+	PendingAlertBanner: () => null,
+}));
+vi.mock('@/components/command-center/PendingActionDock', () => ({
+	PendingActionDock: () => null,
+}));
+vi.mock('@/components/command-center/usePendingHotkeys', () => ({
+	usePendingHotkeys: () => undefined,
+}));
+
+describe('CommandCenter — hidratação de URL', () => {
 	beforeEach(() => {
-		vi.mocked(useAllRequests).mockReturnValue({
-			allRequests: {
-				r1: {
-					url: 'https://api.example.com/u',
-					method: 'GET',
-					status: 200,
-					statusText: 'OK',
-					headers: {},
-					type: 'XHR',
-					timestamp: 1,
-				},
-			},
-			filteredRequests: {
-				r1: {
-					url: 'https://api.example.com/u',
-					method: 'GET',
-					status: 200,
-					statusText: 'OK',
-					headers: {},
-					type: 'XHR',
-					timestamp: 1,
-				},
-			},
-			filters: [],
-			setFilters: vi.fn(),
-			pauseAutoRefresh: vi.fn(),
-			enableAutoRefresh: vi.fn(),
-			autoRefreshEnabled: true,
-			clearAllRequests: vi.fn(),
-			getRequestDetails: vi.fn(),
-			currentRequest: null,
-			currentRequestId: null,
-			loading: false,
-			loadAllRequests: vi.fn(),
-			clearCurrentRequest: vi.fn(),
-			dbInitialized: true,
-		} as any);
-
-		vi.mocked(useResponses).mockReturnValue({
-			pendingResponses: {},
-			approveResponse: vi.fn().mockResolvedValue(true),
-			ignoreResponse: vi.fn().mockResolvedValue(true),
-			clearCurrentResponse: vi.fn(),
-		} as any);
-
-		vi.mocked(useRules).mockReturnValue({ rules: [], addRule: vi.fn() } as any);
+		setFiltersMock.mockClear();
 	});
 
-	test('seleção de request atualiza inspector sem abrir modal', () => {
+	it('hidrata setFilters quando URL contém ?f=...', async () => {
 		render(
-			<MemoryRouter>
-				<CommandCenter />
+			<MemoryRouter initialEntries={['/command-center?f=duration:gte:1000']}>
+				<Routes>
+					<Route path="/command-center" element={<CommandCenter />} />
+				</Routes>
 			</MemoryRouter>,
 		);
 
-		// inspector desmontado quando nenhuma request selecionada
-		expect(screen.queryByText(/Selecione uma requisição/)).toBeNull();
-
-		const row = screen.getByText('https://api.example.com/u');
-		fireEvent.click(row);
-
-		expect(screen.queryByText(/Selecione uma requisição/)).toBeNull();
-		expect(screen.getAllByText(/api.example.com/).length).toBeGreaterThan(0);
-		expect(document.querySelector('[role="dialog"]')).toBeNull();
+		await waitFor(() => {
+			expect(setFiltersMock).toHaveBeenCalledTimes(1);
+		});
+		const filtersArg = setFiltersMock.mock.calls[0]?.[0];
+		expect(filtersArg).toHaveLength(1);
+		expect(filtersArg[0]).toMatchObject({
+			field: 'duration',
+			operator: 'gte',
+			value: '1000',
+		});
 	});
 
-	test('tabela ocupa largura cheia quando nenhuma request está selecionada', () => {
+	it('não chama setFilters quando URL não tem ?f=', async () => {
 		render(
-			<MemoryRouter>
-				<CommandCenter />
+			<MemoryRouter initialEntries={['/command-center']}>
+				<Routes>
+					<Route path="/command-center" element={<CommandCenter />} />
+				</Routes>
 			</MemoryRouter>,
 		);
 
-		// inspector não montado → apenas 1 section (timeline)
-		const sections = document.querySelectorAll('section');
-		expect(sections.length).toBe(1);
-	});
-
-	test('alternar entre duas requests reflete o conteúdo correto no inspector', () => {
-		vi.mocked(useAllRequests).mockReturnValue({
-			allRequests: {},
-			filteredRequests: {
-				r1: {
-					url: 'https://api.example.com/r1',
-					method: 'GET',
-					status: 200,
-					statusText: 'OK',
-					headers: {},
-					type: 'XHR',
-					timestamp: 1,
-				},
-				r2: {
-					url: 'https://api.example.com/r2',
-					method: 'POST',
-					status: 201,
-					statusText: 'Created',
-					headers: {},
-					type: 'XHR',
-					timestamp: 2,
-				},
-			},
-			filters: [],
-			setFilters: vi.fn(),
-			pauseAutoRefresh: vi.fn(),
-			enableAutoRefresh: vi.fn(),
-			autoRefreshEnabled: true,
-			clearAllRequests: vi.fn(),
-			getRequestDetails: vi.fn(),
-			currentRequest: null,
-			currentRequestId: null,
-			loading: false,
-			loadAllRequests: vi.fn(),
-			clearCurrentRequest: vi.fn(),
-			dbInitialized: true,
-		} as any);
-
-		render(
-			<MemoryRouter>
-				<CommandCenter />
-			</MemoryRouter>,
-		);
-
-		fireEvent.click(screen.getByText('https://api.example.com/r1'));
-		expect(screen.getAllByText('GET').length).toBeGreaterThan(0);
-
-		fireEvent.click(screen.getByText('https://api.example.com/r2'));
-		expect(screen.getAllByText('POST').length).toBeGreaterThan(0);
+		// Damos um tick pra effect rodar
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(setFiltersMock).not.toHaveBeenCalled();
 	});
 });

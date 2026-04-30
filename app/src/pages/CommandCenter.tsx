@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { decodeParamsToFilters } from '@/lib/filterUrlSerialization';
 import type { InterceptedResponse } from '@/types/intercepted';
 import { useAllRequests } from '@/hooks/useAllRequests';
 import { useResponses } from '@/hooks/useResponses';
@@ -34,6 +35,17 @@ const CommandCenter: React.FC = () => {
 		autoRefreshEnabled,
 		clearAllRequests,
 	} = useAllRequests();
+	const [searchParams] = useSearchParams();
+
+	// Hidrata filtros a partir da URL (?f=field:op:value). Útil quando o usuário
+	// chega ao Command Center via click em uma pill do NetworkMetricsBar — a URL
+	// é fonte de verdade naquele momento e substitui filtros locais.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: setFilters é estável (do useAllRequests)
+	useEffect(() => {
+		const decoded = decodeParamsToFilters(searchParams);
+		if (decoded.length > 0) setFilters(decoded);
+	}, [searchParams]);
+
 	const { approveResponse, ignoreResponse, pendingResponses } = useResponses();
 	const { rules } = useRules();
 	const { selectedId, selected, select, clear } = useRequestSelection(filteredRequests);
