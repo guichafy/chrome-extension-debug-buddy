@@ -107,16 +107,56 @@ export function RequestInspector({
 						<LucideIcon name="x" className="h-4 w-4" />
 					</Button>
 				</div>
-				{isPending && (
-					<Badge
-						variant="warning"
-						className="w-fit gap-1 text-xs"
-						data-testid="awaiting-decision-badge"
-					>
-						<LucideIcon name="hourglass" className="h-3 w-3 animate-pulse" />
-						Aguardando decisão
-					</Badge>
-				)}
+				<div
+					className="flex flex-wrap items-center gap-2"
+					data-testid="request-inspector-status-row"
+				>
+					{isPending && (
+						<Badge
+							variant="warning"
+							className="gap-1 text-xs"
+							data-testid="awaiting-decision-badge"
+						>
+							<LucideIcon name="hourglass" className="h-3 w-3 animate-pulse" />
+							Aguardando decisão
+						</Badge>
+					)}
+					<PendingResponseActions
+						request={request}
+						requestId={requestId}
+						isWaiting={isPending}
+						onApprove={handleApproveWrapper}
+						onIgnore={onIgnore}
+						onCreateMock={onCreateMock}
+						onApproveWithEdit={onApproveWithEdit}
+						hotkeysEnabled={isPending}
+						size="sm"
+						disabled={Boolean(request.captureError)}
+					/>
+					{!isPending && (
+						<Button
+							size="sm"
+							variant="outline"
+							onClick={() => onCreateMock(request, requestId)}
+							disabled={Boolean(request.captureError)}
+							className="gap-2"
+						>
+							<LucideIcon name="copy" className="h-4 w-4" />
+							Criar Mock
+						</Button>
+					)}
+					{request.generatedRuleId && (
+						<Button
+							size="sm"
+							variant="outline"
+							onClick={() => onOpenInRulesLab(request.generatedRuleId!)}
+							className="gap-2"
+						>
+							<LucideIcon name="flask" className="h-4 w-4" />
+							Abrir no Rules Lab
+						</Button>
+					)}
+				</div>
 			</header>
 
 			{request.captureError && (
@@ -147,44 +187,6 @@ export function RequestInspector({
 					</div>
 				</div>
 			)}
-
-			<div className="flex flex-wrap items-center gap-2 px-4 pb-3">
-				<PendingResponseActions
-					request={request}
-					requestId={requestId}
-					isWaiting={isPending}
-					onApprove={handleApproveWrapper}
-					onIgnore={onIgnore}
-					onCreateMock={onCreateMock}
-					onApproveWithEdit={onApproveWithEdit}
-					hotkeysEnabled={isPending}
-					size="sm"
-					disabled={Boolean(request.captureError)}
-				/>
-				{!isPending && (
-					<Button
-						size="sm"
-						variant="outline"
-						onClick={() => onCreateMock(request, requestId)}
-						disabled={Boolean(request.captureError)}
-						className="gap-2"
-					>
-						<LucideIcon name="copy" className="h-4 w-4" />
-						Criar Mock
-					</Button>
-				)}
-				{request.generatedRuleId && (
-					<Button
-						size="sm"
-						variant="outline"
-						onClick={() => onOpenInRulesLab(request.generatedRuleId!)}
-						className="gap-2"
-					>
-						<LucideIcon name="flask" className="h-4 w-4" />
-						Abrir no Rules Lab
-					</Button>
-				)}
-			</div>
 
 			<Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
 				<TabsList className="mx-4 grid grid-cols-3">
