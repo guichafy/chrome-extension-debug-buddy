@@ -1,5 +1,12 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SiteHeader } from '../layout/SiteHeader';
+import type { SessionMarker } from '@/types/sessionMarker';
+
+const emptyMarker: SessionMarker = {
+	sessionStartedAt: null,
+	currentPageUrl: null,
+	currentPageNavigatedAt: null,
+};
 
 vi.mock('../ui/separator', () => ({
 	Separator: ({ orientation, className }: any) => (
@@ -69,7 +76,7 @@ describe('SiteHeader Component', () => {
 		onStartDebugging: vi.fn(),
 		onStopDebugging: vi.fn(),
 		metrics: { session: emptyAggregate, currentPage: emptyAggregate },
-		hasCurrentPage: false,
+		sessionMarker: emptyMarker,
 	};
 
 	test('renderiza corretamente', () => {
@@ -131,7 +138,7 @@ describe('SiteHeader Component', () => {
 				onStartDebugging={vi.fn()}
 				onStopDebugging={vi.fn()}
 				metrics={{ session: emptyAggregate, currentPage: emptyAggregate }}
-				hasCurrentPage={false}
+				sessionMarker={emptyMarker}
 			/>,
 		);
 		const tabButton = screen.getByRole('button', { name: /Tab/i });

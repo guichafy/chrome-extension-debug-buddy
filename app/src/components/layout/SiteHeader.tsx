@@ -4,7 +4,9 @@ import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { MetricsAggregate } from '@/lib/networkMetrics';
+import type { PillName, PillsDetailProp } from './NetworkMetricsBar';
 import { NetworkMetricsBar } from './NetworkMetricsBar';
+import type { SessionMarker } from '@/types/sessionMarker';
 
 interface SiteHeaderProps {
 	targetTab: {
@@ -17,7 +19,10 @@ interface SiteHeaderProps {
 	onStartDebugging: () => void;
 	onStopDebugging: () => void;
 	metrics: { session: MetricsAggregate; currentPage: MetricsAggregate };
-	hasCurrentPage: boolean;
+	sessionMarker: SessionMarker;
+	sessionDetails?: PillsDetailProp;
+	currentPageDetails?: PillsDetailProp;
+	onPillClick?: (pill: PillName) => void;
 }
 
 export function SiteHeader({
@@ -27,8 +32,12 @@ export function SiteHeader({
 	onStartDebugging,
 	onStopDebugging,
 	metrics,
-	hasCurrentPage,
+	sessionMarker,
+	sessionDetails,
+	currentPageDetails,
+	onPillClick,
 }: SiteHeaderProps) {
+	const hasCurrentPage = sessionMarker.currentPageNavigatedAt != null;
 	return (
 		<header className="group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 flex h-14 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear pr-2">
 			<div className="flex w-full items-center justify-between px-4 lg:px-6">
@@ -43,6 +52,10 @@ export function SiteHeader({
 						currentPage={metrics.currentPage}
 						hasCurrentPage={hasCurrentPage}
 						isDebugging={isDebugging}
+						sessionMarker={sessionMarker}
+						sessionDetails={sessionDetails}
+						currentPageDetails={currentPageDetails}
+						onPillClick={onPillClick}
 					/>
 				</div>
 
