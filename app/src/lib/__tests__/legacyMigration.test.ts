@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'vitest';
 import type { Rule } from '@/types/rules';
-import { convertLegacyStorage, renameModifyToTransform } from '../legacyMigration';
+import {
+	backfillEnabled,
+	convertLegacyStorage,
+	renameModifyToTransform,
+} from '../legacyMigration';
 
 const FIXED_NOW = 1700000000000;
 let counter = 0;
@@ -260,5 +264,76 @@ describe('renameModifyToTransform', () => {
 		const result = renameModifyToTransform(rules);
 		expect(result.renamed).toBe(0);
 		expect(result.rules).toEqual(rules);
+	});
+});
+
+describe('backfillEnabled', () => {
+	test('preenche enabled=true quando ausente', () => {
+		const rules = [
+			{
+				id: 'a',
+				name: 'sem enabled',
+				matchers: [],
+				action: { type: 'breakpoint', enabled: true },
+				createdAt: 0,
+				updatedAt: 0,
+			},
+		] as unknown as Rule[];
+		const result = backfillEnabled(rules);
+		expect(result.backfilled).toBe(1);
+		expect(result.rules[0].enabled).toBe(true);
+	});
+
+	test('preserva enabled existente (true ou false)', () => {
+		const rules = [
+			{
+				id: 'a',
+				name: 'já habilitada',
+				enabled: true,
+				matchers: [],
+				action: { type: 'breakpoint', enabled: true },
+				createdAt: 0,
+				updatedAt: 0,
+			},
+			{
+				id: 'b',
+				name: 'desabilitada',
+				enabled: false,
+				matchers: [],
+				action: { type: 'breakpoint', enabled: true },
+				createdAt: 0,
+				updatedAt: 0,
+			},
+		] as Rule[];
+		const result = backfillEnabled(rules);
+		expect(result.backfilled).toBe(0);
+		expect(result.rules[0].enabled).toBe(true);
+		expect(result.rules[1].enabled).toBe(false);
+	});
+
+	test('mistura: faz backfill apenas em quem precisa', () => {
+		const rules = [
+			{
+				id: 'a',
+				name: 'sem enabled',
+				matchers: [],
+				action: { type: 'breakpoint', enabled: true },
+				createdAt: 0,
+				updatedAt: 0,
+			},
+			{
+				id: 'b',
+				name: 'desabilitada',
+				enabled: false,
+				matchers: [],
+				action: { type: 'breakpoint', enabled: true },
+				createdAt: 0,
+				updatedAt: 0,
+			},
+		] as unknown as Rule[];
+		const result = backfillEnabled(rules);
+		expect(result.backfilled).toBe(1);
+		expect(result.rules[0].enabled).toBe(true);
+		expect(result.rules[1].enabled).toBe(false);
 	});
 });

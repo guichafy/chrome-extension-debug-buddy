@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { LucideIcon } from '@/components/ui/lucide-icon';
+import { Switch } from '@/components/ui/switch';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import type { Rule } from '@/types/rules';
@@ -145,24 +146,12 @@ export function RuleTableRow({
 				</div>
 			</TableCell>
 			<TableCell className="w-16 py-2">
-				<button
-					type="button"
-					role="switch"
-					aria-checked={rule.enabled}
+				<Switch
+					checked={rule.enabled}
+					onCheckedChange={() => onToggle(rule.id)}
 					aria-label={rule.enabled ? 'Pausar regra' : 'Ativar regra'}
-					onClick={() => onToggle(rule.id)}
-					className={cn(
-						'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-						rule.enabled ? 'bg-success' : 'bg-muted-foreground/30',
-					)}
-				>
-					<span
-						className={cn(
-							'inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-all',
-							rule.enabled ? 'translate-x-[18px]' : 'translate-x-0.5',
-						)}
-					/>
-				</button>
+					data-testid={`rule-toggle-${rule.id}`}
+				/>
 			</TableCell>
 			<TableCell className="w-32 py-2">
 				<Badge

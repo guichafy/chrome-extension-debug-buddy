@@ -1,5 +1,9 @@
 import { indexedDBService } from '@/lib/indexedDB';
-import { runLegacyMigration, runModifyToTransformMigration } from '@/lib/legacyMigration';
+import {
+	runEnabledBackfillMigration,
+	runLegacyMigration,
+	runModifyToTransformMigration,
+} from '@/lib/legacyMigration';
 import { NetworkTimingTracker } from '@/lib/networkTiming';
 import type {
 	InterceptedResponse,
@@ -166,6 +170,10 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 	if (transformResult.migrated) {
 		console.log(`[background] Renamed ${transformResult.renamed} modify rules to transform.`);
 	}
+	const enabledResult = await runEnabledBackfillMigration();
+	if (enabledResult.migrated) {
+		console.log(`[background] Backfilled enabled em ${enabledResult.backfilled} regras.`);
+	}
 });
 
 // Roda a migração também no startup do navegador (extensão já instalada).
@@ -174,6 +182,7 @@ chrome.runtime.onStartup.addListener(async () => {
 	console.log('[background] onStartup');
 	await runLegacyMigration();
 	await runModifyToTransformMigration();
+	await runEnabledBackfillMigration();
 });
 
 // Listener para mudanças no storage (para atualizar regras em tempo real)

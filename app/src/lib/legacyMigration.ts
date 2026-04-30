@@ -174,6 +174,54 @@ export async function runLegacyMigration(): Promise<{ migrated: boolean; reason?
 }
 
 /**
+ * Backfill de `enabled` em regras gravadas antes do campo existir ou que
+ * tenham sido importadas/manipuladas externamente sem ele. Pura — recebe e
+ * devolve regras. Não toca no campo quando já é boolean.
+ */
+export function backfillEnabled(rules: Rule[]): { rules: Rule[]; backfilled: number } {
+	let backfilled = 0;
+	const out = rules.map((rule) => {
+		if (typeof rule.enabled === 'boolean') return rule;
+		backfilled += 1;
+		return { ...rule, enabled: true };
+	});
+	return { rules: out, backfilled };
+}
+
+/**
+ * Runner stateful para o backfill de `enabled` (US-005). Garante que toda
+ * regra persistida tenha `enabled: boolean`, defaultando para `true` quando
+ * ausente. Idempotente via `enabled_backfill_migrated_at`.
+ */
+export async function runEnabledBackfillMigration(): Promise<{
+	migrated: boolean;
+	reason?: string;
+	backfilled?: number;
+}> {
+	const stored = await chrome.storage.local.get(['rules', 'enabled_backfill_migrated_at']);
+
+	if (stored.enabled_backfill_migrated_at) {
+		return { migrated: false, reason: 'already_migrated' };
+	}
+
+	const rules: Rule[] = Array.isArray(stored.rules) ? stored.rules : [];
+	const { rules: nextRules, backfilled } = backfillEnabled(rules);
+
+	if (backfilled === 0) {
+		await chrome.storage.local.set({ enabled_backfill_migrated_at: Date.now() });
+		return { migrated: false, reason: 'no_rules_to_backfill' };
+	}
+
+	await chrome.storage.local.set({
+		rules: nextRules,
+		enabled_backfill_migrated_at: Date.now(),
+	});
+
+	console.log(`[legacyMigration] Backfilled enabled=true em ${backfilled} regras.`);
+	return { migrated: true, backfilled };
+}
+
+/**
  * Runner stateful para a renomeação de `modify` → `transform` (US-001).
  * Rodado independentemente da `runLegacyMigration` para cobrir usuários que
  * já migraram do schema antigo mas ainda têm regras com `type: 'modify'`.

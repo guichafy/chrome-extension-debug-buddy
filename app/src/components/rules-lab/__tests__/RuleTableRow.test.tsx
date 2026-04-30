@@ -67,6 +67,20 @@ describe('RuleTableRow', () => {
 		expect(row.className).toMatch(/opacity-50/);
 	});
 
+	test('switch shadcn (Radix) renderiza com data-state correto e dispara onCheckedChange', () => {
+		const { props } = renderRow();
+		const sw = screen.getByTestId('rule-toggle-r1');
+		expect(sw).toHaveAttribute('data-state', 'checked');
+		fireEvent.click(sw);
+		expect(props.onToggle).toHaveBeenCalledWith('r1');
+	});
+
+	test('switch shadcn em regra desabilitada renderiza data-state unchecked', () => {
+		renderRow({ enabled: false });
+		const sw = screen.getByTestId('rule-toggle-r1');
+		expect(sw).toHaveAttribute('data-state', 'unchecked');
+	});
+
 	test('botões de ação chamam callbacks corretos', () => {
 		const { props } = renderRow();
 		fireEvent.click(screen.getByRole('button', { name: 'Editar regra' }));

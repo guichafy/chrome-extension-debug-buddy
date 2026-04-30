@@ -3,10 +3,10 @@
   "sessionId": "d9b54d10-2e9e-45e2-b59c-e0505fe3348c",
   "status": "running",
   "startedAt": "2026-04-30T06:03:33.753Z",
-  "updatedAt": "2026-04-30T07:28:10.628Z",
-  "currentIteration": 11,
+  "updatedAt": "2026-04-30T07:34:30.270Z",
+  "currentIteration": 12,
   "maxIterations": 0,
-  "tasksCompleted": 11,
+  "tasksCompleted": 12,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -53,8 +53,8 @@
       {
         "id": "chrome-extension-debug-buddy-jc0.7",
         "title": "US-007: Reordenar regras com drag-and-drop",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "chrome-extension-debug-buddy-jc0.8",
@@ -234,6 +234,16 @@
       "durationMs": 402382,
       "startedAt": "2026-04-30T07:10:55.397Z",
       "endedAt": "2026-04-30T07:17:37.779Z"
+    },
+    {
+      "iteration": 12,
+      "status": "completed",
+      "taskId": "chrome-extension-debug-buddy-jc0.7",
+      "taskTitle": "US-007: Reordenar regras com drag-and-drop",
+      "taskCompleted": true,
+      "durationMs": 621206,
+      "startedAt": "2026-04-30T07:17:48.430Z",
+      "endedAt": "2026-04-30T07:28:09.636Z"
     }
   ],
   "skippedTaskIds": [],
