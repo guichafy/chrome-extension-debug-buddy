@@ -93,6 +93,13 @@ interface TimingEntry {
 	start?: number;
 	end?: number;
 	fetchRequestId?: string;
+	durationEmitted?: boolean;
+	metricsEmitted?: boolean;
+	loadingFinishedFlag?: boolean;
+	responseReceivedFlag?: boolean;
+	responseTiming?: ResponseTimingRaw;
+	encodedDataLength?: number;
+	flags?: ResponseFlagsRaw;
 }
 
 const NETWORK_EVENTS = new Set([
@@ -111,14 +118,29 @@ const MAX_ENTRIES = 2000;
 export class NetworkTimingTracker {
 	private entries = new Map<string, TimingEntry>();
 	private readonly onDurationReady: (fetchRequestId: string, durationMs: number) => void;
+	private readonly onMetricsReady?: (fetchRequestId: string, timing: NetworkTiming) => void;
 
-	constructor(onDurationReady: (fetchRequestId: string, durationMs: number) => void) {
+	constructor(
+		onDurationReady: (fetchRequestId: string, durationMs: number) => void,
+		onMetricsReady?: (fetchRequestId: string, timing: NetworkTiming) => void,
+	) {
 		this.onDurationReady = onDurationReady;
+		this.onMetricsReady = onMetricsReady;
 	}
 
 	handleNetworkEvent(
 		message: string,
-		params: { requestId?: string; timestamp?: number; redirectResponse?: unknown },
+		params: {
+			requestId?: string;
+			timestamp?: number;
+			redirectResponse?: unknown;
+			response?: {
+				timing?: ResponseTimingRaw;
+				fromDiskCache?: boolean;
+				fromServiceWorker?: boolean;
+			};
+			encodedDataLength?: number;
+		},
 	): void {
 		if (!NETWORK_EVENTS.has(message)) return;
 		const networkId = params.requestId;
@@ -139,13 +161,33 @@ export class NetworkTimingTracker {
 					this.recordStart(networkId, ts);
 				}
 				break;
-			case 'Network.responseReceived':
+			case 'Network.responseReceived': {
 				// Apenas marca end provisório (TTFB); loadingFinished sobrescreve depois.
 				this.recordEnd(networkId, ts, false);
+				const entry = this.entries.get(networkId);
+				if (entry) {
+					entry.responseReceivedFlag = true;
+					if (params.response?.timing) entry.responseTiming = params.response.timing;
+					entry.flags = {
+						fromDiskCache: params.response?.fromDiskCache,
+						fromServiceWorker: params.response?.fromServiceWorker,
+					};
+					this.tryEmit(networkId);
+				}
 				break;
-			case 'Network.loadingFinished':
+			}
+			case 'Network.loadingFinished': {
 				this.recordEnd(networkId, ts, true);
+				const entry = this.entries.get(networkId);
+				if (entry) {
+					entry.loadingFinishedFlag = true;
+					if (params.encodedDataLength !== undefined) {
+						entry.encodedDataLength = params.encodedDataLength;
+					}
+					this.tryEmit(networkId);
+				}
 				break;
+			}
 			case 'Network.loadingFailed':
 				this.discardByNetworkId(networkId);
 				break;
@@ -154,7 +196,7 @@ export class NetworkTimingTracker {
 
 	private handleRedirect(networkId: string, redirectTs: number): void {
 		const entry = this.entries.get(networkId);
-		if (entry?.start != null && entry.fetchRequestId) {
+		if (entry?.start != null && entry.fetchRequestId && !entry.durationEmitted) {
 			const duration = Math.max(0, Math.round(redirectTs - entry.start));
 			this.onDurationReady(entry.fetchRequestId, duration);
 		}
@@ -193,15 +235,48 @@ export class NetworkTimingTracker {
 		if (!entry) return;
 		if (!overwrite && entry.end != null) return;
 		entry.end = endMs;
-		this.tryEmit(networkId);
 	}
 
 	private tryEmit(networkId: string): void {
 		const entry = this.entries.get(networkId);
-		if (!entry || entry.start == null || entry.end == null || !entry.fetchRequestId) return;
-		const duration = Math.max(0, Math.round(entry.end - entry.start));
-		this.entries.delete(networkId);
-		this.onDurationReady(entry.fetchRequestId, duration);
+		if (!entry) return;
+
+		// Duration: precisa de start + end + fetchId
+		if (
+			!entry.durationEmitted &&
+			entry.start != null &&
+			entry.end != null &&
+			entry.fetchRequestId
+		) {
+			const duration = Math.max(0, Math.round(entry.end - entry.start));
+			entry.durationEmitted = true;
+			this.onDurationReady(entry.fetchRequestId, duration);
+		}
+
+		// Métricas: emitidas após responseReceived + loadingFinished + fetchId.
+		// Exigir responseReceivedFlag previne dispatching em entradas re-criadas
+		// post-discard (ex.: linkFetchId após loadingFailed cria entrada vazia).
+		if (
+			this.onMetricsReady &&
+			!entry.metricsEmitted &&
+			entry.responseReceivedFlag &&
+			entry.loadingFinishedFlag &&
+			entry.fetchRequestId
+		) {
+			const timing = deriveNetworkTiming(
+				entry.responseTiming,
+				entry.encodedDataLength,
+				entry.flags ?? {},
+			);
+			entry.metricsEmitted = true;
+			if (timing) this.onMetricsReady(entry.fetchRequestId, timing);
+		}
+
+		// Limpa quando ambos os ciclos foram concluídos (ou quando metrics não está em uso)
+		const metricsDone = !this.onMetricsReady || entry.metricsEmitted;
+		if (entry.durationEmitted && metricsDone) {
+			this.entries.delete(networkId);
+		}
 	}
 
 	private set(networkId: string, entry: TimingEntry): void {
