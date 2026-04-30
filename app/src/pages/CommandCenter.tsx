@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { decodeParamsToFilters, decodeParamToSort } from '@/lib/filterUrlSerialization';
+import { useNavigate } from 'react-router-dom';
 import type { InterceptedResponse } from '@/types/intercepted';
 import { useAllRequests } from '@/hooks/useAllRequests';
 import { useResponses } from '@/hooks/useResponses';
@@ -35,20 +34,6 @@ const CommandCenter: React.FC = () => {
 		autoRefreshEnabled,
 		clearAllRequests,
 	} = useAllRequests();
-	const [searchParams] = useSearchParams();
-
-	// Hidrata filtros a partir da URL (?f=field:op:value). Útil quando o usuário
-	// chega ao Command Center via click em uma pill do NetworkMetricsBar — a URL
-	// é fonte de verdade naquele momento e substitui filtros locais.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: setFilters é estável (do useAllRequests)
-	useEffect(() => {
-		const decoded = decodeParamsToFilters(searchParams);
-		if (decoded.length > 0) setFilters(decoded);
-	}, [searchParams]);
-
-	// Sort vindo de URL (?sort=field:dir). Memoizado pra evitar re-criar
-	// a referência a cada render do CommandCenter.
-	const sortFromUrl = useMemo(() => decodeParamToSort(searchParams.get('sort')), [searchParams]);
 
 	const { approveResponse, ignoreResponse, pendingResponses } = useResponses();
 	const { rules } = useRules();
@@ -158,7 +143,6 @@ const CommandCenter: React.FC = () => {
 					autoRefreshEnabled={autoRefreshEnabled}
 					pauseAutoRefresh={pauseAutoRefresh}
 					enableAutoRefresh={enableAutoRefresh}
-					sort={sortFromUrl ?? undefined}
 				/>
 			</section>
 

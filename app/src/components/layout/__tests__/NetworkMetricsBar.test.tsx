@@ -1,5 +1,4 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { vi } from 'vitest';
 import type { MetricsAggregate } from '@/lib/networkMetrics';
 import type { SessionMarker } from '@/types/sessionMarker';
 import { NetworkMetricsBar } from '../NetworkMetricsBar';
@@ -129,8 +128,7 @@ describe('NetworkMetricsBar', () => {
 		expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2);
 	});
 
-	it('Pill clicável vira <button> e chama onPillClick', () => {
-		const onClick = vi.fn();
+	it('pills sempre renderizadas como <span> (sem click)', () => {
 		render(
 			<NetworkMetricsBar
 				session={agg({ totalRequests: 5, slowCount: 2 })}
@@ -142,32 +140,12 @@ describe('NetworkMetricsBar', () => {
 					currentPageUrl: null,
 					currentPageNavigatedAt: null,
 				}}
-				onPillClick={onClick}
 			/>,
 		);
-		const slowButton = document.querySelector('[data-pill="slow"]');
-		expect(slowButton?.tagName).toBe('BUTTON');
-		(slowButton as HTMLButtonElement)?.click();
-		expect(onClick).toHaveBeenCalledWith('slow');
-	});
-
-	it('Pill binária com 0 fica aria-disabled', () => {
-		render(
-			<NetworkMetricsBar
-				session={agg({ totalRequests: 5, slowCount: 0, failedCount: 0 })}
-				currentPage={agg()}
-				hasCurrentPage={false}
-				isDebugging={true}
-				sessionMarker={{
-					sessionStartedAt: 1000,
-					currentPageUrl: null,
-					currentPageNavigatedAt: null,
-				}}
-				onPillClick={vi.fn()}
-			/>,
-		);
-		const slowEl = document.querySelector('[data-pill="slow"]');
-		expect(slowEl?.getAttribute('aria-disabled')).toBe('true');
+		const slowPill = document.querySelector('[data-pill="slow"]');
+		expect(slowPill?.tagName).toBe('SPAN');
+		// Sem aria-disabled — pills não têm conceito de disabled (não são interativas).
+		expect(slowPill?.getAttribute('aria-disabled')).toBeNull();
 	});
 
 	it('aceita sessionDetails sem crash quando fornecido', () => {

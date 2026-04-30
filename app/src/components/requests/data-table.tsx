@@ -46,12 +46,6 @@ interface DataTableProps<TData, TValue> {
 	filterSlot?: React.ReactNode;
 	/** Linhas que devem receber a classe pending-row-halo. */
 	pendingRowIds?: Set<string>;
-	/**
-	 * Sort inicial. Default = `[{ id: 'timestamp', desc: true }]`. Passar `[]` quando
-	 * o consumidor já entrega `data` pré-ordenada (ex.: sort por campo sem coluna
-	 * visível) — assim o tanstack-table não re-ordena.
-	 */
-	initialSorting?: SortingState;
 }
 
 export function DataTable<TData, TValue>({
@@ -65,23 +59,11 @@ export function DataTable<TData, TValue>({
 	selectedRowId,
 	filterSlot,
 	pendingRowIds,
-	initialSorting,
 }: DataTableProps<TData, TValue>) {
 	// Estados para a tabela
-	const [sorting, setSorting] = React.useState<SortingState>(
-		initialSorting ?? [{ id: 'timestamp', desc: true }], // Ordenar por timestamp decrescente por padrão
-	);
-
-	// Sincroniza `sorting` quando `initialSorting` mudar de referência. Necessário
-	// porque `useState` só lê o valor inicial uma vez — sem este effect, navegar
-	// de `?sort=A` para `?sort=B` no Command Center não atualiza a ordenação.
-	// Quando `initialSorting` é undefined, deixamos o state como está (preserva
-	// sort interativo do usuário clicando em headers).
-	React.useEffect(() => {
-		if (initialSorting !== undefined) {
-			setSorting(initialSorting);
-		}
-	}, [initialSorting]);
+	const [sorting, setSorting] = React.useState<SortingState>([
+		{ id: 'timestamp', desc: true }, // Ordenar por timestamp decrescente por padrão
+	]);
 	const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
 	const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
 		requestType: false, // Ocultar a coluna 'requestType' por padrão

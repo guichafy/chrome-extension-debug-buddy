@@ -4,7 +4,7 @@ import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { MetricsAggregate } from '@/lib/networkMetrics';
-import type { PillName, PillsDetailProp } from './NetworkMetricsBar';
+import type { PillsDetailProp } from './NetworkMetricsBar';
 import { NetworkMetricsBar } from './NetworkMetricsBar';
 import type { SessionMarker } from '@/types/sessionMarker';
 
@@ -22,7 +22,6 @@ interface SiteHeaderProps {
 	sessionMarker: SessionMarker;
 	sessionDetails?: PillsDetailProp;
 	currentPageDetails?: PillsDetailProp;
-	onPillClick?: (pill: PillName) => void;
 }
 
 export function SiteHeader({
@@ -35,7 +34,6 @@ export function SiteHeader({
 	sessionMarker,
 	sessionDetails,
 	currentPageDetails,
-	onPillClick,
 }: SiteHeaderProps) {
 	const hasCurrentPage = sessionMarker.currentPageNavigatedAt != null;
 	return (
@@ -55,7 +53,6 @@ export function SiteHeader({
 						sessionMarker={sessionMarker}
 						sessionDetails={sessionDetails}
 						currentPageDetails={currentPageDetails}
-						onPillClick={onPillClick}
 					/>
 				</div>
 

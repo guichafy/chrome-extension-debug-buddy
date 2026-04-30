@@ -13,8 +13,6 @@ import type {
 import type { SessionMarker } from '@/types/sessionMarker';
 import { formatBytes, formatCount, formatMs } from './networkMetricsFormat';
 
-export type PillName = 'total' | 'bytes' | 'ttfb' | 'slow' | 'failed';
-
 export interface PillsDetailProp {
 	total: TotalDetail;
 	bytes: BytesDetail;
@@ -31,7 +29,6 @@ interface NetworkMetricsBarProps {
 	sessionMarker: SessionMarker;
 	sessionDetails?: PillsDetailProp;
 	currentPageDetails?: PillsDetailProp;
-	onPillClick?: (pill: PillName) => void;
 }
 
 type Window = 'session' | 'page';
@@ -44,15 +41,10 @@ export function NetworkMetricsBar({
 	sessionMarker: _sessionMarker,
 	sessionDetails,
 	currentPageDetails,
-	onPillClick,
 }: NetworkMetricsBarProps) {
 	const [window, setWindow] = useState<Window>('session');
 	const active = window === 'session' ? session : currentPage;
 	const activeDetails = window === 'session' ? sessionDetails : currentPageDetails;
-
-	const handleClick = (pill: PillName) => {
-		onPillClick?.(pill);
-	};
 
 	return (
 		<div className="flex min-w-0 flex-shrink items-center gap-2 overflow-hidden">
@@ -91,7 +83,6 @@ export function NetworkMetricsBar({
 						label="Total requests"
 						name="total"
 						detail={activeDetails ? <TotalDetailView data={activeDetails.total} /> : undefined}
-						onClick={onPillClick ? () => handleClick('total') : undefined}
 					>
 						{formatCount(active.totalRequests)}
 					</Pill>
@@ -100,7 +91,6 @@ export function NetworkMetricsBar({
 						label="Total baixado"
 						name="bytes"
 						detail={activeDetails ? <BytesDetailView data={activeDetails.bytes} /> : undefined}
-						onClick={onPillClick ? () => handleClick('bytes') : undefined}
 					>
 						{formatBytes(active.totalBytes)}
 					</Pill>
@@ -109,7 +99,6 @@ export function NetworkMetricsBar({
 						label="TTFB médio"
 						name="ttfb"
 						detail={activeDetails ? <TtfbDetailView data={activeDetails.ttfb} /> : undefined}
-						onClick={onPillClick ? () => handleClick('ttfb') : undefined}
 					>
 						{formatMs(active.avgTtfbMs)}
 					</Pill>
@@ -119,8 +108,6 @@ export function NetworkMetricsBar({
 						name="slow"
 						accent={active.slowCount > 0 ? 'warn' : undefined}
 						detail={activeDetails ? <SlowDetailView data={activeDetails.slow} /> : undefined}
-						onClick={onPillClick && active.slowCount > 0 ? () => handleClick('slow') : undefined}
-						disabled={active.slowCount === 0}
 					>
 						{formatCount(active.slowCount)}
 					</Pill>
@@ -130,10 +117,6 @@ export function NetworkMetricsBar({
 						name="failed"
 						accent={active.failedCount > 0 ? 'danger' : undefined}
 						detail={activeDetails ? <FailedDetailView data={activeDetails.failed} /> : undefined}
-						onClick={
-							onPillClick && active.failedCount > 0 ? () => handleClick('failed') : undefined
-						}
-						disabled={active.failedCount === 0}
 					>
 						{formatCount(active.failedCount)}
 					</Pill>
@@ -149,12 +132,10 @@ interface PillProps {
 	name: string;
 	accent?: 'warn' | 'danger';
 	detail?: React.ReactNode;
-	onClick?: () => void;
-	disabled?: boolean;
 	children: React.ReactNode;
 }
 
-function Pill({ icon, label, name, accent, detail, onClick, disabled, children }: PillProps) {
+function Pill({ icon, label, name, accent, detail, children }: PillProps) {
 	const accentClass =
 		accent === 'warn'
 			? 'text-amber-500'
@@ -162,44 +143,18 @@ function Pill({ icon, label, name, accent, detail, onClick, disabled, children }
 				? 'text-destructive'
 				: 'text-foreground';
 
-	const baseClass = `flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs ${accentClass}`;
-	const interactiveClass =
-		onClick && !disabled
-			? 'cursor-pointer hover:ring-2 hover:ring-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'
-			: '';
-	const disabledClass = disabled ? 'cursor-default opacity-60' : '';
-
-	const innerContent = (
-		<>
-			<LucideIcon name={icon} className="h-3.5 w-3.5" />
-			<span>{children}</span>
-		</>
-	);
-
-	const trigger =
-		onClick && !disabled ? (
-			<button
-				type="button"
-				data-pill={name}
-				className={`${baseClass} ${interactiveClass}`}
-				onClick={onClick}
-			>
-				{innerContent}
-			</button>
-		) : (
-			<span
-				data-pill={name}
-				aria-disabled={disabled ? 'true' : undefined}
-				className={`${baseClass} ${disabledClass}`}
-			>
-				{innerContent}
-			</span>
-		);
-
 	return (
 		<TooltipProvider>
 			<Tooltip>
-				<TooltipTrigger asChild>{trigger}</TooltipTrigger>
+				<TooltipTrigger asChild>
+					<span
+						data-pill={name}
+						className={`flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs ${accentClass}`}
+					>
+						<LucideIcon name={icon} className="h-3.5 w-3.5" />
+						<span>{children}</span>
+					</span>
+				</TooltipTrigger>
 				<TooltipContent side="bottom" className="max-w-sm">
 					{detail ?? label}
 				</TooltipContent>
@@ -219,8 +174,6 @@ const SECTION_LABEL = 'mb-1.5 text-[10px] uppercase tracking-[0.08em] text-muted
 const ROW = 'flex items-center gap-2 text-xs';
 const RANK = 'w-5 shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/60';
 const NUM = 'font-mono tabular-nums shrink-0';
-const FOOTER_HINT =
-	'mt-2.5 -mx-3 -mb-2 px-3 pt-2 pb-1.5 border-t border-border/60 text-[10px] text-blue-400/90';
 const EMPTY = 'text-xs text-muted-foreground italic';
 
 // Strip protocol pra ganhar caracteres úteis no truncamento.
@@ -366,7 +319,6 @@ function SlowDetailView({ data }: { data: SlowDetail }) {
 					</div>
 				))}
 			</div>
-			<div className={FOOTER_HINT}>→ Click pra abrir no Command Center</div>
 		</div>
 	);
 }
@@ -396,7 +348,6 @@ function FailedDetailView({ data }: { data: FailedDetail }) {
 					</div>
 				))}
 			</div>
-			<div className={FOOTER_HINT}>→ Click pra abrir no Command Center</div>
 		</div>
 	);
 }
