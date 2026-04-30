@@ -1,3 +1,9 @@
+## [0.6.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.5.1...v0.6.0) (2026-04-30)
+
+### Features
+
+* **networkMetricsBar:** métricas de rede no header com hover popovers ([#62](https://github.com/guichafy/chrome-extension-debug-buddy/issues/62)) ([0f7696d](https://github.com/guichafy/chrome-extension-debug-buddy/commit/0f7696dfbac630120dd19402f22d759d3a3ed3a8))
+
 ## [0.5.1](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.5.0...v0.5.1) (2026-04-29)
 
 ### Performance
