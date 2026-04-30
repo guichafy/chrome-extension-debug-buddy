@@ -53,7 +53,7 @@ const Layout: React.FC = () => {
 	return (
 		<SidebarProvider>
 			<AppSidebar variant="inset" />
-			<SidebarInset>
+			<SidebarInset className="min-w-0 overflow-hidden">
 				<SelectTabDialog
 					open={selectTabDialogOpen}
 					onOpenChange={setSelectTabDialogOpen}
@@ -71,7 +71,7 @@ const Layout: React.FC = () => {
 					currentPageDetails={metrics.currentPageDetails}
 				/>
 
-				<div className="main-content-container flex-1 min-h-0 overflow-hidden">
+				<div className="main-content-container flex-1 min-h-0 min-w-0 overflow-hidden">
 					<Suspense fallback={<RouteFallback />}>
 						<Outlet />
 					</Suspense>

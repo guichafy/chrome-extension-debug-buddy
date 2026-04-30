@@ -92,6 +92,23 @@ describe('RequestInspector', () => {
 		expect(screen.getByTestId('awaiting-decision-badge')).toBeInTheDocument();
 	});
 
+	test('badge "Aguardando decisão" e split button "Aprovar" ficam na mesma linha (status row)', () => {
+		render(
+			<RequestInspector
+				request={baseRequest({ isWaiting: true })}
+				requestId="r1"
+				rules={[]}
+				{...noopHandlers}
+			/>,
+		);
+		const statusRow = screen.getByTestId('request-inspector-status-row');
+		// Os dois elementos precisam ser descendentes da mesma linha — assim o
+		// usuário enxerga "Aguardando decisão" + ações de decisão num único foco.
+		expect(statusRow).toContainElement(screen.getByTestId('awaiting-decision-badge'));
+		expect(statusRow).toContainElement(screen.getByTestId('pending-actions-approve'));
+		expect(statusRow).toContainElement(screen.getByTestId('pending-actions-more'));
+	});
+
 	test('mostra indicador "Resolvida" e esconde split button quando isWaiting!=true', () => {
 		render(
 			<RequestInspector

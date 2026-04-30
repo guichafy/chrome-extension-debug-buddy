@@ -181,10 +181,10 @@ const CommandCenter: React.FC = () => {
 	});
 
 	return (
-		<div className="flex h-full min-h-0 flex-col lg:flex-row">
+		<div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden lg:flex-row">
 			<section
 				className={cn(
-					'flex min-h-0 flex-col gap-3 overflow-hidden p-4',
+					'flex min-h-0 min-w-0 flex-col gap-3 overflow-hidden p-4',
 					selected ? 'lg:w-[28%] lg:min-w-[320px] lg:flex-shrink-0' : 'flex-1',
 				)}
 			>
