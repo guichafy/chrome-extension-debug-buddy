@@ -12,7 +12,12 @@ import type { ActionType } from '@/types/rules';
 
 export type RulesActionFilter = 'all' | ActionType;
 
-export type RulesSortOption = 'updated_desc' | 'updated_asc' | 'name_asc' | 'status_active_first';
+export type RulesSortOption =
+	| 'priority_asc'
+	| 'updated_desc'
+	| 'updated_asc'
+	| 'name_asc'
+	| 'status_active_first';
 
 interface RulesToolbarProps {
 	search: string;
@@ -33,6 +38,7 @@ const FILTER_OPTIONS: { id: RulesActionFilter; label: string }[] = [
 ];
 
 const SORT_LABELS: Record<RulesSortOption, string> = {
+	priority_asc: 'Prioridade (manual)',
 	updated_desc: 'Atualizado (mais recente)',
 	updated_asc: 'Atualizado (mais antigo)',
 	name_asc: 'Nome (A → Z)',

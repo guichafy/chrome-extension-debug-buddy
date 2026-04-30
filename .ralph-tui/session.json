@@ -3,10 +3,10 @@
   "sessionId": "d9b54d10-2e9e-45e2-b59c-e0505fe3348c",
   "status": "running",
   "startedAt": "2026-04-30T06:03:33.753Z",
-  "updatedAt": "2026-04-30T07:17:38.685Z",
-  "currentIteration": 10,
+  "updatedAt": "2026-04-30T07:28:10.628Z",
+  "currentIteration": 11,
   "maxIterations": 0,
-  "tasksCompleted": 10,
+  "tasksCompleted": 11,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -89,8 +89,8 @@
       {
         "id": "chrome-extension-debug-buddy-jc0.13",
         "title": "US-013: Editor de acao Mock com status, headers e body",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "chrome-extension-debug-buddy-jc0.14",
@@ -224,6 +224,16 @@
       "durationMs": 302736,
       "startedAt": "2026-04-30T07:05:42.154Z",
       "endedAt": "2026-04-30T07:10:44.890Z"
+    },
+    {
+      "iteration": 11,
+      "status": "completed",
+      "taskId": "chrome-extension-debug-buddy-jc0.13",
+      "taskTitle": "US-013: Editor de acao Mock com status, headers e body",
+      "taskCompleted": true,
+      "durationMs": 402382,
+      "startedAt": "2026-04-30T07:10:55.397Z",
+      "endedAt": "2026-04-30T07:17:37.779Z"
     }
   ],
   "skippedTaskIds": [],

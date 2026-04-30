@@ -22,12 +22,13 @@ interface SaveToastState {
 }
 
 function RulesLab() {
-	const { rules, addRule, updateRule, removeRule, toggleRuleEnabled } = useRules();
+	const { rules, addRule, updateRule, removeRule, toggleRuleEnabled, reorderRules, moveRule } =
+		useRules();
 	const [editingRule, setEditingRule] = useState<Rule | null>(null);
 	const [isCreating, setIsCreating] = useState(false);
 	const [search, setSearch] = useState('');
 	const [actionFilter, setActionFilter] = useState<RulesActionFilter>('all');
-	const [sort, setSort] = useState<RulesSortOption>('updated_desc');
+	const [sort, setSort] = useState<RulesSortOption>('priority_asc');
 	const [importPreview, setImportPreview] = useState<Rule[] | null>(null);
 	const [importError, setImportError] = useState<string | null>(null);
 	const [saveToast, setSaveToast] = useState<SaveToastState | null>(null);
@@ -86,6 +87,9 @@ function RulesLab() {
 
 		const sorted = [...filtered];
 		switch (sort) {
+			case 'priority_asc':
+				// Mantém a ordem do array `rules` (prioridade de matching).
+				break;
 			case 'updated_desc':
 				sorted.sort((a, b) => b.updatedAt - a.updatedAt);
 				break;
@@ -104,6 +108,10 @@ function RulesLab() {
 		}
 		return sorted;
 	}, [rules, search, actionFilter, sort]);
+
+	// Drag-and-drop só é seguro quando a ordem visível casa com a ordem do array
+	// `rules` — ou seja, sem busca/filtro e ordenação por prioridade.
+	const canReorder = sort === 'priority_asc' && search.trim() === '' && actionFilter === 'all';
 
 	const subtitle = useMemo(() => {
 		if (rules.length === 0) return 'Nenhuma regra configurada';
@@ -190,6 +198,9 @@ function RulesLab() {
 							onRemove={removeRule}
 							onDuplicate={handleDuplicate}
 							onToggle={toggleRuleEnabled}
+							canReorder={canReorder}
+							onReorder={(fromId, toId, position) => reorderRules(fromId, toId, position)}
+							onMove={(id, direction) => moveRule(id, direction)}
 						/>
 					</>
 				)}

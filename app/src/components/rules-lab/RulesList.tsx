@@ -15,6 +15,9 @@ interface RulesListProps {
 	onRemove: (id: string) => void;
 	onDuplicate: (rule: Rule) => void;
 	onToggle: (id: string) => void;
+	canReorder?: boolean;
+	onReorder?: (fromId: string, toId: string, position: 'before' | 'after') => void;
+	onMove?: (id: string, direction: 'up' | 'down') => void;
 }
 
 export function RulesList({
@@ -25,8 +28,12 @@ export function RulesList({
 	onRemove,
 	onDuplicate,
 	onToggle,
+	canReorder = false,
+	onReorder,
+	onMove,
 }: RulesListProps) {
 	const [page, setPage] = useState(0);
+	const [draggingId, setDraggingId] = useState<string | null>(null);
 
 	const totalPages = Math.max(1, Math.ceil(rules.length / PAGE_SIZE));
 
@@ -54,6 +61,15 @@ export function RulesList({
 
 	return (
 		<div className="flex flex-col">
+			{canReorder && (
+				<div
+					className="flex items-center gap-1.5 border-b bg-muted/30 px-4 py-1.5 text-[11px] text-muted-foreground"
+					data-testid="rules-reorder-hint"
+				>
+					<LucideIcon name="grip-vertical" className="h-3 w-3" />
+					Arraste pelo manípulo ou use Ctrl/Cmd + ↑/↓ para reordenar a prioridade.
+				</div>
+			)}
 			<Table data-testid="rules-table">
 				<TableHeader>
 					<TableRow className="hover:bg-transparent">
@@ -90,6 +106,17 @@ export function RulesList({
 							onRemove={onRemove}
 							onDuplicate={onDuplicate}
 							onToggle={onToggle}
+							canReorder={canReorder}
+							draggingId={draggingId}
+							onReorderDragStart={(id) => setDraggingId(id)}
+							onReorderDrop={(toId, position) => {
+								if (draggingId && draggingId !== toId) {
+									onReorder?.(draggingId, toId, position);
+								}
+								setDraggingId(null);
+							}}
+							onReorderEnd={() => setDraggingId(null)}
+							onMove={onMove}
 						/>
 					))}
 				</TableBody>

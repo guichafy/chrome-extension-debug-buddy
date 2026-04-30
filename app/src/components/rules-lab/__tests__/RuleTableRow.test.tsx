@@ -78,4 +78,34 @@ describe('RuleTableRow', () => {
 		fireEvent.click(screen.getByRole('button', { name: 'Excluir regra' }));
 		expect(props.onRemove).toHaveBeenCalledWith('r1');
 	});
+
+	test('por padrão (canReorder=false) não renderiza handle de drag e linha não é arrastável', () => {
+		renderRow();
+		expect(screen.queryByTestId('rule-drag-handle-r1')).not.toBeInTheDocument();
+		const row = screen.getByTestId('rule-row-r1');
+		expect(row).not.toHaveAttribute('draggable', 'true');
+	});
+
+	test('canReorder=true renderiza handle de drag e marca linha como draggable', () => {
+		const props = {
+			rule: baseRule,
+			order: 1,
+			onEdit: vi.fn(),
+			onRemove: vi.fn(),
+			onDuplicate: vi.fn(),
+			onToggle: vi.fn(),
+			canReorder: true,
+		};
+		render(
+			<Table>
+				<TableBody>
+					<RuleTableRow {...props} />
+				</TableBody>
+			</Table>,
+		);
+		expect(screen.getByTestId('rule-drag-handle-r1')).toBeInTheDocument();
+		const row = screen.getByTestId('rule-row-r1');
+		expect(row).toHaveAttribute('draggable', 'true');
+		expect(row).toHaveAttribute('tabIndex', '0');
+	});
 });
