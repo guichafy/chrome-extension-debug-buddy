@@ -173,4 +173,84 @@ describe('RequestInspector', () => {
 		);
 		expect(screen.queryByRole('tab', { name: /^Body$/i })).toBeNull();
 	});
+
+	test('mostra descrição do breakpoint quando isWaiting=true e regra breakpoint casa', () => {
+		const breakpointRule = {
+			id: 'r-bp',
+			name: 'Pausar autenticação',
+			enabled: true,
+			matchers: [
+				{ type: 'url', enabled: true, pattern: 'api.example.com/users', isRegex: false },
+				{ type: 'method', enabled: true, method: 'GET' },
+			],
+			action: {
+				type: 'breakpoint',
+				enabled: true,
+				description: 'Verificar token de autenticação antes de continuar',
+			},
+			createdAt: 1,
+			updatedAt: 1,
+		} as any;
+		render(
+			<RequestInspector
+				request={baseRequest({ isWaiting: true })}
+				requestId="r1"
+				rules={[breakpointRule]}
+				{...noopHandlers}
+			/>,
+		);
+
+		const banner = screen.getByTestId('breakpoint-description-banner');
+		expect(banner).toBeInTheDocument();
+		expect(banner).toHaveTextContent('Breakpoint pausou esta requisição');
+		expect(banner).toHaveTextContent('Verificar token de autenticação antes de continuar');
+	});
+
+	test('não mostra banner de breakpoint quando regra breakpoint casa mas não tem descrição', () => {
+		const breakpointRule = {
+			id: 'r-bp',
+			name: 'Sem descrição',
+			enabled: true,
+			matchers: [
+				{ type: 'url', enabled: true, pattern: 'api.example.com/users', isRegex: false },
+				{ type: 'method', enabled: true, method: 'GET' },
+			],
+			action: { type: 'breakpoint', enabled: true },
+			createdAt: 1,
+			updatedAt: 1,
+		} as any;
+		render(
+			<RequestInspector
+				request={baseRequest({ isWaiting: true })}
+				requestId="r1"
+				rules={[breakpointRule]}
+				{...noopHandlers}
+			/>,
+		);
+		expect(screen.queryByTestId('breakpoint-description-banner')).toBeNull();
+	});
+
+	test('não mostra banner de breakpoint quando isWaiting=false mesmo com regra casando', () => {
+		const breakpointRule = {
+			id: 'r-bp',
+			name: 'Com descrição',
+			enabled: true,
+			matchers: [
+				{ type: 'url', enabled: true, pattern: 'api.example.com/users', isRegex: false },
+				{ type: 'method', enabled: true, method: 'GET' },
+			],
+			action: { type: 'breakpoint', enabled: true, description: 'desc' },
+			createdAt: 1,
+			updatedAt: 1,
+		} as any;
+		render(
+			<RequestInspector
+				request={baseRequest({ isWaiting: false })}
+				requestId="r1"
+				rules={[breakpointRule]}
+				{...noopHandlers}
+			/>,
+		);
+		expect(screen.queryByTestId('breakpoint-description-banner')).toBeNull();
+	});
 });

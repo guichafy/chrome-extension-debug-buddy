@@ -1,12 +1,17 @@
 import { describe, expect, test } from 'vitest';
-import type { Action, Matcher } from '@/types/rules';
-import { getActionSummary, getActionVisuals, getMatcherSummary } from '../ruleVisuals';
+import type { Action, Matcher, Rule } from '@/types/rules';
+import {
+	getActionSummary,
+	getActionVisuals,
+	getMatcherSummary,
+	getRuleMethods,
+} from '../ruleVisuals';
 
 describe('getActionVisuals', () => {
 	test.each([
 		['mock', 'server-crash'],
 		['delay', 'timer'],
-		['modify', 'file-edit'],
+		['transform', 'file-edit'],
 		['breakpoint', 'octagon-alert'],
 	])('retorna ícone certo para action %s', (type, iconName) => {
 		const action = buildAction(type as Action['type']);
@@ -45,6 +50,67 @@ describe('getActionSummary', () => {
 
 	test('delay action devolve "Atrasar Xms"', () => {
 		expect(getActionSummary({ type: 'delay', enabled: true, timeMs: 750 })).toBe('Atrasar 750ms');
+	});
+
+	test('transform com operações declarativas mostra contagem', () => {
+		expect(
+			getActionSummary({
+				type: 'transform',
+				enabled: true,
+				mode: 'declarative',
+				operations: [
+					{ id: 'a', type: 'replace', path: '$.x', value: '1' },
+					{ id: 'b', type: 'remove', path: '$.y' },
+				],
+			}),
+		).toBe('Transform · 2 operações');
+	});
+
+	test('transform com 1 operação usa singular', () => {
+		expect(
+			getActionSummary({
+				type: 'transform',
+				enabled: true,
+				mode: 'declarative',
+				operations: [{ id: 'a', type: 'replace', path: '$.x', value: '1' }],
+			}),
+		).toBe('Transform · 1 operação');
+	});
+
+	test('transform sem operações cai no resumo padrão', () => {
+		expect(getActionSummary({ type: 'transform', enabled: true })).toBe('Transform resposta');
+		expect(getActionSummary({ type: 'transform', enabled: true, status: 500 })).toBe(
+			'Transform (status 500)',
+		);
+	});
+
+	test('transform em modo avançado com script mostra "script avançado"', () => {
+		expect(
+			getActionSummary({
+				type: 'transform',
+				enabled: true,
+				mode: 'advanced',
+				advancedScript: 'return response;',
+			}),
+		).toBe('Transform · script avançado');
+	});
+
+	test('transform em modo avançado sem script mostra "script vazio"', () => {
+		expect(
+			getActionSummary({
+				type: 'transform',
+				enabled: true,
+				mode: 'advanced',
+				advancedScript: '',
+			}),
+		).toBe('Transform · script vazio');
+		expect(
+			getActionSummary({
+				type: 'transform',
+				enabled: true,
+				mode: 'advanced',
+			}),
+		).toBe('Transform · script vazio');
 	});
 
 	test('breakpoint sem descrição', () => {
@@ -93,14 +159,53 @@ describe('getMatcherSummary', () => {
 	});
 });
 
+describe('getRuleMethods', () => {
+	function buildRule(matchers: Matcher[]): Rule {
+		return {
+			id: 'r1',
+			name: 'rule',
+			enabled: true,
+			matchers,
+			action: { type: 'mock', enabled: true, status: 200, headers: {} },
+			createdAt: 1,
+			updatedAt: 1,
+		};
+	}
+
+	test('retorna ["ANY"] quando não há MethodMatcher', () => {
+		const rule = buildRule([{ type: 'url', enabled: true, pattern: '/x', isRegex: false }]);
+		expect(getRuleMethods(rule)).toEqual(['ANY']);
+	});
+
+	test('retorna ["ANY"] quando MethodMatcher está desabilitado', () => {
+		const rule = buildRule([{ type: 'method', enabled: false, method: 'GET' }]);
+		expect(getRuleMethods(rule)).toEqual(['ANY']);
+	});
+
+	test('retorna método em UPPERCASE para MethodMatcher string', () => {
+		const rule = buildRule([{ type: 'method', enabled: true, method: 'get' }]);
+		expect(getRuleMethods(rule)).toEqual(['GET']);
+	});
+
+	test('expande array de métodos preservando ordem e dedupe', () => {
+		const rule = buildRule([{ type: 'method', enabled: true, method: ['POST', 'PUT', 'POST'] }]);
+		expect(getRuleMethods(rule)).toEqual(['POST', 'PUT']);
+	});
+
+	test('inclui ANY quando o matcher tem ANY explicitamente', () => {
+		const rule = buildRule([{ type: 'method', enabled: true, method: ['ANY', 'GET'] }]);
+		expect(getRuleMethods(rule)).toEqual(['ANY', 'GET']);
+	});
+});
+
 function buildAction(type: Action['type']): Action {
 	switch (type) {
 		case 'mock':
 			return { type: 'mock', enabled: true, status: 200, headers: {} };
 		case 'delay':
 			return { type: 'delay', enabled: true, timeMs: 100 };
-		case 'modify':
-			return { type: 'modify', enabled: true };
+		case 'transform':
+			return { type: 'transform', enabled: true };
 		case 'breakpoint':
 			return { type: 'breakpoint', enabled: true };
 	}

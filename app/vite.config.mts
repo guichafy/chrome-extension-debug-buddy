@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => ({
       input: {
         options: path.resolve(__dirname, 'options.html'),
         sidepanel: path.resolve(__dirname, 'sidepanel.html'),
+        sandbox: path.resolve(__dirname, 'sandbox.html'),
         background: path.resolve(__dirname, 'src/entrypoints/background.ts'),
         main: path.resolve(__dirname, 'src/entrypoints/options/main.tsx'),
       },

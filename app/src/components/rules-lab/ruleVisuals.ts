@@ -1,11 +1,12 @@
 import type { LucideIconName } from '@/components/ui/lucide-icon';
-import type { Action, Matcher } from '@/types/rules';
+import type { Action, Matcher, Rule } from '@/types/rules';
 
 export interface ActionVisuals {
 	iconName: LucideIconName;
 	label: string;
 	bgClass: string;
 	textClass: string;
+	borderClass: string;
 }
 
 export function getActionVisuals(action: Action): ActionVisuals {
@@ -16,6 +17,7 @@ export function getActionVisuals(action: Action): ActionVisuals {
 				label: 'Mock',
 				bgClass: 'bg-violet-500/10',
 				textClass: 'text-violet-300',
+				borderClass: 'border-violet-500/30',
 			};
 		case 'delay':
 			return {
@@ -23,13 +25,15 @@ export function getActionVisuals(action: Action): ActionVisuals {
 				label: 'Latência',
 				bgClass: 'bg-amber-500/10',
 				textClass: 'text-amber-300',
+				borderClass: 'border-amber-500/30',
 			};
-		case 'modify':
+		case 'transform':
 			return {
 				iconName: 'file-edit',
-				label: 'Modificar',
+				label: 'Transform',
 				bgClass: 'bg-sky-500/10',
 				textClass: 'text-sky-300',
+				borderClass: 'border-sky-500/30',
 			};
 		case 'breakpoint':
 			return {
@@ -37,6 +41,7 @@ export function getActionVisuals(action: Action): ActionVisuals {
 				label: 'Breakpoint',
 				bgClass: 'bg-rose-500/10',
 				textClass: 'text-rose-300',
+				borderClass: 'border-rose-500/30',
 			};
 		default: {
 			const exhaustive: never = action;
@@ -58,8 +63,17 @@ export function getActionSummary(action: Action): string {
 		}
 		case 'delay':
 			return `Atrasar ${action.timeMs}ms`;
-		case 'modify':
-			return action.status ? `Modificar (status ${action.status})` : 'Modificar resposta';
+		case 'transform': {
+			if (action.mode === 'advanced') {
+				const hasScript = (action.advancedScript ?? '').trim().length > 0;
+				return hasScript ? 'Transform · script avançado' : 'Transform · script vazio';
+			}
+			const opsCount = action.operations?.length ?? 0;
+			if (opsCount > 0) {
+				return `Transform · ${opsCount} ${opsCount === 1 ? 'operação' : 'operações'}`;
+			}
+			return action.status ? `Transform (status ${action.status})` : 'Transform resposta';
+		}
 		case 'breakpoint':
 			return action.description ? `Breakpoint — ${action.description}` : 'Breakpoint';
 		default: {
@@ -76,8 +90,12 @@ export function getMatcherSummary(matchers: Matcher[]): string {
 
 	const parts: string[] = [];
 
-	if (method && method.type === 'method' && method.method !== 'ANY') {
-		parts.push(method.method);
+	if (method && method.type === 'method') {
+		const methods = Array.isArray(method.method) ? method.method : [method.method];
+		const explicit = methods.filter((m) => m && m !== 'ANY');
+		if (explicit.length > 0) {
+			parts.push(explicit.join('|'));
+		}
 	}
 
 	if (url && url.type === 'url') {
@@ -96,4 +114,23 @@ export function getMatcherSummary(matchers: Matcher[]): string {
 	}
 
 	return parts.join(' ');
+}
+
+// Coleciona os métodos HTTP configurados nos MethodMatchers habilitados de uma
+// regra (sempre em UPPERCASE). Se nenhum MethodMatcher estiver habilitado ou
+// nenhum método tiver sido informado, retorna `['ANY']` para refletir que a
+// regra casa qualquer método. Usado pelo filtro multi-seleção na listagem.
+export function getRuleMethods(rule: Rule): string[] {
+	const methods: string[] = [];
+	for (const matcher of rule.matchers) {
+		if (matcher.type !== 'method' || !matcher.enabled) continue;
+		const arr = Array.isArray(matcher.method) ? matcher.method : [matcher.method];
+		for (const value of arr) {
+			if (!value) continue;
+			const upper = String(value).toUpperCase();
+			if (!methods.includes(upper)) methods.push(upper);
+		}
+	}
+	if (methods.length === 0) return ['ANY'];
+	return methods;
 }

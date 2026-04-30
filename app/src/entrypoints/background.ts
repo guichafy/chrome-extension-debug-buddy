@@ -1,5 +1,9 @@
 import { indexedDBService } from '@/lib/indexedDB';
-import { runLegacyMigration } from '@/lib/legacyMigration';
+import {
+	runEnabledBackfillMigration,
+	runLegacyMigration,
+	runModifyToTransformMigration,
+} from '@/lib/legacyMigration';
 import { NetworkTimingTracker } from '@/lib/networkTiming';
 import type {
 	InterceptedResponse,
@@ -74,6 +78,14 @@ async function loadSessionMarker(): Promise<void> {
 // mais da UI estar montada para persistir — assim, navegar entre rotas durante
 // interceptação não perde dado (era a causa raiz do "request interceptada some
 // do histórico" e do issue #4).
+
+// Prioridade de matching: o array `rules` é a ordem oficial de avaliação.
+// `findMatchingRuleAction` (em `domain/ruleMatching`) itera nessa mesma
+// ordem e devolve a PRIMEIRA regra cuja matcher casa o request — "primeira
+// que casa vence". A ordem do array reflete o que o usuário vê e arrasta na
+// UI; `chrome.storage.onChanged` reabsorve a nova ordem em tempo real.
+// Regras com `enabled === false` ou `action.enabled === false` são puladas
+// e não bloqueiam regras subsequentes.
 
 function broadcastToUI(action: string, payload: Record<string, unknown>): void {
 	if (interceptorTabId === null) return;
@@ -154,13 +166,23 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 	if (result.migrated) {
 		console.log('[background] Legacy storage migrated to rules format.');
 	}
+	const transformResult = await runModifyToTransformMigration();
+	if (transformResult.migrated) {
+		console.log(`[background] Renamed ${transformResult.renamed} modify rules to transform.`);
+	}
+	const enabledResult = await runEnabledBackfillMigration();
+	if (enabledResult.migrated) {
+		console.log(`[background] Backfilled enabled em ${enabledResult.backfilled} regras.`);
+	}
 });
 
 // Roda a migração também no startup do navegador (extensão já instalada).
-// Idempotente — runLegacyMigration() checa legacy_migrated_at antes de agir.
+// Idempotente — cada runner checa seu próprio flag antes de agir.
 chrome.runtime.onStartup.addListener(async () => {
 	console.log('[background] onStartup');
 	await runLegacyMigration();
+	await runModifyToTransformMigration();
+	await runEnabledBackfillMigration();
 });
 
 // Listener para mudanças no storage (para atualizar regras em tempo real)

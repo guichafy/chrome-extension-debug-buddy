@@ -16,7 +16,7 @@ const baseRule: Rule = {
 describe('RuleEditor welcome flow', () => {
 	test('mode=create abre na welcome screen', () => {
 		render(<RuleEditor open mode="create" onOpenChange={vi.fn()} onSave={vi.fn()} />);
-		expect(screen.getByText('Comece de um preset ou em branco.')).toBeInTheDocument();
+		expect(screen.getByText('Comece do zero ou escolha um template.')).toBeInTheDocument();
 		expect(screen.getByTestId('preset-blank')).toBeInTheDocument();
 	});
 
@@ -29,23 +29,31 @@ describe('RuleEditor welcome flow', () => {
 
 	test('clicar preset transita para editor com nome do preset preenchido', () => {
 		render(<RuleEditor open mode="create" onOpenChange={vi.fn()} onSave={vi.fn()} />);
-		fireEvent.click(screen.getByTestId('preset-http_error_500'));
+		fireEvent.click(screen.getByTestId('preset-mock_500'));
 
 		expect(screen.queryByTestId('preset-blank')).not.toBeInTheDocument();
 		expect(screen.getByLabelText(/Nome da Regra/)).toHaveValue('Erro 500 (Internal Server Error)');
 		expect(screen.getByRole('button', { name: /Voltar/ })).toBeInTheDocument();
 	});
 
-	test('preset selecionado bloqueia save com URL vazia', () => {
+	test('preset selecionado bloqueia save com URL vazia (botao desabilitado + erro listado)', () => {
 		const onSave = vi.fn().mockResolvedValue(true);
-		const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
 		render(<RuleEditor open mode="create" onOpenChange={vi.fn()} onSave={onSave} />);
-		fireEvent.click(screen.getByTestId('preset-http_error_500'));
+		fireEvent.click(screen.getByTestId('preset-mock_500'));
 
-		fireEvent.click(screen.getByRole('button', { name: /Adicionar/ }));
-		expect(alertSpy).toHaveBeenCalledWith('Preencha o padrão da URL antes de salvar');
+		// Wizard linear: avanca ate o ultimo step para conseguir clicar em Adicionar
+		fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
+		fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
+		fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
+
+		const saveBtn = screen.getByRole('button', { name: /Adicionar/ });
+		expect(saveBtn).toBeDisabled();
+		expect(screen.getByTestId('rule-wizard-errors')).toHaveTextContent(
+			'Preencha o padrão da URL antes de salvar',
+		);
+
+		fireEvent.click(saveBtn);
 		expect(onSave).not.toHaveBeenCalled();
-		alertSpy.mockRestore();
 	});
 
 	test('clicar "Em branco" transita para editor com defaults', () => {
@@ -58,7 +66,7 @@ describe('RuleEditor welcome flow', () => {
 
 	test('clicar "Voltar" no editor retorna para welcome (apenas em create)', () => {
 		render(<RuleEditor open mode="create" onOpenChange={vi.fn()} onSave={vi.fn()} />);
-		fireEvent.click(screen.getByTestId('preset-http_error_500'));
+		fireEvent.click(screen.getByTestId('preset-mock_500'));
 		expect(screen.queryByTestId('preset-blank')).not.toBeInTheDocument();
 
 		fireEvent.click(screen.getByRole('button', { name: /Voltar/ }));

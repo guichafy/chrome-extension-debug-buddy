@@ -65,3 +65,8 @@ dist/last-update.json
 
 # Superpowers brainstorming companion (per-session mockups)
 .superpowers/
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key

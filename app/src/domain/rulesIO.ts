@@ -2,7 +2,7 @@ import type { Action, ActionType, Matcher, MatcherType, Rule } from '@/types/rul
 
 const CURRENT_SCHEMA_VERSION = 1;
 
-const ACTION_TYPES: ReadonlySet<ActionType> = new Set(['mock', 'delay', 'modify', 'breakpoint']);
+const ACTION_TYPES: ReadonlySet<ActionType> = new Set(['mock', 'delay', 'transform', 'breakpoint']);
 
 const MATCHER_TYPES: ReadonlySet<MatcherType> = new Set(['url', 'method', 'header', 'body']);
 

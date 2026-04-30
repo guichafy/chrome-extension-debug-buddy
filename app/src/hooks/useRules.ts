@@ -75,6 +75,50 @@ export function useRules() {
 		[rules],
 	);
 
+	// Duplicar uma regra existente: cria uma nova com novo `id`, sufixo
+	// "(cópia)" no nome, `enabled: false` (para evitar duplicação acidental
+	// de comportamento), e a insere imediatamente após a regra original na
+	// ordem do array — preservando a prioridade de matching.
+	const duplicateRule = useCallback(
+		async (id: string): Promise<Rule | null> => {
+			try {
+				const sourceIndex = rules.findIndex((rule) => rule.id === id);
+				if (sourceIndex === -1) {
+					console.error(`Regra com ID ${id} não encontrada`);
+					return null;
+				}
+
+				const source = rules[sourceIndex];
+				const now = Date.now();
+				// Deep clone defensivo: evita compartilhamento de referências
+				// entre original e cópia em estado in-memory antes do round-trip
+				// via chrome.storage (que serializa para JSON).
+				const clonedMatchers: Matcher[] = JSON.parse(JSON.stringify(source.matchers));
+				const clonedAction: Action = JSON.parse(JSON.stringify(source.action));
+
+				const cloned: Rule = {
+					id: uuidv4(),
+					name: `${source.name} (cópia)`,
+					enabled: false,
+					matchers: clonedMatchers,
+					action: clonedAction,
+					createdAt: now,
+					updatedAt: now,
+				};
+
+				const newRules = [...rules];
+				newRules.splice(sourceIndex + 1, 0, cloned);
+				await chrome.storage.local.set({ rules: newRules });
+				setRules(newRules);
+				return cloned;
+			} catch (error) {
+				console.error('Erro ao duplicar regra:', error);
+				return null;
+			}
+		},
+		[rules],
+	);
+
 	// Remover uma regra pelo ID
 	const removeRule = useCallback(
 		async (id: string): Promise<boolean> => {
@@ -120,6 +164,59 @@ export function useRules() {
 		[rules],
 	);
 
+	// Reordenar regras: move a regra `fromId` para a posição da regra `toId`.
+	// Quando `position === 'before'` insere antes do alvo; `'after'` insere depois.
+	// A ordem do array reflete a prioridade de matching (primeira que casa vence).
+	const reorderRules = useCallback(
+		async (fromId: string, toId: string, position: 'before' | 'after'): Promise<boolean> => {
+			if (fromId === toId) return false;
+			try {
+				const fromIndex = rules.findIndex((r) => r.id === fromId);
+				const toIndex = rules.findIndex((r) => r.id === toId);
+				if (fromIndex === -1 || toIndex === -1) return false;
+
+				const newRules = [...rules];
+				const [moved] = newRules.splice(fromIndex, 1);
+				// Recalcula índice do alvo após remoção
+				const adjustedToIndex = toIndex > fromIndex ? toIndex - 1 : toIndex;
+				const insertAt = position === 'after' ? adjustedToIndex + 1 : adjustedToIndex;
+				newRules.splice(insertAt, 0, moved);
+				if (newRules.findIndex((r) => r.id === fromId) === fromIndex) return false;
+
+				await chrome.storage.local.set({ rules: newRules });
+				setRules(newRules);
+				return true;
+			} catch (error) {
+				console.error('Erro ao reordenar regras:', error);
+				return false;
+			}
+		},
+		[rules],
+	);
+
+	// Mover uma regra uma posição para cima ou para baixo (atalho de teclado).
+	const moveRule = useCallback(
+		async (id: string, direction: 'up' | 'down'): Promise<boolean> => {
+			try {
+				const index = rules.findIndex((r) => r.id === id);
+				if (index === -1) return false;
+				const target = direction === 'up' ? index - 1 : index + 1;
+				if (target < 0 || target >= rules.length) return false;
+
+				const newRules = [...rules];
+				const [moved] = newRules.splice(index, 1);
+				newRules.splice(target, 0, moved);
+				await chrome.storage.local.set({ rules: newRules });
+				setRules(newRules);
+				return true;
+			} catch (error) {
+				console.error('Erro ao mover regra:', error);
+				return false;
+			}
+		},
+		[rules],
+	);
+
 	// Carregar regras ao montar o componente. A migração de dados legados
 	// (urlPatterns/mocks) é responsabilidade do background — ver
 	// app/src/lib/legacyMigration.ts.
@@ -142,6 +239,9 @@ export function useRules() {
 		addRule,
 		updateRule,
 		removeRule,
+		duplicateRule,
 		toggleRuleEnabled,
+		reorderRules,
+		moveRule,
 	};
 }

@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LucideIcon } from '@/components/ui/lucide-icon';
 import type { InterceptedResponse, ResponseModifications } from '@/types/intercepted';
 import type { Rule } from '@/types/rules';
+import { findMatchingRuleAction } from '@/domain/ruleMatching';
 import { formatDuration } from '@/components/requests/duration';
 import { buildReplayView } from '@/lib/replayHistory';
 import { BodyViewer } from './BodyViewer';
@@ -49,6 +50,23 @@ export function RequestInspector({
 	const requestHeaders = request.request?.headers ?? {};
 	const responseBody = request.response?.body ?? request.body;
 	const isPending = request.isWaiting === true;
+
+	// Quando o request foi pausado por uma regra breakpoint, localizamos a regra
+	// que casou para exibir sua descricao logo no topo do inspector. Sem fallback
+	// silencioso: se nenhuma regra casar (ex.: regra removida apos a pausa) o
+	// bloco simplesmente nao e renderizado.
+	const matchedBreakpoint = isPending
+		? findMatchingRuleAction(rules, {
+				url: request.url,
+				method: request.method ?? '',
+				headers: requestHeaders,
+				body: request.request?.postData,
+			})
+		: undefined;
+	const breakpointDescription =
+		matchedBreakpoint?.type === 'breakpoint'
+			? matchedBreakpoint.action.description?.trim() || undefined
+			: undefined;
 
 	const handleApprove = async () => {
 		await onApprove(requestId, {});
@@ -95,6 +113,21 @@ export function RequestInspector({
 				<div className="m-4 flex items-start gap-2 rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
 					<LucideIcon name="info" className="mt-0.5 h-4 w-4 shrink-0" />
 					<span className="break-words">{request.bodyUnavailableReason}</span>
+				</div>
+			)}
+
+			{isPending && breakpointDescription && (
+				<div
+					className="mx-4 mt-4 flex items-start gap-2 rounded-md border border-rose-300/60 bg-rose-50 p-3 text-sm text-rose-900 dark:border-rose-700/60 dark:bg-rose-950/30 dark:text-rose-100"
+					data-testid="breakpoint-description-banner"
+				>
+					<LucideIcon name="octagon-alert" className="mt-0.5 h-4 w-4 shrink-0" />
+					<div className="min-w-0">
+						<div className="font-medium">Breakpoint pausou esta requisição</div>
+						<p className="mt-0.5 break-words text-rose-900/80 dark:text-rose-100/80">
+							{breakpointDescription}
+						</p>
+					</div>
 				</div>
 			)}
 
