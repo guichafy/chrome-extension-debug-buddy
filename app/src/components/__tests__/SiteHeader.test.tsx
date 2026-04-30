@@ -1,5 +1,12 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SiteHeader } from '../layout/SiteHeader';
+import type { SessionMarker } from '@/types/sessionMarker';
+
+const emptyMarker: SessionMarker = {
+	sessionStartedAt: null,
+	currentPageUrl: null,
+	currentPageNavigatedAt: null,
+};
 
 vi.mock('../ui/separator', () => ({
 	Separator: ({ orientation, className }: any) => (
@@ -49,6 +56,18 @@ vi.mock('../ui/tooltip', () => ({
 	TooltipProvider: ({ children }: any) => <div data-testid="tooltip-provider">{children}</div>,
 }));
 
+vi.mock('../layout/NetworkMetricsBar', () => ({
+	NetworkMetricsBar: () => <div data-testid="network-metrics-bar" />,
+}));
+
+const emptyAggregate = {
+	totalRequests: 0,
+	totalBytes: null,
+	avgTtfbMs: null,
+	slowCount: 0,
+	failedCount: 0,
+};
+
 describe('SiteHeader Component', () => {
 	const mockProps = {
 		targetTab: { id: 123, title: 'Test Tab', url: 'https://example.com' },
@@ -56,6 +75,8 @@ describe('SiteHeader Component', () => {
 		onSelectTabClick: vi.fn(),
 		onStartDebugging: vi.fn(),
 		onStopDebugging: vi.fn(),
+		metrics: { session: emptyAggregate, currentPage: emptyAggregate },
+		sessionMarker: emptyMarker,
 	};
 
 	test('renderiza corretamente', () => {
@@ -116,6 +137,8 @@ describe('SiteHeader Component', () => {
 				onSelectTabClick={vi.fn()}
 				onStartDebugging={vi.fn()}
 				onStopDebugging={vi.fn()}
+				metrics={{ session: emptyAggregate, currentPage: emptyAggregate }}
+				sessionMarker={emptyMarker}
 			/>,
 		);
 		const tabButton = screen.getByRole('button', { name: /Tab/i });

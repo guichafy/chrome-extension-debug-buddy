@@ -7,7 +7,16 @@
 // O campo `free` busca substring case-insensitive em todos os campos textuais
 // (mantém o comportamento da busca livre anterior).
 
-export type FilterField = 'free' | 'url' | 'method' | 'status' | 'type' | 'mime' | 'state';
+export type FilterField =
+	| 'free'
+	| 'url'
+	| 'method'
+	| 'status'
+	| 'type'
+	| 'mime'
+	| 'state'
+	| 'duration'
+	| 'timestamp';
 
 export type FilterOperator = 'is' | 'contains' | 'gte' | 'lte' | 'startsWith';
 
@@ -28,6 +37,8 @@ export const FILTER_FIELD_LABELS: Record<FilterField, string> = {
 	type: 'Tipo',
 	mime: 'MIME',
 	state: 'Estado',
+	duration: 'Duração (ms)',
+	timestamp: 'Janela de tempo',
 };
 
 export const FILTER_OPERATOR_LABELS: Record<FilterOperator, string> = {

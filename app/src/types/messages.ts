@@ -4,6 +4,7 @@
 
 import type { InterceptedResponse, ResponseModifications } from './intercepted';
 import type { MockConfig } from './legacy';
+import type { SessionMarker } from './sessionMarker';
 
 export type MessageAction =
 	| 'startDebugging'
@@ -21,7 +22,9 @@ export type MessageAction =
 	| 'selectTargetTab'
 	| 'setTargetTab'
 	| 'targetTabSelected'
-	| 'openSelectTabDialog';
+	| 'openSelectTabDialog'
+	| 'getSessionMarker'
+	| 'sessionMarkerUpdated';
 
 export interface Message {
 	action: MessageAction;
@@ -38,6 +41,7 @@ export interface Message {
 	response?: InterceptedResponse;
 	modifications?: ResponseModifications;
 	updates?: Partial<InterceptedResponse>;
+	sessionMarker?: SessionMarker;
 }
 
 export interface MessageResponse {
@@ -48,4 +52,5 @@ export interface MessageResponse {
 	allRequests?: Record<string, InterceptedResponse>;
 	response?: InterceptedResponse;
 	mocks?: MockConfig[];
+	sessionMarker?: SessionMarker;
 }

@@ -30,6 +30,23 @@ export interface InterceptedResponse {
 	duration?: number;
 	durationSource?: 'network' | 'mock';
 	mockLatencyMs?: number;
+	/**
+	 * Métricas granulares Google de rede capturadas via CDP `Network.responseReceived` +
+	 * `Network.loadingFinished`. Ausente para mocks (não passou pela rede), requests
+	 * legadas no IndexedDB, e casos onde o evento não chegou. Campos individuais
+	 * também podem ser omitidos quando o dado correspondente não existe (ex.: `tlsMs`
+	 * em http puro). Regra do projeto: nada de defaults fictícios — ausência é `undefined`.
+	 */
+	networkTiming?: {
+		ttfbMs?: number;
+		dnsMs?: number;
+		tcpMs?: number;
+		tlsMs?: number;
+		transferSize?: number;
+		encodedDataLength?: number;
+		fromDiskCache?: boolean;
+		fromServiceWorker?: boolean;
+	};
 	/** ID da regra gerada via Quick Mock a partir desta request, quando aplicável. */
 	generatedRuleId?: string;
 }

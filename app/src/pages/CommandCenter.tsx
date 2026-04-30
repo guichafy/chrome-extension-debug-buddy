@@ -34,6 +34,7 @@ const CommandCenter: React.FC = () => {
 		autoRefreshEnabled,
 		clearAllRequests,
 	} = useAllRequests();
+
 	const { approveResponse, ignoreResponse, pendingResponses } = useResponses();
 	const { rules } = useRules();
 	const { selectedId, selected, select, clear } = useRequestSelection(filteredRequests);

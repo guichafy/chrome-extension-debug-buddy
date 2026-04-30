@@ -8,6 +8,7 @@ import type {
 	ResponseModifications,
 	Rule,
 } from '@/types';
+import { EMPTY_SESSION_MARKER, type SessionMarker } from '@/types/sessionMarker';
 import {
 	encodeBodyToBase64,
 	getCaptureBodyUnavailableReason,
@@ -33,6 +34,34 @@ let interceptorTabId: number | null = null;
 let targetTabId: number | null = null;
 let targetTabTitle = '';
 let targetTabUrl = '';
+
+// SessionMarker: dois pontos de tempo que delimitam as janelas "Sessão" e
+// "Página atual" exibidas pelo NetworkMetricsBar do header. Persistido em
+// chrome.storage.local pra sobreviver ao reload do service worker (MV3).
+let sessionMarker: SessionMarker = { ...EMPTY_SESSION_MARKER };
+
+function broadcastSessionMarker(): void {
+	broadcastToUI('sessionMarkerUpdated', { sessionMarker });
+}
+
+async function persistSessionMarker(): Promise<void> {
+	try {
+		await chrome.storage.local.set({ sessionMarker });
+	} catch (err) {
+		console.error('Erro ao persistir sessionMarker:', err);
+	}
+}
+
+async function loadSessionMarker(): Promise<void> {
+	try {
+		const result = await chrome.storage.local.get(['sessionMarker']);
+		if (result.sessionMarker) {
+			sessionMarker = result.sessionMarker;
+		}
+	} catch (err) {
+		console.error('Erro ao carregar sessionMarker:', err);
+	}
+}
 
 // Background é a fonte de verdade da persistência. `persistRequest` grava
 // no in-memory cache + IndexedDB e broadcasta `newRequest` para a UI; quando
@@ -75,9 +104,14 @@ async function patchRequest(
 	broadcastToUI('requestUpdated', { requestId, updates });
 }
 
-const timingTracker = new NetworkTimingTracker((fetchRequestId, duration) => {
-	patchRequest(fetchRequestId, { duration, durationSource: 'network' });
-});
+const timingTracker = new NetworkTimingTracker(
+	(fetchRequestId, duration) => {
+		patchRequest(fetchRequestId, { duration, durationSource: 'network' });
+	},
+	(fetchRequestId, networkTiming) => {
+		patchRequest(fetchRequestId, { networkTiming });
+	},
+);
 
 // Initialize when the extension is installed or updated
 chrome.runtime.onInstalled.addListener(async (details) => {
@@ -112,6 +146,10 @@ chrome.storage.local.get(['targetTabInfo'], (result) => {
 		console.log('Informações da aba alvo carregadas do armazenamento:', result.targetTabInfo);
 	}
 });
+
+// Restaura o sessionMarker persistido para que a UI veja os números congelados
+// da última sessão mesmo após o SW ser reciclado.
+loadSessionMarker();
 
 // Support for hot reload during development
 if (import.meta.env.MODE !== 'production') {
@@ -261,6 +299,20 @@ chrome.runtime.onMessage.addListener(
 			return false; // Indicates we've responded synchronously
 		} else if (message.action === 'clearAllRequests') {
 			allRequests = {};
+			// Se ainda estamos debugando, re-anchora a sessão para "agora": o usuário
+			// quer ver as próximas requests, não congelar o histórico em branco.
+			// Quando não há debug ativo, zera tudo (próximo startDebugging seta novamente).
+			if (isDebugging) {
+				sessionMarker = {
+					sessionStartedAt: Date.now(),
+					currentPageUrl: null,
+					currentPageNavigatedAt: null,
+				};
+			} else {
+				sessionMarker = { ...EMPTY_SESSION_MARKER };
+			}
+			persistSessionMarker();
+			broadcastSessionMarker();
 			indexedDBService
 				.clearAllRequests()
 				.then(() => sendResponse({ success: true }))
@@ -269,6 +321,9 @@ chrome.runtime.onMessage.addListener(
 					sendResponse({ success: false, error: String(err) });
 				});
 			return true; // resposta assíncrona
+		} else if (message.action === 'getSessionMarker') {
+			sendResponse({ sessionMarker });
+			return false;
 		} else if (message.action === 'approveResponse') {
 			const { requestId, modifications } = message;
 
@@ -572,10 +627,31 @@ async function startDebugging(specificTabId: number | null = null): Promise<bool
 		await chrome.debugger.attach({ tabId }, '1.3');
 		console.log(`Debugger attached to tab ${tabId}`);
 
+		// Reset do SessionMarker: nova sessão começa agora; "Página" zera até a
+		// próxima Page.frameNavigated do main frame.
+		sessionMarker = {
+			sessionStartedAt: Date.now(),
+			currentPageUrl: null,
+			currentPageNavigatedAt: null,
+		};
+		await persistSessionMarker();
+		broadcastSessionMarker();
+
 		// Habilita Network primeiro para que o requestId seja compartilhado com Fetch
 		// e a gente consiga casar timing real de início/fim com a requisição interceptada.
 		await chrome.debugger.sendCommand({ tabId }, 'Network.enable');
 		console.log('Network domain enabled for timing capture');
+
+		// Habilita Page domain para receber Page.frameNavigated do main frame e
+		// resetar a janela "Página atual" do NetworkMetricsBar a cada navegação.
+		// Falha aqui não bloqueia a interceptação — a UI apenas vê tab "Página"
+		// desabilitada (currentPageNavigatedAt continua null).
+		try {
+			await chrome.debugger.sendCommand({ tabId }, 'Page.enable');
+			console.log('Page domain enabled for navigation tracking');
+		} catch (error) {
+			console.error('Erro ao habilitar Page domain:', error);
+		}
 
 		// Enable Fetch domain for request interception.
 		// Dois stages são necessários:
@@ -631,6 +707,13 @@ async function stopDebugging(): Promise<boolean> {
 		await chrome.debugger.sendCommand({ tabId: attachedTabId }, 'Fetch.disable');
 		console.log('Fetch domain disabled');
 
+		// Disable Page domain (não bloqueia se já estava desabilitado).
+		try {
+			await chrome.debugger.sendCommand({ tabId: attachedTabId }, 'Page.disable');
+		} catch (error) {
+			console.error('Erro ao desabilitar Page domain:', error);
+		}
+
 		// Disable network tracking
 		await chrome.debugger.sendCommand({ tabId: attachedTabId }, 'Network.disable');
 		console.log('Network tracking disabled');
@@ -663,6 +746,21 @@ function debuggerEventListener(
 	params: any,
 ): void {
 	if (debuggeeId.tabId !== attachedTabId) return;
+
+	if (message === 'Page.frameNavigated') {
+		const frame = params?.frame;
+		// Filtra: só main frame (parentId == null). Iframes têm parentId.
+		if (frame && frame.parentId == null && typeof frame.url === 'string') {
+			sessionMarker = {
+				...sessionMarker,
+				currentPageUrl: frame.url,
+				currentPageNavigatedAt: Date.now(),
+			};
+			persistSessionMarker();
+			broadcastSessionMarker();
+		}
+		return;
+	}
 
 	if (message.startsWith('Network.')) {
 		timingTracker.handleNetworkEvent(message, params);

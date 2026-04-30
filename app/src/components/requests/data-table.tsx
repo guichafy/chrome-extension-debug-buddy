@@ -233,9 +233,11 @@ export function DataTable<TData, TValue>({
 																		? 'Horário'
 																		: column.id === 'duration'
 																			? 'Tempo'
-																			: column.id === 'actions'
-																				? 'Ações'
-																				: column.id}
+																			: column.id === 'transferSize'
+																				? 'Tamanho'
+																				: column.id === 'actions'
+																					? 'Ações'
+																					: column.id}
 										</DropdownMenuCheckboxItem>
 									);
 								})}
