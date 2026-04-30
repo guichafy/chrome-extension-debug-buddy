@@ -76,4 +76,33 @@ describe('useNetworkMetrics', () => {
 		rerender({ all, marker });
 		expect(result.current).toBe(first);
 	});
+
+	it('retorna sessionDetails e currentPageDetails por janela', () => {
+		const all = {
+			s: req({
+				timestamp: 1500,
+				method: 'GET',
+				networkTiming: { transferSize: 1000, ttfbMs: 100 },
+			}),
+			p: req({
+				timestamp: 2500,
+				method: 'POST',
+				networkTiming: { transferSize: 2000, ttfbMs: 200 },
+			}),
+		};
+		const marker: SessionMarker = {
+			sessionStartedAt: 1000,
+			currentPageUrl: 'https://x.com',
+			currentPageNavigatedAt: 2000,
+		};
+		const { result } = renderHook(() => useNetworkMetrics(all, marker));
+
+		// Sessão: 2 requests (s e p ambos >= sessionStartedAt 1000)
+		expect(result.current.sessionDetails.bytes.top).toHaveLength(2);
+		expect(result.current.sessionDetails.ttfb).toEqual({ p50: 150, p95: 200, max: 200 });
+
+		// Página: só a 'p' (timestamp 2500 >= 2000)
+		expect(result.current.currentPageDetails.bytes.top).toHaveLength(1);
+		expect(result.current.currentPageDetails.bytes.top[0]?.transferSize).toBe(2000);
+	});
 });
