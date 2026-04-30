@@ -71,6 +71,17 @@ export function DataTable<TData, TValue>({
 	const [sorting, setSorting] = React.useState<SortingState>(
 		initialSorting ?? [{ id: 'timestamp', desc: true }], // Ordenar por timestamp decrescente por padrão
 	);
+
+	// Sincroniza `sorting` quando `initialSorting` mudar de referência. Necessário
+	// porque `useState` só lê o valor inicial uma vez — sem este effect, navegar
+	// de `?sort=A` para `?sort=B` no Command Center não atualiza a ordenação.
+	// Quando `initialSorting` é undefined, deixamos o state como está (preserva
+	// sort interativo do usuário clicando em headers).
+	React.useEffect(() => {
+		if (initialSorting !== undefined) {
+			setSorting(initialSorting);
+		}
+	}, [initialSorting]);
 	const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
 	const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
 		requestType: false, // Ocultar a coluna 'requestType' por padrão
@@ -240,9 +251,11 @@ export function DataTable<TData, TValue>({
 																		? 'Horário'
 																		: column.id === 'duration'
 																			? 'Tempo'
-																			: column.id === 'actions'
-																				? 'Ações'
-																				: column.id}
+																			: column.id === 'transferSize'
+																				? 'Tamanho'
+																				: column.id === 'actions'
+																					? 'Ações'
+																					: column.id}
 										</DropdownMenuCheckboxItem>
 									);
 								})}

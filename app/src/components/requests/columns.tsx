@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { InterceptedResponse } from '../../hooks/useResponses';
 import { compareDurations, formatDurationWithMock, getDurationColorClass } from './duration';
+import { formatBytes } from '@/components/layout/networkMetricsFormat';
 import { getRequestState, getStateBadgeMeta, getStatePriority } from '@/lib/requestState';
 import { cn } from '@/lib/utils';
 
@@ -88,6 +89,43 @@ export const columns: ColumnDef<RequestRow>[] = [
 			);
 		},
 		size: 80,
+	},
+	{
+		// Coluna 'transferSize' — bytes baixados via rede (CDP encodedDataLength).
+		// Quando o request veio do cache OU é mock OU não passou por Network domain,
+		// transferSize é undefined — mostramos "—" (regra de no-fallback).
+		// O sort é numérico explícito; undefined vai pro fim.
+		id: 'transferSize',
+		accessorFn: (row) => row.request.networkTiming?.transferSize,
+		header: ({ column }) => {
+			return (
+				<Button
+					variant="ghost"
+					onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+					className="pl-0"
+				>
+					Tamanho
+					<ArrowUpDown className="ml-2 h-4 w-4" />
+				</Button>
+			);
+		},
+		sortingFn: (rowA, rowB) => {
+			const a = rowA.original.request.networkTiming?.transferSize;
+			const b = rowB.original.request.networkTiming?.transferSize;
+			if (a === undefined && b === undefined) return 0;
+			if (a === undefined) return 1; // undefined sempre no fim, indep. de direção
+			if (b === undefined) return -1;
+			return a - b;
+		},
+		cell: ({ row }) => {
+			const ts = row.original.request.networkTiming?.transferSize;
+			return (
+				<span className="font-mono tabular-nums text-xs text-muted-foreground whitespace-nowrap">
+					{ts === undefined ? '—' : formatBytes(ts)}
+				</span>
+			);
+		},
+		size: 90,
 	},
 	{
 		accessorKey: 'status',
