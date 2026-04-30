@@ -11,8 +11,9 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Action, MockAction, BreakpointAction, MockLatency } from '@/types/rules';
+import { Action, MockAction, BreakpointAction, MockLatency, TransformAction } from '@/types/rules';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TransformActionEditor } from './TransformActionEditor';
 
 interface ActionEditorProps {
 	action: Action;
@@ -39,7 +40,7 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange }) 
 			case 'delay':
 				return renderDelayActionEditor(action);
 			case 'transform':
-				return renderTransformActionEditor(action);
+				return renderTransformActionEditor(action as TransformAction);
 			case 'breakpoint':
 				return renderBreakpointActionEditor(action as BreakpointAction);
 			default:
@@ -429,71 +430,21 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange }) 
 		</div>
 	);
 
-	// Editor para ação de transformação (placeholder para futuras implementações)
-	const renderTransformActionEditor = (transformAction: Action) => (
-		<div className="space-y-4">
-			<div>
-				<Label className="font-medium">Tipo de Ação</Label>
-				<Select
-					value={transformAction.type}
-					onValueChange={(value: 'mock' | 'breakpoint') => {
-						if (value === 'mock') {
-							onChange(createEmptyMockAction());
-						} else if (value === 'breakpoint') {
-							onChange({
-								type: value,
-								enabled: true,
-								description: 'Pausar para inspeção manual',
-							});
-						}
-					}}
-				>
-					<SelectTrigger>
-						<SelectValue placeholder="Selecione o tipo de ação" />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="mock">Mock Response</SelectItem>
-						<SelectItem value="breakpoint">Breakpoint</SelectItem>
-					</SelectContent>
-				</Select>
-			</div>
-			<p className="text-sm text-muted-foreground">
-				Apenas o tipo "Mock Response" está disponível nesta versão.
-			</p>
-		</div>
+	// Editor para ação de transformação (declarativo, JSONPath)
+	const renderTransformActionEditor = (transformAction: TransformAction) => (
+		<TransformActionEditor action={transformAction} onChange={onChange} />
 	);
 
 	// Editor para ação de breakpoint
 	const renderBreakpointActionEditor = (breakpointAction: BreakpointAction) => (
-		<div className="space-y-4">
+		<div className="space-y-4" data-testid="breakpoint-action-editor">
 			<div>
-				<Label className="font-medium">Tipo de Ação</Label>
-				<Select
-					value={breakpointAction.type}
-					onValueChange={(value: 'mock' | 'breakpoint') => {
-						if (value === 'mock') {
-							onChange(createEmptyMockAction());
-						} else {
-							onChange({
-								...breakpointAction,
-								type: value,
-							});
-						}
-					}}
-				>
-					<SelectTrigger>
-						<SelectValue placeholder="Selecione o tipo de ação" />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="mock">Mock Response</SelectItem>
-						<SelectItem value="breakpoint">Breakpoint</SelectItem>
-					</SelectContent>
-				</Select>
-			</div>
-
-			<div>
-				<Label className="font-medium">Descrição (opcional)</Label>
+				<Label htmlFor="breakpoint-description" className="font-medium">
+					Descrição (opcional)
+				</Label>
 				<Textarea
+					id="breakpoint-description"
+					data-testid="breakpoint-action-description"
 					value={breakpointAction.description || ''}
 					onChange={(e) => {
 						onChange({
@@ -501,17 +452,25 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange }) 
 							description: e.target.value,
 						});
 					}}
-					placeholder="Descrição para exibir quando a requisição for pausada"
+					placeholder="Ex: pausar para conferir token de autenticação antes de prosseguir"
 					className="h-24"
 				/>
+				<p className="mt-2 text-xs text-muted-foreground">
+					Esta descrição aparecerá no inspector de respostas quando a regra disparar — útil para
+					lembrar por que o breakpoint foi configurado.
+				</p>
 			</div>
 
-			<div className="bg-blue-50 p-4 rounded-md border border-blue-200">
-				<h4 className="text-sm font-medium text-blue-800 mb-2">Sobre o Breakpoint</h4>
-				<p className="text-sm text-blue-700">
-					O breakpoint pausa a requisição e permite que você inspecione e modifique a resposta
-					manualmente. Quando uma requisição corresponder a esta regra, ela aparecerá na aba
-					"Interceptação" aguardando sua ação.
+			<div
+				className="rounded-md border border-blue-200 bg-blue-50 p-4 dark:border-blue-900/40 dark:bg-blue-950/30"
+				data-testid="breakpoint-action-info"
+			>
+				<h4 className="mb-2 text-sm font-medium text-blue-800 dark:text-blue-200">
+					Sobre o Breakpoint
+				</h4>
+				<p className="text-sm text-blue-700 dark:text-blue-200/80">
+					Quando esta regra casar, o request será pausado e o dialog de inspeção será aberto para
+					edição manual da resposta antes de prosseguir.
 				</p>
 			</div>
 		</div>

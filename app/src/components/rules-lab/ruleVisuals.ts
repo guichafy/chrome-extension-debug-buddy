@@ -63,8 +63,13 @@ export function getActionSummary(action: Action): string {
 		}
 		case 'delay':
 			return `Atrasar ${action.timeMs}ms`;
-		case 'transform':
+		case 'transform': {
+			const opsCount = action.operations?.length ?? 0;
+			if (opsCount > 0) {
+				return `Transform · ${opsCount} ${opsCount === 1 ? 'operação' : 'operações'}`;
+			}
 			return action.status ? `Transform (status ${action.status})` : 'Transform resposta';
+		}
 		case 'breakpoint':
 			return action.description ? `Breakpoint — ${action.description}` : 'Breakpoint';
 		default: {

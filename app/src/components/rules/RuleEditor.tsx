@@ -89,7 +89,7 @@ const createDefaultActionForType = (type: Action['type']): Action => {
 		case 'delay':
 			return { type: 'delay', enabled: true, timeMs: 1000 };
 		case 'transform':
-			return { type: 'transform', enabled: true };
+			return { type: 'transform', enabled: true, mode: 'declarative', operations: [] };
 		case 'breakpoint':
 			return { type: 'breakpoint', enabled: true, description: '' };
 		default: {

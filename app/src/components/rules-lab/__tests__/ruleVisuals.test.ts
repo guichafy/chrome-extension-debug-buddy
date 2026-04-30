@@ -47,6 +47,38 @@ describe('getActionSummary', () => {
 		expect(getActionSummary({ type: 'delay', enabled: true, timeMs: 750 })).toBe('Atrasar 750ms');
 	});
 
+	test('transform com operações declarativas mostra contagem', () => {
+		expect(
+			getActionSummary({
+				type: 'transform',
+				enabled: true,
+				mode: 'declarative',
+				operations: [
+					{ id: 'a', type: 'replace', path: '$.x', value: '1' },
+					{ id: 'b', type: 'remove', path: '$.y' },
+				],
+			}),
+		).toBe('Transform · 2 operações');
+	});
+
+	test('transform com 1 operação usa singular', () => {
+		expect(
+			getActionSummary({
+				type: 'transform',
+				enabled: true,
+				mode: 'declarative',
+				operations: [{ id: 'a', type: 'replace', path: '$.x', value: '1' }],
+			}),
+		).toBe('Transform · 1 operação');
+	});
+
+	test('transform sem operações cai no resumo padrão', () => {
+		expect(getActionSummary({ type: 'transform', enabled: true })).toBe('Transform resposta');
+		expect(getActionSummary({ type: 'transform', enabled: true, status: 500 })).toBe(
+			'Transform (status 500)',
+		);
+	});
+
 	test('breakpoint sem descrição', () => {
 		expect(getActionSummary({ type: 'breakpoint', enabled: true })).toBe('Breakpoint');
 	});

@@ -3,10 +3,10 @@
   "sessionId": "d9b54d10-2e9e-45e2-b59c-e0505fe3348c",
   "status": "running",
   "startedAt": "2026-04-30T06:03:33.753Z",
-  "updatedAt": "2026-04-30T06:49:55.815Z",
-  "currentIteration": 6,
+  "updatedAt": "2026-04-30T07:05:30.592Z",
+  "currentIteration": 8,
   "maxIterations": 0,
-  "tasksCompleted": 6,
+  "tasksCompleted": 8,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -71,8 +71,8 @@
       {
         "id": "chrome-extension-debug-buddy-jc0.10",
         "title": "US-010: Step Tipo do wizard com selecao visual em cards",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "chrome-extension-debug-buddy-jc0.11",
@@ -107,8 +107,8 @@
       {
         "id": "chrome-extension-debug-buddy-jc0.16",
         "title": "US-016: Editor de Transform em modo declarativo (JSONPath)",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "chrome-extension-debug-buddy-jc0.17",
@@ -184,6 +184,26 @@
       "durationMs": 534376,
       "startedAt": "2026-04-30T06:37:00.705Z",
       "endedAt": "2026-04-30T06:45:55.081Z"
+    },
+    {
+      "iteration": 7,
+      "status": "completed",
+      "taskId": "chrome-extension-debug-buddy-jc0.10",
+      "taskTitle": "US-010: Step Tipo do wizard com selecao visual em cards",
+      "taskCompleted": true,
+      "durationMs": 228861,
+      "startedAt": "2026-04-30T06:46:06.041Z",
+      "endedAt": "2026-04-30T06:49:54.902Z"
+    },
+    {
+      "iteration": 8,
+      "status": "completed",
+      "taskId": "chrome-extension-debug-buddy-jc0.16",
+      "taskTitle": "US-016: Editor de Transform em modo declarativo (JSONPath)",
+      "taskCompleted": true,
+      "durationMs": 534593,
+      "startedAt": "2026-04-30T06:50:06.033Z",
+      "endedAt": "2026-04-30T06:59:00.626Z"
     }
   ],
   "skippedTaskIds": [],

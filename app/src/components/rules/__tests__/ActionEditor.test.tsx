@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ActionEditor } from '../ActionEditor';
-import type { MockAction } from '@/types/rules';
+import type { BreakpointAction, MockAction } from '@/types/rules';
 
 describe('ActionEditor', () => {
 	const selectTab = async (name: string) => {
@@ -65,6 +65,56 @@ describe('ActionEditor', () => {
 		expect(onChange).toHaveBeenCalledWith({
 			...action,
 			latency: { mode: 'fixed', delayMs: 250 },
+		});
+	});
+
+	describe('ação Breakpoint', () => {
+		it('renderiza apenas descrição opcional + texto explicativo (sem outros campos)', () => {
+			const action: BreakpointAction = { type: 'breakpoint', enabled: true };
+			render(<ActionEditor action={action} onChange={vi.fn()} />);
+
+			expect(screen.getByTestId('breakpoint-action-editor')).toBeInTheDocument();
+			expect(screen.getByTestId('breakpoint-action-description')).toBeInTheDocument();
+
+			expect(
+				screen.getByText(/Quando esta regra casar, o request será pausado/),
+			).toBeInTheDocument();
+			expect(
+				screen.getByText(/dialog de inspeção será aberto para edição manual/),
+			).toBeInTheDocument();
+
+			// Sem o Select legado de "Tipo de Ação" — o wizard step Tipo já trata isso.
+			expect(screen.queryByText('Tipo de Ação')).toBeNull();
+			expect(screen.queryByRole('combobox')).toBeNull();
+		});
+
+		it('atualiza description ao digitar no Textarea', () => {
+			const onChange = vi.fn();
+			const action: BreakpointAction = { type: 'breakpoint', enabled: true };
+			render(<ActionEditor action={action} onChange={onChange} />);
+
+			fireEvent.change(screen.getByTestId('breakpoint-action-description'), {
+				target: { value: 'Pausar para conferir token' },
+			});
+
+			expect(onChange).toHaveBeenCalledWith({
+				type: 'breakpoint',
+				enabled: true,
+				description: 'Pausar para conferir token',
+			});
+		});
+
+		it('exibe descrição já configurada no Textarea', () => {
+			const action: BreakpointAction = {
+				type: 'breakpoint',
+				enabled: true,
+				description: 'Inspecionar payload',
+			};
+			render(<ActionEditor action={action} onChange={vi.fn()} />);
+
+			expect(screen.getByTestId('breakpoint-action-description')).toHaveValue(
+				'Inspecionar payload',
+			);
 		});
 	});
 });
