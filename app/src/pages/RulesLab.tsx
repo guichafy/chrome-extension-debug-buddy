@@ -50,6 +50,14 @@ function RulesLab() {
 		return acc;
 	}, [rules]);
 
+	const orderById = useMemo(() => {
+		const map = new Map<string, number>();
+		rules.forEach((rule, index) => {
+			map.set(rule.id, index + 1);
+		});
+		return map;
+	}, [rules]);
+
 	const visibleRules = useMemo(() => {
 		const term = search.trim().toLowerCase();
 		const filtered = rules.filter((r) => {
@@ -162,6 +170,7 @@ function RulesLab() {
 						<RulesList
 							rules={visibleRules}
 							totalCount={rules.length}
+							orderById={orderById}
 							onEdit={(rule) => setEditingRule(rule)}
 							onRemove={removeRule}
 							onDuplicate={handleDuplicate}

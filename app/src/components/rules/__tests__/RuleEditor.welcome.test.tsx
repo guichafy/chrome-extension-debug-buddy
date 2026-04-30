@@ -42,6 +42,10 @@ describe('RuleEditor welcome flow', () => {
 		render(<RuleEditor open mode="create" onOpenChange={vi.fn()} onSave={onSave} />);
 		fireEvent.click(screen.getByTestId('preset-http_error_500'));
 
+		// Wizard linear: avanca ate o ultimo step para conseguir clicar em Adicionar
+		fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
+		fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
+		fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
 		fireEvent.click(screen.getByRole('button', { name: /Adicionar/ }));
 		expect(alertSpy).toHaveBeenCalledWith('Preencha o padrão da URL antes de salvar');
 		expect(onSave).not.toHaveBeenCalled();

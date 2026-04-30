@@ -3,10 +3,10 @@
   "sessionId": "d9b54d10-2e9e-45e2-b59c-e0505fe3348c",
   "status": "running",
   "startedAt": "2026-04-30T06:03:33.753Z",
-  "updatedAt": "2026-04-30T06:09:40.769Z",
-  "currentIteration": 0,
+  "updatedAt": "2026-04-30T06:22:10.152Z",
+  "currentIteration": 2,
   "maxIterations": 0,
-  "tasksCompleted": 0,
+  "tasksCompleted": 2,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -17,8 +17,8 @@
       {
         "id": "chrome-extension-debug-buddy-jc0.1",
         "title": "US-001: Renomear modify para transform em todo o codigo",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "chrome-extension-debug-buddy-jc0.2",
@@ -65,8 +65,8 @@
       {
         "id": "chrome-extension-debug-buddy-jc0.9",
         "title": "US-009: Wizard multi-step em Dialog grande para criacao/edicao",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "chrome-extension-debug-buddy-jc0.10",
@@ -124,7 +124,28 @@
       }
     ]
   },
-  "iterations": [],
+  "iterations": [
+    {
+      "iteration": 1,
+      "status": "completed",
+      "taskId": "chrome-extension-debug-buddy-jc0.1",
+      "taskTitle": "US-001: Renomear modify para transform em todo o codigo",
+      "taskCompleted": true,
+      "durationMs": 335393,
+      "startedAt": "2026-04-30T06:04:04.511Z",
+      "endedAt": "2026-04-30T06:09:39.904Z"
+    },
+    {
+      "iteration": 2,
+      "status": "completed",
+      "taskId": "chrome-extension-debug-buddy-jc0.9",
+      "taskTitle": "US-009: Wizard multi-step em Dialog grande para criacao/edicao",
+      "taskCompleted": true,
+      "durationMs": 367918,
+      "startedAt": "2026-04-30T06:09:50.459Z",
+      "endedAt": "2026-04-30T06:15:58.377Z"
+    }
+  ],
   "skippedTaskIds": [],
   "cwd": "/Users/guichafy/Workspaces/chrome-extension-debug-buddy",
   "activeTaskIds": [],

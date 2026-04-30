@@ -1,7 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
+import { Table, TableBody } from '@/components/ui/table';
 import type { Rule } from '@/types/rules';
-import { RuleListItem } from '../RuleListItem';
+import { RuleTableRow } from '../RuleTableRow';
 
 const baseRule: Rule = {
 	id: 'r1',
@@ -16,53 +17,58 @@ const baseRule: Rule = {
 	updatedAt: Date.parse('2026-04-29T12:00:00Z'),
 };
 
-function makeProps(overrides: Partial<Rule> = {}) {
-	return {
+function renderRow(overrides: Partial<Rule> = {}, order = 1) {
+	const props = {
 		rule: { ...baseRule, ...overrides },
+		order,
 		onEdit: vi.fn(),
 		onRemove: vi.fn(),
 		onDuplicate: vi.fn(),
 		onToggle: vi.fn(),
 	};
+	const utils = render(
+		<Table>
+			<TableBody>
+				<RuleTableRow {...props} />
+			</TableBody>
+		</Table>,
+	);
+	return { ...utils, props };
 }
 
-describe('RuleListItem', () => {
-	test('renderiza nome, badge de condições e resumo match → then', () => {
-		const props = makeProps();
-		render(<RuleListItem {...props} />);
+describe('RuleTableRow', () => {
+	test('renderiza nome, matcher e resumo da ação', () => {
+		renderRow();
 		expect(screen.getByText('Pokemon')).toBeInTheDocument();
-		expect(screen.getByText('2 condições')).toBeInTheDocument();
 		expect(screen.getByText('GET .*kalos')).toBeInTheDocument();
 		expect(screen.getByText(/Mock 500/)).toBeInTheDocument();
 	});
 
-	test('switch reflete enabled true', () => {
-		const props = makeProps();
-		render(<RuleListItem {...props} />);
+	test('renderiza coluna Ordem com o número fornecido', () => {
+		renderRow({}, 7);
+		expect(screen.getByText('7')).toBeInTheDocument();
+	});
+
+	test('switch reflete enabled true e clique chama onToggle com id', () => {
+		const { props } = renderRow();
 		const sw = screen.getByRole('switch');
 		expect(sw).toHaveAttribute('aria-checked', 'true');
 		expect(sw).toHaveAccessibleName('Pausar regra');
-	});
-
-	test('switch reflete enabled false', () => {
-		const props = makeProps({ enabled: false });
-		render(<RuleListItem {...props} />);
-		const sw = screen.getByRole('switch');
-		expect(sw).toHaveAttribute('aria-checked', 'false');
-		expect(sw).toHaveAccessibleName('Ativar regra');
-	});
-
-	test('clicar switch chama onToggle com id', () => {
-		const props = makeProps();
-		render(<RuleListItem {...props} />);
-		fireEvent.click(screen.getByRole('switch'));
+		fireEvent.click(sw);
 		expect(props.onToggle).toHaveBeenCalledWith('r1');
 	});
 
-	test('botões de ação chamam callbacks corretos', () => {
-		const props = makeProps();
-		render(<RuleListItem {...props} />);
+	test('switch reflete enabled false e linha tem aparência apagada', () => {
+		renderRow({ enabled: false });
+		const sw = screen.getByRole('switch');
+		expect(sw).toHaveAttribute('aria-checked', 'false');
+		expect(sw).toHaveAccessibleName('Ativar regra');
+		const row = screen.getByTestId('rule-row-r1');
+		expect(row.className).toMatch(/opacity-50/);
+	});
 
+	test('botões de ação chamam callbacks corretos', () => {
+		const { props } = renderRow();
 		fireEvent.click(screen.getByRole('button', { name: 'Editar regra' }));
 		expect(props.onEdit).toHaveBeenCalledWith(props.rule);
 
@@ -71,13 +77,5 @@ describe('RuleListItem', () => {
 
 		fireEvent.click(screen.getByRole('button', { name: 'Excluir regra' }));
 		expect(props.onRemove).toHaveBeenCalledWith('r1');
-	});
-
-	test('singular "1 condição" para regra com 1 matcher habilitado', () => {
-		const props = makeProps({
-			matchers: [{ type: 'url', enabled: true, pattern: '/x', isRegex: false }],
-		});
-		render(<RuleListItem {...props} />);
-		expect(screen.getByText('1 condição')).toBeInTheDocument();
 	});
 });

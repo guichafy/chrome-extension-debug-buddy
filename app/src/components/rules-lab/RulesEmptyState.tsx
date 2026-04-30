@@ -21,9 +21,9 @@ export function RulesEmptyState({ onCreate, onImport }: RulesEmptyStateProps) {
 				preset ou crie uma do zero.
 			</p>
 			<div className="flex flex-wrap items-center justify-center gap-2">
-				<Button onClick={onCreate} className="gap-2">
+				<Button onClick={onCreate} className="gap-2" data-testid="empty-state-create">
 					<LucideIcon name="plus" className="h-4 w-4" />
-					Nova regra
+					Criar primeira regra
 				</Button>
 				<Button variant="outline" onClick={onImport} className="gap-2">
 					<LucideIcon name="upload" className="h-4 w-4" />

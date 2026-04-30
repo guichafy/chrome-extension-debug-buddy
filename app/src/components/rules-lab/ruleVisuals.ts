@@ -6,6 +6,7 @@ export interface ActionVisuals {
 	label: string;
 	bgClass: string;
 	textClass: string;
+	borderClass: string;
 }
 
 export function getActionVisuals(action: Action): ActionVisuals {
@@ -16,6 +17,7 @@ export function getActionVisuals(action: Action): ActionVisuals {
 				label: 'Mock',
 				bgClass: 'bg-violet-500/10',
 				textClass: 'text-violet-300',
+				borderClass: 'border-violet-500/30',
 			};
 		case 'delay':
 			return {
@@ -23,6 +25,7 @@ export function getActionVisuals(action: Action): ActionVisuals {
 				label: 'Latência',
 				bgClass: 'bg-amber-500/10',
 				textClass: 'text-amber-300',
+				borderClass: 'border-amber-500/30',
 			};
 		case 'transform':
 			return {
@@ -30,6 +33,7 @@ export function getActionVisuals(action: Action): ActionVisuals {
 				label: 'Transform',
 				bgClass: 'bg-sky-500/10',
 				textClass: 'text-sky-300',
+				borderClass: 'border-sky-500/30',
 			};
 		case 'breakpoint':
 			return {
@@ -37,6 +41,7 @@ export function getActionVisuals(action: Action): ActionVisuals {
 				label: 'Breakpoint',
 				bgClass: 'bg-rose-500/10',
 				textClass: 'text-rose-300',
+				borderClass: 'border-rose-500/30',
 			};
 		default: {
 			const exhaustive: never = action;

@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { LucideIcon } from '@/components/ui/lucide-icon';
+import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { Rule } from '@/types/rules';
-import { RuleListItem } from './RuleListItem';
+import { RuleTableRow } from './RuleTableRow';
 
 const PAGE_SIZE = 10;
 
 interface RulesListProps {
 	rules: Rule[];
 	totalCount: number;
+	orderById: Map<string, number>;
 	onEdit: (rule: Rule) => void;
 	onRemove: (id: string) => void;
 	onDuplicate: (rule: Rule) => void;
@@ -18,6 +20,7 @@ interface RulesListProps {
 export function RulesList({
 	rules,
 	totalCount,
+	orderById,
 	onEdit,
 	onRemove,
 	onDuplicate,
@@ -51,18 +54,46 @@ export function RulesList({
 
 	return (
 		<div className="flex flex-col">
-			<div className="px-2">
-				{visible.map((rule) => (
-					<RuleListItem
-						key={rule.id}
-						rule={rule}
-						onEdit={onEdit}
-						onRemove={onRemove}
-						onDuplicate={onDuplicate}
-						onToggle={onToggle}
-					/>
-				))}
-			</div>
+			<Table data-testid="rules-table">
+				<TableHeader>
+					<TableRow className="hover:bg-transparent">
+						<TableHead className="h-9 w-12 text-center text-[11px] font-medium uppercase tracking-wide">
+							Ordem
+						</TableHead>
+						<TableHead className="h-9 w-16 text-[11px] font-medium uppercase tracking-wide">
+							Status
+						</TableHead>
+						<TableHead className="h-9 w-32 text-[11px] font-medium uppercase tracking-wide">
+							Tipo
+						</TableHead>
+						<TableHead className="h-9 text-[11px] font-medium uppercase tracking-wide">
+							Matcher
+						</TableHead>
+						<TableHead className="h-9 text-[11px] font-medium uppercase tracking-wide">
+							Ação
+						</TableHead>
+						<TableHead className="hidden h-9 w-32 text-[11px] font-medium uppercase tracking-wide md:table-cell">
+							Atualizado
+						</TableHead>
+						<TableHead className="h-9 w-32 text-right text-[11px] font-medium uppercase tracking-wide">
+							Ações
+						</TableHead>
+					</TableRow>
+				</TableHeader>
+				<TableBody>
+					{visible.map((rule) => (
+						<RuleTableRow
+							key={rule.id}
+							rule={rule}
+							order={orderById.get(rule.id) ?? 0}
+							onEdit={onEdit}
+							onRemove={onRemove}
+							onDuplicate={onDuplicate}
+							onToggle={onToggle}
+						/>
+					))}
+				</TableBody>
+			</Table>
 
 			<div className="flex items-center justify-between border-t px-4 py-2.5 text-[11px] text-muted-foreground">
 				<span>
