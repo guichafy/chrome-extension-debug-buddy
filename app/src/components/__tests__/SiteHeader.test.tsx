@@ -49,6 +49,18 @@ vi.mock('../ui/tooltip', () => ({
 	TooltipProvider: ({ children }: any) => <div data-testid="tooltip-provider">{children}</div>,
 }));
 
+vi.mock('../layout/NetworkMetricsBar', () => ({
+	NetworkMetricsBar: () => <div data-testid="network-metrics-bar" />,
+}));
+
+const emptyAggregate = {
+	totalRequests: 0,
+	totalBytes: null,
+	avgTtfbMs: null,
+	slowCount: 0,
+	failedCount: 0,
+};
+
 describe('SiteHeader Component', () => {
 	const mockProps = {
 		targetTab: { id: 123, title: 'Test Tab', url: 'https://example.com' },
@@ -56,6 +68,8 @@ describe('SiteHeader Component', () => {
 		onSelectTabClick: vi.fn(),
 		onStartDebugging: vi.fn(),
 		onStopDebugging: vi.fn(),
+		metrics: { session: emptyAggregate, currentPage: emptyAggregate },
+		hasCurrentPage: false,
 	};
 
 	test('renderiza corretamente', () => {
@@ -116,6 +130,8 @@ describe('SiteHeader Component', () => {
 				onSelectTabClick={vi.fn()}
 				onStartDebugging={vi.fn()}
 				onStopDebugging={vi.fn()}
+				metrics={{ session: emptyAggregate, currentPage: emptyAggregate }}
+				hasCurrentPage={false}
 			/>,
 		);
 		const tabButton = screen.getByRole('button', { name: /Tab/i });

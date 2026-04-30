@@ -6,10 +6,16 @@ import { SiteHeader } from '../components/layout/SiteHeader';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { useDebugging } from '../hooks/useDebugging';
 import { useResponses } from '../hooks/useResponses';
+import { useAllRequests } from '../hooks/useAllRequests';
+import { useSessionMarker } from '../hooks/useSessionMarker';
+import { useNetworkMetrics } from '../hooks/useNetworkMetrics';
 
 const Layout: React.FC = () => {
 	const { isDebugging, targetTab, startDebugging, stopDebugging } = useDebugging();
 	const { pendingResponses } = useResponses();
+	const { allRequests } = useAllRequests();
+	const sessionMarker = useSessionMarker();
+	const metrics = useNetworkMetrics(allRequests, sessionMarker);
 	const [selectTabDialogOpen, setSelectTabDialogOpen] = useState(false);
 
 	// Listener para mensagens do background script
@@ -52,6 +58,8 @@ const Layout: React.FC = () => {
 					onSelectTabClick={() => setSelectTabDialogOpen(true)}
 					onStartDebugging={() => startDebugging()}
 					onStopDebugging={() => stopDebugging()}
+					metrics={metrics}
+					hasCurrentPage={sessionMarker.currentPageNavigatedAt != null}
 				/>
 
 				<div className="main-content-container flex-1 min-h-0 overflow-hidden">

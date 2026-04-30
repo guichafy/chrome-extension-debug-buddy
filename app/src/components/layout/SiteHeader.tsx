@@ -3,6 +3,8 @@ import { LucideIcon } from '@/components/ui/lucide-icon';
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import type { MetricsAggregate } from '@/lib/networkMetrics';
+import { NetworkMetricsBar } from './NetworkMetricsBar';
 
 interface SiteHeaderProps {
 	targetTab: {
@@ -14,6 +16,8 @@ interface SiteHeaderProps {
 	onSelectTabClick: () => void;
 	onStartDebugging: () => void;
 	onStopDebugging: () => void;
+	metrics: { session: MetricsAggregate; currentPage: MetricsAggregate };
+	hasCurrentPage: boolean;
 }
 
 export function SiteHeader({
@@ -22,13 +26,24 @@ export function SiteHeader({
 	onSelectTabClick,
 	onStartDebugging,
 	onStopDebugging,
+	metrics,
+	hasCurrentPage,
 }: SiteHeaderProps) {
 	return (
 		<header className="group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 flex h-14 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear pr-2">
 			<div className="flex w-full items-center justify-between px-4 lg:px-6">
-				<div className="flex items-center gap-2">
+				<div className="flex min-w-0 items-center gap-2">
 					<SidebarTrigger className="-ml-1" />
-					<Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-6" />
+					<Separator
+						orientation="vertical"
+						className="mx-2 hidden data-[orientation=vertical]:h-6 md:block"
+					/>
+					<NetworkMetricsBar
+						session={metrics.session}
+						currentPage={metrics.currentPage}
+						hasCurrentPage={hasCurrentPage}
+						isDebugging={isDebugging}
+					/>
 				</div>
 
 				<div className="flex items-center gap-2">
