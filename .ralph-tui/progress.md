@@ -352,3 +352,22 @@ Files changed:
   - **`rulePresetGroups.ts` removido por ser codigo morto**: regra do projeto "If you are certain that something is unused, you can delete it completely". Apos a migracao do `PresetWelcome` para `TEMPLATE_GROUPS`, `PRESET_GROUPS`/`getPresetVisuals` ficaram referenciados apenas pelo proprio arquivo. Deletar foi mais limpo do que manter shim de compat.
   - **Cobertura de pre-requisitos de IDs do PRD num teste dedicado**: o teste "cobre os templates obrigatórios listados no PRD US-011" lista explicitamente cada AC do PRD como `expect(TEMPLATES.<id>).toBeDefined()`. Isso documenta a relacao entre AC e codigo via teste — futuras alteracoes que removam algum template essencial vao falhar no CI com mensagem clara, em vez de quebrar silenciosamente.
 ---
+
+
+## 2026-04-30 - chrome-extension-debug-buddy-jc0.8
+- US-008: Importar e exportar regras em JSON — verificado como ja implementado em iteracao anterior
+- Files relevantes (sem mudancas nesta iteracao):
+  - `app/src/domain/rulesIO.ts`: `serializeRules` e `validateRuleImport` com envelope `{schemaVersion: 1, rules}`. Validacao tipada (`{ok:true,rules}|{ok:false,error}`) sem fallback silencioso — rejeita schemaVersion ausente/desconhecido, rules nao-array, matcher/action invalidos.
+  - `app/src/domain/__tests__/rulesIO.test.ts`: 7 testes cobrem export, import valido, e cenarios de rejeicao.
+  - `app/src/components/rules-lab/RulesImportDialog.tsx`: dialog com radio merge/replace.
+  - `app/src/components/rules-lab/RulesPageHeader.tsx`: itens "Exportar regras"/"Importar regras" no DropdownMenu (`menu-export`/`menu-import`).
+  - `app/src/pages/RulesLab.tsx`:
+    - `handleExport` baixa `debug-buddy-rules-${ISO-date}.json` via Blob + URL.createObjectURL.
+    - `handleImportFile` le arquivo, parseia JSON, chama validacao e expoe erro em banner se falha.
+    - `handleConfirmImport(strategy='replace')` faz `chrome.storage.local.set({rules})` direto; `strategy='merge'` itera regras importadas chamando `addRule(...)` que gera `uuidv4()` novo — IDs originais sao descartados.
+- Quality gates: lint, tsc --noEmit, npm test (619/619), npm run build — todos verdes.
+- **Learnings:**
+  - **Envelope versionado para import/export**: usar `{schemaVersion: N, rules: [...]}` em vez de array bruto da rotas portas para evolucao futura — `validateRuleImport` ja rejeita arquivos com `schemaVersion` desconhecido com mensagem clara, sem precisar de heuristica para detectar formato. Padrao reusavel para outros estados exportaveis.
+  - **Strategy 'replace' nao gera ID novo**: decisao explicita — quando o usuario substitui tudo, faz sentido preservar IDs (sao opacos e nao colidem com nada existente). So a strategy 'merge' precisa de novos IDs para evitar colisao com regras pre-existentes. Padrao: deixe que `addRule` (que ja gera UUID) cuide disso ao iterar a lista importada — nao tente "ajustar IDs" no caminho de validacao.
+  - **Filename de export usa ISO date (nao timestamp completo)**: `new Date().toISOString().slice(0, 10)` -> `debug-buddy-rules-2026-04-30.json`. Se o usuario exportar 2x no mesmo dia, o browser anexa `(1)` automaticamente — sem necessidade de timestamp HH:MM:SS no nome do arquivo.
+---

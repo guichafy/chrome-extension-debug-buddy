@@ -3,10 +3,10 @@
   "sessionId": "d9b54d10-2e9e-45e2-b59c-e0505fe3348c",
   "status": "running",
   "startedAt": "2026-04-30T06:03:33.753Z",
-  "updatedAt": "2026-04-30T07:55:07.102Z",
-  "currentIteration": 14,
+  "updatedAt": "2026-04-30T07:57:19.867Z",
+  "currentIteration": 15,
   "maxIterations": 0,
-  "tasksCompleted": 14,
+  "tasksCompleted": 15,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -77,8 +77,8 @@
       {
         "id": "chrome-extension-debug-buddy-jc0.11",
         "title": "US-011: Biblioteca de templates curados de regras",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "chrome-extension-debug-buddy-jc0.12",
@@ -264,6 +264,16 @@
       "durationMs": 675720,
       "startedAt": "2026-04-30T07:34:38.164Z",
       "endedAt": "2026-04-30T07:45:53.884Z"
+    },
+    {
+      "iteration": 15,
+      "status": "completed",
+      "taskId": "chrome-extension-debug-buddy-jc0.11",
+      "taskTitle": "US-011: Biblioteca de templates curados de regras",
+      "taskCompleted": true,
+      "durationMs": 542447,
+      "startedAt": "2026-04-30T07:46:03.724Z",
+      "endedAt": "2026-04-30T07:55:06.171Z"
     }
   ],
   "skippedTaskIds": [],
