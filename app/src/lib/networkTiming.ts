@@ -6,6 +6,88 @@
 // síncrona. Esta classe acumula start/end conforme chegam, em qualquer ordem, e
 // dispara `onDurationReady` assim que `start`, `end` e `fetchRequestId` estão
 // disponíveis. Idempotente: cada requisição emite no máximo uma vez.
+//
+// O segundo callback opcional, `onMetricsReady`, recebe métricas granulares Google
+// (TTFB/DNS/TCP/TLS/transferSize/cache) derivadas de `Network.responseReceived.timing`
+// e `Network.loadingFinished.encodedDataLength`. Também idempotente, também 1× por request.
+
+// Forma compacta retornada por `deriveNetworkTiming`. Todos os campos opcionais
+// — só vão no objeto quando o dado existe de fato. Regra do projeto: ausência ≠ 0.
+export interface NetworkTiming {
+	ttfbMs?: number;
+	dnsMs?: number;
+	tcpMs?: number;
+	tlsMs?: number;
+	transferSize?: number;
+	encodedDataLength?: number;
+	fromDiskCache?: boolean;
+	fromServiceWorker?: boolean;
+}
+
+// Subset do `Network.ResponseReceived.response` que importa para timing.
+export interface ResponseTimingRaw {
+	dnsStart?: number;
+	dnsEnd?: number;
+	connectStart?: number;
+	connectEnd?: number;
+	sslStart?: number;
+	sslEnd?: number;
+	receiveHeadersEnd?: number;
+}
+
+export interface ResponseFlagsRaw {
+	fromDiskCache?: boolean;
+	fromServiceWorker?: boolean;
+}
+
+// Diferença "segura" — retorna o intervalo apenas quando ambos os tempos existem
+// e são >= 0. CDP usa -1 para indicar "não houve esta fase" (ex.: sslStart = -1
+// em http puro). Fora desse caso, undefined deixa o helper omitir o campo.
+function safeDelta(start: number | undefined, end: number | undefined): number | undefined {
+	if (start == null || end == null) return undefined;
+	if (start < 0 || end < 0) return undefined;
+	const delta = Math.round(end - start);
+	if (delta < 0) return undefined;
+	return delta;
+}
+
+export function deriveNetworkTiming(
+	timing: ResponseTimingRaw | undefined,
+	encodedDataLength: number | undefined,
+	flags: ResponseFlagsRaw,
+): NetworkTiming | undefined {
+	const result: NetworkTiming = {};
+
+	if (timing) {
+		const ttfbMs = safeDelta(timing.dnsStart, timing.receiveHeadersEnd);
+		if (ttfbMs !== undefined) result.ttfbMs = ttfbMs;
+		const dnsMs = safeDelta(timing.dnsStart, timing.dnsEnd);
+		if (dnsMs !== undefined) result.dnsMs = dnsMs;
+		const tcpMs = safeDelta(timing.connectStart, timing.connectEnd);
+		if (tcpMs !== undefined) result.tcpMs = tcpMs;
+		const tlsMs = safeDelta(timing.sslStart, timing.sslEnd);
+		if (tlsMs !== undefined) result.tlsMs = tlsMs;
+	}
+
+	if (encodedDataLength !== undefined) {
+		result.transferSize = encodedDataLength;
+		result.encodedDataLength = encodedDataLength;
+	}
+
+	if (flags.fromDiskCache === true) result.fromDiskCache = true;
+	if (flags.fromServiceWorker === true) result.fromServiceWorker = true;
+
+	// Retorna undefined apenas quando NENHUM input chegou. Se `timing` foi passado
+	// (mesmo que produza zero campos por -1s), entendemos que houve uma resposta
+	// real e devolvemos {}.
+	const hasInput =
+		timing != null ||
+		encodedDataLength !== undefined ||
+		flags.fromDiskCache === true ||
+		flags.fromServiceWorker === true;
+	if (!hasInput) return undefined;
+	return result;
+}
 
 interface TimingEntry {
 	start?: number;

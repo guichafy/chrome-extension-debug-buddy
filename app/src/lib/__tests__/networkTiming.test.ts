@@ -1,4 +1,4 @@
-import { NetworkTimingTracker } from '../networkTiming';
+import { NetworkTimingTracker, deriveNetworkTiming } from '../networkTiming';
 
 describe('NetworkTimingTracker', () => {
 	let emitted: Array<{ fetchId: string; duration: number }>;
@@ -156,5 +156,107 @@ describe('NetworkTimingTracker', () => {
 		tracker.linkFetchId('r3', 'fetch-final');
 		tracker.handleNetworkEvent('Network.loadingFinished', { requestId: 'r3', timestamp: 1.5 });
 		expect(emitted).toEqual([{ fetchId: 'fetch-final', duration: 300 }]);
+	});
+});
+
+describe('deriveNetworkTiming', () => {
+	it('retorna undefined quando timing e encodedDataLength são ambos ausentes', () => {
+		expect(deriveNetworkTiming(undefined, undefined, {})).toBeUndefined();
+	});
+
+	it('retorna objeto com transferSize quando só encodedDataLength existe', () => {
+		expect(deriveNetworkTiming(undefined, 1234, {})).toEqual({
+			transferSize: 1234,
+			encodedDataLength: 1234,
+		});
+	});
+
+	it('retorna objeto com fromDiskCache quando response.fromDiskCache é true', () => {
+		expect(deriveNetworkTiming(undefined, undefined, { fromDiskCache: true })).toEqual({
+			fromDiskCache: true,
+		});
+	});
+
+	it('retorna objeto com fromServiceWorker quando response.fromServiceWorker é true', () => {
+		expect(deriveNetworkTiming(undefined, undefined, { fromServiceWorker: true })).toEqual({
+			fromServiceWorker: true,
+		});
+	});
+
+	it('calcula dnsMs/tcpMs/tlsMs quando todos os pares existem', () => {
+		const timing = {
+			dnsStart: 0,
+			dnsEnd: 10,
+			connectStart: 10,
+			connectEnd: 30,
+			sslStart: 15,
+			sslEnd: 25,
+			receiveHeadersEnd: 50,
+		};
+		const result = deriveNetworkTiming(timing, 2048, {});
+		expect(result).toEqual({
+			ttfbMs: 50,
+			dnsMs: 10,
+			tcpMs: 20,
+			tlsMs: 10,
+			transferSize: 2048,
+			encodedDataLength: 2048,
+		});
+	});
+
+	it('omite tlsMs quando sslStart/sslEnd são -1 (http puro)', () => {
+		const timing = {
+			dnsStart: 0,
+			dnsEnd: 5,
+			connectStart: 5,
+			connectEnd: 15,
+			sslStart: -1,
+			sslEnd: -1,
+			receiveHeadersEnd: 30,
+		};
+		const result = deriveNetworkTiming(timing, undefined, {});
+		expect(result).toEqual({
+			ttfbMs: 30,
+			dnsMs: 5,
+			tcpMs: 10,
+		});
+	});
+
+	it('omite dnsMs/tcpMs quando intervalos são negativos (cache resolveu sem rede)', () => {
+		const timing = {
+			dnsStart: -1,
+			dnsEnd: -1,
+			connectStart: -1,
+			connectEnd: -1,
+			sslStart: -1,
+			sslEnd: -1,
+			receiveHeadersEnd: 5,
+		};
+		const result = deriveNetworkTiming(timing, undefined, {});
+		expect(result).toEqual({});
+	});
+
+	it('combina timing com flags fromDiskCache/fromServiceWorker', () => {
+		const timing = {
+			dnsStart: 0,
+			dnsEnd: 1,
+			connectStart: 1,
+			connectEnd: 2,
+			sslStart: -1,
+			sslEnd: -1,
+			receiveHeadersEnd: 3,
+		};
+		const result = deriveNetworkTiming(timing, 100, {
+			fromDiskCache: false,
+			fromServiceWorker: true,
+		});
+		expect(result).toEqual({
+			ttfbMs: 3,
+			dnsMs: 1,
+			tcpMs: 1,
+			transferSize: 100,
+			encodedDataLength: 100,
+			fromServiceWorker: true,
+		});
 	});
 });
