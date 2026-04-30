@@ -6,7 +6,6 @@ import { SiteHeader } from '../components/layout/SiteHeader';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDebugging } from '../hooks/useDebugging';
-import { useResponses } from '../hooks/useResponses';
 import { useAllRequests } from '../hooks/useAllRequests';
 import { useSessionMarker } from '../hooks/useSessionMarker';
 import { useNetworkMetrics } from '../hooks/useNetworkMetrics';
@@ -25,7 +24,6 @@ const RouteFallback: React.FC = () => (
 
 const Layout: React.FC = () => {
 	const { isDebugging, targetTab, startDebugging, stopDebugging } = useDebugging();
-	const { pendingResponses } = useResponses();
 	const { allRequests } = useAllRequests();
 	const sessionMarker = useSessionMarker();
 	const metrics = useNetworkMetrics(allRequests, sessionMarker);
@@ -54,7 +52,7 @@ const Layout: React.FC = () => {
 
 	return (
 		<SidebarProvider>
-			<AppSidebar variant="inset" pendingResponsesCount={Object.keys(pendingResponses).length} />
+			<AppSidebar variant="inset" />
 			<SidebarInset>
 				<SelectTabDialog
 					open={selectTabDialogOpen}

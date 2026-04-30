@@ -133,6 +133,25 @@ describe('matchesFilter — state', () => {
 		const filter = makeFilter({ field: 'state', operator: 'is', value: 'failed' });
 		expect(matchesFilter(makeRequest({ captureError: 'oops' }), filter)).toBe(true);
 	});
+	test('state:pending filtra a coleção a apenas isWaiting === true; lista vazia mantém todas', () => {
+		const collection = [
+			makeRequest({ url: 'https://a/', isWaiting: true }),
+			makeRequest({ url: 'https://b/', isWaiting: false }),
+			makeRequest({ url: 'https://c/' }),
+			makeRequest({ url: 'https://d/', isMocked: true }),
+		];
+		const pendingFilter: Filter = makeFilter({
+			field: 'state',
+			operator: 'is',
+			value: 'pending',
+		});
+
+		const onlyPending = collection.filter((r) => matchesFilters(r, [pendingFilter]));
+		expect(onlyPending.map((r) => r.url)).toEqual(['https://a/']);
+
+		const noFilter = collection.filter((r) => matchesFilters(r, []));
+		expect(noFilter).toHaveLength(collection.length);
+	});
 });
 
 describe('matchesFilters — combinações', () => {

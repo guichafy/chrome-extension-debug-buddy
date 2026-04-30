@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
-import { EditResponseDialog } from '../EditResponseDialog';
+import { EditResponseSheet } from '../EditResponseSheet';
 import type { InterceptedResponse } from '@/types/intercepted';
 
 const baseRequest = (overrides: Partial<InterceptedResponse> = {}): InterceptedResponse => ({
@@ -20,10 +20,30 @@ const baseRequest = (overrides: Partial<InterceptedResponse> = {}): InterceptedR
 	...overrides,
 });
 
-describe('EditResponseDialog', () => {
+describe('EditResponseSheet', () => {
+	test('renderiza Method e URL no header em modo somente leitura', () => {
+		render(
+			<EditResponseSheet
+				open
+				onOpenChange={() => {}}
+				request={baseRequest({ method: 'POST', url: 'https://api.example.com/orders' })}
+				requestId="req-1"
+				onSubmit={vi.fn()}
+			/>,
+		);
+
+		expect(screen.getByTestId('edit-response-context-method')).toHaveTextContent('POST');
+		expect(screen.getByTestId('edit-response-context-url')).toHaveTextContent(
+			'https://api.example.com/orders',
+		);
+		// Não deve haver input editável dentro do bloco de contexto.
+		const context = screen.getByTestId('edit-response-context');
+		expect(context.querySelectorAll('input,textarea').length).toBe(0);
+	});
+
 	test('pré-preenche status, headers e body com valores capturados', () => {
 		render(
-			<EditResponseDialog
+			<EditResponseSheet
 				open
 				onOpenChange={() => {}}
 				request={baseRequest()}
@@ -41,11 +61,11 @@ describe('EditResponseDialog', () => {
 		expect(bodyInput.value).toBe('{"id":42}');
 	});
 
-	test('submissão com payload válido envia status/headers/body editados', async () => {
+	test('"Aplicar e continuar" envia status/headers/body editados', async () => {
 		const onSubmit = vi.fn().mockResolvedValue({ success: true });
 		const onOpenChange = vi.fn();
 		render(
-			<EditResponseDialog
+			<EditResponseSheet
 				open
 				onOpenChange={onOpenChange}
 				request={baseRequest()}
@@ -82,7 +102,7 @@ describe('EditResponseDialog', () => {
 		});
 		const onOpenChange = vi.fn();
 		render(
-			<EditResponseDialog
+			<EditResponseSheet
 				open
 				onOpenChange={onOpenChange}
 				request={baseRequest()}
@@ -99,14 +119,14 @@ describe('EditResponseDialog', () => {
 		expect(screen.getByTestId('edit-response-error-toast')).toHaveTextContent(
 			'Fetch.fulfillRequest falhou: Tab closed',
 		);
-		// Dialog não fecha em caso de erro: o usuário precisa ver o toast.
+		// Sheet não fecha em caso de erro: o usuário precisa ver o alerta.
 		expect(onOpenChange).not.toHaveBeenCalledWith(false);
 	});
 
 	test('renderiza toast de erro quando onSubmit lança exceção', async () => {
 		const onSubmit = vi.fn().mockRejectedValue(new Error('Boom'));
 		render(
-			<EditResponseDialog
+			<EditResponseSheet
 				open
 				onOpenChange={() => {}}
 				request={baseRequest()}
@@ -125,7 +145,7 @@ describe('EditResponseDialog', () => {
 	test('valida status code fora de [100, 599] e bloqueia submit', () => {
 		const onSubmit = vi.fn();
 		render(
-			<EditResponseDialog
+			<EditResponseSheet
 				open
 				onOpenChange={() => {}}
 				request={baseRequest()}
@@ -142,11 +162,50 @@ describe('EditResponseDialog', () => {
 		expect(onSubmit).not.toHaveBeenCalled();
 	});
 
+	test('header com chave vazia bloqueia submit e exibe erro inline', async () => {
+		const onSubmit = vi.fn();
+		render(
+			<EditResponseSheet
+				open
+				onOpenChange={() => {}}
+				request={baseRequest({
+					headers: { 'content-type': 'application/json' },
+					response: {
+						headers: { 'content-type': 'application/json' },
+						body: '{}',
+					},
+					body: '{}',
+				})}
+				requestId="req-1"
+				onSubmit={onSubmit}
+			/>,
+		);
+
+		fireEvent.click(screen.getByTestId('edit-response-add-header'));
+		const headersList = screen.getByTestId('edit-response-headers');
+		const valueInputs = headersList.querySelectorAll(
+			'[data-testid^="edit-response-header-value-"]',
+		);
+		const lastValue = valueInputs[valueInputs.length - 1] as HTMLInputElement;
+		fireEvent.change(lastValue, { target: { value: 'orfao' } });
+
+		fireEvent.click(screen.getByTestId('edit-response-submit'));
+
+		await waitFor(() => {
+			const inlineErrors = headersList.querySelectorAll(
+				'[data-testid^="edit-response-header-error-"]',
+			);
+			expect(inlineErrors.length).toBeGreaterThan(0);
+		});
+		expect(onSubmit).not.toHaveBeenCalled();
+		expect(screen.getByTestId('edit-response-error-toast')).toHaveTextContent('chave vazia');
+	});
+
 	test('Cancelar fecha sem chamar onSubmit', () => {
 		const onSubmit = vi.fn();
 		const onOpenChange = vi.fn();
 		render(
-			<EditResponseDialog
+			<EditResponseSheet
 				open
 				onOpenChange={onOpenChange}
 				request={baseRequest()}
@@ -159,10 +218,39 @@ describe('EditResponseDialog', () => {
 		expect(onSubmit).not.toHaveBeenCalled();
 	});
 
+	test('botões ficam desabilitados enquanto onSubmit está pendente', async () => {
+		let resolveSubmit: (value: { success: boolean }) => void = () => {};
+		const onSubmit = vi.fn(
+			() =>
+				new Promise<{ success: boolean }>((resolve) => {
+					resolveSubmit = resolve;
+				}),
+		);
+		render(
+			<EditResponseSheet
+				open
+				onOpenChange={() => {}}
+				request={baseRequest()}
+				requestId="req-1"
+				onSubmit={onSubmit}
+			/>,
+		);
+
+		const submit = screen.getByTestId('edit-response-submit') as HTMLButtonElement;
+		const cancel = screen.getByRole('button', { name: /Cancelar/i }) as HTMLButtonElement;
+		fireEvent.click(submit);
+
+		await waitFor(() => expect(submit.disabled).toBe(true));
+		expect(cancel.disabled).toBe(true);
+		expect(submit).toHaveTextContent(/Aplicando/);
+
+		resolveSubmit({ success: true });
+	});
+
 	test('avisa quando usuário edita Content-Length sem bloquear submit', async () => {
 		const onSubmit = vi.fn().mockResolvedValue({ success: true });
 		render(
-			<EditResponseDialog
+			<EditResponseSheet
 				open
 				onOpenChange={() => {}}
 				request={baseRequest({
@@ -187,7 +275,7 @@ describe('EditResponseDialog', () => {
 	test('permite remover headers existentes antes de enviar', async () => {
 		const onSubmit = vi.fn().mockResolvedValue({ success: true });
 		render(
-			<EditResponseDialog
+			<EditResponseSheet
 				open
 				onOpenChange={() => {}}
 				request={baseRequest({

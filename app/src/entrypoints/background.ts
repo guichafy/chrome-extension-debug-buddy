@@ -516,7 +516,7 @@ chrome.runtime.onMessage.addListener(
 			}
 		} else if (message.action === 'approveResponseWithEdit') {
 			// Edição one-shot: o usuário ajusta status/headers/body de uma response
-			// pausada via EditResponseDialog e devolvemos via Fetch.fulfillRequest.
+			// pausada via EditResponseSheet e devolvemos via Fetch.fulfillRequest.
 			// Diferente de approveResponse: não há fallback para continueRequest se
 			// fulfill falhar — a edição precisa ser visível como erro na UI.
 			const { requestId, status, headers, body } = message as {
@@ -635,7 +635,7 @@ async function getDecodedResponseBody(requestId: string): Promise<string> {
 }
 
 // Edição one-shot: aplica status/headers/body editados pelo usuário via
-// EditResponseDialog. Ao contrário de `applyResponseModifications`, NÃO faz
+// EditResponseSheet. Ao contrário de `applyResponseModifications`, NÃO faz
 // fallback para `continueRequest` em caso de erro — a regra "no fallbacks" do
 // projeto exige que a falha seja propagada para a UI (toast). O body é sempre
 // re-encodado em base64 antes do envio (CDP aceita texto plano via base64Encoded

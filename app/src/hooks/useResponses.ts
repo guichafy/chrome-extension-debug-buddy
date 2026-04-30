@@ -89,7 +89,7 @@ export function useResponses() {
 	);
 
 	// Edição one-shot: envia status/headers/body editados via approveResponseWithEdit.
-	// Devolve `{ success, error }` para que a UI (EditResponseDialog) renderize o
+	// Devolve `{ success, error }` para que a UI (EditResponseSheet) renderize o
 	// erro como toast — regra "no fallbacks" exige propagação explícita.
 	const approveResponseWithEdit = useCallback(
 		async (
@@ -166,6 +166,23 @@ export function useResponses() {
 		},
 		[pendingResponses, currentResponseId],
 	);
+
+	// Ignora em massa todas as respostas pausadas atualmente.
+	// Estratégia: iteramos um snapshot dos IDs e reaproveitamos `ignoreResponse`
+	// para cada um — assim o tratamento de erro existente (console.error + alert
+	// quando o background rejeita) continua valendo por request, e nenhum
+	// fallback "fingindo sucesso" é introduzido aqui. Optamos por não criar uma
+	// action `ignoreAllPending` no background porque a iteração no front mantém
+	// o protocolo simples (uma única action `approveResponse` sem modificações)
+	// e a UI ainda reage em tempo real via os eventos `requestUpdated` que o
+	// background já emite após cada `Fetch.continueRequest`.
+	const ignoreAllPending = useCallback(async (): Promise<void> => {
+		const ids = Object.keys(pendingResponses);
+		for (const id of ids) {
+			// Sequencial para preservar a ordem original das respostas no background.
+			await ignoreResponse(id);
+		}
+	}, [pendingResponses, ignoreResponse]);
 
 	// Limpar a resposta atual
 	const clearCurrentResponse = useCallback(() => {
@@ -251,6 +268,7 @@ export function useResponses() {
 		approveResponse,
 		approveResponseWithEdit,
 		ignoreResponse,
+		ignoreAllPending,
 		clearCurrentResponse,
 	};
 }

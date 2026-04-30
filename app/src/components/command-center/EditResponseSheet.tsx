@@ -1,21 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LucideIcon } from '@/components/ui/lucide-icon';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+	Sheet,
+	SheetContent,
+	SheetDescription,
+	SheetFooter,
+	SheetHeader,
+	SheetTitle,
+} from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import type { InterceptedResponse } from '@/types/intercepted';
 
-interface EditResponseDialogProps {
+interface EditResponseSheetProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	request: InterceptedResponse;
@@ -74,13 +74,13 @@ function pickInitialHeaders(request: InterceptedResponse): Record<string, string
 	return request.response?.headers ?? request.headers ?? {};
 }
 
-export function EditResponseDialog({
+export function EditResponseSheet({
 	open,
 	onOpenChange,
 	request,
 	requestId,
 	onSubmit,
-}: EditResponseDialogProps) {
+}: EditResponseSheetProps) {
 	const initialStatus = request.status;
 	const initialHeaders = useMemo(() => pickInitialHeaders(request), [request]);
 	const initialBody = useMemo(() => pickInitialBody(request), [request]);
@@ -91,9 +91,10 @@ export function EditResponseDialog({
 	const [submitting, setSubmitting] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [warningMessage, setWarningMessage] = useState<string | null>(null);
+	const [headerErrors, setHeaderErrors] = useState<Record<string, string>>({});
 
-	// Reset state quando o dialog abre para outra request (request troca enquanto
-	// dialog estava montado mas fechado).
+	// Reset state quando o sheet abre para outra request (request troca enquanto
+	// sheet estava montado mas fechado).
 	useEffect(() => {
 		if (!open) return;
 		setStatusInput(String(initialStatus));
@@ -101,6 +102,7 @@ export function EditResponseDialog({
 		setBody(initialBody);
 		setErrorMessage(null);
 		setWarningMessage(null);
+		setHeaderErrors({});
 		setSubmitting(false);
 	}, [open, initialStatus, initialHeaders, initialBody]);
 
@@ -109,10 +111,23 @@ export function EditResponseDialog({
 
 	const updateRow = (id: string, patch: Partial<Omit<HeaderRow, 'id'>>) => {
 		setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+		// Limpa o erro inline da linha enquanto o usuário corrige.
+		setHeaderErrors((prev) => {
+			if (!prev[id]) return prev;
+			const next = { ...prev };
+			delete next[id];
+			return next;
+		});
 	};
 
 	const removeRow = (id: string) => {
 		setRows((prev) => prev.filter((r) => r.id !== id));
+		setHeaderErrors((prev) => {
+			if (!prev[id]) return prev;
+			const next = { ...prev };
+			delete next[id];
+			return next;
+		});
 	};
 
 	const addRow = () => {
@@ -124,6 +139,22 @@ export function EditResponseDialog({
 			setErrorMessage('Status code precisa ser um inteiro entre 100 e 599.');
 			return;
 		}
+
+		// Validação: header com valor preenchido mas chave vazia é erro inline.
+		// Linhas inteiramente vazias (chave + valor) são tratadas como descartáveis.
+		const newHeaderErrors: Record<string, string> = {};
+		for (const row of rows) {
+			const trimmedName = row.name.trim();
+			if (!trimmedName && row.value.trim() !== '') {
+				newHeaderErrors[row.id] = 'Header sem nome. Preencha a chave ou remova a linha.';
+			}
+		}
+		if (Object.keys(newHeaderErrors).length > 0) {
+			setHeaderErrors(newHeaderErrors);
+			setErrorMessage('Há headers com chave vazia. Corrija antes de aplicar.');
+			return;
+		}
+		setHeaderErrors({});
 
 		const headers = rowsToHeaders(rows);
 
@@ -161,22 +192,43 @@ export function EditResponseDialog({
 		}
 	};
 
+	const method = request.method ?? 'GET';
+
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent
-				className="flex max-h-[90vh] max-w-3xl flex-col"
-				data-testid="edit-response-dialog"
+		<Sheet open={open} onOpenChange={onOpenChange}>
+			<SheetContent
+				side="right"
+				className="flex w-full flex-col gap-0 p-0 sm:max-w-2xl"
+				data-testid="edit-response-sheet"
 			>
-				<DialogHeader>
-					<DialogTitle>Editar response (one-shot)</DialogTitle>
-					<DialogDescription>
+				<SheetHeader className="space-y-2 border-b p-6">
+					<SheetTitle>Editar response (one-shot)</SheetTitle>
+					<SheetDescription>
 						Ajuste status, headers e body desta requisição. A edição é aplicada uma única vez — para
 						persistir como regra reutilizável use &quot;Criar Mock&quot;.
-					</DialogDescription>
-				</DialogHeader>
+					</SheetDescription>
+					<div
+						className="mt-2 flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-xs"
+						data-testid="edit-response-context"
+					>
+						<span
+							className="rounded-sm bg-primary/10 px-1.5 py-0.5 font-mono font-semibold text-primary"
+							data-testid="edit-response-context-method"
+						>
+							{method}
+						</span>
+						<span
+							className="break-all font-mono text-muted-foreground"
+							data-testid="edit-response-context-url"
+							title={request.url}
+						>
+							{request.url}
+						</span>
+					</div>
+				</SheetHeader>
 
-				<ScrollArea className="min-h-0 flex-1 pr-2">
-					<div className="space-y-4">
+				<ScrollArea className="min-h-0 flex-1">
+					<div className="space-y-4 p-6">
 						<div className="space-y-1">
 							<Label htmlFor="edit-response-status">Status code</Label>
 							<Input
@@ -198,7 +250,7 @@ export function EditResponseDialog({
 
 						<div className="space-y-2">
 							<div className="flex items-center justify-between">
-								<Label>Headers</Label>
+								<Label>Response headers</Label>
 								<Button
 									type="button"
 									variant="outline"
@@ -217,46 +269,59 @@ export function EditResponseDialog({
 								</p>
 							) : (
 								<div className="space-y-2" data-testid="edit-response-headers">
-									{rows.map((row) => (
-										<div
-											key={row.id}
-											className="grid items-center gap-2"
-											style={{
-												gridTemplateColumns: 'minmax(140px, 220px) minmax(0, 1fr) auto',
-											}}
-										>
-											<Input
-												placeholder="Header"
-												value={row.name}
-												onChange={(e) => updateRow(row.id, { name: e.target.value })}
-												className="font-mono text-xs"
-												data-testid={`edit-response-header-name-${row.id}`}
-											/>
-											<Input
-												placeholder="valor"
-												value={row.value}
-												onChange={(e) => updateRow(row.id, { value: e.target.value })}
-												className="font-mono text-xs"
-												data-testid={`edit-response-header-value-${row.id}`}
-											/>
-											<Button
-												type="button"
-												variant="ghost"
-												size="icon"
-												onClick={() => removeRow(row.id)}
-												aria-label={`Remover header ${row.name || 'sem nome'}`}
-												className="h-8 w-8"
-											>
-												<LucideIcon name="x" className="h-4 w-4" />
-											</Button>
-										</div>
-									))}
+									{rows.map((row) => {
+										const rowError = headerErrors[row.id];
+										return (
+											<div key={row.id} className="space-y-1">
+												<div
+													className="grid items-center gap-2"
+													style={{
+														gridTemplateColumns: 'minmax(140px, 220px) minmax(0, 1fr) auto',
+													}}
+												>
+													<Input
+														placeholder="Header"
+														value={row.name}
+														onChange={(e) => updateRow(row.id, { name: e.target.value })}
+														className="font-mono text-xs"
+														data-testid={`edit-response-header-name-${row.id}`}
+														aria-invalid={rowError ? 'true' : undefined}
+													/>
+													<Input
+														placeholder="valor"
+														value={row.value}
+														onChange={(e) => updateRow(row.id, { value: e.target.value })}
+														className="font-mono text-xs"
+														data-testid={`edit-response-header-value-${row.id}`}
+													/>
+													<Button
+														type="button"
+														variant="ghost"
+														size="icon"
+														onClick={() => removeRow(row.id)}
+														aria-label={`Remover header ${row.name || 'sem nome'}`}
+														className="h-8 w-8"
+													>
+														<LucideIcon name="x" className="h-4 w-4" />
+													</Button>
+												</div>
+												{rowError && (
+													<p
+														className="text-xs text-destructive"
+														data-testid={`edit-response-header-error-${row.id}`}
+													>
+														{rowError}
+													</p>
+												)}
+											</div>
+										);
+									})}
 								</div>
 							)}
 						</div>
 
 						<div className="space-y-1">
-							<Label htmlFor="edit-response-body">Body</Label>
+							<Label htmlFor="edit-response-body">Response body</Label>
 							{request.bodyUnavailableReason && (
 								<p className="text-xs text-muted-foreground">
 									Aviso: {request.bodyUnavailableReason}
@@ -295,7 +360,7 @@ export function EditResponseDialog({
 					</div>
 				</ScrollArea>
 
-				<DialogFooter className="mt-4">
+				<SheetFooter className="border-t p-6">
 					<Button
 						type="button"
 						variant="outline"
@@ -312,10 +377,10 @@ export function EditResponseDialog({
 						data-testid="edit-response-submit"
 					>
 						<LucideIcon name="check" className="h-4 w-4" />
-						{submitting ? 'Aplicando…' : 'Aprovar com edição'}
+						{submitting ? 'Aplicando…' : 'Aplicar e continuar'}
 					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
+				</SheetFooter>
+			</SheetContent>
+		</Sheet>
 	);
 }
