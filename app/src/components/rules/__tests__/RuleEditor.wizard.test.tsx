@@ -247,3 +247,115 @@ describe('RuleEditor wizard', () => {
 		);
 	});
 });
+
+describe('RuleEditor wizard — step Tipo (cards)', () => {
+	test('renderiza 4 cards (mock, transform, delay, breakpoint) com descrições corretas', () => {
+		render(<RuleEditor open mode="edit" rule={baseRule} onOpenChange={vi.fn()} onSave={vi.fn()} />);
+
+		const group = screen.getByTestId('rule-wizard-type-cards');
+		expect(within(group).getByTestId('rule-wizard-type-card-mock')).toHaveTextContent(
+			'Não chama o servidor — retorna a resposta mockada.',
+		);
+		expect(within(group).getByTestId('rule-wizard-type-card-transform')).toHaveTextContent(
+			'Chama o servidor e aplica modificações na resposta.',
+		);
+		expect(within(group).getByTestId('rule-wizard-type-card-delay')).toHaveTextContent(
+			'Atrasa a resposta antes de devolver ao cliente.',
+		);
+		expect(within(group).getByTestId('rule-wizard-type-card-breakpoint')).toHaveTextContent(
+			'Pausa antes de responder e permite editar a resposta em voo.',
+		);
+	});
+
+	test('o card do tipo atual aparece visualmente destacado (data-selected/aria-pressed)', () => {
+		render(<RuleEditor open mode="edit" rule={baseRule} onOpenChange={vi.fn()} onSave={vi.fn()} />);
+
+		const mockCard = screen.getByTestId('rule-wizard-type-card-mock');
+		expect(mockCard).toHaveAttribute('data-selected', 'true');
+		expect(mockCard).toHaveAttribute('aria-pressed', 'true');
+		expect(
+			within(mockCard).getByTestId('rule-wizard-type-card-mock-selected-badge'),
+		).toBeInTheDocument();
+
+		const delayCard = screen.getByTestId('rule-wizard-type-card-delay');
+		expect(delayCard).toHaveAttribute('data-selected', 'false');
+		expect(delayCard).toHaveAttribute('aria-pressed', 'false');
+	});
+
+	test('em modo create clicar em outro card troca o tipo da ação', () => {
+		render(<RuleEditor open mode="create" onOpenChange={vi.fn()} onSave={vi.fn()} />);
+		fireEvent.click(screen.getByTestId('preset-blank'));
+
+		expect(screen.getByTestId('rule-wizard-type-card-mock')).toHaveAttribute(
+			'data-selected',
+			'true',
+		);
+
+		fireEvent.click(screen.getByTestId('rule-wizard-type-card-delay'));
+		expect(screen.getByTestId('rule-wizard-type-card-delay')).toHaveAttribute(
+			'data-selected',
+			'true',
+		);
+		expect(screen.getByTestId('rule-wizard-type-card-mock')).toHaveAttribute(
+			'data-selected',
+			'false',
+		);
+
+		fireEvent.click(screen.getByTestId('rule-wizard-type-card-breakpoint'));
+		expect(screen.getByTestId('rule-wizard-type-card-breakpoint')).toHaveAttribute(
+			'data-selected',
+			'true',
+		);
+	});
+
+	test('em modo edit os cards não selecionados ficam desabilitados (tipo bloqueado)', () => {
+		render(<RuleEditor open mode="edit" rule={baseRule} onOpenChange={vi.fn()} onSave={vi.fn()} />);
+
+		const transformCard = screen.getByTestId('rule-wizard-type-card-transform');
+		expect(transformCard).toBeDisabled();
+		expect(transformCard).toHaveAttribute('aria-disabled', 'true');
+
+		const breakpointCard = screen.getByTestId('rule-wizard-type-card-breakpoint');
+		expect(breakpointCard).toBeDisabled();
+
+		const mockCard = screen.getByTestId('rule-wizard-type-card-mock');
+		expect(mockCard).not.toBeDisabled();
+
+		// Tentativa de clicar em card desabilitado não muda a seleção
+		fireEvent.click(transformCard);
+		expect(mockCard).toHaveAttribute('data-selected', 'true');
+		expect(transformCard).toHaveAttribute('data-selected', 'false');
+	});
+
+	test('em modo edit a explicação reforça que o tipo é imutável', () => {
+		render(<RuleEditor open mode="edit" rule={baseRule} onOpenChange={vi.fn()} onSave={vi.fn()} />);
+
+		const group = screen.getByTestId('rule-wizard-type-cards');
+		expect(group).toHaveTextContent(
+			'Em edição, o tipo não pode ser alterado — para mudar o tipo, crie uma nova regra.',
+		);
+	});
+
+	test('em modo create trocar para delay produz action.timeMs default no payload salvo', async () => {
+		const onSave = vi.fn().mockResolvedValue(true);
+		render(<RuleEditor open mode="create" onOpenChange={vi.fn()} onSave={onSave} />);
+		fireEvent.click(screen.getByTestId('preset-blank'));
+
+		fireEvent.click(screen.getByTestId('rule-wizard-type-card-delay'));
+
+		// Avança para Matcher e preenche URL
+		fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
+		fireEvent.change(screen.getByTestId('unified-url-input'), {
+			target: { value: '/api/slow' },
+		});
+		// Avança até Revisar
+		fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
+		fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
+
+		fireEvent.click(screen.getByTestId('rule-wizard-save'));
+
+		expect(onSave).toHaveBeenCalledTimes(1);
+		const payload = onSave.mock.calls[0][0];
+		expect(payload.action).toEqual({ type: 'delay', enabled: true, timeMs: 1000 });
+	});
+});

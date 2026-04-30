@@ -3,10 +3,10 @@
   "sessionId": "d9b54d10-2e9e-45e2-b59c-e0505fe3348c",
   "status": "running",
   "startedAt": "2026-04-30T06:03:33.753Z",
-  "updatedAt": "2026-04-30T06:45:56.050Z",
-  "currentIteration": 5,
+  "updatedAt": "2026-04-30T06:49:55.815Z",
+  "currentIteration": 6,
   "maxIterations": 0,
-  "tasksCompleted": 5,
+  "tasksCompleted": 6,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -119,8 +119,8 @@
       {
         "id": "chrome-extension-debug-buddy-jc0.18",
         "title": "US-018: Step Revisar e Salvar com diff em modo edicao",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       }
     ]
   },
@@ -174,6 +174,16 @@
       "durationMs": 632506,
       "startedAt": "2026-04-30T06:26:17.102Z",
       "endedAt": "2026-04-30T06:36:49.608Z"
+    },
+    {
+      "iteration": 6,
+      "status": "completed",
+      "taskId": "chrome-extension-debug-buddy-jc0.18",
+      "taskTitle": "US-018: Step Revisar e Salvar com diff em modo edicao",
+      "taskCompleted": true,
+      "durationMs": 534376,
+      "startedAt": "2026-04-30T06:37:00.705Z",
+      "endedAt": "2026-04-30T06:45:55.081Z"
     }
   ],
   "skippedTaskIds": [],

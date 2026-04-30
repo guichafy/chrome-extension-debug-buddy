@@ -69,10 +69,34 @@ const STEP_META: Record<WizardStep, { label: string; description: string }> = {
 };
 
 const ACTION_TYPE_DESCRIPTION: Record<Action['type'], string> = {
-	mock: 'Não chama o servidor — retorna a resposta mockada configurada.',
-	transform: 'Chama o servidor e aplica modificações na resposta antes de devolver ao cliente.',
-	delay: 'Atrasa a resposta antes de devolver ao cliente, sem alterar o conteúdo.',
-	breakpoint: 'Pausa o request e abre o dialog de inspeção para edição manual antes de continuar.',
+	mock: 'Não chama o servidor — retorna a resposta mockada.',
+	transform: 'Chama o servidor e aplica modificações na resposta.',
+	delay: 'Atrasa a resposta antes de devolver ao cliente.',
+	breakpoint: 'Pausa antes de responder e permite editar a resposta em voo.',
+};
+
+const ACTION_TYPE_ORDER: ReadonlyArray<Action['type']> = [
+	'breakpoint',
+	'mock',
+	'transform',
+	'delay',
+];
+
+const createDefaultActionForType = (type: Action['type']): Action => {
+	switch (type) {
+		case 'mock':
+			return { type: 'mock', enabled: true, status: 200, headers: {} };
+		case 'delay':
+			return { type: 'delay', enabled: true, timeMs: 1000 };
+		case 'transform':
+			return { type: 'transform', enabled: true };
+		case 'breakpoint':
+			return { type: 'breakpoint', enabled: true, description: '' };
+		default: {
+			const exhaustive: never = type;
+			throw new Error(`Tipo de ação não suportado: ${String(exhaustive)}`);
+		}
+	}
 };
 
 const DEFAULT_MATCHERS: Matcher[] = [
@@ -342,51 +366,110 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 
 	const visuals = getActionVisuals(action);
 
-	const renderTypeStep = () => (
-		<div className="space-y-4">
-			<div>
-				<Label htmlFor="ruleName">Nome da Regra</Label>
-				<Input
-					id="ruleName"
-					value={name}
-					onChange={(e) => setName(e.target.value)}
-					placeholder="Ex: API de Login"
-					className="w-full"
-				/>
-			</div>
-			<div className="rounded-lg border bg-card p-4">
-				<div className="flex items-start gap-3">
-					<div
-						className={cn(
-							'flex h-10 w-10 shrink-0 items-center justify-center rounded-md',
-							visuals.bgClass,
-							visuals.textClass,
-						)}
-					>
-						<LucideIcon name={visuals.iconName} className="h-5 w-5" />
-					</div>
-					<div className="flex-1">
-						<div className="text-sm font-medium">Tipo: {visuals.label}</div>
-						<p className="mt-1 text-sm text-muted-foreground">
-							{ACTION_TYPE_DESCRIPTION[action.type]}
-						</p>
-					</div>
+	const handleSelectType = (target: Action['type']) => {
+		if (mode === 'edit') return;
+		if (action.type === target) return;
+		setAction(createDefaultActionForType(target));
+	};
+
+	const renderTypeStep = () => {
+		const isLocked = mode === 'edit';
+		return (
+			<div className="space-y-4">
+				<div>
+					<Label htmlFor="ruleName">Nome da Regra</Label>
+					<Input
+						id="ruleName"
+						value={name}
+						onChange={(e) => setName(e.target.value)}
+						placeholder="Ex: API de Login"
+						className="w-full"
+					/>
 				</div>
-				<p className="mt-3 text-xs text-muted-foreground">
-					O tipo é definido pelo preset escolhido ou pelo editor de Ação. Em uma próxima entrega
-					este passo permitirá escolher o tipo via cards visuais.
-				</p>
+
+				<fieldset className="space-y-2" data-testid="rule-wizard-type-cards">
+					<legend className="text-sm font-medium">Tipo de regra</legend>
+					<p className="text-xs text-muted-foreground">
+						{isLocked
+							? 'Em edição, o tipo não pode ser alterado — para mudar o tipo, crie uma nova regra.'
+							: 'Escolha o comportamento da regra. Você pode trocar livremente até salvar.'}
+					</p>
+					<div className="grid gap-3 sm:grid-cols-2">
+						{ACTION_TYPE_ORDER.map((t) => {
+							const v = getActionVisuals(createDefaultActionForType(t));
+							const isSelected = action.type === t;
+							const disabled = isLocked && !isSelected;
+							return (
+								<button
+									key={t}
+									type="button"
+									aria-pressed={isSelected}
+									aria-disabled={disabled}
+									disabled={disabled}
+									onClick={() => handleSelectType(t)}
+									className={cn(
+										'group flex items-start gap-3 rounded-lg border p-4 text-left transition-colors',
+										isSelected
+											? cn(
+													'ring-2 ring-offset-2 ring-offset-background',
+													v.borderClass,
+													'border-2',
+													'bg-card',
+												)
+											: 'border-muted-foreground/20 bg-card hover:bg-muted/40',
+										disabled && 'cursor-not-allowed opacity-50 hover:bg-card',
+										!disabled && !isSelected && 'cursor-pointer',
+									)}
+									data-testid={`rule-wizard-type-card-${t}`}
+									data-selected={isSelected ? 'true' : 'false'}
+								>
+									<div
+										className={cn(
+											'flex h-10 w-10 shrink-0 items-center justify-center rounded-md',
+											v.bgClass,
+											v.textClass,
+										)}
+									>
+										<LucideIcon name={v.iconName} className="h-5 w-5" />
+									</div>
+									<div className="flex-1">
+										<div className="flex items-center gap-2 text-sm font-medium">
+											{v.label}
+											{isSelected && (
+												<span
+													className={cn(
+														'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+														v.bgClass,
+														v.textClass,
+													)}
+													data-testid={`rule-wizard-type-card-${t}-selected-badge`}
+												>
+													<LucideIcon name="check" className="h-3 w-3" />
+													Selecionado
+												</span>
+											)}
+										</div>
+										<p className="mt-1 text-sm text-muted-foreground">
+											{ACTION_TYPE_DESCRIPTION[t]}
+										</p>
+									</div>
+								</button>
+							);
+						})}
+					</div>
+				</fieldset>
+
+				<div className="flex items-center space-x-2">
+					<Checkbox
+						id="rule-enabled"
+						checked={enabled}
+						onCheckedChange={(checked) => setEnabled(checked === true)}
+					/>
+					<Label htmlFor="rule-enabled">Regra ativa</Label>
+				</div>
 			</div>
-			<div className="flex items-center space-x-2">
-				<Checkbox
-					id="rule-enabled"
-					checked={enabled}
-					onCheckedChange={(checked) => setEnabled(checked === true)}
-				/>
-				<Label htmlFor="rule-enabled">Regra ativa</Label>
-			</div>
-		</div>
-	);
+		);
+	};
 
 	const renderMatcherStep = () => (
 		<div className="space-y-3">

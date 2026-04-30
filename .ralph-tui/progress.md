@@ -18,6 +18,8 @@ after each iteration and it's included in prompts for context.
 - **Toast custom sem dependencia externa**: `app/src/components/rules-lab/RuleSaveToast.tsx` — `<output aria-live="polite">` fixed bottom-right, barra de progresso via `setInterval` 50ms, botoes Desfazer/Fechar. Sem `sonner`/`react-hot-toast`. Use `<output>` em vez de `<div role="status">` para satisfazer biome `useSemanticElements`.
 - **Undo via snapshot pre-mutation**: em `RulesLab.tsx`, antes de chamar `addRule`/`updateRule` no callback `onSave` do RuleEditor, captura `previousRules = rules` (estavel no closure ate proxima rerenderizacao apos setRules). Toast leva esse snapshot; Undo faz `chrome.storage.local.set({rules: previousRules})`. Funciona porque `useRules` reflete `chrome.storage.onChanged` automaticamente.
 - **Diff visual via JSON.stringify dos sub-objetos**: `JSON.stringify(rule.matchers) !== JSON.stringify(matchers)` para detectar mudanca em estruturas profundas. Reaproveita `getMatcherSummary`/`getActionSummary` para renderizar "antes -> depois" no mesmo formato da listagem principal — consistencia visual gratuita.
+- **Type cards no step Tipo do wizard**: 4 cards (mock, transform, delay, breakpoint) na ordem `ACTION_TYPE_ORDER = ['breakpoint','mock','transform','delay']` em grid `sm:grid-cols-2`. Cada card eh `<button type="button" aria-pressed={isSelected}>` com `data-testid="rule-wizard-type-card-${type}"` + `data-selected="true|false"` para testes/visual. `getActionVisuals(createDefaultActionForType(t))` reaproveita as cores/icones definidos. **Em modo edit**, todos os cards exceto o atual ficam `disabled` (aria-disabled) para impedir mudanca de tipo. **Em modo create**, clicar em outro card chama `setAction(createDefaultActionForType(target))` para resetar a action ao default daquele tipo. Helper `createDefaultActionForType(type)` cobre os 4 tipos com defaults razoaveis (mock 200, delay 1000ms, transform sem patches, breakpoint sem descricao).
+- **A11y de cards radio-like**: biome 2.x `lint/a11y/useSemanticElements` rejeita `role="radio"` em `<button>` (sugere `<input type="radio">`). Em UI de cards complexos, usar apenas `aria-pressed={selected}` em vez de role. Sem `role="radiogroup"` no wrapper — o `<fieldset>` + `<legend>` ja agrupam semanticamente.
 
 ---
 
@@ -135,4 +137,21 @@ after each iteration and it's included in prompts for context.
 - **Validacao reativa em wizard**: lista `useMemo` de `FieldError[]` (id, message, step) habilitando navegacao por click + Save disabled. Padrao aplicavel a outros wizards.
 - **Toast custom sem dep**: `<output aria-live="polite">` fixed bottom-right, barra de progresso via setInterval, botoes Desfazer/Fechar. ~80 linhas, totalmente testavel.
 - **Undo via snapshot pre-mutation**: capturar snapshot do estado no closure ANTES de chamar addRule/updateRule; toast leva o snapshot e restaura via `chrome.storage.local.set`.
+---
+
+
+## 2026-04-30 - chrome-extension-debug-buddy-jc0.10
+- US-010: Step Tipo do wizard com selecao visual em 4 cards
+- Files changed:
+  - `app/src/components/rules/RuleEditor.tsx`:
+    - Atualizei `ACTION_TYPE_DESCRIPTION` para descricoes finais conforme AC ("Nao chama o servidor — retorna a resposta mockada", etc.)
+    - Adicionei `ACTION_TYPE_ORDER = ['breakpoint','mock','transform','delay']` e `createDefaultActionForType(type): Action` que retorna defaults para cada um dos 4 tipos
+    - Refatorei `renderTypeStep()` substituindo o card unico (placeholder de "proxima entrega") por uma `<fieldset>` + grid `sm:grid-cols-2` com 4 cards. Cada card eh um `<button type="button" aria-pressed={isSelected}>`, mostra icone colorido (via `getActionVisuals`), titulo e descricao. Card selecionado tem ring + border destacada + badge "Selecionado". Em modo edit, cards nao-selecionados ficam `disabled` + opacity reduzida. Em modo create, clicar troca o `action` para `createDefaultActionForType(target)`.
+    - Texto explicativo varia entre create ("Escolha o comportamento da regra. Voce pode trocar livremente ate salvar.") e edit ("Em edicao, o tipo nao pode ser alterado — para mudar o tipo, crie uma nova regra.")
+  - `app/src/components/rules/__tests__/RuleEditor.wizard.test.tsx`: novo `describe('RuleEditor wizard — step Tipo (cards)')` com 6 testes cobrindo: renderizacao dos 4 cards com descricoes corretas, destaque do card selecionado (data-selected/aria-pressed/badge), troca de tipo em modo create, lock em modo edit (cards desabilitados nao mudam selecao), texto explicativo de edit, e payload correto apos trocar tipo + salvar (delay com timeMs default 1000)
+- **Learnings:**
+  - **Biome rejeita `role="radio"` em `<button>`**: a regra `lint/a11y/useSemanticElements` quer `<input type="radio">`. Para cards visuais ricos, esse mapeamento eh incompativel. Solucao: usar `<fieldset>`+`<legend>` para agrupar e `aria-pressed={selected}` em cada card-button (toggle button pattern). Funciona como radio-group informalmente — usuario consegue navegar com Tab e ativar com Enter/Space, e screen readers anunciam o estado de selecao via aria-pressed.
+  - **`getActionVisuals` aceita `Action` (nao `ActionType`)**: como o tipo Action eh union discriminada por `type`, o switch interno so usa `action.type`. Para iterar pelos 4 tipos sem cast `as Action`, usei `createDefaultActionForType(t)` (que ja temos para outros propositos) — gera um Action minimo valido por tipo.
+  - **Defaults conscientes para troca de tipo em create**: ao trocar de Mock para Delay, perder os campos do Mock eh aceitavel porque o usuario esta no step Tipo (ainda nao configurou a action). `createDefaultActionForType` reseta para um estado base claro (mock 200, delay 1000ms, transform vazio, breakpoint vazio), o que mantem o step Acao previsivel.
+  - **Em edit nao deletei os cards inativos** — mantive todos os 4 visiveis mas com `disabled` + opacity-50 + cursor-not-allowed. Isso reforca visualmente quais sao as 4 opcoes do produto e por que aquele tipo especifico esta locked, em vez de simplesmente ocultar os outros tres. Texto explicativo em edit ("para mudar o tipo, crie uma nova regra") guia o usuario.
 ---
