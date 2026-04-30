@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "sessionId": "d9b54d10-2e9e-45e2-b59c-e0505fe3348c",
+  "status": "running",
+  "startedAt": "2026-04-30T06:03:33.753Z",
+  "updatedAt": "2026-04-30T06:04:05.667Z",
+  "currentIteration": 0,
+  "maxIterations": 0,
+  "tasksCompleted": 0,
+  "isPaused": false,
+  "agentPlugin": "claude",
+  "trackerState": {
+    "plugin": "beads",
+    "epicId": "chrome-extension-debug-buddy-jc0",
+    "totalTasks": 18,
+    "tasks": [
+      {
+        "id": "chrome-extension-debug-buddy-jc0.1",
+        "title": "US-001: Renomear modify para transform em todo o codigo",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "chrome-extension-debug-buddy-jc0.2",
+        "title": "US-002: Prioridade de matching ordenada (primeira que casa vence)",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "chrome-extension-debug-buddy-jc0.3",
+        "title": "US-003: Redesign da listagem de regras com shadcn Table",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "chrome-extension-debug-buddy-jc0.4",
+        "title": "US-004: Busca e filtro na listagem de regras",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "chrome-extension-debug-buddy-jc0.5",
+        "title": "US-005: Toggle enabled/disabled por regra",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "chrome-extension-debug-buddy-jc0.6",
+        "title": "US-006: Duplicar regra a partir da listagem",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "chrome-extension-debug-buddy-jc0.7",
+        "title": "US-007: Reordenar regras com drag-and-drop",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "chrome-extension-debug-buddy-jc0.8",
+        "title": "US-008: Importar e exportar regras em JSON",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "chrome-extension-debug-buddy-jc0.9",
+        "title": "US-009: Wizard multi-step em Dialog grande para criacao/edicao",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "chrome-extension-debug-buddy-jc0.10",
+        "title": "US-010: Step Tipo do wizard com selecao visual em cards",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "chrome-extension-debug-buddy-jc0.11",
+        "title": "US-011: Biblioteca de templates curados de regras",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "chrome-extension-debug-buddy-jc0.12",
+        "title": "US-012: Step Matcher unificado com preview ao vivo",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "chrome-extension-debug-buddy-jc0.13",
+        "title": "US-013: Editor de acao Mock com status, headers e body",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "chrome-extension-debug-buddy-jc0.14",
+        "title": "US-014: Editor de acao Delay com presets",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "chrome-extension-debug-buddy-jc0.15",
+        "title": "US-015: Editor de acao Breakpoint com descricao",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "chrome-extension-debug-buddy-jc0.16",
+        "title": "US-016: Editor de Transform em modo declarativo (JSONPath)",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "chrome-extension-debug-buddy-jc0.17",
+        "title": "US-017: Editor de Transform em modo avancado JS",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "chrome-extension-debug-buddy-jc0.18",
+        "title": "US-018: Step Revisar e Salvar com diff em modo edicao",
+        "status": "open",
+        "completedInSession": false
+      }
+    ]
+  },
+  "iterations": [],
+  "skippedTaskIds": [],
+  "cwd": "/Users/guichafy/Workspaces/chrome-extension-debug-buddy",
+  "activeTaskIds": [
+    "chrome-extension-debug-buddy-jc0.1"
+  ],
+  "subagentPanelVisible": false
+}
