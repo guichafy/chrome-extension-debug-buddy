@@ -26,13 +26,14 @@ import { LucideIcon } from '@/components/ui/lucide-icon';
 import { cn } from '@/lib/utils';
 import { createTemplateRule } from '@/domain/ruleTemplates';
 import type { RuleTemplateId } from '@/domain/ruleTemplates';
-import { Action, Matcher, Rule } from '@/types/rules';
+import { Action, Matcher, Rule, RuleDraft } from '@/types/rules';
 import {
 	getActionSummary,
 	getActionVisuals,
 	getMatcherSummary,
 } from '@/components/rules-lab/ruleVisuals';
 import { ActionEditor } from './ActionEditor';
+import { HeaderMatcherSelector, type HeaderMatcherSource } from './HeaderMatcherSelector';
 import { PresetWelcome } from './PresetWelcome';
 import { UnifiedMatcherEditor } from './UnifiedMatcherEditor';
 
@@ -42,13 +43,17 @@ interface RuleEditorProps {
 	rule?: Rule;
 	onOpenChange: (open: boolean) => void;
 	onSave: (rule: Omit<Rule, 'id' | 'createdAt' | 'updatedAt'>) => Promise<boolean>;
+	skipTypeStep?: boolean;
+	initialDraft?: RuleDraft;
+	headerMatcherSource?: HeaderMatcherSource;
 }
 
 type EditorView = 'welcome' | 'editor';
 
 type WizardStep = 'type' | 'matcher' | 'action' | 'review';
 
-const STEPS: readonly WizardStep[] = ['type', 'matcher', 'action', 'review'] as const;
+const FULL_STEPS: readonly WizardStep[] = ['type', 'matcher', 'action', 'review'] as const;
+const STEPS_WITHOUT_TYPE: readonly WizardStep[] = ['matcher', 'action', 'review'] as const;
 
 const STEP_META: Record<WizardStep, { label: string; description: string }> = {
 	type: {
@@ -127,14 +132,24 @@ interface FieldError {
 	step: WizardStep;
 }
 
-const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange, onSave }) => {
+const RuleEditor: React.FC<RuleEditorProps> = ({
+	open,
+	mode,
+	rule,
+	onOpenChange,
+	onSave,
+	skipTypeStep = false,
+	initialDraft,
+	headerMatcherSource,
+}) => {
+	const STEPS = skipTypeStep ? STEPS_WITHOUT_TYPE : FULL_STEPS;
 	const [view, setView] = useState<EditorView>(mode === 'edit' ? 'editor' : 'welcome');
 	const [cameFromWelcome, setCameFromWelcome] = useState(false);
 	const [name, setName] = useState(rule?.name || 'Nova Regra');
 	const [matchers, setMatchers] = useState<Matcher[]>(rule?.matchers ?? DEFAULT_MATCHERS);
 	const [action, setAction] = useState<Action>(rule?.action ?? DEFAULT_ACTION);
 	const [enabled, setEnabled] = useState(rule?.enabled !== false);
-	const [step, setStep] = useState<WizardStep>('type');
+	const [step, setStep] = useState<WizardStep>(skipTypeStep ? 'matcher' : 'type');
 	const [maxStepIndexReached, setMaxStepIndexReached] = useState(0);
 	const [initialSnapshot, setInitialSnapshot] = useState<string>('');
 	const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -202,7 +217,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 			setEnabled(rule.enabled);
 			setView('editor');
 			setCameFromWelcome(false);
-			setStep('type');
+			setStep(skipTypeStep ? 'matcher' : 'type');
 			setMaxStepIndexReached(STEPS.length - 1);
 			setInitialSnapshot(
 				snapshot({
@@ -216,18 +231,32 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 			return;
 		}
 		if (mode === 'create') {
+			if (initialDraft) {
+				setName(initialDraft.name);
+				setMatchers(initialDraft.matchers);
+				setAction(initialDraft.action);
+				setEnabled(initialDraft.enabled);
+				setView('editor');
+				setCameFromWelcome(false);
+				setStep(skipTypeStep ? 'matcher' : 'type');
+				setMaxStepIndexReached(0);
+				setInitialSnapshot(snapshot(initialDraft));
+				setShowCancelConfirm(false);
+				return;
+			}
 			setName('Nova Regra');
 			setMatchers(DEFAULT_MATCHERS);
 			setAction(DEFAULT_ACTION);
 			setEnabled(true);
-			setView('welcome');
+			setView(skipTypeStep ? 'editor' : 'welcome');
 			setCameFromWelcome(false);
-			setStep('type');
+			setStep(skipTypeStep ? 'matcher' : 'type');
 			setMaxStepIndexReached(0);
 			setInitialSnapshot('');
 			setShowCancelConfirm(false);
 		}
-	}, [open, mode, rule]);
+		// biome-ignore lint/correctness/useExhaustiveDependencies: STEPS é derivado de skipTypeStep
+	}, [open, mode, rule, skipTypeStep, initialDraft]);
 
 	const beginEditingFromDraft = (draft: DraftSnapshot) => {
 		setName(draft.name);
@@ -482,6 +511,13 @@ const RuleEditor: React.FC<RuleEditorProps> = ({ open, mode, rule, onOpenChange,
 				</p>
 			</div>
 			<UnifiedMatcherEditor matchers={matchers} onChange={setMatchers} />
+			{headerMatcherSource && (
+				<HeaderMatcherSelector
+					headers={headerMatcherSource}
+					matchers={matchers}
+					onChange={setMatchers}
+				/>
+			)}
 		</div>
 	);
 
