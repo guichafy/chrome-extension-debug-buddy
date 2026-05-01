@@ -77,33 +77,30 @@ const CommandCenter: React.FC = () => {
 		setSearchParams(next, { replace: true });
 	}, [filters, searchParams, setSearchParams]);
 
-	// Lista ordenada (timestamp asc) + posição do selecionado em uma única passada.
-	// Usado para navegação J/K e para "Aprovar próximo" ter um alvo determinístico.
-	const {
-		pendingIdsOrdered,
-		pendingCount,
-		selectedPendingIndex,
-		hasSelectedPending,
-		nextPendingUrl,
-	} = useMemo(() => {
-		const entries = Object.entries(pendingResponses).sort(
-			(a, b) => (a[1]?.timestamp ?? 0) - (b[1]?.timestamp ?? 0),
-		);
-		const ids = entries.map(([id]) => id);
-		const idx = selectedId ? ids.indexOf(selectedId) : -1;
-		// URL exibida no Dock: a do request que seria afetado por "Aprovar próximo"
-		// — mesma resolução usada em approveNext/ignoreCurrent: selecionado se houver,
-		// caso contrário o primeiro da fila.
-		const targetId = idx >= 0 && selectedId ? selectedId : ids[0];
-		const url = targetId ? (pendingResponses[targetId]?.url ?? null) : null;
-		return {
-			pendingIdsOrdered: ids,
-			pendingCount: ids.length,
-			selectedPendingIndex: idx >= 0 ? idx : null,
-			hasSelectedPending: idx >= 0,
-			nextPendingUrl: url,
-		};
-	}, [pendingResponses, selectedId]);
+	// Lista ordenada (timestamp asc) + posição do alvo do Dock em uma única passada.
+	// Conceitualmente, o Dock SEMPRE tem um alvo enquanto houver fila: o request
+	// manualmente selecionado, ou o primeiro pendente caso o usuário não tenha
+	// clicado em nada. Por isso `currentIndex`/`hasSelectedPending` defaultam
+	// para o primeiro item — a UI mostra "1 / N" mesmo sem clique do usuário,
+	// reforçando o modelo mental de fila.
+	const { pendingIdsOrdered, pendingCount, dockTargetIndex, hasSelectedPending, nextPendingUrl } =
+		useMemo(() => {
+			const entries = Object.entries(pendingResponses).sort(
+				(a, b) => (a[1]?.timestamp ?? 0) - (b[1]?.timestamp ?? 0),
+			);
+			const ids = entries.map(([id]) => id);
+			const manualIdx = selectedId ? ids.indexOf(selectedId) : -1;
+			const targetIndex = manualIdx >= 0 ? manualIdx : ids.length > 0 ? 0 : null;
+			const targetId = targetIndex !== null ? ids[targetIndex] : undefined;
+			const url = targetId ? (pendingResponses[targetId]?.url ?? null) : null;
+			return {
+				pendingIdsOrdered: ids,
+				pendingCount: ids.length,
+				dockTargetIndex: targetIndex,
+				hasSelectedPending: targetIndex !== null,
+				nextPendingUrl: url,
+			};
+		}, [pendingResponses, selectedId]);
 
 	// Limpar o id da regra recém-criada quando o usuário troca de request selecionado.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: selectedId é o gatilho da limpeza
@@ -171,19 +168,19 @@ const CommandCenter: React.FC = () => {
 
 	const navigateNext = useCallback(() => {
 		if (pendingIdsOrdered.length === 0) return;
-		const idx = selectedPendingIndex ?? -1;
+		const idx = dockTargetIndex ?? -1;
 		const nextIndex = (idx + 1 + pendingIdsOrdered.length) % pendingIdsOrdered.length;
 		const target = pendingIdsOrdered[nextIndex];
 		if (target) select(target);
-	}, [pendingIdsOrdered, select, selectedPendingIndex]);
+	}, [pendingIdsOrdered, select, dockTargetIndex]);
 
 	const navigatePrev = useCallback(() => {
 		if (pendingIdsOrdered.length === 0) return;
-		const idx = selectedPendingIndex ?? 0;
+		const idx = dockTargetIndex ?? 0;
 		const nextIndex = (idx - 1 + pendingIdsOrdered.length) % pendingIdsOrdered.length;
 		const target = pendingIdsOrdered[nextIndex];
 		if (target) select(target);
-	}, [pendingIdsOrdered, select, selectedPendingIndex]);
+	}, [pendingIdsOrdered, select, dockTargetIndex]);
 
 	usePendingHotkeys({
 		enabled: pendingCount > 0,
@@ -245,7 +242,7 @@ const CommandCenter: React.FC = () => {
 
 			<PendingActionDock
 				pendingCount={pendingCount}
-				currentIndex={selectedPendingIndex}
+				currentIndex={dockTargetIndex}
 				hasSelectedPending={hasSelectedPending}
 				nextPendingUrl={nextPendingUrl}
 				onApproveNext={approveNext}
