@@ -41,9 +41,6 @@ vi.mock('@/hooks/useAllRequests', () => ({
 			filteredRequests: {},
 			filters,
 			setFilters,
-			pauseAutoRefresh: vi.fn(),
-			enableAutoRefresh: vi.fn(),
-			autoRefreshEnabled: true,
 			clearAllRequests: vi.fn().mockResolvedValue(true),
 		};
 	},

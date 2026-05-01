@@ -19,7 +19,6 @@ export function useAllRequests() {
 	const [currentRequest, setCurrentRequest] = useState<InterceptedResponse | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [filters, setFilters] = useState<Filter[]>([]);
-	const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
 	const [dbInitialized, setDbInitialized] = useState(false);
 
 	useEffect(() => {
@@ -28,9 +27,6 @@ export function useAllRequests() {
 			.then(() => setDbInitialized(true))
 			.catch((err) => console.error('Erro ao inicializar IndexedDB:', err));
 	}, []);
-
-	const pauseAutoRefresh = useCallback(() => setAutoRefreshEnabled(false), []);
-	const enableAutoRefresh = useCallback(() => setAutoRefreshEnabled(true), []);
 
 	const reloadFromDB = useCallback(async () => {
 		if (!dbInitialized) return;
@@ -113,10 +109,10 @@ export function useAllRequests() {
 		};
 		chrome.runtime.onMessage.addListener(messageListener);
 
-		// Resincroniza periodicamente do IndexedDB caso a hook tenha perdido eventos
-		// (ex.: foi montada após uma rajada de interceptações).
+		// Safety-net contra eventos perdidos (ex.: hook montada após uma rajada).
+		// Skip em background pra não gastar CPU à toa.
 		const interval = setInterval(() => {
-			if (autoRefreshEnabled && document.visibilityState === 'visible') {
+			if (document.visibilityState === 'visible') {
 				reloadFromDB();
 			}
 		}, 10000);
@@ -125,7 +121,7 @@ export function useAllRequests() {
 			chrome.runtime.onMessage.removeListener(messageListener);
 			clearInterval(interval);
 		};
-	}, [reloadFromDB, autoRefreshEnabled]);
+	}, [reloadFromDB]);
 
 	return {
 		allRequests,
@@ -139,9 +135,6 @@ export function useAllRequests() {
 		clearAllRequests,
 		filters,
 		setFilters,
-		pauseAutoRefresh,
-		enableAutoRefresh,
-		autoRefreshEnabled,
 		dbInitialized,
 	};
 }

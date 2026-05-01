@@ -25,9 +25,6 @@ describe('RequestTimeline', () => {
 				filters={[]}
 				onFiltersChange={vi.fn()}
 				onClearHistory={vi.fn()}
-				autoRefreshEnabled
-				pauseAutoRefresh={vi.fn()}
-				enableAutoRefresh={vi.fn()}
 			/>,
 		);
 		const row = screen.getByText(/users/);
@@ -44,9 +41,6 @@ describe('RequestTimeline', () => {
 				filters={[]}
 				onFiltersChange={vi.fn()}
 				onClearHistory={vi.fn()}
-				autoRefreshEnabled
-				pauseAutoRefresh={vi.fn()}
-				enableAutoRefresh={vi.fn()}
 			/>,
 		);
 		const selected = container.querySelector('[data-state="selected"]');

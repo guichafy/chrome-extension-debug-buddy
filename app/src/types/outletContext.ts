@@ -17,9 +17,6 @@ export interface AppOutletContext {
 	filteredRequests: Record<string, InterceptedResponse>;
 	filters: Filter[];
 	setFilters: (filters: Filter[]) => void;
-	pauseAutoRefresh: () => void;
-	enableAutoRefresh: () => void;
-	autoRefreshEnabled: boolean;
 	clearAllRequests: () => Promise<boolean>;
 
 	// Pendentes (substitui as chamadas que CommandCenter fazia direto a useResponses)
