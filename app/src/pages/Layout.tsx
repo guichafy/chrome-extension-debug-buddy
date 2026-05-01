@@ -154,7 +154,7 @@ const Layout: React.FC = () => {
 
 	const createMockNext = useCallback(() => {
 		if (!dockTargetId) return;
-		navigate(`/command-center?mock=${encodeURIComponent(dockTargetId)}`);
+		navigate(`/command-center?createRule=${encodeURIComponent(dockTargetId)}&type=mock`);
 	}, [dockTargetId, navigate]);
 
 	const handleIgnoreAll = useCallback(async () => {

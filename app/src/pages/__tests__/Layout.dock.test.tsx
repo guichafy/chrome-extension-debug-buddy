@@ -216,7 +216,7 @@ describe('Layout — Dock cross-route', () => {
 		});
 	});
 
-	test('clique em "Criar Mock" partindo de /rules-lab navega para /command-center?mock=<id>', async () => {
+	test('clique em "Criar Mock" partindo de /rules-lab navega para /command-center?createRule=<id>&type=mock', async () => {
 		responseStubs.pendingResponses = {
 			'r-rl-mock': pendingResponse({ url: 'https://api.example.com/mock-from-rl', timestamp: 1 }),
 		};
@@ -227,7 +227,8 @@ describe('Layout — Dock cross-route', () => {
 		await waitFor(() => {
 			expect(locationProbe.pathname).toBe('/command-center');
 			const params = new URLSearchParams(locationProbe.search);
-			expect(params.get('mock')).toBe('r-rl-mock');
+			expect(params.get('createRule')).toBe('r-rl-mock');
+			expect(params.get('type')).toBe('mock');
 		});
 	});
 
