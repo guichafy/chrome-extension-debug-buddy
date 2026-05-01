@@ -5,6 +5,7 @@ import { PendingActionDock } from '../PendingActionDock';
 const noopHandlers = () => ({
 	onApproveNext: vi.fn(),
 	onEditNext: vi.fn(),
+	onCreateMockNext: vi.fn(),
 	onIgnoreAll: vi.fn(),
 	onViewPending: vi.fn(),
 });
@@ -67,6 +68,53 @@ describe('PendingActionDock', () => {
 		expect(screen.getByTestId('pending-action-dock-edit-next')).toBeInTheDocument();
 		expect(screen.getByTestId('pending-action-dock-view-pending')).toBeInTheDocument();
 		expect(screen.getByTestId('pending-action-dock-ignore-all')).toBeInTheDocument();
+	});
+
+	test('clique em "Criar Mock da próxima" chama onCreateMockNext', () => {
+		const handlers = noopHandlers();
+		render(
+			<PendingActionDock
+				pendingCount={2}
+				currentIndex={null}
+				hasSelectedPending={false}
+				nextPendingUrl="https://api.example.com/a"
+				{...handlers}
+			/>,
+		);
+		fireEvent.click(screen.getByTestId('pending-action-dock-create-mock-next'));
+		expect(handlers.onCreateMockNext).toHaveBeenCalledTimes(1);
+		expect(handlers.onApproveNext).not.toHaveBeenCalled();
+		expect(handlers.onIgnoreAll).not.toHaveBeenCalled();
+		expect(handlers.onViewPending).not.toHaveBeenCalled();
+		expect(handlers.onEditNext).not.toHaveBeenCalled();
+	});
+
+	test('label do botão Criar Mock muda conforme há pausada selecionada', () => {
+		const { rerender } = render(
+			<PendingActionDock
+				pendingCount={2}
+				currentIndex={null}
+				hasSelectedPending={false}
+				nextPendingUrl="https://api.example.com/a"
+				{...noopHandlers()}
+			/>,
+		);
+		expect(screen.getByTestId('pending-action-dock-create-mock-next')).toHaveTextContent(
+			'Criar Mock da próxima',
+		);
+
+		rerender(
+			<PendingActionDock
+				pendingCount={3}
+				currentIndex={1}
+				hasSelectedPending
+				nextPendingUrl="https://api.example.com/a"
+				{...noopHandlers()}
+			/>,
+		);
+		expect(screen.getByTestId('pending-action-dock-create-mock-next')).toHaveTextContent(
+			'Criar Mock',
+		);
 	});
 
 	test('clique em "Editar próxima…" chama onEditNext', () => {

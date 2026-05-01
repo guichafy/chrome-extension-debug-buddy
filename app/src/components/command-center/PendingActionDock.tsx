@@ -10,6 +10,7 @@ interface PendingActionDockProps {
 	nextPendingUrl: string | null;
 	onApproveNext: () => void;
 	onEditNext: () => void;
+	onCreateMockNext: () => void;
 	onIgnoreAll: () => void;
 	onViewPending: () => void;
 }
@@ -21,6 +22,7 @@ export function PendingActionDock({
 	nextPendingUrl,
 	onApproveNext,
 	onEditNext,
+	onCreateMockNext,
 	onIgnoreAll,
 	onViewPending,
 }: PendingActionDockProps) {
@@ -34,6 +36,7 @@ export function PendingActionDock({
 	const counterLabel = pendingCount === 1 ? '1 pausada' : `${pendingCount} pausadas`;
 	const approveLabel = hasSelectedPending ? 'Aprovar' : 'Aprovar próximo';
 	const editLabel = hasSelectedPending ? 'Editar…' : 'Editar próxima…';
+	const createMockLabel = hasSelectedPending ? 'Criar Mock' : 'Criar Mock da próxima';
 	const ignoreShortcutLabel = hasSelectedPending ? 'Ignorar' : 'Ignorar próximo';
 	const navDisabled = pendingCount < 2;
 
@@ -86,6 +89,17 @@ export function PendingActionDock({
 				>
 					<LucideIcon name="file-edit" className="mr-1 h-4 w-4" />
 					{editLabel}
+				</Button>
+				<Button
+					type="button"
+					size="sm"
+					variant="outline"
+					onClick={onCreateMockNext}
+					className="border-warning/40 hover:bg-warning/15"
+					data-testid="pending-action-dock-create-mock-next"
+				>
+					<LucideIcon name="copy" className="mr-1 h-4 w-4" />
+					{createMockLabel}
 				</Button>
 				<div className="grid grid-cols-2 gap-2">
 					<Button

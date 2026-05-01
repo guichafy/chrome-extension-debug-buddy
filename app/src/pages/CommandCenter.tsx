@@ -48,7 +48,7 @@ const CommandCenter: React.FC = () => {
 	const { selectedId, selected, select, clear } = useRequestSelection(filteredRequests);
 
 	const [clearDialogOpen, setClearDialogOpen] = useState(false);
-	const [quickMockOpen, setQuickMockOpen] = useState(false);
+	const [quickMockTargetId, setQuickMockTargetId] = useState<string | null>(null);
 	const [recentRuleId, setRecentRuleId] = useState<string | null>(null);
 	const [editSheetTargetId, setEditSheetTargetId] = useState<string | null>(null);
 
@@ -133,9 +133,17 @@ const CommandCenter: React.FC = () => {
 		clear();
 	};
 
-	const handleCreateMock = (_request: InterceptedResponse, _requestId: string) => {
-		setQuickMockOpen(true);
+	const handleCreateMock = (_request: InterceptedResponse, requestId: string) => {
+		setQuickMockTargetId(requestId);
 	};
+
+	const quickMockTarget = quickMockTargetId
+		? (filteredRequests[quickMockTargetId] ?? pendingResponses[quickMockTargetId] ?? null)
+		: null;
+
+	useEffect(() => {
+		if (quickMockTargetId && !quickMockTarget) setQuickMockTargetId(null);
+	}, [quickMockTargetId, quickMockTarget]);
 
 	const approveNext = useCallback(async () => {
 		const nextId = hasSelectedPending && selectedId ? selectedId : pendingIdsOrdered[0];
@@ -153,6 +161,12 @@ const CommandCenter: React.FC = () => {
 		const targetId = hasSelectedPending && selectedId ? selectedId : pendingIdsOrdered[0];
 		if (!targetId) return;
 		setEditSheetTargetId(targetId);
+	}, [hasSelectedPending, pendingIdsOrdered, selectedId]);
+
+	const createMockNext = useCallback(() => {
+		const targetId = hasSelectedPending && selectedId ? selectedId : pendingIdsOrdered[0];
+		if (!targetId) return;
+		setQuickMockTargetId(targetId);
 	}, [hasSelectedPending, pendingIdsOrdered, selectedId]);
 
 	const navigateNext = useCallback(() => {
@@ -209,10 +223,7 @@ const CommandCenter: React.FC = () => {
 							generatedRuleId: recentRuleId ?? selected.generatedRuleId,
 						}}
 						requestId={selectedId}
-						onApprove={approveResponse}
-						onIgnore={ignoreResponse}
 						onCreateMock={handleCreateMock}
-						onApproveWithEdit={approveResponseWithEdit}
 						onOpenInRulesLab={(ruleId) => navigate(`/rules-lab?rule=${ruleId}`)}
 						onClose={clear}
 						rules={rules}
@@ -220,12 +231,14 @@ const CommandCenter: React.FC = () => {
 				</section>
 			)}
 
-			{quickMockOpen && selected && selectedId && (
+			{quickMockTarget && quickMockTargetId && (
 				<QuickMockPanel
-					open={quickMockOpen}
-					onOpenChange={setQuickMockOpen}
-					request={selected}
-					requestId={selectedId}
+					open
+					onOpenChange={(open) => {
+						if (!open) setQuickMockTargetId(null);
+					}}
+					request={quickMockTarget}
+					requestId={quickMockTargetId}
 					onCreated={(rule) => setRecentRuleId(rule.id)}
 				/>
 			)}
@@ -237,6 +250,7 @@ const CommandCenter: React.FC = () => {
 				nextPendingUrl={nextPendingUrl}
 				onApproveNext={approveNext}
 				onEditNext={editNext}
+				onCreateMockNext={createMockNext}
 				onIgnoreAll={ignoreAllPending}
 				onViewPending={() =>
 					setFilters([
