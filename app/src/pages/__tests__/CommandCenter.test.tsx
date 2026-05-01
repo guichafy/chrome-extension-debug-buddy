@@ -117,10 +117,6 @@ vi.mock('@/components/command-center/QuickMockPanel', () => ({
 	QuickMockPanel: () => <div data-testid="quick-mock-panel" />,
 }));
 
-vi.mock('@/components/command-center/usePendingHotkeys', () => ({
-	usePendingHotkeys: () => undefined,
-}));
-
 vi.mock('@/hooks/useDebugging', () => ({
 	useDebugging: () => ({
 		isDebugging: false,
