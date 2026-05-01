@@ -17,7 +17,9 @@ cd app
 npm install              # install deps
 npm run dev              # vite dev server (mostly used for type/build feedback; see "Loading the extension")
 npm run build            # production build → app/dist/
+npm run build:dev        # development build → app/dist/ (não minificado, React em modo dev, sourcemaps; compatível com a extensão React Developer Tools)
 npm run watch            # vite build --watch (rebuild on save while extension is loaded from dist/)
+npm run watch:dev        # vite build --watch --mode development (mesmo do watch, mas com bundle dev p/ depurar com React DevTools)
 npm run lint             # biome check src
 npm run lint:fix         # biome check --write src
 npm run format           # biome format --write src
@@ -38,6 +40,16 @@ CI runs `lint`, `build`, `test` (in that order) on PRs to `main` — keep all th
 4. In the interceptor UI, pick a **target tab** (the page the debugger attaches to), then "Start Debugging"
 
 The "Start Debugging" warning bar in Chrome appears on the target tab — that's expected (`chrome.debugger.attach`).
+
+## Depurando a UI da própria extensão com React DevTools
+
+A extensão *React Developer Tools* do Chrome **não** consegue inspecionar páginas `chrome-extension://` — o Chrome bloqueia content scripts entre extensões. Para ver a árvore de componentes em `options.html` ou no side panel, usamos a versão **standalone** (Electron) que escuta WebSocket em `localhost:8097`. O fluxo só é ativado em build dev:
+
+- `npm run build:dev` / `npm run watch:dev` injetam `<script src="http://localhost:8097"></script>` como primeira tag no `<head>` de `options.html` e `sidepanel.html` (sandbox fica de fora — não tem React) e adicionam `content_security_policy.extension_pages: "script-src 'self' http://localhost:8097; object-src 'self'"` ao `dist/manifest.json`. Tudo isso é controlado por `mode === 'development'` em `app/vite.config.mts` — o build de produção continua idêntico (sem CSP custom, sem script remoto), o que é obrigatório para a Chrome Web Store aceitar o pacote.
+- Uso prático:
+  1. Terminal A: `cd app && npm run devtools` — abre a janela standalone.
+  2. Terminal B: `cd app && npm run watch:dev` — gera `dist/` com a injeção.
+  3. `chrome://extensions` → recarregar Debug Buddy → abrir `options.html` ou o side panel. A árvore aparece na janela standalone; se ela diz "Waiting for React to connect..." é porque o `npm run devtools` não está rodando ou o navegador foi aberto antes do bundle terminar de buildar.
 
 ## Architecture overview
 
