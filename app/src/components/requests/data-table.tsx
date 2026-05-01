@@ -37,9 +37,6 @@ interface DataTableProps<TData, TValue> {
 	columns: ColumnDef<TData, TValue>[];
 	data: TData[];
 	onSelect: (requestId: string) => void;
-	pauseAutoRefresh?: () => void;
-	enableAutoRefresh?: () => void;
-	autoRefreshEnabled?: boolean;
 	onClearHistory?: () => void;
 	selectedRowId?: string;
 	/** Slot opcional para a barra de filtros — renderizado acima da tabela. */
@@ -52,9 +49,6 @@ export function DataTable<TData, TValue>({
 	columns,
 	data,
 	onSelect,
-	pauseAutoRefresh,
-	enableAutoRefresh,
-	autoRefreshEnabled,
 	onClearHistory,
 	selectedRowId,
 	filterSlot,
@@ -76,16 +70,14 @@ export function DataTable<TData, TValue>({
 		pageSize: 10,
 	});
 
-	// Ref para armazenar o estado da paginação atual
-	const paginationRef = React.useRef(pagination);
-
-	// Voltar para a primeira página sempre que o conjunto de dados mudar de tamanho
-	// (ex.: novo filtro aplicado upstream) — preserva o comportamento anterior de
-	// reset ao alterar a busca, agora calculado a partir do count visível.
+	// Reset para página 0 só quando o dataset encolhe — mantém o intent original
+	// ("filtro restritivo / clear history → vai pra página 0") mas evita yankar
+	// o usuário ao receber requests live (always-live-tail).
 	const previousLengthRef = React.useRef(data.length);
 	React.useEffect(() => {
-		if (previousLengthRef.current !== data.length) {
-			previousLengthRef.current = data.length;
+		const shrunk = previousLengthRef.current > data.length;
+		previousLengthRef.current = data.length;
+		if (shrunk) {
 			setPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }));
 		}
 	}, [data.length]);
@@ -100,18 +92,6 @@ export function DataTable<TData, TValue>({
 			}));
 		}
 	}, []);
-
-	// Atualizar a ref quando a paginação mudar
-	React.useEffect(() => {
-		paginationRef.current = pagination;
-	}, [pagination]);
-
-	// Função para pausar o auto-refresh quando necessário
-	const handlePauseAutoRefresh = React.useCallback(() => {
-		if (pauseAutoRefresh) {
-			pauseAutoRefresh();
-		}
-	}, [pauseAutoRefresh]);
 
 	// Inicializa a tabela
 	const table = useReactTable({
@@ -140,9 +120,10 @@ export function DataTable<TData, TValue>({
 		},
 	});
 
-	// Simplificado para evitar problemas de roteamento
+	// Trava o pageIndex no último válido quando o dataset encolhe (ex.: limpar
+	// histórico, filtro novo) — evita ficar "preso" numa página vazia.
 	React.useEffect(() => {
-		if (data.length > 0 && autoRefreshEnabled && pagination.pageIndex > 0) {
+		if (data.length > 0 && pagination.pageIndex > 0) {
 			const maxPageIndex = Math.max(0, Math.ceil(data.length / pagination.pageSize) - 1);
 			if (pagination.pageIndex > maxPageIndex) {
 				setPagination((prev) => ({
@@ -151,48 +132,18 @@ export function DataTable<TData, TValue>({
 				}));
 			}
 		}
-	}, [data.length, autoRefreshEnabled, pagination.pageIndex, pagination.pageSize]);
+	}, [data.length, pagination.pageIndex, pagination.pageSize]);
 
 	return (
 		<div className="space-y-4 flex flex-col min-h-0">
 			<div className="flex flex-col sm:flex-row items-start justify-between gap-4 flex-shrink-0">
 				<div className="flex w-full sm:flex-1 items-center gap-2">{filterSlot}</div>
 				<div className="flex items-center gap-2">
-					{autoRefreshEnabled && pauseAutoRefresh ? (
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={pauseAutoRefresh}
-							className="text-xs bg-green-500/10 border-green-500/30 text-green-300 hover:bg-green-500/20"
-						>
-							<LucideIcon
-								name="circle"
-								className="h-4 w-4 mr-1 text-green-500 animate-pulse fill-current"
-							/>
-							Live Tail
-						</Button>
-					) : (
-						!autoRefreshEnabled &&
-						enableAutoRefresh && (
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={enableAutoRefresh}
-								className="text-xs bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20"
-							>
-								<LucideIcon name="refresh" className="h-4 w-4 mr-1" />
-								Ativar Auto-Refresh
-							</Button>
-						)
-					)}
 					{onClearHistory && (
 						<Button
 							variant="outline"
 							size="sm"
-							onClick={() => {
-								handlePauseAutoRefresh();
-								onClearHistory();
-							}}
+							onClick={onClearHistory}
 							className="text-xs bg-red-500/10 border-red-500/30 text-red-300 hover:bg-red-500/20"
 						>
 							<LucideIcon name="trash" className="h-4 w-4 mr-1" />
@@ -325,7 +276,6 @@ export function DataTable<TData, TValue>({
 							className="h-8 w-16 rounded-md border border-input bg-background px-2"
 							value={table.getState().pagination.pageSize}
 							onChange={(e) => {
-								handlePauseAutoRefresh();
 								table.setPageSize(Number(e.target.value));
 							}}
 						>
@@ -345,7 +295,6 @@ export function DataTable<TData, TValue>({
 							max={table.getPageCount()}
 							value={table.getState().pagination.pageIndex + 1}
 							onChange={(e) => {
-								handlePauseAutoRefresh();
 								const page = e.target.value ? Number(e.target.value) - 1 : 0;
 								if (page >= 0 && page < table.getPageCount()) {
 									table.setPageIndex(page);
@@ -358,10 +307,7 @@ export function DataTable<TData, TValue>({
 						<Button
 							variant="outline"
 							size="sm"
-							onClick={() => {
-								handlePauseAutoRefresh();
-								table.setPageIndex(0);
-							}}
+							onClick={() => table.setPageIndex(0)}
 							disabled={!table.getCanPreviousPage()}
 							className="h-8 w-8 p-0"
 							aria-label="Ir para primeira página"
@@ -371,10 +317,7 @@ export function DataTable<TData, TValue>({
 						<Button
 							variant="outline"
 							size="sm"
-							onClick={() => {
-								handlePauseAutoRefresh();
-								table.previousPage();
-							}}
+							onClick={() => table.previousPage()}
 							disabled={!table.getCanPreviousPage()}
 							className="h-8 w-8 p-0"
 							aria-label="Ir para página anterior"
@@ -411,10 +354,7 @@ export function DataTable<TData, TValue>({
 										key={pageIndex}
 										variant={isCurrentPage ? 'default' : 'outline'}
 										size={isCurrentPage ? 'default' : 'sm'}
-										onClick={() => {
-											handlePauseAutoRefresh();
-											table.setPageIndex(pageIndex);
-										}}
+										onClick={() => table.setPageIndex(pageIndex)}
 										className={`${isCurrentPage ? 'h-10 w-10 shadow-md' : 'h-8 w-8'} p-0 ${
 											isCurrentPage
 												? 'bg-primary text-primary-foreground font-bold ring-2 ring-primary ring-offset-2 scale-110 z-10'
@@ -430,10 +370,7 @@ export function DataTable<TData, TValue>({
 						<Button
 							variant="outline"
 							size="sm"
-							onClick={() => {
-								handlePauseAutoRefresh();
-								table.nextPage();
-							}}
+							onClick={() => table.nextPage()}
 							disabled={!table.getCanNextPage()}
 							className="h-8 w-8 p-0"
 							aria-label="Ir para próxima página"
@@ -443,10 +380,7 @@ export function DataTable<TData, TValue>({
 						<Button
 							variant="outline"
 							size="sm"
-							onClick={() => {
-								handlePauseAutoRefresh();
-								table.setPageIndex(table.getPageCount() - 1);
-							}}
+							onClick={() => table.setPageIndex(table.getPageCount() - 1)}
 							disabled={!table.getCanNextPage()}
 							className="h-8 w-8 p-0"
 							aria-label="Ir para última página"

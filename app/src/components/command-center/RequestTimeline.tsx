@@ -12,9 +12,6 @@ interface RequestTimelineProps {
 	filters: Filter[];
 	onFiltersChange: (filters: Filter[]) => void;
 	onClearHistory: () => void;
-	autoRefreshEnabled: boolean;
-	pauseAutoRefresh: () => void;
-	enableAutoRefresh: () => void;
 }
 
 export function RequestTimeline({
@@ -24,9 +21,6 @@ export function RequestTimeline({
 	filters,
 	onFiltersChange,
 	onClearHistory,
-	autoRefreshEnabled,
-	pauseAutoRefresh,
-	enableAutoRefresh,
 }: RequestTimelineProps) {
 	const { rows, pendingRowIds } = useMemo(() => {
 		const rowList: { id: string; request: (typeof requests)[string] }[] = [];
@@ -44,9 +38,6 @@ export function RequestTimeline({
 			data={rows}
 			selectedRowId={selectedId ?? undefined}
 			onSelect={onSelect}
-			pauseAutoRefresh={pauseAutoRefresh}
-			enableAutoRefresh={enableAutoRefresh}
-			autoRefreshEnabled={autoRefreshEnabled}
 			onClearHistory={onClearHistory}
 			pendingRowIds={pendingRowIds}
 			filterSlot={

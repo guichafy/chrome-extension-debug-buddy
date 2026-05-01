@@ -27,9 +27,6 @@ const CommandCenter: React.FC = () => {
 		filteredRequests,
 		filters,
 		setFilters,
-		pauseAutoRefresh,
-		enableAutoRefresh,
-		autoRefreshEnabled,
 		clearAllRequests,
 		approveResponseWithEdit,
 		pendingResponses,
@@ -166,9 +163,6 @@ const CommandCenter: React.FC = () => {
 					filters={filters}
 					onFiltersChange={setFilters}
 					onClearHistory={() => setClearDialogOpen(true)}
-					autoRefreshEnabled={autoRefreshEnabled}
-					pauseAutoRefresh={pauseAutoRefresh}
-					enableAutoRefresh={enableAutoRefresh}
 				/>
 			</section>
 
