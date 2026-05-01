@@ -1,13 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { InterceptedResponse } from '@/types/intercepted';
 import { useAppOutlet } from '@/types/outletContext';
 import { RequestTimeline } from '@/components/command-center/RequestTimeline';
 import { RequestInspector } from '@/components/command-center/RequestInspector';
 import { QuickMockPanel } from '@/components/command-center/QuickMockPanel';
-import { PendingActionDock } from '@/components/command-center/PendingActionDock';
 import { EditResponseSheet } from '@/components/command-center/EditResponseSheet';
-import { usePendingHotkeys } from '@/components/command-center/usePendingHotkeys';
 import { cn } from '@/lib/utils';
 import { filtersEqualUrl, parseFiltersFromUrl, serializeFiltersToUrl } from '@/lib/filterUrl';
 import {
@@ -33,10 +31,7 @@ const CommandCenter: React.FC = () => {
 		enableAutoRefresh,
 		autoRefreshEnabled,
 		clearAllRequests,
-		approveResponse,
 		approveResponseWithEdit,
-		ignoreResponse,
-		ignoreAllPending,
 		pendingResponses,
 		rules,
 		selectedId,
@@ -74,31 +69,6 @@ const CommandCenter: React.FC = () => {
 		for (const value of desired) next.append('filter', value);
 		setSearchParams(next, { replace: true });
 	}, [filters, searchParams, setSearchParams]);
-
-	// Lista ordenada (timestamp asc) + posição do alvo do Dock em uma única passada.
-	// Conceitualmente, o Dock SEMPRE tem um alvo enquanto houver fila: o request
-	// manualmente selecionado, ou o primeiro pendente caso o usuário não tenha
-	// clicado em nada. Por isso `currentIndex`/`hasSelectedPending` defaultam
-	// para o primeiro item — a UI mostra "1 / N" mesmo sem clique do usuário,
-	// reforçando o modelo mental de fila.
-	const { pendingIdsOrdered, pendingCount, dockTargetIndex, hasSelectedPending, nextPendingUrl } =
-		useMemo(() => {
-			const entries = Object.entries(pendingResponses).sort(
-				(a, b) => (a[1]?.timestamp ?? 0) - (b[1]?.timestamp ?? 0),
-			);
-			const ids = entries.map(([id]) => id);
-			const manualIdx = selectedId ? ids.indexOf(selectedId) : -1;
-			const targetIndex = manualIdx >= 0 ? manualIdx : ids.length > 0 ? 0 : null;
-			const targetId = targetIndex !== null ? ids[targetIndex] : undefined;
-			const url = targetId ? (pendingResponses[targetId]?.url ?? null) : null;
-			return {
-				pendingIdsOrdered: ids,
-				pendingCount: ids.length,
-				dockTargetIndex: targetIndex,
-				hasSelectedPending: targetIndex !== null,
-				nextPendingUrl: url,
-			};
-		}, [pendingResponses, selectedId]);
 
 	// Limpar o id da regra recém-criada quando o usuário troca de request selecionado.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: selectedId é o gatilho da limpeza
@@ -139,70 +109,6 @@ const CommandCenter: React.FC = () => {
 	useEffect(() => {
 		if (quickMockTargetId && !quickMockTarget) setQuickMockTargetId(null);
 	}, [quickMockTargetId, quickMockTarget]);
-
-	const approveNext = useCallback(async () => {
-		const nextId = hasSelectedPending && selectedId ? selectedId : pendingIdsOrdered[0];
-		if (!nextId) return;
-		await approveResponse(nextId, {});
-	}, [approveResponse, hasSelectedPending, pendingIdsOrdered, selectedId]);
-
-	const ignoreCurrent = useCallback(async () => {
-		const targetId = hasSelectedPending && selectedId ? selectedId : pendingIdsOrdered[0];
-		if (!targetId) return;
-		await ignoreResponse(targetId);
-	}, [hasSelectedPending, ignoreResponse, pendingIdsOrdered, selectedId]);
-
-	const editNext = useCallback(() => {
-		const targetId = hasSelectedPending && selectedId ? selectedId : pendingIdsOrdered[0];
-		if (!targetId) return;
-		setEditSheetTargetId(targetId);
-	}, [hasSelectedPending, pendingIdsOrdered, selectedId]);
-
-	const createMockNext = useCallback(() => {
-		const targetId = hasSelectedPending && selectedId ? selectedId : pendingIdsOrdered[0];
-		if (!targetId) return;
-		setQuickMockTargetId(targetId);
-	}, [hasSelectedPending, pendingIdsOrdered, selectedId]);
-
-	const handleIgnoreAll = useCallback(async () => {
-		const { succeeded, failed } = await ignoreAllPending();
-		if (failed.length === 0) return;
-		// Sem fallback silencioso: falhas parciais são surfaceadas como uma
-		// única notificação agregada. Mantemos `alert` por enquanto (toast
-		// component shadcn não está vendado neste projeto) — substituir por
-		// toast seria um upgrade UX separado.
-		const detail = failed.map((f) => `- ${f.requestId}: ${f.error}`).join('\n');
-		alert(`${succeeded} ignorada(s) com sucesso, ${failed.length} falha(s):\n${detail}`);
-	}, [ignoreAllPending]);
-
-	const navigateNext = useCallback(() => {
-		if (pendingIdsOrdered.length === 0) return;
-		const idx = dockTargetIndex ?? -1;
-		const nextIndex = (idx + 1 + pendingIdsOrdered.length) % pendingIdsOrdered.length;
-		const target = pendingIdsOrdered[nextIndex];
-		if (target) select(target);
-	}, [pendingIdsOrdered, select, dockTargetIndex]);
-
-	const navigatePrev = useCallback(() => {
-		if (pendingIdsOrdered.length === 0) return;
-		const idx = dockTargetIndex ?? 0;
-		const nextIndex = (idx - 1 + pendingIdsOrdered.length) % pendingIdsOrdered.length;
-		const target = pendingIdsOrdered[nextIndex];
-		if (target) select(target);
-	}, [pendingIdsOrdered, select, dockTargetIndex]);
-
-	usePendingHotkeys({
-		enabled: pendingCount > 0,
-		// J/K só fazem sentido quando há ao menos 2 pausadas — caso contrário
-		// `navigateNext`/`navigatePrev` seriam no-ops e ainda assim consumiriam
-		// o keystroke do usuário (que pode estar usando J/K para scroll).
-		navEnabled: pendingCount > 1,
-		onApprove: approveNext,
-		onIgnore: ignoreCurrent,
-		onNext: navigateNext,
-		onPrev: navigatePrev,
-		onEscape: clear,
-	});
 
 	return (
 		<div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden lg:flex-row">
@@ -252,28 +158,6 @@ const CommandCenter: React.FC = () => {
 					onCreated={(rule) => setRecentRuleId(rule.id)}
 				/>
 			)}
-
-			<PendingActionDock
-				pendingCount={pendingCount}
-				currentIndex={dockTargetIndex}
-				hasSelectedPending={hasSelectedPending}
-				nextPendingUrl={nextPendingUrl}
-				onApproveNext={approveNext}
-				onEditNext={editNext}
-				onCreateMockNext={createMockNext}
-				onIgnoreAll={handleIgnoreAll}
-				onViewPending={() => {
-					// Preserva filtros existentes; só adiciona state:pending se ainda
-					// não houver um filtro de estado pendente (evita duplicata e
-					// preserva refinamentos como method/url que o usuário já tenha).
-					const alreadyPending = filters.some((f) => f.field === 'state' && f.value === 'pending');
-					if (alreadyPending) return;
-					setFilters([
-						...filters,
-						{ id: crypto.randomUUID(), field: 'state', operator: 'is', value: 'pending' },
-					]);
-				}}
-			/>
 
 			{editTarget && editSheetTargetId && (
 				<EditResponseSheet

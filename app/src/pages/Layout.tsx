@@ -1,5 +1,5 @@
-import React, { Suspense, useEffect, useMemo, useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { SelectTabDialog } from '../components/select-tab/SelectTabDialog';
 import { AppSidebar } from '../components/layout/AppSidebar';
 import { SiteHeader } from '../components/layout/SiteHeader';
@@ -12,6 +12,8 @@ import { useRules } from '../hooks/useRules';
 import { useRequestSelection } from '../hooks/useRequestSelection';
 import { useSessionMarker } from '../hooks/useSessionMarker';
 import { useNetworkMetrics } from '../hooks/useNetworkMetrics';
+import { PendingActionDock } from '@/components/command-center/PendingActionDock';
+import { usePendingHotkeys } from '@/components/command-center/usePendingHotkeys';
 import type { AppOutletContext } from '@/types/outletContext';
 
 const RouteFallback: React.FC = () => (
@@ -107,6 +109,111 @@ const Layout: React.FC = () => {
 		],
 	);
 
+	const navigate = useNavigate();
+	const location = useLocation();
+
+	// Derivação do alvo do Dock — mesma fórmula que vivia em CommandCenter:
+	// "selectedId se for pendente, senão primeiro pendente". Promovida para o
+	// Layout porque o Dock agora é global.
+	const { pendingIdsOrdered, pendingCount, dockTargetIndex, hasSelectedPending, nextPendingUrl } =
+		useMemo(() => {
+			const entries = Object.entries(responsesState.pendingResponses).sort(
+				(a, b) => (a[1]?.timestamp ?? 0) - (b[1]?.timestamp ?? 0),
+			);
+			const ids = entries.map(([id]) => id);
+			const manualIdx = selectionState.selectedId ? ids.indexOf(selectionState.selectedId) : -1;
+			const targetIndex = manualIdx >= 0 ? manualIdx : ids.length > 0 ? 0 : null;
+			const targetId = targetIndex !== null ? ids[targetIndex] : undefined;
+			const url = targetId ? (responsesState.pendingResponses[targetId]?.url ?? null) : null;
+			return {
+				pendingIdsOrdered: ids,
+				pendingCount: ids.length,
+				dockTargetIndex: targetIndex,
+				hasSelectedPending: targetIndex !== null,
+				nextPendingUrl: url,
+			};
+		}, [responsesState.pendingResponses, selectionState.selectedId]);
+
+	const dockTargetId =
+		hasSelectedPending && selectionState.selectedId
+			? selectionState.selectedId
+			: pendingIdsOrdered[0];
+
+	const approveNext = useCallback(async () => {
+		if (!dockTargetId) return;
+		await responsesState.approveResponse(dockTargetId, {});
+	}, [dockTargetId, responsesState.approveResponse]);
+
+	const ignoreCurrent = useCallback(async () => {
+		if (!dockTargetId) return;
+		await responsesState.ignoreResponse(dockTargetId);
+	}, [dockTargetId, responsesState.ignoreResponse]);
+
+	// Editar / Criar Mock: navegam para /command-center com query param. Quando
+	// já estamos lá, react-router só atualiza search params (sem unmount).
+	// CommandCenter hidrata o param e abre o sheet/panel correspondente
+	// (hidratação é feita na Task 6 deste refactor).
+	const editNext = useCallback(() => {
+		if (!dockTargetId) return;
+		navigate(`/command-center?edit=${encodeURIComponent(dockTargetId)}`);
+	}, [dockTargetId, navigate]);
+
+	const createMockNext = useCallback(() => {
+		if (!dockTargetId) return;
+		navigate(`/command-center?mock=${encodeURIComponent(dockTargetId)}`);
+	}, [dockTargetId, navigate]);
+
+	const handleIgnoreAll = useCallback(async () => {
+		const { succeeded, failed } = await responsesState.ignoreAllPending();
+		if (failed.length === 0) return;
+		const detail = failed.map((f) => `- ${f.requestId}: ${f.error}`).join('\n');
+		alert(`${succeeded} ignorada(s) com sucesso, ${failed.length} falha(s):\n${detail}`);
+	}, [responsesState.ignoreAllPending]);
+
+	const navigateNext = useCallback(() => {
+		if (pendingIdsOrdered.length === 0) return;
+		const idx = dockTargetIndex ?? -1;
+		const nextIndex = (idx + 1 + pendingIdsOrdered.length) % pendingIdsOrdered.length;
+		const target = pendingIdsOrdered[nextIndex];
+		if (target) selectionState.select(target);
+	}, [pendingIdsOrdered, selectionState.select, dockTargetIndex]);
+
+	const navigatePrev = useCallback(() => {
+		if (pendingIdsOrdered.length === 0) return;
+		const idx = dockTargetIndex ?? 0;
+		const nextIndex = (idx - 1 + pendingIdsOrdered.length) % pendingIdsOrdered.length;
+		const target = pendingIdsOrdered[nextIndex];
+		if (target) selectionState.select(target);
+	}, [pendingIdsOrdered, selectionState.select, dockTargetIndex]);
+
+	const onViewPending = useCallback(() => {
+		const alreadyPending = allRequestsState.filters.some(
+			(f) => f.field === 'state' && f.value === 'pending',
+		);
+		if (!alreadyPending) {
+			allRequestsState.setFilters([
+				...allRequestsState.filters,
+				{ id: crypto.randomUUID(), field: 'state', operator: 'is', value: 'pending' },
+			]);
+		}
+		if (location.pathname !== '/command-center') {
+			navigate('/command-center');
+		}
+	}, [allRequestsState.filters, allRequestsState.setFilters, location.pathname, navigate]);
+
+	usePendingHotkeys({
+		enabled: pendingCount > 0,
+		// J/K só fazem sentido quando há ao menos 2 pausadas — caso contrário
+		// `navigateNext`/`navigatePrev` seriam no-ops e ainda assim consumiriam
+		// o keystroke do usuário (que pode estar usando J/K para scroll).
+		navEnabled: pendingCount > 1,
+		onApprove: approveNext,
+		onIgnore: ignoreCurrent,
+		onNext: navigateNext,
+		onPrev: navigatePrev,
+		onEscape: selectionState.clear,
+	});
+
 	return (
 		<SidebarProvider>
 			<AppSidebar variant="inset" />
@@ -133,6 +240,17 @@ const Layout: React.FC = () => {
 						<Outlet context={outletContext} />
 					</Suspense>
 				</div>
+				<PendingActionDock
+					pendingCount={pendingCount}
+					currentIndex={dockTargetIndex}
+					hasSelectedPending={hasSelectedPending}
+					nextPendingUrl={nextPendingUrl}
+					onApproveNext={approveNext}
+					onEditNext={editNext}
+					onCreateMockNext={createMockNext}
+					onIgnoreAll={handleIgnoreAll}
+					onViewPending={onViewPending}
+				/>
 			</SidebarInset>
 		</SidebarProvider>
 	);

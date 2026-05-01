@@ -5,7 +5,6 @@ import { useLocation } from 'react-router-dom';
 import CommandCenterPage from '../CommandCenter';
 import { renderWithLayout } from '@/test/renderWithLayout';
 import type { Filter } from '@/types/filters';
-import type { InterceptedResponse } from '@/types/intercepted';
 
 // `vi.hoisted` permite que o factory do `vi.mock` (também hoisted) leia uma
 // referência mutável definida no escopo do arquivo. Isso é o que permite
@@ -185,20 +184,6 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
-function pendingResponse(overrides: Partial<InterceptedResponse> = {}): InterceptedResponse {
-	return {
-		url: 'https://api.example.com/users/42',
-		method: 'GET',
-		status: 0,
-		statusText: '',
-		headers: {},
-		type: 'XHR',
-		timestamp: 1,
-		isWaiting: true,
-		...overrides,
-	};
-}
-
 describe('CommandCenter — sincronização de filtros via URL', () => {
 	test('lê o filtro inicial da URL (?filter=state:pending) e aplica ao FilterBar', async () => {
 		renderAt('/command-center?filter=state:pending');
@@ -241,122 +226,6 @@ describe('CommandCenter — sincronização de filtros via URL', () => {
 		await waitFor(() => {
 			const params = new URLSearchParams(locationProbe.search);
 			expect(params.has('filter')).toBe(false);
-		});
-	});
-});
-
-describe('CommandCenter — PendingActionDock', () => {
-	test('Dock não monta quando não há pausadas', () => {
-		responseStubs.pendingResponses = {};
-		renderAt('/command-center');
-		expect(screen.queryByTestId('pending-action-dock')).toBeNull();
-	});
-
-	test('Dock mostra contador, URL da próxima pausada e ações quando há pausadas', () => {
-		responseStubs.pendingResponses = {
-			r1: pendingResponse({ url: 'https://api.example.com/users/1', timestamp: 1 }),
-			r2: pendingResponse({ url: 'https://api.example.com/users/2', timestamp: 2 }),
-		};
-		renderAt('/command-center');
-		expect(screen.getByTestId('pending-action-dock')).toBeInTheDocument();
-		expect(screen.getByTestId('pending-action-dock-counter')).toHaveTextContent('2 pausadas');
-		expect(screen.getByTestId('pending-action-dock-next-url')).toHaveTextContent(
-			'https://api.example.com/users/1',
-		);
-		expect(screen.getByTestId('pending-action-dock-approve-next')).toBeInTheDocument();
-		expect(screen.getByTestId('pending-action-dock-view-pending')).toBeInTheDocument();
-		expect(screen.getByTestId('pending-action-dock-ignore-all')).toBeInTheDocument();
-	});
-
-	test('clique em "Ver pausadas" no Dock muda a URL para ?filter=state:pending', async () => {
-		responseStubs.pendingResponses = {
-			r1: pendingResponse({ url: 'https://api.example.com/users/1', timestamp: 1 }),
-		};
-		renderAt('/command-center');
-
-		fireEvent.click(screen.getByTestId('pending-action-dock-view-pending'));
-
-		await waitFor(() => {
-			const params = new URLSearchParams(locationProbe.search);
-			expect(params.getAll('filter')).toEqual(['state:pending']);
-		});
-	});
-
-	test('"Ver pausadas" preserva filtros existentes e não duplica state:pending', async () => {
-		responseStubs.pendingResponses = {
-			r1: pendingResponse({ url: 'https://api.example.com/users/1', timestamp: 1 }),
-		};
-		renderAt('/command-center?filter=method:GET');
-
-		// Estado inicial: só method:GET
-		await waitFor(() => {
-			const params = new URLSearchParams(locationProbe.search);
-			expect(params.getAll('filter')).toEqual(['method:GET']);
-		});
-
-		// Primeiro clique: append state:pending preservando method:GET
-		fireEvent.click(screen.getByTestId('pending-action-dock-view-pending'));
-		await waitFor(() => {
-			const params = new URLSearchParams(locationProbe.search);
-			expect(params.getAll('filter')).toEqual(['method:GET', 'state:pending']);
-		});
-
-		// Segundo clique: já tem state:pending, no-op (sem duplicar)
-		fireEvent.click(screen.getByTestId('pending-action-dock-view-pending'));
-		await waitFor(() => {
-			const params = new URLSearchParams(locationProbe.search);
-			expect(params.getAll('filter')).toEqual(['method:GET', 'state:pending']);
-		});
-	});
-
-	test('clique em "Ignorar todos" chama ignoreAllPending sem confirmação intermediária', async () => {
-		responseStubs.pendingResponses = {
-			r1: pendingResponse({ url: 'https://api.example.com/users/1', timestamp: 1 }),
-			r2: pendingResponse({ url: 'https://api.example.com/users/2', timestamp: 2 }),
-			r3: pendingResponse({ url: 'https://api.example.com/users/3', timestamp: 3 }),
-		};
-		renderAt('/command-center');
-
-		expect(screen.getByTestId('pending-action-dock')).toBeInTheDocument();
-
-		fireEvent.click(screen.getByTestId('pending-action-dock-ignore-all'));
-
-		// Nenhum AlertDialog/diálogo de confirmação aparece — a ação é imediata.
-		expect(screen.queryByRole('alertdialog')).toBeNull();
-		expect(responseStubs.ignoreAllPending).toHaveBeenCalledTimes(1);
-	});
-
-	test('após ignorar todos, pendingResponses fica vazio e o Dock desmonta', async () => {
-		responseStubs.pendingResponses = {
-			r1: pendingResponse({ url: 'https://api.example.com/users/1', timestamp: 1 }),
-			r2: pendingResponse({ url: 'https://api.example.com/users/2', timestamp: 2 }),
-		};
-		renderAt('/command-center');
-
-		expect(screen.getByTestId('pending-action-dock')).toBeInTheDocument();
-
-		fireEvent.click(screen.getByTestId('pending-action-dock-ignore-all'));
-
-		await waitFor(() => {
-			expect(screen.queryByTestId('pending-action-dock')).toBeNull();
-		});
-	});
-
-	test('clique em "Editar próxima…" abre o EditResponseSheet com a primeira pausada', async () => {
-		responseStubs.pendingResponses = {
-			r1: pendingResponse({ url: 'https://api.example.com/users/1', timestamp: 1 }),
-			r2: pendingResponse({ url: 'https://api.example.com/users/2', timestamp: 2 }),
-		};
-		renderAt('/command-center');
-
-		fireEvent.click(screen.getByTestId('pending-action-dock-edit-next'));
-
-		await waitFor(() => {
-			const sheet = screen.getByTestId('edit-response-sheet');
-			expect(sheet).toBeInTheDocument();
-			expect(screen.getByTestId('edit-response-context-url')).toHaveTextContent(
-				'https://api.example.com/users/1',
-			);
 		});
 	});
 });
