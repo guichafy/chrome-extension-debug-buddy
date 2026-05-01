@@ -468,6 +468,58 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 			expect(screen.getByText('content-type')).toBeInTheDocument();
 		});
 
+		test('campo Nome aparece editável no passo Matcher quando skipTypeStep=true', () => {
+			render(
+				<RuleEditor
+					open
+					mode="create"
+					skipTypeStep
+					initialDraft={{
+						name: 'Mock para api.example.com',
+						enabled: true,
+						matchers: [
+							{ type: 'url', enabled: true, pattern: 'api.example.com', isRegex: false },
+							{ type: 'method', enabled: true, method: 'GET' },
+						],
+						action: { type: 'mock', enabled: true, status: 200, headers: {} },
+					}}
+					onOpenChange={vi.fn()}
+					onSave={vi.fn()}
+				/>,
+			);
+			const nameInput = screen.getByLabelText(/Nome da Regra/);
+			expect(nameInput).toHaveValue('Mock para api.example.com');
+			fireEvent.change(nameInput, { target: { value: 'Nome editado' } });
+			expect(nameInput).toHaveValue('Nome editado');
+		});
+
+		test('campo Nome NÃO aparece no passo Matcher quando skipTypeStep=false (default)', () => {
+			const baseRule = {
+				id: 'r1',
+				name: 'Existing',
+				enabled: true,
+				matchers: [
+					{ type: 'url' as const, enabled: true, pattern: '/api', isRegex: false },
+					{ type: 'method' as const, enabled: true, method: 'GET' },
+				],
+				action: { type: 'mock' as const, enabled: true, status: 200, headers: {} },
+				createdAt: 0,
+				updatedAt: 0,
+			};
+			render(
+				<RuleEditor open mode="edit" rule={baseRule} onOpenChange={vi.fn()} onSave={vi.fn()} />,
+			);
+			fireEvent.click(screen.getByTestId('rule-wizard-step-matcher'));
+			// O label "Nome da Regra" é exclusivo do passo Tipo no fluxo padrão.
+			const headings = screen.queryAllByText(/Nome da Regra/);
+			// No passo Matcher, ele NÃO deve estar visível (welcome+type bar tem o input só no type step)
+			// Aqui apenas verifica que estamos efetivamente no passo Matcher e o input do passo Tipo
+			// não está renderizado simultaneamente.
+			const matcherStep = screen.getByTestId('rule-wizard-step-matcher');
+			expect(matcherStep).toHaveAttribute('aria-current', 'step');
+			expect(headings.length).toBe(0);
+		});
+
 		test('headerMatcherSource ausente não renderiza HeaderMatcherSelector', () => {
 			render(
 				<RuleEditor

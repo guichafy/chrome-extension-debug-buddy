@@ -127,7 +127,13 @@ vi.mock('@/components/command-center/RequestInspector', () => ({
 
 vi.mock('@/components/rules/RuleEditor', () => ({
 	__esModule: true,
-	default: () => <div data-testid="rule-editor" />,
+	default: ({ onOpenChange }: { onOpenChange?: (open: boolean) => void }) => (
+		<div data-testid="rule-editor">
+			<button type="button" data-testid="rule-editor-close" onClick={() => onOpenChange?.(false)}>
+				close
+			</button>
+		</div>
+	),
 }));
 
 vi.mock('@/components/command-center/EditResponseSheet', () => ({
@@ -326,6 +332,54 @@ describe('CommandCenter — hidratação de ?edit / ?createRule', () => {
 			// edit tem precedência se ambos chegam juntos; createRule/type são
 			// silenciosamente removidos para não confundir.
 			expect(screen.getByTestId('edit-response-sheet')).toBeInTheDocument();
+			expect(screen.queryByTestId('rule-editor')).toBeNull();
+			const params = new URLSearchParams(locationProbe.search);
+			expect(params.has('createRule')).toBe(false);
+			expect(params.has('type')).toBe(false);
+		});
+	});
+
+	test('?createRule com type inválido limpa ambos os params e não abre o RuleEditor', async () => {
+		responseStubs.pendingResponses = {
+			'r-mock-1': pendingResponse({ url: 'https://api.example.com/mock-target', timestamp: 1 }),
+		};
+		renderAt('/command-center?createRule=r-mock-1&type=invalid');
+
+		await waitFor(() => {
+			expect(screen.queryByTestId('rule-editor')).toBeNull();
+			const params = new URLSearchParams(locationProbe.search);
+			expect(params.has('createRule')).toBe(false);
+			expect(params.has('type')).toBe(false);
+		});
+	});
+
+	test('?createRule sem type limpa ambos os params e não abre o RuleEditor', async () => {
+		responseStubs.pendingResponses = {
+			'r-mock-1': pendingResponse({ url: 'https://api.example.com/mock-target', timestamp: 1 }),
+		};
+		renderAt('/command-center?createRule=r-mock-1');
+
+		await waitFor(() => {
+			expect(screen.queryByTestId('rule-editor')).toBeNull();
+			const params = new URLSearchParams(locationProbe.search);
+			expect(params.has('createRule')).toBe(false);
+			expect(params.has('type')).toBe(false);
+		});
+	});
+
+	test('fechar RuleEditor (onOpenChange(false)) remove createRule e type da URL', async () => {
+		responseStubs.pendingResponses = {
+			'r-mock-1': pendingResponse({ url: 'https://api.example.com/mock-target', timestamp: 1 }),
+		};
+		renderAt('/command-center?createRule=r-mock-1&type=mock');
+
+		await waitFor(() => {
+			expect(screen.getByTestId('rule-editor')).toBeInTheDocument();
+		});
+
+		fireEvent.click(screen.getByTestId('rule-editor-close'));
+
+		await waitFor(() => {
 			expect(screen.queryByTestId('rule-editor')).toBeNull();
 			const params = new URLSearchParams(locationProbe.search);
 			expect(params.has('createRule')).toBe(false);
