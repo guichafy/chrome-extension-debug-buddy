@@ -125,8 +125,9 @@ vi.mock('@/components/command-center/RequestInspector', () => ({
 	RequestInspector: () => <div data-testid="request-inspector" />,
 }));
 
-vi.mock('@/components/command-center/QuickMockPanel', () => ({
-	QuickMockPanel: () => <div data-testid="quick-mock-panel" />,
+vi.mock('@/components/rules/RuleEditor', () => ({
+	__esModule: true,
+	default: () => <div data-testid="rule-editor" />,
 }));
 
 vi.mock('@/components/command-center/EditResponseSheet', () => ({
@@ -259,7 +260,7 @@ describe('CommandCenter — sincronização de filtros via URL', () => {
 	});
 });
 
-describe('CommandCenter — hidratação de ?edit / ?mock', () => {
+describe('CommandCenter — hidratação de ?edit / ?createRule', () => {
 	test('?edit=<id> presente no mount abre o EditResponseSheet com a request alvo', async () => {
 		responseStubs.pendingResponses = {
 			'r-edit-1': pendingResponse({ url: 'https://api.example.com/edit-target', timestamp: 1 }),
@@ -274,14 +275,14 @@ describe('CommandCenter — hidratação de ?edit / ?mock', () => {
 		});
 	});
 
-	test('?mock=<id> presente no mount abre o QuickMockPanel', async () => {
+	test('?createRule=<id>&type=mock presente no mount abre o RuleEditor', async () => {
 		responseStubs.pendingResponses = {
 			'r-mock-1': pendingResponse({ url: 'https://api.example.com/mock-target', timestamp: 1 }),
 		};
-		renderAt('/command-center?mock=r-mock-1');
+		renderAt('/command-center?createRule=r-mock-1&type=mock');
 
 		await waitFor(() => {
-			expect(screen.getByTestId('quick-mock-panel')).toBeInTheDocument();
+			expect(screen.getByTestId('rule-editor')).toBeInTheDocument();
 		});
 	});
 
@@ -315,17 +316,20 @@ describe('CommandCenter — hidratação de ?edit / ?mock', () => {
 		});
 	});
 
-	test('?edit e ?mock são mutuamente exclusivos — abrir mock fecha edit', async () => {
+	test('?edit e ?createRule são mutuamente exclusivos — edit tem precedência', async () => {
 		responseStubs.pendingResponses = {
 			'r-1': pendingResponse({ url: 'https://api.example.com/x', timestamp: 1 }),
 		};
-		renderAt('/command-center?edit=r-1&mock=r-1');
+		renderAt('/command-center?edit=r-1&createRule=r-1&type=mock');
 
 		await waitFor(() => {
-			// edit tem precedência se ambos chegam juntos; mock é silenciosamente
-			// removido para não confundir.
+			// edit tem precedência se ambos chegam juntos; createRule/type são
+			// silenciosamente removidos para não confundir.
 			expect(screen.getByTestId('edit-response-sheet')).toBeInTheDocument();
-			expect(screen.queryByTestId('quick-mock-panel')).toBeNull();
+			expect(screen.queryByTestId('rule-editor')).toBeNull();
+			const params = new URLSearchParams(locationProbe.search);
+			expect(params.has('createRule')).toBe(false);
+			expect(params.has('type')).toBe(false);
 		});
 	});
 });
