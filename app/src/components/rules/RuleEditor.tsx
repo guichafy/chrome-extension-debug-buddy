@@ -305,7 +305,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 			errors.push({
 				id: 'name-empty',
 				message: 'Informe um nome para a regra',
-				step: 'type',
+				step: skipTypeStep ? 'matcher' : 'type',
 			});
 		}
 		const enabledUrlMatcher = matchers.find((m) => m.type === 'url' && m.enabled);
@@ -338,7 +338,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 			}
 		}
 		return errors;
-	}, [name, matchers]);
+	}, [name, matchers, skipTypeStep]);
 
 	const hasErrors = validationErrors.length > 0;
 
@@ -501,8 +501,22 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 		);
 	};
 
+	const renderNameField = () => (
+		<div>
+			<Label htmlFor="ruleName">Nome da Regra</Label>
+			<Input
+				id="ruleName"
+				value={name}
+				onChange={(e) => setName(e.target.value)}
+				placeholder="Ex: API de Login"
+				className="w-full"
+			/>
+		</div>
+	);
+
 	const renderMatcherStep = () => (
 		<div className="space-y-3">
+			{skipTypeStep && renderNameField()}
 			<div>
 				<h3 className="mb-1 text-lg font-medium">Condições de Match</h3>
 				<p className="mb-4 text-sm text-muted-foreground">
