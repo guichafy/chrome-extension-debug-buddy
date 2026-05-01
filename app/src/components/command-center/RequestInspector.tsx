@@ -3,24 +3,17 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LucideIcon } from '@/components/ui/lucide-icon';
-import type { InterceptedResponse, ResponseModifications } from '@/types/intercepted';
+import type { InterceptedResponse } from '@/types/intercepted';
 import type { Rule } from '@/types/rules';
 import { findMatchingRuleAction } from '@/domain/ruleMatching';
 import { formatDuration } from '@/components/requests/duration';
 import { buildReplayView } from '@/lib/replayHistory';
 import { BodyViewer } from './BodyViewer';
-import { PendingResponseActions } from './PendingResponseActions';
 
 interface RequestInspectorProps {
 	request: InterceptedResponse | null;
 	requestId: string | null;
-	onApprove: (requestId: string, modifications: ResponseModifications) => Promise<boolean>;
-	onIgnore: (requestId: string) => Promise<boolean>;
 	onCreateMock: (request: InterceptedResponse, requestId: string) => void;
-	onApproveWithEdit: (
-		requestId: string,
-		payload: { status: number; headers: Record<string, string>; body: string },
-	) => Promise<{ success: boolean; error?: string }>;
 	onOpenInRulesLab: (ruleId: string) => void;
 	onClose: () => void;
 	rules: Rule[];
@@ -35,10 +28,7 @@ function truncateMiddle(value: string, maxLength = 80): string {
 export function RequestInspector({
 	request,
 	requestId,
-	onApprove,
-	onIgnore,
 	onCreateMock,
-	onApproveWithEdit,
 	onOpenInRulesLab,
 	onClose,
 	rules,
@@ -72,10 +62,6 @@ export function RequestInspector({
 		matchedBreakpoint?.type === 'breakpoint'
 			? matchedBreakpoint.action.description?.trim() || undefined
 			: undefined;
-
-	const handleApproveWrapper = async (id: string) => {
-		await onApprove(id, {});
-	};
 
 	return (
 		<aside className="flex h-full min-h-0 min-w-0 w-full flex-col border-l bg-background">
@@ -111,7 +97,7 @@ export function RequestInspector({
 					className="flex flex-wrap items-center gap-2"
 					data-testid="request-inspector-status-row"
 				>
-					{isPending && (
+					{isPending ? (
 						<Badge
 							variant="warning"
 							className="gap-1 text-xs"
@@ -120,31 +106,23 @@ export function RequestInspector({
 							<LucideIcon name="hourglass" className="h-3 w-3 animate-pulse" />
 							Aguardando decisão
 						</Badge>
+					) : (
+						<Badge variant="outline" className="gap-1 text-xs" data-testid="resolved-badge">
+							<LucideIcon name="check-circle" className="h-3 w-3" />
+							Resolvida
+						</Badge>
 					)}
-					<PendingResponseActions
-						request={request}
-						requestId={requestId}
-						isWaiting={isPending}
-						onApprove={handleApproveWrapper}
-						onIgnore={onIgnore}
-						onCreateMock={onCreateMock}
-						onApproveWithEdit={onApproveWithEdit}
-						hotkeysEnabled={isPending}
+					<Button
 						size="sm"
+						variant="outline"
+						onClick={() => onCreateMock(request, requestId)}
 						disabled={Boolean(request.captureError)}
-					/>
-					{!isPending && (
-						<Button
-							size="sm"
-							variant="outline"
-							onClick={() => onCreateMock(request, requestId)}
-							disabled={Boolean(request.captureError)}
-							className="gap-2"
-						>
-							<LucideIcon name="copy" className="h-4 w-4" />
-							Criar Mock
-						</Button>
-					)}
+						className="gap-2"
+						data-testid="request-inspector-create-mock"
+					>
+						<LucideIcon name="copy" className="h-4 w-4" />
+						Criar Mock
+					</Button>
 					{request.generatedRuleId && (
 						<Button
 							size="sm"

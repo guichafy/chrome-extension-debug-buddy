@@ -25,10 +25,7 @@ const selectTab = async (name: string) => {
 };
 
 const noopHandlers = {
-	onApprove: vi.fn(),
-	onIgnore: vi.fn(),
 	onCreateMock: vi.fn(),
-	onApproveWithEdit: vi.fn(async () => ({ success: true })),
 	onOpenInRulesLab: vi.fn(),
 	onClose: vi.fn(),
 };
@@ -78,7 +75,7 @@ describe('RequestInspector', () => {
 		expect(screen.getByText(/Body too large to capture/)).toBeInTheDocument();
 	});
 
-	test('mostra split button de aprovação e badge "Aguardando decisão" quando isWaiting=true', () => {
+	test('mostra badge "Aguardando decisão" quando isWaiting=true (decisões ficam no Dock)', () => {
 		render(
 			<RequestInspector
 				request={baseRequest({ isWaiting: true })}
@@ -87,29 +84,14 @@ describe('RequestInspector', () => {
 				{...noopHandlers}
 			/>,
 		);
-		expect(screen.getByTestId('pending-actions-approve')).toBeInTheDocument();
-		expect(screen.getByTestId('pending-actions-more')).toBeInTheDocument();
 		expect(screen.getByTestId('awaiting-decision-badge')).toBeInTheDocument();
+		// As ações de aprovação/edição/ignorar não vivem mais no inspector — elas
+		// foram movidas para o PendingActionDock para evitar duplicidade.
+		expect(screen.queryByTestId('pending-actions-approve')).toBeNull();
+		expect(screen.queryByTestId('pending-actions-more')).toBeNull();
 	});
 
-	test('badge "Aguardando decisão" e split button "Aprovar" ficam na mesma linha (status row)', () => {
-		render(
-			<RequestInspector
-				request={baseRequest({ isWaiting: true })}
-				requestId="r1"
-				rules={[]}
-				{...noopHandlers}
-			/>,
-		);
-		const statusRow = screen.getByTestId('request-inspector-status-row');
-		// Os dois elementos precisam ser descendentes da mesma linha — assim o
-		// usuário enxerga "Aguardando decisão" + ações de decisão num único foco.
-		expect(statusRow).toContainElement(screen.getByTestId('awaiting-decision-badge'));
-		expect(statusRow).toContainElement(screen.getByTestId('pending-actions-approve'));
-		expect(statusRow).toContainElement(screen.getByTestId('pending-actions-more'));
-	});
-
-	test('mostra indicador "Resolvida" e esconde split button quando isWaiting!=true', () => {
+	test('mostra badge "Resolvida" quando isWaiting!=true', () => {
 		render(
 			<RequestInspector
 				request={baseRequest({ isWaiting: false })}
@@ -118,42 +100,11 @@ describe('RequestInspector', () => {
 				{...noopHandlers}
 			/>,
 		);
-		expect(screen.queryByTestId('pending-actions-approve')).toBeNull();
-		expect(screen.getByTestId('pending-actions-resolved')).toBeInTheDocument();
+		expect(screen.getByTestId('resolved-badge')).toBeInTheDocument();
 		expect(screen.queryByTestId('awaiting-decision-badge')).toBeNull();
 	});
 
-	test('click no botão primário "Aprovar" dispara onApprove com modificações vazias', async () => {
-		const onApprove = vi.fn().mockResolvedValue(true);
-		render(
-			<RequestInspector
-				request={baseRequest({ isWaiting: true })}
-				requestId="r1"
-				rules={[]}
-				{...noopHandlers}
-				onApprove={onApprove}
-			/>,
-		);
-		fireEvent.click(screen.getByTestId('pending-actions-approve'));
-		await waitFor(() => expect(onApprove).toHaveBeenCalledWith('r1', {}));
-	});
-
-	test('hotkey Enter dispara onApprove quando isWaiting=true', async () => {
-		const onApprove = vi.fn().mockResolvedValue(true);
-		render(
-			<RequestInspector
-				request={baseRequest({ isWaiting: true })}
-				requestId="r1"
-				rules={[]}
-				{...noopHandlers}
-				onApprove={onApprove}
-			/>,
-		);
-		fireEvent.keyDown(window, { key: 'Enter' });
-		await waitFor(() => expect(onApprove).toHaveBeenCalledWith('r1', {}));
-	});
-
-	test('hotkey M dispara onCreateMock quando isWaiting=true', () => {
+	test('botão "Criar Mock" sempre visível e dispara onCreateMock com a request atual', () => {
 		const onCreateMock = vi.fn();
 		render(
 			<RequestInspector
@@ -164,8 +115,24 @@ describe('RequestInspector', () => {
 				onCreateMock={onCreateMock}
 			/>,
 		);
-		fireEvent.keyDown(window, { key: 'm' });
+		const button = screen.getByTestId('request-inspector-create-mock');
+		fireEvent.click(button);
 		expect(onCreateMock).toHaveBeenCalledTimes(1);
+		expect(onCreateMock).toHaveBeenCalledWith(expect.objectContaining({ isWaiting: true }), 'r1');
+	});
+
+	test('badge de status e botão "Criar Mock" ficam na mesma linha (status row)', () => {
+		render(
+			<RequestInspector
+				request={baseRequest({ isWaiting: true })}
+				requestId="r1"
+				rules={[]}
+				{...noopHandlers}
+			/>,
+		);
+		const statusRow = screen.getByTestId('request-inspector-status-row');
+		expect(statusRow).toContainElement(screen.getByTestId('awaiting-decision-badge'));
+		expect(statusRow).toContainElement(screen.getByTestId('request-inspector-create-mock'));
 	});
 
 	test('aba Request mostra headers e body unidos', async () => {
