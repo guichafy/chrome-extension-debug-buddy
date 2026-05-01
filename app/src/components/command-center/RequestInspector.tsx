@@ -47,9 +47,9 @@ export function RequestInspector({
 	const isPending = request.isWaiting === true;
 
 	// Quando o request foi pausado por uma regra breakpoint, localizamos a regra
-	// que casou para exibir sua descricao logo no topo do inspector. Sem fallback
-	// silencioso: se nenhuma regra casar (ex.: regra removida apos a pausa) o
-	// bloco simplesmente nao e renderizado.
+	// que casou para exibir sua descrição logo no topo do inspector. Sem fallback
+	// silencioso: se nenhuma regra casar (ex.: regra removida após a pausa) o
+	// bloco simplesmente não é renderizado.
 	const matchedBreakpoint = isPending
 		? findMatchingRuleAction(rules, {
 				url: request.url,

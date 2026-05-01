@@ -166,6 +166,17 @@ const CommandCenter: React.FC = () => {
 		setQuickMockTargetId(targetId);
 	}, [hasSelectedPending, pendingIdsOrdered, selectedId]);
 
+	const handleIgnoreAll = useCallback(async () => {
+		const { succeeded, failed } = await ignoreAllPending();
+		if (failed.length === 0) return;
+		// Sem fallback silencioso: falhas parciais são surfaceadas como uma
+		// única notificação agregada. Mantemos `alert` por enquanto (toast
+		// component shadcn não está vendado neste projeto) — substituir por
+		// toast seria um upgrade UX separado.
+		const detail = failed.map((f) => `- ${f.requestId}: ${f.error}`).join('\n');
+		alert(`${succeeded} ignorada(s) com sucesso, ${failed.length} falha(s):\n${detail}`);
+	}, [ignoreAllPending]);
+
 	const navigateNext = useCallback(() => {
 		if (pendingIdsOrdered.length === 0) return;
 		const idx = dockTargetIndex ?? -1;
@@ -184,6 +195,10 @@ const CommandCenter: React.FC = () => {
 
 	usePendingHotkeys({
 		enabled: pendingCount > 0,
+		// J/K só fazem sentido quando há ao menos 2 pausadas — caso contrário
+		// `navigateNext`/`navigatePrev` seriam no-ops e ainda assim consumiriam
+		// o keystroke do usuário (que pode estar usando J/K para scroll).
+		navEnabled: pendingCount > 1,
 		onApprove: approveNext,
 		onIgnore: ignoreCurrent,
 		onNext: navigateNext,
@@ -248,12 +263,18 @@ const CommandCenter: React.FC = () => {
 				onApproveNext={approveNext}
 				onEditNext={editNext}
 				onCreateMockNext={createMockNext}
-				onIgnoreAll={ignoreAllPending}
-				onViewPending={() =>
+				onIgnoreAll={handleIgnoreAll}
+				onViewPending={() => {
+					// Preserva filtros existentes; só adiciona state:pending se ainda
+					// não houver um filtro de estado pendente (evita duplicata e
+					// preserva refinamentos como method/url que o usuário já tenha).
+					const alreadyPending = filters.some((f) => f.field === 'state' && f.value === 'pending');
+					if (alreadyPending) return;
 					setFilters([
+						...filters,
 						{ id: crypto.randomUUID(), field: 'state', operator: 'is', value: 'pending' },
-					])
-				}
+					]);
+				}}
 			/>
 
 			{editTarget && editSheetTargetId && (

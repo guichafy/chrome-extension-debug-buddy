@@ -463,7 +463,12 @@ chrome.runtime.onMessage.addListener(
 						delete pendingResponses[requestId];
 						// Filtra undefined: spread cego do `modifications` poderia apagar
 						// `headers`/`body` originais se o usuário só alterou `status`.
-						const finalUpdates: Partial<InterceptedResponse> = { isWaiting: false };
+						// Marcamos editedAtRuntime para que o histórico distinga
+						// "aprovada com modificação" de "aprovada/ignorada passthrough".
+						const finalUpdates: Partial<InterceptedResponse> = {
+							isWaiting: false,
+							editedAtRuntime: true,
+						};
 						if (modifications.status !== undefined) {
 							finalUpdates.status = modifications.status;
 							finalUpdates.statusText = getHttpStatusPhrase(modifications.status);
@@ -533,21 +538,21 @@ chrome.runtime.onMessage.addListener(
 			if (typeof status !== 'number') {
 				sendResponse({
 					success: false,
-					error: 'Status code obrigatorio para edicao one-shot',
+					error: 'Status code obrigatório para edição one-shot',
 				});
 				return false;
 			}
 			if (!headers) {
 				sendResponse({
 					success: false,
-					error: 'Headers obrigatorios para edicao one-shot',
+					error: 'Headers obrigatórios para edição one-shot',
 				});
 				return false;
 			}
 			if (typeof body !== 'string') {
 				sendResponse({
 					success: false,
-					error: 'Body obrigatorio para edicao one-shot',
+					error: 'Body obrigatório para edição one-shot',
 				});
 				return false;
 			}
@@ -567,7 +572,7 @@ chrome.runtime.onMessage.addListener(
 					sendResponse({ success: true });
 				})
 				.catch((error) => {
-					console.error(`Erro ao aplicar edicao one-shot em ${requestId}:`, error);
+					console.error(`Erro ao aplicar edição one-shot em ${requestId}:`, error);
 					sendResponse({ success: false, error: getErrorMessage(error) });
 				});
 			return true; // Indicates we'll respond asynchronously
@@ -645,7 +650,7 @@ async function applyEditedResponse(
 	edited: { status: number; headers: Record<string, string>; body: string },
 ): Promise<void> {
 	if (!attachedTabId) {
-		throw new Error('Nenhuma sessao de depuracao ativa');
+		throw new Error('Nenhuma sessão de depuração ativa');
 	}
 	const pendingResponse = pendingResponses[requestId];
 	if (!pendingResponse) {

@@ -9,7 +9,14 @@ export function getRequestState(request: InterceptedResponse): RequestState {
 	if (request.captureError) return 'failed';
 	if (request.isWaiting === true) return 'pending';
 	if (request.isMocked === true) return 'mocked';
-	if (request.isWaiting === false) return 'modified';
+	// `isWaiting === false` sozinho não implica que a response foi alterada —
+	// "Aprovar" e "Ignorar" também transitam para esse estado sem modificar
+	// o body/headers. Só marcamos como `modified` quando o background sinaliza
+	// que houve edição em runtime via `approveResponseWithEdit` (ou pela rota
+	// legada `approveResponse` com modifications). O resto vira `proxy`.
+	if (request.isWaiting === false) {
+		return request.editedAtRuntime === true ? 'modified' : 'proxy';
+	}
 	return 'proxy';
 }
 

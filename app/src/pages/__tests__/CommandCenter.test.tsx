@@ -50,7 +50,9 @@ vi.mock('@/hooks/useResponses', () => ({
 			ignoreResponse: responseStubs.ignoreResponse,
 			ignoreAllPending: async () => {
 				responseStubs.ignoreAllPending();
+				const ids = Object.keys(pending);
 				setPending({});
+				return { succeeded: ids.length, failed: [] };
 			},
 			pendingResponses: pending,
 		};
@@ -146,7 +148,7 @@ beforeEach(() => {
 	responseStubs.approveResponse.mockResolvedValue(true);
 	responseStubs.approveResponseWithEdit.mockResolvedValue(true);
 	responseStubs.ignoreResponse.mockResolvedValue(true);
-	responseStubs.ignoreAllPending.mockResolvedValue(undefined);
+	responseStubs.ignoreAllPending.mockResolvedValue({ succeeded: 0, failed: [] });
 });
 
 afterEach(() => {
@@ -247,6 +249,33 @@ describe('CommandCenter — PendingActionDock', () => {
 		await waitFor(() => {
 			const params = new URLSearchParams(locationProbe.search);
 			expect(params.getAll('filter')).toEqual(['state:pending']);
+		});
+	});
+
+	test('"Ver pausadas" preserva filtros existentes e não duplica state:pending', async () => {
+		responseStubs.pendingResponses = {
+			r1: pendingResponse({ url: 'https://api.example.com/users/1', timestamp: 1 }),
+		};
+		renderAt('/command-center?filter=method:GET');
+
+		// Estado inicial: só method:GET
+		await waitFor(() => {
+			const params = new URLSearchParams(locationProbe.search);
+			expect(params.getAll('filter')).toEqual(['method:GET']);
+		});
+
+		// Primeiro clique: append state:pending preservando method:GET
+		fireEvent.click(screen.getByTestId('pending-action-dock-view-pending'));
+		await waitFor(() => {
+			const params = new URLSearchParams(locationProbe.search);
+			expect(params.getAll('filter')).toEqual(['method:GET', 'state:pending']);
+		});
+
+		// Segundo clique: já tem state:pending, no-op (sem duplicar)
+		fireEvent.click(screen.getByTestId('pending-action-dock-view-pending'));
+		await waitFor(() => {
+			const params = new URLSearchParams(locationProbe.search);
+			expect(params.getAll('filter')).toEqual(['method:GET', 'state:pending']);
 		});
 	});
 
