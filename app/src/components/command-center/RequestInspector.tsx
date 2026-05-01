@@ -149,7 +149,7 @@ export function RequestInspector({
 									<DropdownMenuItem
 										key={type}
 										data-testid={`request-inspector-create-rule-${type}`}
-										onClick={() => onCreateRule(request, requestId, type)}
+										onSelect={() => onCreateRule(request, requestId, type)}
 										className="gap-2"
 									>
 										<span

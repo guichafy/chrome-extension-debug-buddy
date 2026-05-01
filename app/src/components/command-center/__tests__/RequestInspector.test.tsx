@@ -149,6 +149,7 @@ describe('RequestInspector', () => {
 		// que o portal com os DropdownMenuItem renderize.
 		fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
 		const item = await screen.findByTestId(`request-inspector-create-rule-${type}`);
+		expect(item).toHaveTextContent(label);
 		fireEvent.click(item);
 		expect(onCreateRule).toHaveBeenCalledTimes(1);
 		expect(onCreateRule).toHaveBeenCalledWith(
@@ -156,7 +157,6 @@ describe('RequestInspector', () => {
 			'r1',
 			type,
 		);
-		expect(label).toBeTruthy();
 	});
 
 	test('badge de status e dropdown "Criar regra" ficam na mesma linha (status row)', () => {
