@@ -1,10 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { InterceptedResponse } from '@/types/intercepted';
-import { useAllRequests } from '@/hooks/useAllRequests';
-import { useResponses } from '@/hooks/useResponses';
-import { useRules } from '@/hooks/useRules';
-import { useRequestSelection } from '@/hooks/useRequestSelection';
+import { useAppOutlet } from '@/types/outletContext';
 import { RequestTimeline } from '@/components/command-center/RequestTimeline';
 import { RequestInspector } from '@/components/command-center/RequestInspector';
 import { QuickMockPanel } from '@/components/command-center/QuickMockPanel';
@@ -27,6 +24,7 @@ import {
 const CommandCenter: React.FC = () => {
 	const navigate = useNavigate();
 	const [searchParams, setSearchParams] = useSearchParams();
+
 	const {
 		filteredRequests,
 		filters,
@@ -35,17 +33,17 @@ const CommandCenter: React.FC = () => {
 		enableAutoRefresh,
 		autoRefreshEnabled,
 		clearAllRequests,
-	} = useAllRequests();
-
-	const {
 		approveResponse,
 		approveResponseWithEdit,
 		ignoreResponse,
 		ignoreAllPending,
 		pendingResponses,
-	} = useResponses();
-	const { rules } = useRules();
-	const { selectedId, selected, select, clear } = useRequestSelection(filteredRequests);
+		rules,
+		selectedId,
+		selected,
+		select,
+		clear,
+	} = useAppOutlet();
 
 	const [clearDialogOpen, setClearDialogOpen] = useState(false);
 	const [quickMockTargetId, setQuickMockTargetId] = useState<string | null>(null);

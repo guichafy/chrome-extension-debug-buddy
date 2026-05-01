@@ -1,8 +1,9 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { MemoryRouter, useLocation } from 'react-router-dom';
-import CommandCenter from '../CommandCenter';
+import { useLocation } from 'react-router-dom';
+import CommandCenterPage from '../CommandCenter';
+import { renderWithLayout } from '@/test/renderWithLayout';
 import type { Filter } from '@/types/filters';
 import type { InterceptedResponse } from '@/types/intercepted';
 
@@ -121,6 +122,27 @@ vi.mock('@/components/command-center/usePendingHotkeys', () => ({
 	usePendingHotkeys: () => undefined,
 }));
 
+vi.mock('@/hooks/useDebugging', () => ({
+	useDebugging: () => ({
+		isDebugging: false,
+		targetTab: null,
+		startDebugging: vi.fn(),
+		stopDebugging: vi.fn(),
+	}),
+}));
+vi.mock('@/hooks/useSessionMarker', () => ({
+	useSessionMarker: () => ({ start: null }),
+}));
+vi.mock('@/hooks/useNetworkMetrics', () => ({
+	useNetworkMetrics: () => ({
+		sessionDetails: null,
+		currentPageDetails: null,
+	}),
+}));
+vi.mock('@/components/layout/AppSidebar', () => ({ AppSidebar: () => null }));
+vi.mock('@/components/layout/SiteHeader', () => ({ SiteHeader: () => null }));
+vi.mock('@/components/select-tab/SelectTabDialog', () => ({ SelectTabDialog: () => null }));
+
 // Sonda de localização: registra a search string a cada render para podermos
 // inspecionar como ela evoluiu durante o ciclo de testes.
 const locationProbe = { search: '' };
@@ -133,12 +155,20 @@ function LocationProbe() {
 
 function renderAt(initial: string) {
 	locationProbe.search = '';
-	return render(
-		<MemoryRouter initialEntries={[initial]}>
-			<LocationProbe />
-			<CommandCenter />
-		</MemoryRouter>,
-	);
+	return renderWithLayout({
+		initialEntries: [initial],
+		routes: [
+			{
+				path: 'command-center',
+				element: (
+					<>
+						<LocationProbe />
+						<CommandCenterPage />
+					</>
+				),
+			},
+		],
+	});
 }
 
 beforeEach(() => {
