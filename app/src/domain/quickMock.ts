@@ -1,5 +1,12 @@
 import type { InterceptedResponse } from '@/types/intercepted';
-import type { HeaderMatcher, Matcher, MockAction, RuleDraft } from '@/types/rules';
+import type {
+	ActionType,
+	Action,
+	HeaderMatcher,
+	Matcher,
+	MockAction,
+	RuleDraft,
+} from '@/types/rules';
 
 export interface QuickMockHeaderSelection {
 	headerType: 'request' | 'response';
@@ -7,23 +14,29 @@ export interface QuickMockHeaderSelection {
 	value: string;
 }
 
-export interface QuickMockOptions {
+export interface BuildRuleDraftOptions {
+	type: ActionType;
 	headerMatchers: QuickMockHeaderSelection[];
 	includeQueryString: boolean;
 }
 
-export type QuickMockErrorCode =
-	| 'method_missing'
-	| 'body_unavailable'
-	| 'capture_error'
-	| 'header_value_missing';
+export type QuickMockErrorCode = 'method_missing' | 'capture_error' | 'header_value_missing';
 
 export interface QuickMockError {
 	code: QuickMockErrorCode;
 	message: string;
 }
 
-export type QuickMockResult = { ok: true; draft: RuleDraft } | { ok: false; error: QuickMockError };
+export type BuildRuleDraftResult =
+	| { ok: true; draft: RuleDraft }
+	| { ok: false; error: QuickMockError };
+
+const NAME_PREFIX_BY_TYPE: Record<ActionType, string> = {
+	mock: 'Mock',
+	breakpoint: 'Breakpoint',
+	transform: 'Transform',
+	delay: 'Latência',
+};
 
 function urlPattern(rawUrl: string, includeQueryString: boolean): string {
 	const url = new URL(rawUrl);
@@ -40,10 +53,41 @@ function getResponseBody(req: InterceptedResponse): string | undefined {
 	return req.body;
 }
 
-export function buildQuickMockDraft(
+function buildMockAction(request: InterceptedResponse): MockAction {
+	const responseHeaders = getResponseHeaders(request);
+	const responseBody = getResponseBody(request);
+	return {
+		type: 'mock',
+		enabled: true,
+		status: request.status,
+		headers: responseHeaders,
+		...(request.statusText ? { statusPhrase: request.statusText } : {}),
+		...(responseBody !== undefined ? { body: responseBody } : {}),
+		...(request.mimeType !== undefined ? { contentType: request.mimeType } : {}),
+	};
+}
+
+function buildActionForType(type: ActionType, request: InterceptedResponse): Action {
+	switch (type) {
+		case 'mock':
+			return buildMockAction(request);
+		case 'breakpoint':
+			return { type: 'breakpoint', enabled: true, description: '' };
+		case 'transform':
+			return { type: 'transform', enabled: true, mode: 'declarative', operations: [] };
+		case 'delay':
+			return { type: 'delay', enabled: true, timeMs: 1000 };
+		default: {
+			const exhaustive: never = type;
+			throw new Error(`Tipo de ação não suportado: ${String(exhaustive)}`);
+		}
+	}
+}
+
+export function buildRuleDraftFromRequest(
 	request: InterceptedResponse,
-	options: QuickMockOptions,
-): QuickMockResult {
+	options: BuildRuleDraftOptions,
+): BuildRuleDraftResult {
 	if (request.captureError) {
 		return {
 			ok: false,
@@ -55,7 +99,7 @@ export function buildQuickMockDraft(
 			ok: false,
 			error: {
 				code: 'method_missing',
-				message: 'Não é possível criar mock sem o método HTTP original.',
+				message: 'Não é possível criar regra sem o método HTTP original.',
 			},
 		};
 	}
@@ -87,21 +131,10 @@ export function buildQuickMockDraft(
 		matchers.push(headerMatcher);
 	}
 
-	const responseHeaders = getResponseHeaders(request);
-	const responseBody = getResponseBody(request);
-
-	const action: MockAction = {
-		type: 'mock',
-		enabled: true,
-		status: request.status,
-		headers: responseHeaders,
-		...(request.statusText ? { statusPhrase: request.statusText } : {}),
-		...(responseBody !== undefined ? { body: responseBody } : {}),
-		...(request.mimeType !== undefined ? { contentType: request.mimeType } : {}),
-	};
+	const action = buildActionForType(options.type, request);
 
 	const draft: RuleDraft = {
-		name: `Mock para ${pattern}`,
+		name: `${NAME_PREFIX_BY_TYPE[options.type]} para ${pattern}`,
 		enabled: true,
 		matchers,
 		action,
