@@ -2,6 +2,13 @@ import { useEffect } from 'react';
 
 interface UsePendingHotkeysOptions {
 	enabled: boolean;
+	/**
+	 * Habilita J/K (próximo/anterior). Quando false, esses keystrokes não são
+	 * interceptados — o usuário pode usar J/K para outras coisas (ex.: scroll
+	 * via vimium). Sem fallback silencioso: nunca chamamos `preventDefault`
+	 * para depois fazer nada.
+	 */
+	navEnabled: boolean;
 	onApprove: () => void;
 	onIgnore: () => void;
 	onNext: () => void;
@@ -14,6 +21,7 @@ interface UsePendingHotkeysOptions {
 // não roubar o foco do FilterBar ou do Inspector.
 export function usePendingHotkeys({
 	enabled,
+	navEnabled,
 	onApprove,
 	onIgnore,
 	onNext,
@@ -43,10 +51,12 @@ export function usePendingHotkeys({
 					onIgnore();
 					break;
 				case 'j':
+					if (!navEnabled) return;
 					event.preventDefault();
 					onNext();
 					break;
 				case 'k':
+					if (!navEnabled) return;
 					event.preventDefault();
 					onPrev();
 					break;
@@ -61,5 +71,5 @@ export function usePendingHotkeys({
 
 		window.addEventListener('keydown', handler);
 		return () => window.removeEventListener('keydown', handler);
-	}, [enabled, onApprove, onIgnore, onNext, onPrev, onEscape]);
+	}, [enabled, navEnabled, onApprove, onIgnore, onNext, onPrev, onEscape]);
 }

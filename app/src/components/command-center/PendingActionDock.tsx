@@ -41,7 +41,9 @@ export function PendingActionDock({
 	return (
 		<section
 			className={cn(
-				'fixed bottom-6 right-6 z-50 w-80 rounded-lg border border-warning/40 bg-card/95 p-4 shadow-lg backdrop-blur',
+				// w-80 cap; em viewports estreitos (side panel redimensionado, mobile)
+				// encolhe respeitando as margens externas para não overflow do viewport.
+				'fixed bottom-6 right-6 z-50 w-[min(20rem,calc(100vw-3rem))] rounded-lg border border-warning/40 bg-card/95 p-4 shadow-lg backdrop-blur',
 				'animate-in fade-in-0 slide-in-from-bottom-4',
 			)}
 			aria-label="Ações de pendentes"
@@ -61,6 +63,8 @@ export function PendingActionDock({
 					<span
 						className="font-mono text-xs text-muted-foreground"
 						data-testid="pending-action-dock-position"
+						aria-live="polite"
+						aria-atomic="true"
 					>
 						{positionLabel}
 					</span>

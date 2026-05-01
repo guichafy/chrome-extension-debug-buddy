@@ -272,6 +272,28 @@ describe('EditResponseSheet', () => {
 		expect(onSubmit).toHaveBeenCalled();
 	});
 
+	test('exibe aviso prominente quando bodyUnavailableReason está presente', () => {
+		render(
+			<EditResponseSheet
+				open
+				onOpenChange={() => {}}
+				request={baseRequest({
+					body: undefined,
+					response: { headers: { 'content-type': 'application/json' }, body: undefined },
+					bodyUnavailableReason: 'Body too large to capture (4MB)',
+				})}
+				requestId="req-1"
+				onSubmit={vi.fn()}
+			/>,
+		);
+
+		const warning = screen.getByTestId('edit-response-body-unavailable-warning');
+		expect(warning).toBeInTheDocument();
+		expect(warning).toHaveTextContent('Body too large to capture (4MB)');
+		// O aviso anterior era apenas texto-muted; o novo é em destaque (warning toast).
+		expect(warning).toHaveTextContent(/body vazio/i);
+	});
+
 	test('permite remover headers existentes antes de enviar', async () => {
 		const onSubmit = vi.fn().mockResolvedValue({ success: true });
 		render(

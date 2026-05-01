@@ -323,9 +323,16 @@ export function EditResponseSheet({
 						<div className="space-y-1">
 							<Label htmlFor="edit-response-body">Response body</Label>
 							{request.bodyUnavailableReason && (
-								<p className="text-xs text-muted-foreground">
-									Aviso: {request.bodyUnavailableReason}
-								</p>
+								<output
+									className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-100"
+									data-testid="edit-response-body-unavailable-warning"
+								>
+									<LucideIcon name="alert-triangle" className="mt-0.5 h-4 w-4 shrink-0" />
+									<span className="break-words">
+										Body original indisponível ({request.bodyUnavailableReason}). O textarea começa
+										vazio — submeter agora vai responder com body vazio.
+									</span>
+								</output>
 							)}
 							<Textarea
 								id="edit-response-body"

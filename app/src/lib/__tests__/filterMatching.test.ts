@@ -36,8 +36,13 @@ describe('getRequestState', () => {
 	test('isMocked=true → mocked', () => {
 		expect(getRequestState(makeRequest({ isMocked: true }))).toBe('mocked');
 	});
-	test('isWaiting=false → modified', () => {
-		expect(getRequestState(makeRequest({ isWaiting: false }))).toBe('modified');
+	test('isWaiting=false sem editedAtRuntime → proxy (aprovação ou ignore passthrough)', () => {
+		expect(getRequestState(makeRequest({ isWaiting: false }))).toBe('proxy');
+	});
+	test('isWaiting=false + editedAtRuntime=true → modified', () => {
+		expect(getRequestState(makeRequest({ isWaiting: false, editedAtRuntime: true }))).toBe(
+			'modified',
+		);
 	});
 	test('default → proxy', () => {
 		expect(getRequestState(makeRequest())).toBe('proxy');

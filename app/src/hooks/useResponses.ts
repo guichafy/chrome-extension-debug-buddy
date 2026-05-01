@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { InterceptedResponse, ResponseModifications } from '@/types/intercepted';
 
 export type { InterceptedResponse, ResponseModifications };
@@ -8,6 +8,18 @@ export function useResponses() {
 	const [currentResponseId, setCurrentResponseId] = useState<string | null>(null);
 	const [currentResponse, setCurrentResponse] = useState<InterceptedResponse | null>(null);
 	const [loading, setLoading] = useState(true);
+
+	// Refs espelham o estado pra que o useEffect de mount possa ler valores
+	// frescos sem ter pendingResponses/currentResponseId/currentResponse nas
+	// deps — evitando re-attach do listener + reload em loop a cada setState.
+	const currentResponseIdRef = useRef<string | null>(null);
+	const currentResponseRef = useRef<InterceptedResponse | null>(null);
+	useEffect(() => {
+		currentResponseIdRef.current = currentResponseId;
+	}, [currentResponseId]);
+	useEffect(() => {
+		currentResponseRef.current = currentResponse;
+	}, [currentResponse]);
 
 	// Carregar respostas pendentes
 	const loadPendingResponses = useCallback(async () => {
@@ -167,22 +179,50 @@ export function useResponses() {
 		[pendingResponses, currentResponseId],
 	);
 
-	// Ignora em massa todas as respostas pausadas atualmente.
-	// Estratégia: iteramos um snapshot dos IDs e reaproveitamos `ignoreResponse`
-	// para cada um — assim o tratamento de erro existente (console.error + alert
-	// quando o background rejeita) continua valendo por request, e nenhum
-	// fallback "fingindo sucesso" é introduzido aqui. Optamos por não criar uma
-	// action `ignoreAllPending` no background porque a iteração no front mantém
-	// o protocolo simples (uma única action `approveResponse` sem modificações)
-	// e a UI ainda reage em tempo real via os eventos `requestUpdated` que o
-	// background já emite após cada `Fetch.continueRequest`.
-	const ignoreAllPending = useCallback(async (): Promise<void> => {
+	// Ignora em massa todas as respostas pausadas atualmente. Itera direto via
+	// `chrome.runtime.sendMessage` em vez de chamar `ignoreResponse` para evitar
+	// que cada falha individual dispare um `alert()` separado (UX ruim para 10+
+	// pendentes). No final retornamos a agregação para o caller decidir como
+	// notificar o usuário — coerente com a regra "no fallbacks": uma operação
+	// em massa que falha parcialmente não pode parecer ter sucesso.
+	const ignoreAllPending = useCallback(async (): Promise<{
+		succeeded: number;
+		failed: Array<{ requestId: string; error: string }>;
+	}> => {
 		const ids = Object.keys(pendingResponses);
+		const failed: Array<{ requestId: string; error: string }> = [];
+		let succeeded = 0;
 		for (const id of ids) {
-			// Sequencial para preservar a ordem original das respostas no background.
-			await ignoreResponse(id);
+			try {
+				const response = await chrome.runtime.sendMessage({
+					action: 'approveResponse',
+					requestId: id,
+				});
+				if (response?.success) {
+					succeeded++;
+					setPendingResponses((prev) => {
+						if (!prev[id]) return prev;
+						const next = { ...prev };
+						delete next[id];
+						return next;
+					});
+					if (currentResponseId === id) {
+						setCurrentResponseId(null);
+						setCurrentResponse(null);
+					}
+				} else {
+					failed.push({ requestId: id, error: response?.error ?? 'Erro desconhecido' });
+				}
+			} catch (error) {
+				console.error(`Erro ao ignorar resposta ${id}:`, error);
+				failed.push({
+					requestId: id,
+					error: error instanceof Error ? error.message : String(error),
+				});
+			}
 		}
-	}, [pendingResponses, ignoreResponse]);
+		return { succeeded, failed };
+	}, [pendingResponses, currentResponseId]);
 
 	// Limpar a resposta atual
 	const clearCurrentResponse = useCallback(() => {
@@ -200,23 +240,25 @@ export function useResponses() {
 					[message.requestId]: message.response,
 				}));
 			} else if (message.action === 'responseBodyReady') {
-				// Atualizar o corpo da resposta
-				if (pendingResponses[message.requestId]) {
-					setPendingResponses((prev) => ({
+				// Atualizar o corpo da resposta — usa updater para ler estado fresco
+				// sem depender de closure (deps do useEffect ficaram em []).
+				setPendingResponses((prev) => {
+					if (!prev[message.requestId]) return prev;
+					return {
 						...prev,
 						[message.requestId]: {
 							...prev[message.requestId],
 							body: message.body,
 						},
-					}));
+					};
+				});
 
-					// Atualizar resposta atual se for a mesma
-					if (currentResponseId === message.requestId && currentResponse) {
-						setCurrentResponse({
-							...currentResponse,
-							body: message.body,
-						});
-					}
+				// Atualizar resposta atual se for a mesma
+				if (currentResponseIdRef.current === message.requestId && currentResponseRef.current) {
+					setCurrentResponse({
+						...currentResponseRef.current,
+						body: message.body,
+					});
 				}
 			} else if (message.action === 'requestUpdated') {
 				// Quando o background sinaliza que uma request saiu do estado pausado
@@ -232,7 +274,7 @@ export function useResponses() {
 						delete next[requestId];
 						return next;
 					});
-					if (currentResponseId === requestId) {
+					if (currentResponseIdRef.current === requestId) {
 						setCurrentResponseId(null);
 						setCurrentResponse(null);
 					}
@@ -256,7 +298,11 @@ export function useResponses() {
 			chrome.runtime.onMessage.removeListener(messageListener);
 			clearInterval(interval);
 		};
-	}, [loadPendingResponses, pendingResponses, currentResponseId, currentResponse]);
+		// Mount-only: dependências dinâmicas (pendingResponses, currentResponseId,
+		// currentResponse) são lidas via refs ou functional setState. Incluímos
+		// loadPendingResponses (estável, useCallback com [] vazio) só para
+		// satisfazer o lint sem provocar re-attach do listener.
+	}, [loadPendingResponses]);
 
 	return {
 		pendingResponses,
