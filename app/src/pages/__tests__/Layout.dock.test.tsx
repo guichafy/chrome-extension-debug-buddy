@@ -191,3 +191,140 @@ describe('Layout — PendingActionDock global', () => {
 		});
 	});
 });
+
+describe('Layout — Dock cross-route', () => {
+	test('Dock aparece em /rules-lab quando há pausadas', () => {
+		responseStubs.pendingResponses = {
+			r1: pendingResponse({ url: 'https://api.example.com/cross-route', timestamp: 1 }),
+		};
+		renderAt('/rules-lab');
+		expect(screen.getByTestId('pending-action-dock')).toBeInTheDocument();
+		expect(screen.getByTestId('pending-action-dock-next-url')).toHaveTextContent(
+			'https://api.example.com/cross-route',
+		);
+	});
+
+	test('clique em "Editar" partindo de /rules-lab navega para /command-center?edit=<id>', async () => {
+		responseStubs.pendingResponses = {
+			'r-rl-edit': pendingResponse({ url: 'https://api.example.com/from-rules-lab', timestamp: 1 }),
+		};
+		renderAt('/rules-lab');
+
+		fireEvent.click(screen.getByTestId('pending-action-dock-edit-next'));
+
+		await waitFor(() => {
+			expect(locationProbe.pathname).toBe('/command-center');
+			const params = new URLSearchParams(locationProbe.search);
+			expect(params.get('edit')).toBe('r-rl-edit');
+		});
+	});
+
+	test('clique em "Criar Mock" partindo de /rules-lab navega para /command-center?mock=<id>', async () => {
+		responseStubs.pendingResponses = {
+			'r-rl-mock': pendingResponse({ url: 'https://api.example.com/mock-from-rl', timestamp: 1 }),
+		};
+		renderAt('/rules-lab');
+
+		fireEvent.click(screen.getByTestId('pending-action-dock-create-mock-next'));
+
+		await waitFor(() => {
+			expect(locationProbe.pathname).toBe('/command-center');
+			const params = new URLSearchParams(locationProbe.search);
+			expect(params.get('mock')).toBe('r-rl-mock');
+		});
+	});
+
+	test('clique em "Ver pausadas" partindo de /rules-lab navega para /command-center', async () => {
+		responseStubs.pendingResponses = {
+			r1: pendingResponse({ url: 'https://api.example.com/x', timestamp: 1 }),
+		};
+		renderAt('/rules-lab');
+
+		fireEvent.click(screen.getByTestId('pending-action-dock-view-pending'));
+
+		await waitFor(() => {
+			expect(locationProbe.pathname).toBe('/command-center');
+		});
+	});
+
+	test('hotkey "A" partindo de /rules-lab aprova a primeira pausada', async () => {
+		responseStubs.pendingResponses = {
+			'r-hk-1': pendingResponse({ url: 'https://api.example.com/a', timestamp: 1 }),
+			'r-hk-2': pendingResponse({ url: 'https://api.example.com/b', timestamp: 2 }),
+		};
+		renderAt('/rules-lab');
+
+		fireEvent.keyDown(window, { key: 'a' });
+
+		await waitFor(() => {
+			expect(responseStubs.approveResponse).toHaveBeenCalledWith('r-hk-1', {});
+		});
+	});
+
+	test('hotkey "I" partindo de /rules-lab ignora a primeira pausada', async () => {
+		responseStubs.pendingResponses = {
+			'r-hk-3': pendingResponse({ url: 'https://api.example.com/c', timestamp: 1 }),
+		};
+		renderAt('/rules-lab');
+
+		fireEvent.keyDown(window, { key: 'i' });
+
+		await waitFor(() => {
+			expect(responseStubs.ignoreResponse).toHaveBeenCalledWith('r-hk-3');
+		});
+	});
+
+	test('hotkey "J" com 2+ pausadas avança o ponteiro do Dock', async () => {
+		responseStubs.pendingResponses = {
+			'r-j-1': pendingResponse({ url: 'https://api.example.com/first', timestamp: 1 }),
+			'r-j-2': pendingResponse({ url: 'https://api.example.com/second', timestamp: 2 }),
+		};
+		renderAt('/rules-lab');
+
+		expect(screen.getByTestId('pending-action-dock-next-url')).toHaveTextContent(
+			'https://api.example.com/first',
+		);
+
+		fireEvent.keyDown(window, { key: 'j' });
+
+		await waitFor(() => {
+			expect(screen.getByTestId('pending-action-dock-next-url')).toHaveTextContent(
+				'https://api.example.com/second',
+			);
+		});
+	});
+
+	test('hotkey "K" com 2+ pausadas volta o ponteiro do Dock', async () => {
+		responseStubs.pendingResponses = {
+			'r-k-1': pendingResponse({ url: 'https://api.example.com/alpha', timestamp: 1 }),
+			'r-k-2': pendingResponse({ url: 'https://api.example.com/beta', timestamp: 2 }),
+		};
+		renderAt('/rules-lab');
+
+		fireEvent.keyDown(window, { key: 'j' });
+		await waitFor(() => {
+			expect(screen.getByTestId('pending-action-dock-next-url')).toHaveTextContent(
+				'https://api.example.com/beta',
+			);
+		});
+
+		fireEvent.keyDown(window, { key: 'k' });
+		await waitFor(() => {
+			expect(screen.getByTestId('pending-action-dock-next-url')).toHaveTextContent(
+				'https://api.example.com/alpha',
+			);
+		});
+	});
+
+	test('hotkey "J" com apenas 1 pausada não muda nada (navEnabled=false)', () => {
+		responseStubs.pendingResponses = {
+			'r-only-1': pendingResponse({ url: 'https://api.example.com/only', timestamp: 1 }),
+		};
+		renderAt('/rules-lab');
+
+		fireEvent.keyDown(window, { key: 'j' });
+		expect(screen.getByTestId('pending-action-dock-next-url')).toHaveTextContent(
+			'https://api.example.com/only',
+		);
+	});
+});
