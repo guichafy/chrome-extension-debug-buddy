@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -81,30 +81,39 @@ export function EditResponseSheet({
 	requestId,
 	onSubmit,
 }: EditResponseSheetProps) {
-	const initialStatus = request.status;
-	const initialHeaders = useMemo(() => pickInitialHeaders(request), [request]);
-	const initialBody = useMemo(() => pickInitialBody(request), [request]);
-
-	const [statusInput, setStatusInput] = useState<string>(String(initialStatus));
-	const [rows, setRows] = useState<HeaderRow[]>(() => headersToRows(initialHeaders));
-	const [body, setBody] = useState<string>(initialBody);
+	const [statusInput, setStatusInput] = useState<string>(String(request.status));
+	const [rows, setRows] = useState<HeaderRow[]>(() => headersToRows(pickInitialHeaders(request)));
+	const [body, setBody] = useState<string>(() => pickInitialBody(request));
 	const [submitting, setSubmitting] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [warningMessage, setWarningMessage] = useState<string | null>(null);
 	const [headerErrors, setHeaderErrors] = useState<Record<string, string>>({});
 
-	// Reset state quando o sheet abre para outra request (request troca enquanto
-	// sheet estava montado mas fechado).
+	// Mantém o snapshot mais recente de `request` acessível dentro do effect de
+	// reset sem entrar nas deps — o reset não deve disparar quando o objeto muda
+	// de identidade durante a edição (polling de pendingResponses, body chegando
+	// tarde via responseBodyReady, etc.).
+	const requestRef = useRef(request);
+	useEffect(() => {
+		requestRef.current = request;
+	}, [request]);
+
+	// Reset state apenas quando o sheet abre (false → true) ou troca de target
+	// (requestId muda enquanto aberto). Edições em andamento não devem ser
+	// sobrescritas por re-renders do parent que apenas trocam a referência do
+	// objeto request com o mesmo conteúdo (ou conteúdo enriquecido).
+	// biome-ignore lint/correctness/useExhaustiveDependencies: deps intencionalmente restritas a [open, requestId] — ver comentário acima.
 	useEffect(() => {
 		if (!open) return;
-		setStatusInput(String(initialStatus));
-		setRows(headersToRows(initialHeaders));
-		setBody(initialBody);
+		const current = requestRef.current;
+		setStatusInput(String(current.status));
+		setRows(headersToRows(pickInitialHeaders(current)));
+		setBody(pickInitialBody(current));
 		setErrorMessage(null);
 		setWarningMessage(null);
 		setHeaderErrors({});
 		setSubmitting(false);
-	}, [open, initialStatus, initialHeaders, initialBody]);
+	}, [open, requestId]);
 
 	const statusNumber = Number(statusInput);
 	const statusValid = Number.isInteger(statusNumber) && statusNumber >= 100 && statusNumber <= 599;

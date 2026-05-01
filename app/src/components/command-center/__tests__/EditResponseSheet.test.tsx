@@ -294,6 +294,84 @@ describe('EditResponseSheet', () => {
 		expect(warning).toHaveTextContent(/body vazio/i);
 	});
 
+	test('preserva edição do usuário quando o request troca de referência (polling) com mesmo requestId', () => {
+		const onSubmit = vi.fn();
+		const { rerender } = render(
+			<EditResponseSheet
+				open
+				onOpenChange={() => {}}
+				request={baseRequest()}
+				requestId="req-1"
+				onSubmit={onSubmit}
+			/>,
+		);
+
+		// Usuário edita os três campos.
+		fireEvent.change(screen.getByTestId('edit-response-status-input'), {
+			target: { value: '503' },
+		});
+		fireEvent.change(screen.getByDisplayValue('application/json'), {
+			target: { value: 'text/plain' },
+		});
+		fireEvent.change(screen.getByTestId('edit-response-body-input'), {
+			target: { value: 'edição em andamento' },
+		});
+
+		// Simula o polling de useResponses (setInterval 2s + listener responseBodyReady):
+		// o background devolve a mesma request, mas como passa pelo message channel
+		// a referência é nova. Sem fix, o useEffect reseta o state local.
+		rerender(
+			<EditResponseSheet
+				open
+				onOpenChange={() => {}}
+				request={baseRequest()}
+				requestId="req-1"
+				onSubmit={onSubmit}
+			/>,
+		);
+
+		const statusInput = screen.getByTestId('edit-response-status-input') as HTMLInputElement;
+		const bodyInput = screen.getByTestId('edit-response-body-input') as HTMLTextAreaElement;
+		expect(statusInput.value).toBe('503');
+		expect(bodyInput.value).toBe('edição em andamento');
+		expect(screen.getByDisplayValue('text/plain')).toBeInTheDocument();
+		// Garante que o valor original não voltou.
+		expect(screen.queryByDisplayValue('application/json')).not.toBeInTheDocument();
+	});
+
+	test('reseta state ao trocar requestId enquanto o sheet está aberto', () => {
+		const { rerender } = render(
+			<EditResponseSheet
+				open
+				onOpenChange={() => {}}
+				request={baseRequest()}
+				requestId="req-1"
+				onSubmit={vi.fn()}
+			/>,
+		);
+
+		fireEvent.change(screen.getByTestId('edit-response-body-input'), {
+			target: { value: 'editando req-1' },
+		});
+
+		rerender(
+			<EditResponseSheet
+				open
+				onOpenChange={() => {}}
+				request={baseRequest({
+					url: 'https://api.example.com/orders/9',
+					body: '{"order":9}',
+					response: { headers: { 'content-type': 'application/json' }, body: '{"order":9}' },
+				})}
+				requestId="req-2"
+				onSubmit={vi.fn()}
+			/>,
+		);
+
+		const bodyInput = screen.getByTestId('edit-response-body-input') as HTMLTextAreaElement;
+		expect(bodyInput.value).toBe('{"order":9}');
+	});
+
 	test('permite remover headers existentes antes de enviar', async () => {
 		const onSubmit = vi.fn().mockResolvedValue({ success: true });
 		render(
