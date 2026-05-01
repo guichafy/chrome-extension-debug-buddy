@@ -358,4 +358,136 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 		const payload = onSave.mock.calls[0][0];
 		expect(payload.action).toEqual({ type: 'delay', enabled: true, timeMs: 1000 });
 	});
+
+	describe('RuleEditor — skipTypeStep', () => {
+		test('com skipTypeStep oculta passo Tipo da barra e começa em Matcher', () => {
+			render(
+				<RuleEditor
+					open
+					mode="create"
+					skipTypeStep
+					initialDraft={{
+						name: 'Mock teste',
+						enabled: true,
+						matchers: [
+							{ type: 'url', enabled: true, pattern: '/api', isRegex: false },
+							{ type: 'method', enabled: true, method: 'GET' },
+						],
+						action: { type: 'mock', enabled: true, status: 200, headers: {} },
+					}}
+					onOpenChange={vi.fn()}
+					onSave={vi.fn()}
+				/>,
+			);
+			const stepBar = screen.getByTestId('rule-wizard-steps');
+			expect(within(stepBar).queryByTestId('rule-wizard-step-type')).toBeNull();
+			expect(within(stepBar).getByTestId('rule-wizard-step-matcher')).toBeInTheDocument();
+			expect(within(stepBar).getByTestId('rule-wizard-step-action')).toBeInTheDocument();
+			expect(within(stepBar).getByTestId('rule-wizard-step-review')).toBeInTheDocument();
+			expect(screen.getByTestId('rule-wizard-step-matcher')).toHaveAttribute(
+				'aria-current',
+				'step',
+			);
+		});
+
+		test('com skipTypeStep wizard avança Matcher → Ação → Revisar', () => {
+			render(
+				<RuleEditor
+					open
+					mode="create"
+					skipTypeStep
+					initialDraft={{
+						name: 'Mock teste',
+						enabled: true,
+						matchers: [
+							{ type: 'url', enabled: true, pattern: '/api', isRegex: false },
+							{ type: 'method', enabled: true, method: 'GET' },
+						],
+						action: { type: 'mock', enabled: true, status: 200, headers: {} },
+					}}
+					onOpenChange={vi.fn()}
+					onSave={vi.fn()}
+				/>,
+			);
+			fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
+			expect(screen.getByTestId('rule-wizard-step-action')).toHaveAttribute('aria-current', 'step');
+			fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
+			expect(screen.getByTestId('rule-wizard-step-review')).toHaveAttribute('aria-current', 'step');
+		});
+
+		test('initialDraft pré-preenche name/matchers/action e pula welcome', () => {
+			const onSave = vi.fn().mockResolvedValue(true);
+			render(
+				<RuleEditor
+					open
+					mode="create"
+					skipTypeStep
+					initialDraft={{
+						name: 'Custom name',
+						enabled: true,
+						matchers: [
+							{ type: 'url', enabled: true, pattern: 'api.example.com/x', isRegex: false },
+							{ type: 'method', enabled: true, method: 'POST' },
+						],
+						action: { type: 'breakpoint', enabled: true, description: '' },
+					}}
+					onOpenChange={vi.fn()}
+					onSave={onSave}
+				/>,
+			);
+			expect(screen.queryByTestId('preset-blank')).toBeNull();
+			fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
+			fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
+			expect(screen.getByText(/Custom name/)).toBeInTheDocument();
+		});
+
+		test('headerMatcherSource renderiza HeaderMatcherSelector no passo Matcher', () => {
+			render(
+				<RuleEditor
+					open
+					mode="create"
+					skipTypeStep
+					initialDraft={{
+						name: 'Test',
+						enabled: true,
+						matchers: [
+							{ type: 'url', enabled: true, pattern: '/api', isRegex: false },
+							{ type: 'method', enabled: true, method: 'GET' },
+						],
+						action: { type: 'mock', enabled: true, status: 200, headers: {} },
+					}}
+					headerMatcherSource={{
+						requestHeaders: { 'x-custom': 'foo' },
+						responseHeaders: { 'content-type': 'application/json' },
+					}}
+					onOpenChange={vi.fn()}
+					onSave={vi.fn()}
+				/>,
+			);
+			expect(screen.getByText('x-custom')).toBeInTheDocument();
+			expect(screen.getByText('content-type')).toBeInTheDocument();
+		});
+
+		test('headerMatcherSource ausente não renderiza HeaderMatcherSelector', () => {
+			render(
+				<RuleEditor
+					open
+					mode="create"
+					skipTypeStep
+					initialDraft={{
+						name: 'Test',
+						enabled: true,
+						matchers: [
+							{ type: 'url', enabled: true, pattern: '/api', isRegex: false },
+							{ type: 'method', enabled: true, method: 'GET' },
+						],
+						action: { type: 'mock', enabled: true, status: 200, headers: {} },
+					}}
+					onOpenChange={vi.fn()}
+					onSave={vi.fn()}
+				/>,
+			);
+			expect(screen.queryByText(/Header matchers \(opcional\)/)).toBeNull();
+		});
+	});
 });
