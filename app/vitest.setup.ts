@@ -14,6 +14,24 @@ if (typeof File !== 'undefined' && !File.prototype.text) {
 	};
 }
 
+// Polyfills para PointerEvent / Element APIs usados pelo Radix UI
+// (DropdownMenu/Tabs/etc) — jsdom não implementa essas APIs, então o
+// componente nunca abre nos testes sem esses stubs.
+if (typeof Element !== 'undefined') {
+	if (!Element.prototype.hasPointerCapture) {
+		Element.prototype.hasPointerCapture = () => false;
+	}
+	if (!Element.prototype.setPointerCapture) {
+		Element.prototype.setPointerCapture = () => {};
+	}
+	if (!Element.prototype.releasePointerCapture) {
+		Element.prototype.releasePointerCapture = () => {};
+	}
+	if (!Element.prototype.scrollIntoView) {
+		Element.prototype.scrollIntoView = () => {};
+	}
+}
+
 // Polyfills para TextEncoder/TextDecoder
 if (typeof globalThis.TextEncoder === 'undefined') {
 	(globalThis as any).TextEncoder = TextEncoder;

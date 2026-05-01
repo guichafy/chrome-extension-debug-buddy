@@ -3,17 +3,25 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LucideIcon } from '@/components/ui/lucide-icon';
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import type { InterceptedResponse } from '@/types/intercepted';
-import type { Rule } from '@/types/rules';
+import type { Action, ActionType, Rule } from '@/types/rules';
 import { findMatchingRuleAction } from '@/domain/ruleMatching';
 import { formatDuration } from '@/components/requests/duration';
 import { buildReplayView } from '@/lib/replayHistory';
+import { getActionVisuals } from '@/components/rules-lab/ruleVisuals';
+import { cn } from '@/lib/utils';
 import { BodyViewer } from './BodyViewer';
 
 interface RequestInspectorProps {
 	request: InterceptedResponse | null;
 	requestId: string | null;
-	onCreateMock: (request: InterceptedResponse, requestId: string) => void;
+	onCreateRule: (request: InterceptedResponse, requestId: string, actionType: ActionType) => void;
 	onOpenInRulesLab: (ruleId: string) => void;
 	onClose: () => void;
 	rules: Rule[];
@@ -28,7 +36,7 @@ function truncateMiddle(value: string, maxLength = 80): string {
 export function RequestInspector({
 	request,
 	requestId,
-	onCreateMock,
+	onCreateRule,
 	onOpenInRulesLab,
 	onClose,
 	rules,
@@ -112,17 +120,53 @@ export function RequestInspector({
 							Resolvida
 						</Badge>
 					)}
-					<Button
-						size="sm"
-						variant="outline"
-						onClick={() => onCreateMock(request, requestId)}
-						disabled={Boolean(request.captureError)}
-						className="gap-2"
-						data-testid="request-inspector-create-mock"
-					>
-						<LucideIcon name="copy" className="h-4 w-4" />
-						Criar Mock
-					</Button>
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button
+								size="sm"
+								variant="outline"
+								disabled={Boolean(request.captureError)}
+								className="gap-2"
+								data-testid="request-inspector-create-rule"
+							>
+								<LucideIcon name="plus" className="h-4 w-4" />
+								Criar regra
+								<LucideIcon name="chevron-down" className="h-4 w-4" />
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end">
+							{(['mock', 'breakpoint', 'transform', 'delay'] as const).map((type) => {
+								const action: Action =
+									type === 'mock'
+										? { type: 'mock', enabled: true, status: 200, headers: {} }
+										: type === 'breakpoint'
+											? { type: 'breakpoint', enabled: true }
+											: type === 'transform'
+												? { type: 'transform', enabled: true, mode: 'declarative', operations: [] }
+												: { type: 'delay', enabled: true, timeMs: 1000 };
+								const v = getActionVisuals(action);
+								return (
+									<DropdownMenuItem
+										key={type}
+										data-testid={`request-inspector-create-rule-${type}`}
+										onClick={() => onCreateRule(request, requestId, type)}
+										className="gap-2"
+									>
+										<span
+											className={cn(
+												'flex h-6 w-6 shrink-0 items-center justify-center rounded-md',
+												v.bgClass,
+												v.textClass,
+											)}
+										>
+											<LucideIcon name={v.iconName} className="h-3.5 w-3.5" />
+										</span>
+										<span>{v.label}</span>
+									</DropdownMenuItem>
+								);
+							})}
+						</DropdownMenuContent>
+					</DropdownMenu>
 					{request.generatedRuleId && (
 						<Button
 							size="sm"

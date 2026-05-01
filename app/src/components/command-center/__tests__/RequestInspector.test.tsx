@@ -25,7 +25,7 @@ const selectTab = async (name: string) => {
 };
 
 const noopHandlers = {
-	onCreateMock: vi.fn(),
+	onCreateRule: vi.fn(),
 	onOpenInRulesLab: vi.fn(),
 	onClose: vi.fn(),
 };
@@ -104,24 +104,62 @@ describe('RequestInspector', () => {
 		expect(screen.queryByTestId('awaiting-decision-badge')).toBeNull();
 	});
 
-	test('botão "Criar Mock" sempre visível e dispara onCreateMock com a request atual', () => {
-		const onCreateMock = vi.fn();
+	test('dropdown "Criar regra" sempre visível', () => {
 		render(
 			<RequestInspector
 				request={baseRequest({ isWaiting: true })}
 				requestId="r1"
 				rules={[]}
 				{...noopHandlers}
-				onCreateMock={onCreateMock}
 			/>,
 		);
-		const button = screen.getByTestId('request-inspector-create-mock');
-		fireEvent.click(button);
-		expect(onCreateMock).toHaveBeenCalledTimes(1);
-		expect(onCreateMock).toHaveBeenCalledWith(expect.objectContaining({ isWaiting: true }), 'r1');
+		expect(screen.getByTestId('request-inspector-create-rule')).toBeInTheDocument();
 	});
 
-	test('badge de status e botão "Criar Mock" ficam na mesma linha (status row)', () => {
+	test('dropdown desabilitado quando captureError presente', () => {
+		render(
+			<RequestInspector
+				request={baseRequest({ captureError: 'Net::ERR_FAILED' })}
+				requestId="r1"
+				rules={[]}
+				{...noopHandlers}
+			/>,
+		);
+		expect(screen.getByTestId('request-inspector-create-rule')).toBeDisabled();
+	});
+
+	test.each([
+		['mock', 'Mock'],
+		['breakpoint', 'Breakpoint'],
+		['transform', 'Transform'],
+		['delay', 'Latência'],
+	] as const)('item "%s" do dropdown chama onCreateRule com type=%s', async (type, label) => {
+		const onCreateRule = vi.fn();
+		render(
+			<RequestInspector
+				request={baseRequest({ isWaiting: true })}
+				requestId="r1"
+				rules={[]}
+				{...noopHandlers}
+				onCreateRule={onCreateRule}
+			/>,
+		);
+		const trigger = screen.getByTestId('request-inspector-create-rule');
+		// Radix DropdownMenu abre via pointerdown (não click puro) — emulamos para
+		// que o portal com os DropdownMenuItem renderize.
+		fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+		const item = await screen.findByTestId(`request-inspector-create-rule-${type}`);
+		fireEvent.click(item);
+		expect(onCreateRule).toHaveBeenCalledTimes(1);
+		expect(onCreateRule).toHaveBeenCalledWith(
+			expect.objectContaining({ isWaiting: true }),
+			'r1',
+			type,
+		);
+		expect(label).toBeTruthy();
+	});
+
+	test('badge de status e dropdown "Criar regra" ficam na mesma linha (status row)', () => {
 		render(
 			<RequestInspector
 				request={baseRequest({ isWaiting: true })}
@@ -132,7 +170,7 @@ describe('RequestInspector', () => {
 		);
 		const statusRow = screen.getByTestId('request-inspector-status-row');
 		expect(statusRow).toContainElement(screen.getByTestId('awaiting-decision-badge'));
-		expect(statusRow).toContainElement(screen.getByTestId('request-inspector-create-mock'));
+		expect(statusRow).toContainElement(screen.getByTestId('request-inspector-create-rule'));
 	});
 
 	test('aba Request mostra headers e body unidos', async () => {
