@@ -70,7 +70,7 @@ describe('PendingActionDock', () => {
 		expect(screen.getByTestId('pending-action-dock-ignore-all')).toBeInTheDocument();
 	});
 
-	test('clique em "Criar Mock da próxima" chama onCreateMockNext', () => {
+	test('clique em "Criar Mock" chama onCreateMockNext', () => {
 		const handlers = noopHandlers();
 		render(
 			<PendingActionDock
@@ -89,35 +89,7 @@ describe('PendingActionDock', () => {
 		expect(handlers.onEditNext).not.toHaveBeenCalled();
 	});
 
-	test('label do botão Criar Mock muda conforme há pausada selecionada', () => {
-		const { rerender } = render(
-			<PendingActionDock
-				pendingCount={2}
-				currentIndex={null}
-				hasSelectedPending={false}
-				nextPendingUrl="https://api.example.com/a"
-				{...noopHandlers()}
-			/>,
-		);
-		expect(screen.getByTestId('pending-action-dock-create-mock-next')).toHaveTextContent(
-			'Criar Mock da próxima',
-		);
-
-		rerender(
-			<PendingActionDock
-				pendingCount={3}
-				currentIndex={1}
-				hasSelectedPending
-				nextPendingUrl="https://api.example.com/a"
-				{...noopHandlers()}
-			/>,
-		);
-		expect(screen.getByTestId('pending-action-dock-create-mock-next')).toHaveTextContent(
-			'Criar Mock',
-		);
-	});
-
-	test('clique em "Editar próxima…" chama onEditNext', () => {
+	test('clique em "Editar…" chama onEditNext', () => {
 		const handlers = noopHandlers();
 		render(
 			<PendingActionDock
@@ -135,7 +107,7 @@ describe('PendingActionDock', () => {
 		expect(handlers.onViewPending).not.toHaveBeenCalled();
 	});
 
-	test('label do botão Editar muda conforme há pausada selecionada', () => {
+	test('labels das ações são fixos (sem variação "próximo") independente de seleção', () => {
 		const { rerender } = render(
 			<PendingActionDock
 				pendingCount={2}
@@ -145,9 +117,18 @@ describe('PendingActionDock', () => {
 				{...noopHandlers()}
 			/>,
 		);
-		expect(screen.getByTestId('pending-action-dock-edit-next')).toHaveTextContent(
-			'Editar próxima…',
-		);
+		// Nenhum dos três botões de decisão deve carregar a palavra
+		// "próximo"/"próxima" — a palavra "Próximo" do hotkey J é navegação na
+		// fila e fica fora do escopo desta verificação.
+		const approve = screen.getByTestId('pending-action-dock-approve-next');
+		const edit = screen.getByTestId('pending-action-dock-edit-next');
+		const createMock = screen.getByTestId('pending-action-dock-create-mock-next');
+		expect(approve).toHaveTextContent('Aprovar');
+		expect(approve.textContent).not.toMatch(/próxim/i);
+		expect(edit).toHaveTextContent('Editar…');
+		expect(edit.textContent).not.toMatch(/próxim/i);
+		expect(createMock).toHaveTextContent('Criar Mock');
+		expect(createMock.textContent).not.toMatch(/próxim/i);
 
 		rerender(
 			<PendingActionDock
@@ -158,7 +139,15 @@ describe('PendingActionDock', () => {
 				{...noopHandlers()}
 			/>,
 		);
-		expect(screen.getByTestId('pending-action-dock-edit-next')).toHaveTextContent('Editar…');
+		const approveAfter = screen.getByTestId('pending-action-dock-approve-next');
+		const editAfter = screen.getByTestId('pending-action-dock-edit-next');
+		const createMockAfter = screen.getByTestId('pending-action-dock-create-mock-next');
+		expect(approveAfter).toHaveTextContent('Aprovar');
+		expect(approveAfter.textContent).not.toMatch(/próxim/i);
+		expect(editAfter).toHaveTextContent('Editar…');
+		expect(editAfter.textContent).not.toMatch(/próxim/i);
+		expect(createMockAfter).toHaveTextContent('Criar Mock');
+		expect(createMockAfter.textContent).not.toMatch(/próxim/i);
 	});
 
 	test('exibe os atalhos compactos A/I/J/K abaixo das ações', () => {
@@ -176,7 +165,7 @@ describe('PendingActionDock', () => {
 		expect(keys).toEqual(['A', 'I', 'J', 'K']);
 	});
 
-	test('clique em "Aprovar próximo" chama onApproveNext', () => {
+	test('clique em "Aprovar" chama onApproveNext', () => {
 		const handlers = noopHandlers();
 		render(
 			<PendingActionDock
@@ -227,8 +216,8 @@ describe('PendingActionDock', () => {
 		expect(handlers.onIgnoreAll).not.toHaveBeenCalled();
 	});
 
-	test('label do botão primário é "Aprovar" quando há pausada selecionada', () => {
-		render(
+	test('mostra posição "i / N" apenas quando há pausada selecionada', () => {
+		const { rerender } = render(
 			<PendingActionDock
 				pendingCount={3}
 				currentIndex={1}
@@ -237,21 +226,17 @@ describe('PendingActionDock', () => {
 				{...noopHandlers()}
 			/>,
 		);
-		const approve = screen.getByTestId('pending-action-dock-approve-next');
-		expect(approve).toHaveTextContent('Aprovar');
-		expect(approve).not.toHaveTextContent('Aprovar próximo');
-	});
+		expect(screen.getByTestId('pending-action-dock-position')).toHaveTextContent('2 / 3');
 
-	test('mostra posição "i / N" quando há pausada selecionada', () => {
-		render(
+		rerender(
 			<PendingActionDock
 				pendingCount={3}
-				currentIndex={1}
-				hasSelectedPending
+				currentIndex={null}
+				hasSelectedPending={false}
 				nextPendingUrl="https://api.example.com/a"
 				{...noopHandlers()}
 			/>,
 		);
-		expect(screen.getByText('2 / 3')).toBeInTheDocument();
+		expect(screen.queryByTestId('pending-action-dock-position')).toBeNull();
 	});
 });

@@ -28,16 +28,14 @@ export function PendingActionDock({
 }: PendingActionDockProps) {
 	if (pendingCount === 0) return null;
 
+	// O dock sempre opera sobre uma única request — a selecionada (se houver)
+	// ou a primeira da fila (resolução em CommandCenter). As ações usam labels
+	// fixos e o indicador "i / N" só aparece quando há pausada selecionada,
+	// para deixar claro qual posição o usuário está olhando dentro da fila.
 	const positionLabel =
-		hasSelectedPending && currentIndex !== null
-			? `${currentIndex + 1} / ${pendingCount}`
-			: `próximo de ${pendingCount}`;
+		hasSelectedPending && currentIndex !== null ? `${currentIndex + 1} / ${pendingCount}` : null;
 
 	const counterLabel = pendingCount === 1 ? '1 pausada' : `${pendingCount} pausadas`;
-	const approveLabel = hasSelectedPending ? 'Aprovar' : 'Aprovar próximo';
-	const editLabel = hasSelectedPending ? 'Editar…' : 'Editar próxima…';
-	const createMockLabel = hasSelectedPending ? 'Criar Mock' : 'Criar Mock da próxima';
-	const ignoreShortcutLabel = hasSelectedPending ? 'Ignorar' : 'Ignorar próximo';
 	const navDisabled = pendingCount < 2;
 
 	return (
@@ -59,7 +57,14 @@ export function PendingActionDock({
 						{counterLabel}
 					</span>
 				</div>
-				<span className="font-mono text-xs text-muted-foreground">{positionLabel}</span>
+				{positionLabel && (
+					<span
+						className="font-mono text-xs text-muted-foreground"
+						data-testid="pending-action-dock-position"
+					>
+						{positionLabel}
+					</span>
+				)}
 			</div>
 			<div
 				className="mb-3 truncate text-xs text-muted-foreground"
@@ -77,7 +82,7 @@ export function PendingActionDock({
 					data-testid="pending-action-dock-approve-next"
 				>
 					<LucideIcon name="arrow-right" className="mr-1 h-4 w-4" />
-					{approveLabel}
+					Aprovar
 				</Button>
 				<Button
 					type="button"
@@ -88,7 +93,7 @@ export function PendingActionDock({
 					data-testid="pending-action-dock-edit-next"
 				>
 					<LucideIcon name="file-edit" className="mr-1 h-4 w-4" />
-					{editLabel}
+					Editar…
 				</Button>
 				<Button
 					type="button"
@@ -99,7 +104,7 @@ export function PendingActionDock({
 					data-testid="pending-action-dock-create-mock-next"
 				>
 					<LucideIcon name="copy" className="mr-1 h-4 w-4" />
-					{createMockLabel}
+					Criar Mock
 				</Button>
 				<div className="grid grid-cols-2 gap-2">
 					<Button
@@ -125,8 +130,8 @@ export function PendingActionDock({
 				</div>
 			</div>
 			<div className="grid grid-cols-2 gap-2 text-xs">
-				<HotkeyRow keyName="A" label={approveLabel} disabled={false} />
-				<HotkeyRow keyName="I" label={ignoreShortcutLabel} disabled={false} />
+				<HotkeyRow keyName="A" label="Aprovar" disabled={false} />
+				<HotkeyRow keyName="I" label="Ignorar" disabled={false} />
 				<HotkeyRow keyName="J" label="Próximo" disabled={navDisabled} />
 				<HotkeyRow keyName="K" label="Anterior" disabled={navDisabled} />
 			</div>
