@@ -3,10 +3,10 @@
   "sessionId": "399eec93-7b48-406f-bba2-b5f0fce4f267",
   "status": "running",
   "startedAt": "2026-04-30T18:42:26.951Z",
-  "updatedAt": "2026-04-30T19:21:12.369Z",
-  "currentIteration": 7,
+  "updatedAt": "2026-04-30T19:21:13.288Z",
+  "currentIteration": 8,
   "maxIterations": 0,
-  "tasksCompleted": 7,
+  "tasksCompleted": 8,
   "isPaused": false,
   "agentPlugin": "claude",
   "trackerState": {
@@ -59,8 +59,8 @@
       {
         "id": "US-008",
         "title": "Limpeza de hotkeys e mensagens órfãs",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       }
     ]
   },
@@ -134,6 +134,16 @@
       "durationMs": 339887,
       "startedAt": "2026-04-30T19:12:20.251Z",
       "endedAt": "2026-04-30T19:18:00.138Z"
+    },
+    {
+      "iteration": 8,
+      "status": "completed",
+      "taskId": "US-008",
+      "taskTitle": "Limpeza de hotkeys e mensagens órfãs",
+      "taskCompleted": true,
+      "durationMs": 190222,
+      "startedAt": "2026-04-30T19:18:02.147Z",
+      "endedAt": "2026-04-30T19:21:12.369Z"
     }
   ],
   "skippedTaskIds": [],
