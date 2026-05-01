@@ -1,11 +1,14 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { InterceptedResponse } from '@/types/intercepted';
+import type { ActionType, Rule } from '@/types/rules';
 import { useAppOutlet } from '@/types/outletContext';
+import { useRules } from '@/hooks/useRules';
 import { RequestTimeline } from '@/components/command-center/RequestTimeline';
 import { RequestInspector } from '@/components/command-center/RequestInspector';
-import { QuickMockPanel } from '@/components/command-center/QuickMockPanel';
+import RuleEditor from '@/components/rules/RuleEditor';
 import { EditResponseSheet } from '@/components/command-center/EditResponseSheet';
+import { buildRuleDraftFromRequest } from '@/domain/quickMock';
 import { cn } from '@/lib/utils';
 import { filtersEqualUrl, parseFiltersFromUrl, serializeFiltersToUrl } from '@/lib/filterUrl';
 import {
@@ -18,6 +21,16 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+
+const VALID_RULE_TYPES: ReadonlySet<ActionType> = new Set([
+	'mock',
+	'breakpoint',
+	'transform',
+	'delay',
+]);
+
+const isActionType = (value: string | null): value is ActionType =>
+	value !== null && VALID_RULE_TYPES.has(value as ActionType);
 
 const CommandCenter: React.FC = () => {
 	const navigate = useNavigate();
@@ -37,13 +50,12 @@ const CommandCenter: React.FC = () => {
 		clear,
 	} = useAppOutlet();
 
+	const { addRule } = useRules();
+
 	const [clearDialogOpen, setClearDialogOpen] = useState(false);
 	const [recentRuleId, setRecentRuleId] = useState<string | null>(null);
+	const [createRuleError, setCreateRuleError] = useState<string | null>(null);
 
-	// Hidrata `filters` a partir da URL na primeira renderização e mantém a URL
-	// sincronizada conforme o FilterBar muda. A flag de hidratação evita o ciclo
-	// "URL → filters → URL → filters" — depois do mount, o estado da hook é o
-	// dono dos filtros e a URL apenas espelha.
 	const hydratedFromUrlRef = useRef(false);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: hidrata uma única vez
@@ -65,38 +77,28 @@ const CommandCenter: React.FC = () => {
 		setSearchParams(next, { replace: true });
 	}, [filters, searchParams, setSearchParams]);
 
-	// Limpar o id da regra recém-criada quando o usuário troca de request selecionado.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: selectedId é o gatilho da limpeza
 	useEffect(() => {
 		setRecentRuleId(null);
 	}, [selectedId]);
 
-	// Quando o request selecionado some do snapshot (ex.: foi aprovado/ignorado e
-	// removido da fila pendente, ou o histórico foi limpo), descartamos a seleção
-	// para o layout voltar ao estado de tela cheia da timeline em vez de travar
-	// no placeholder "Selecione uma requisição".
 	useEffect(() => {
 		if (selectedId && !selected) clear();
 	}, [selectedId, selected, clear]);
 
-	// Hidratação de ?edit / ?mock vinda da URL. Param toma precedência sobre
-	// state local — assim o navigate('/command-center?edit=<id>') do Layout
-	// (vindo do Dock em qualquer rota) abre o sheet correto. Edit precede Mock
-	// quando ambos chegam juntos (regra simples para resolver conflito).
 	const editParam = searchParams.get('edit');
-	const mockParam = searchParams.get('mock');
+	const createRuleParam = searchParams.get('createRule');
+	const createRuleTypeParam = searchParams.get('type');
 
 	const editSheetTargetId = editParam;
-	const quickMockTargetId = !editParam && mockParam ? mockParam : null;
+	const createRuleTargetId = !editParam && createRuleParam ? createRuleParam : null;
+	const createRuleType = isActionType(createRuleTypeParam) ? createRuleTypeParam : null;
 
 	const editTarget = editSheetTargetId ? (pendingResponses[editSheetTargetId] ?? null) : null;
-	const quickMockTarget = quickMockTargetId
-		? (filteredRequests[quickMockTargetId] ?? pendingResponses[quickMockTargetId] ?? null)
+	const createRuleTarget = createRuleTargetId
+		? (filteredRequests[createRuleTargetId] ?? pendingResponses[createRuleTargetId] ?? null)
 		: null;
 
-	// Limpar params inválidos da URL — sem fallback silencioso, conforme regra
-	// do projeto. Se o id no URL não existe (ou alvo sumiu após aprovação),
-	// remove o param em vez de mostrar UI vazia.
 	useEffect(() => {
 		const next = new URLSearchParams(searchParams);
 		let changed = false;
@@ -104,17 +106,27 @@ const CommandCenter: React.FC = () => {
 			next.delete('edit');
 			changed = true;
 		}
-		if (mockParam && !quickMockTarget && !editParam) {
-			next.delete('mock');
+		if (createRuleParam && (!createRuleTarget || !createRuleType) && !editParam) {
+			next.delete('createRule');
+			next.delete('type');
 			changed = true;
 		}
-		// Se edit está válido, remover mock (mutuamente exclusivos)
-		if (editParam && editTarget && mockParam) {
-			next.delete('mock');
+		if (editParam && editTarget && (createRuleParam || createRuleTypeParam)) {
+			next.delete('createRule');
+			next.delete('type');
 			changed = true;
 		}
 		if (changed) setSearchParams(next, { replace: true });
-	}, [editParam, mockParam, editTarget, quickMockTarget, searchParams, setSearchParams]);
+	}, [
+		editParam,
+		createRuleParam,
+		createRuleTypeParam,
+		editTarget,
+		createRuleTarget,
+		createRuleType,
+		searchParams,
+		setSearchParams,
+	]);
 
 	const closeEditSheet = useCallback(() => {
 		const next = new URLSearchParams(searchParams);
@@ -122,18 +134,22 @@ const CommandCenter: React.FC = () => {
 		setSearchParams(next, { replace: true });
 	}, [searchParams, setSearchParams]);
 
-	const closeQuickMock = useCallback(() => {
+	const closeCreateRule = useCallback(() => {
 		const next = new URLSearchParams(searchParams);
-		next.delete('mock');
+		next.delete('createRule');
+		next.delete('type');
 		setSearchParams(next, { replace: true });
+		setCreateRuleError(null);
 	}, [searchParams, setSearchParams]);
 
-	const openQuickMockFor = useCallback(
-		(requestId: string) => {
+	const openCreateRuleFor = useCallback(
+		(requestId: string, actionType: ActionType) => {
 			const next = new URLSearchParams(searchParams);
-			next.set('mock', requestId);
+			next.set('createRule', requestId);
+			next.set('type', actionType);
 			next.delete('edit');
 			setSearchParams(next, { replace: true });
+			setCreateRuleError(null);
 		},
 		[searchParams, setSearchParams],
 	);
@@ -144,9 +160,42 @@ const CommandCenter: React.FC = () => {
 		clear();
 	};
 
-	const handleCreateMock = (_request: InterceptedResponse, requestId: string) => {
-		openQuickMockFor(requestId);
+	const handleCreateRule = (
+		_request: InterceptedResponse,
+		requestId: string,
+		actionType: ActionType,
+	) => {
+		openCreateRuleFor(requestId, actionType);
 	};
+
+	const draftResult = useMemo(() => {
+		if (!createRuleTarget || !createRuleType) return null;
+		return buildRuleDraftFromRequest(createRuleTarget, {
+			type: createRuleType,
+			includeQueryString: false,
+			headerMatchers: [],
+		});
+	}, [createRuleTarget, createRuleType]);
+
+	const handleCreateRuleSave = async (
+		newRule: Omit<Rule, 'id' | 'createdAt' | 'updatedAt'>,
+	): Promise<boolean> => {
+		const created = await addRule(newRule.name, newRule.matchers, newRule.action);
+		if (created) {
+			setRecentRuleId(created.id);
+			closeCreateRule();
+			return true;
+		}
+		setCreateRuleError('Falha ao gravar a regra em chrome.storage.local.');
+		return false;
+	};
+
+	const headerMatcherSource = createRuleTarget
+		? {
+				requestHeaders: createRuleTarget.request?.headers ?? {},
+				responseHeaders: createRuleTarget.response?.headers ?? createRuleTarget.headers,
+			}
+		: undefined;
 
 	return (
 		<div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden lg:flex-row">
@@ -174,7 +223,7 @@ const CommandCenter: React.FC = () => {
 							generatedRuleId: recentRuleId ?? selected.generatedRuleId,
 						}}
 						requestId={selectedId}
-						onCreateMock={handleCreateMock}
+						onCreateRule={handleCreateRule}
 						onOpenInRulesLab={(ruleId) => navigate(`/rules-lab?rule=${ruleId}`)}
 						onClose={clear}
 						rules={rules}
@@ -182,16 +231,46 @@ const CommandCenter: React.FC = () => {
 				</section>
 			)}
 
-			{quickMockTarget && quickMockTargetId && (
-				<QuickMockPanel
+			{createRuleTarget && createRuleTargetId && createRuleType && draftResult?.ok && (
+				<RuleEditor
 					open
+					mode="create"
+					skipTypeStep
+					initialDraft={draftResult.draft}
+					headerMatcherSource={headerMatcherSource}
 					onOpenChange={(open) => {
-						if (!open) closeQuickMock();
+						if (!open) closeCreateRule();
 					}}
-					request={quickMockTarget}
-					requestId={quickMockTargetId}
-					onCreated={(rule) => setRecentRuleId(rule.id)}
+					onSave={handleCreateRuleSave}
 				/>
+			)}
+
+			{createRuleTarget && draftResult && !draftResult.ok && (
+				<AlertDialog open onOpenChange={(o) => !o && closeCreateRule()}>
+					<AlertDialogContent>
+						<AlertDialogHeader>
+							<AlertDialogTitle>Não foi possível criar regra</AlertDialogTitle>
+							<AlertDialogDescription>{draftResult.error.message}</AlertDialogDescription>
+						</AlertDialogHeader>
+						<AlertDialogFooter>
+							<AlertDialogAction onClick={closeCreateRule}>Fechar</AlertDialogAction>
+						</AlertDialogFooter>
+					</AlertDialogContent>
+				</AlertDialog>
+			)}
+
+			{createRuleError && (
+				<AlertDialog open onOpenChange={() => setCreateRuleError(null)}>
+					<AlertDialogContent>
+						<AlertDialogHeader>
+							<AlertDialogTitle>Erro ao salvar</AlertDialogTitle>
+							<AlertDialogDescription>{createRuleError}</AlertDialogDescription>
+						</AlertDialogHeader>
+						<AlertDialogFooter>
+							<AlertDialogAction onClick={() => setCreateRuleError(null)}>OK</AlertDialogAction>
+						</AlertDialogFooter>
+					</AlertDialogContent>
+				</AlertDialog>
 			)}
 
 			{editTarget && editSheetTargetId && (
