@@ -190,12 +190,16 @@ const CommandCenter: React.FC = () => {
 		return false;
 	};
 
-	const headerMatcherSource = createRuleTarget
-		? {
-				requestHeaders: createRuleTarget.request?.headers ?? {},
-				responseHeaders: createRuleTarget.response?.headers ?? createRuleTarget.headers,
-			}
-		: undefined;
+	const headerMatcherSource = useMemo(
+		() =>
+			createRuleTarget
+				? {
+						requestHeaders: createRuleTarget.request?.headers ?? {},
+						responseHeaders: createRuleTarget.response?.headers ?? createRuleTarget.headers,
+					}
+				: undefined,
+		[createRuleTarget],
+	);
 
 	return (
 		<div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden lg:flex-row">
