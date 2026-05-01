@@ -5,6 +5,21 @@ import { useLocation } from 'react-router-dom';
 import CommandCenterPage from '../CommandCenter';
 import { renderWithLayout } from '@/test/renderWithLayout';
 import type { Filter } from '@/types/filters';
+import type { InterceptedResponse } from '@/types/intercepted';
+
+function pendingResponse(overrides: Partial<InterceptedResponse> = {}): InterceptedResponse {
+	return {
+		url: 'https://api.example.com/users/42',
+		method: 'GET',
+		status: 0,
+		statusText: '',
+		headers: {},
+		type: 'XHR',
+		timestamp: 1,
+		isWaiting: true,
+		...overrides,
+	};
+}
 
 // `vi.hoisted` permite que o factory do `vi.mock` (também hoisted) leia uma
 // referência mutável definida no escopo do arquivo. Isso é o que permite
@@ -117,6 +132,27 @@ vi.mock('@/components/command-center/QuickMockPanel', () => ({
 	QuickMockPanel: () => <div data-testid="quick-mock-panel" />,
 }));
 
+vi.mock('@/components/command-center/EditResponseSheet', () => ({
+	EditResponseSheet: ({
+		request,
+		onOpenChange,
+	}: {
+		request: { url: string };
+		onOpenChange: (open: boolean) => void;
+	}) => (
+		<div data-testid="edit-response-sheet">
+			<div data-testid="edit-response-context-url">{request.url}</div>
+			<button
+				type="button"
+				data-testid="edit-response-sheet-close"
+				onClick={() => onOpenChange(false)}
+			>
+				close
+			</button>
+		</div>
+	),
+}));
+
 vi.mock('@/hooks/useDebugging', () => ({
 	useDebugging: () => ({
 		isDebugging: false,
@@ -222,6 +258,77 @@ describe('CommandCenter — sincronização de filtros via URL', () => {
 		await waitFor(() => {
 			const params = new URLSearchParams(locationProbe.search);
 			expect(params.has('filter')).toBe(false);
+		});
+	});
+});
+
+describe('CommandCenter — hidratação de ?edit / ?mock', () => {
+	test('?edit=<id> presente no mount abre o EditResponseSheet com a request alvo', async () => {
+		responseStubs.pendingResponses = {
+			'r-edit-1': pendingResponse({ url: 'https://api.example.com/edit-target', timestamp: 1 }),
+		};
+		renderAt('/command-center?edit=r-edit-1');
+
+		await waitFor(() => {
+			expect(screen.getByTestId('edit-response-sheet')).toBeInTheDocument();
+			expect(screen.getByTestId('edit-response-context-url')).toHaveTextContent(
+				'https://api.example.com/edit-target',
+			);
+		});
+	});
+
+	test('?mock=<id> presente no mount abre o QuickMockPanel', async () => {
+		responseStubs.pendingResponses = {
+			'r-mock-1': pendingResponse({ url: 'https://api.example.com/mock-target', timestamp: 1 }),
+		};
+		renderAt('/command-center?mock=r-mock-1');
+
+		await waitFor(() => {
+			expect(screen.getByTestId('quick-mock-panel')).toBeInTheDocument();
+		});
+	});
+
+	test('?edit com id inválido (não está em pendingResponses) limpa o param sem abrir sheet', async () => {
+		responseStubs.pendingResponses = {};
+		renderAt('/command-center?edit=does-not-exist');
+
+		await waitFor(() => {
+			expect(screen.queryByTestId('edit-response-sheet')).toBeNull();
+			const params = new URLSearchParams(locationProbe.search);
+			expect(params.has('edit')).toBe(false);
+		});
+	});
+
+	test('fechar EditResponseSheet remove o param ?edit da URL', async () => {
+		responseStubs.pendingResponses = {
+			'r-1': pendingResponse({ url: 'https://api.example.com/x', timestamp: 1 }),
+		};
+		renderAt('/command-center?edit=r-1');
+
+		await waitFor(() => {
+			expect(screen.getByTestId('edit-response-sheet')).toBeInTheDocument();
+		});
+
+		fireEvent.click(screen.getByTestId('edit-response-sheet-close'));
+
+		await waitFor(() => {
+			expect(screen.queryByTestId('edit-response-sheet')).toBeNull();
+			const params = new URLSearchParams(locationProbe.search);
+			expect(params.has('edit')).toBe(false);
+		});
+	});
+
+	test('?edit e ?mock são mutuamente exclusivos — abrir mock fecha edit', async () => {
+		responseStubs.pendingResponses = {
+			'r-1': pendingResponse({ url: 'https://api.example.com/x', timestamp: 1 }),
+		};
+		renderAt('/command-center?edit=r-1&mock=r-1');
+
+		await waitFor(() => {
+			// edit tem precedência se ambos chegam juntos; mock é silenciosamente
+			// removido para não confundir.
+			expect(screen.getByTestId('edit-response-sheet')).toBeInTheDocument();
+			expect(screen.queryByTestId('quick-mock-panel')).toBeNull();
 		});
 	});
 });

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { InterceptedResponse } from '@/types/intercepted';
 import { useAppOutlet } from '@/types/outletContext';
@@ -41,9 +41,7 @@ const CommandCenter: React.FC = () => {
 	} = useAppOutlet();
 
 	const [clearDialogOpen, setClearDialogOpen] = useState(false);
-	const [quickMockTargetId, setQuickMockTargetId] = useState<string | null>(null);
 	const [recentRuleId, setRecentRuleId] = useState<string | null>(null);
-	const [editSheetTargetId, setEditSheetTargetId] = useState<string | null>(null);
 
 	// Hidrata `filters` a partir da URL na primeira renderização e mantém a URL
 	// sincronizada conforme o FilterBar muda. A flag de hidratação evita o ciclo
@@ -84,13 +82,64 @@ const CommandCenter: React.FC = () => {
 		if (selectedId && !selected) clear();
 	}, [selectedId, selected, clear]);
 
-	const editTarget = editSheetTargetId ? (pendingResponses[editSheetTargetId] ?? null) : null;
+	// Hidratação de ?edit / ?mock vinda da URL. Param toma precedência sobre
+	// state local — assim o navigate('/command-center?edit=<id>') do Layout
+	// (vindo do Dock em qualquer rota) abre o sheet correto. Edit precede Mock
+	// quando ambos chegam juntos (regra simples para resolver conflito).
+	const editParam = searchParams.get('edit');
+	const mockParam = searchParams.get('mock');
 
-	// Fecha o sheet automaticamente se o request alvo deixar de existir
-	// (aprovado em outra superfície, ou histórico limpo).
+	const editSheetTargetId = editParam;
+	const quickMockTargetId = !editParam && mockParam ? mockParam : null;
+
+	const editTarget = editSheetTargetId ? (pendingResponses[editSheetTargetId] ?? null) : null;
+	const quickMockTarget = quickMockTargetId
+		? (filteredRequests[quickMockTargetId] ?? pendingResponses[quickMockTargetId] ?? null)
+		: null;
+
+	// Limpar params inválidos da URL — sem fallback silencioso, conforme regra
+	// do projeto. Se o id no URL não existe (ou alvo sumiu após aprovação),
+	// remove o param em vez de mostrar UI vazia.
 	useEffect(() => {
-		if (editSheetTargetId && !editTarget) setEditSheetTargetId(null);
-	}, [editSheetTargetId, editTarget]);
+		const next = new URLSearchParams(searchParams);
+		let changed = false;
+		if (editParam && !editTarget) {
+			next.delete('edit');
+			changed = true;
+		}
+		if (mockParam && !quickMockTarget && !editParam) {
+			next.delete('mock');
+			changed = true;
+		}
+		// Se edit está válido, remover mock (mutuamente exclusivos)
+		if (editParam && editTarget && mockParam) {
+			next.delete('mock');
+			changed = true;
+		}
+		if (changed) setSearchParams(next, { replace: true });
+	}, [editParam, mockParam, editTarget, quickMockTarget, searchParams, setSearchParams]);
+
+	const closeEditSheet = useCallback(() => {
+		const next = new URLSearchParams(searchParams);
+		next.delete('edit');
+		setSearchParams(next, { replace: true });
+	}, [searchParams, setSearchParams]);
+
+	const closeQuickMock = useCallback(() => {
+		const next = new URLSearchParams(searchParams);
+		next.delete('mock');
+		setSearchParams(next, { replace: true });
+	}, [searchParams, setSearchParams]);
+
+	const openQuickMockFor = useCallback(
+		(requestId: string) => {
+			const next = new URLSearchParams(searchParams);
+			next.set('mock', requestId);
+			next.delete('edit');
+			setSearchParams(next, { replace: true });
+		},
+		[searchParams, setSearchParams],
+	);
 
 	const handleClearHistory = async () => {
 		await clearAllRequests();
@@ -99,16 +148,8 @@ const CommandCenter: React.FC = () => {
 	};
 
 	const handleCreateMock = (_request: InterceptedResponse, requestId: string) => {
-		setQuickMockTargetId(requestId);
+		openQuickMockFor(requestId);
 	};
-
-	const quickMockTarget = quickMockTargetId
-		? (filteredRequests[quickMockTargetId] ?? pendingResponses[quickMockTargetId] ?? null)
-		: null;
-
-	useEffect(() => {
-		if (quickMockTargetId && !quickMockTarget) setQuickMockTargetId(null);
-	}, [quickMockTargetId, quickMockTarget]);
 
 	return (
 		<div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden lg:flex-row">
@@ -151,7 +192,7 @@ const CommandCenter: React.FC = () => {
 				<QuickMockPanel
 					open
 					onOpenChange={(open) => {
-						if (!open) setQuickMockTargetId(null);
+						if (!open) closeQuickMock();
 					}}
 					request={quickMockTarget}
 					requestId={quickMockTargetId}
@@ -163,7 +204,7 @@ const CommandCenter: React.FC = () => {
 				<EditResponseSheet
 					open
 					onOpenChange={(open) => {
-						if (!open) setEditSheetTargetId(null);
+						if (!open) closeEditSheet();
 					}}
 					request={editTarget}
 					requestId={editSheetTargetId}
