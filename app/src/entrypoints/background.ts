@@ -573,6 +573,27 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
 		}
 		console.warn(`[session] probeStartDetection inesperado em tab ${details.tabId}:`, err);
 	}
+
+	// 3. Re-inicia rrweb no novo documento — content_script é re-injetado pelo Chrome
+	// em document_start, mas precisa receber __rrweb_start de novo (probe é idle até
+	// receber a mensagem). recordCanvas vem da metadata da sessão ativa.
+	try {
+		await chrome.tabs.sendMessage(details.tabId, {
+			action: '__rrweb_start',
+			sessionId: session.id,
+			recordCanvas: session.metadata.canvasCaptureEnabled,
+		});
+	} catch (err) {
+		const msg = String(err);
+		if (
+			msg.includes('Could not establish connection') ||
+			msg.includes('The tab was closed') ||
+			msg.includes('No tab with id')
+		) {
+			return;
+		}
+		console.warn(`[session] __rrweb_start em navegação inesperado em tab ${details.tabId}:`, err);
+	}
 });
 
 // Listen for messages from the popup or hot reload
@@ -876,6 +897,14 @@ chrome.runtime.onMessage.addListener(
 						action: 'probeStartDetection',
 						reason: 'initial',
 					});
+
+					// Inicia rrweb no content script ISOLATED da tab alvo. Falha aqui propaga
+					// erro pro caller (no-fallbacks): sem rrweb a sessão não tem captura visual.
+					await chrome.tabs.sendMessage(message.tabId, {
+						action: '__rrweb_start',
+						sessionId: id,
+						recordCanvas: message.canvasCaptureEnabled ?? false,
+					});
 					sendResponse({ ok: true, sessionId: id });
 				} catch (err) {
 					sendResponse({ ok: false, error: String(err) });
@@ -898,6 +927,11 @@ chrome.runtime.onMessage.addListener(
 							await chrome.debugger.sendCommand({ tabId: session.tabId }, 'Log.disable');
 						} catch {
 							// Debugger pode ter detached entre stopSession e disable; ignorar.
+						}
+						try {
+							await chrome.tabs.sendMessage(session.tabId, { action: '__rrweb_stop' });
+						} catch {
+							// Tab pode ter fechado; ignorar (probe idle cobre o resto).
 						}
 						try {
 							await chrome.tabs.sendMessage(session.tabId, { action: 'probeIdle' });
