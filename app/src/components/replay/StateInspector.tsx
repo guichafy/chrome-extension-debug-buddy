@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { reconstructStateAt } from '@/lib/session/state/replay';
-import type { DetectionPhase, SessionEvent } from '@/lib/session/types';
+import type { DetectionPhase, SessionEvent, StoreKind } from '@/lib/session/types';
 import { JsonTree } from './JsonTree';
 
 interface Props {
@@ -8,6 +8,13 @@ interface Props {
 	events: SessionEvent[];
 	playheadTimestamp: number;
 }
+
+const STORE_KIND_LABEL: Record<StoreKind, string> = {
+	redux: 'Redux',
+	zustand: 'Zustand',
+	'angular-signal': 'Angular Signal',
+	ngrx: 'NgRx',
+};
 
 export function StateInspector({ phase, events, playheadTimestamp }: Props) {
 	const storeIds = useMemo(() => {
@@ -58,6 +65,11 @@ export function StateInspector({ phase, events, playheadTimestamp }: Props) {
 						</option>
 					))}
 				</select>
+				{effectiveStoreId && phase.stateBaseline?.[effectiveStoreId] && (
+					<span className="rounded bg-muted px-2 py-0.5 font-medium text-[10px]">
+						{STORE_KIND_LABEL[phase.stateBaseline[effectiveStoreId].storeKind]}
+					</span>
+				)}
 			</div>
 			{snapshot === null ? (
 				<p className="text-muted-foreground text-xs">

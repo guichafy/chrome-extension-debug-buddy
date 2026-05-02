@@ -72,3 +72,49 @@ describe('StateInspector', () => {
 		expect(screen.getByText('"light"')).toBeInTheDocument();
 	});
 });
+
+describe('StateInspector — Phase 5 storeKinds', () => {
+	function makeAngularPhase(): DetectionPhase {
+		return {
+			id: 'p1',
+			startTimestamp: 0,
+			endTimestamp: 1000,
+			fingerprint: {
+				framework: { name: 'angular' as const, version: '17' },
+				httpClients: [],
+				dataFetching: [],
+				stateManagers: [],
+				detectedAt: 0,
+				isProductionBuild: false,
+			},
+			pages: [],
+			stateBaseline: {
+				'sig:1': {
+					storeId: 'sig:1',
+					storeKind: 'angular-signal' as const,
+					data: 0,
+					timestamp: 100,
+				},
+			},
+		};
+	}
+
+	it('renderiza label "Angular Signal" para storeKind=angular-signal', () => {
+		render(<StateInspector phase={makeAngularPhase()} events={[]} playheadTimestamp={100} />);
+		expect(screen.getByText('Angular Signal')).toBeInTheDocument();
+	});
+
+	it('renderiza label "NgRx" para storeKind=ngrx', () => {
+		const phase = makeAngularPhase();
+		phase.stateBaseline = {
+			'ngrx:root': {
+				storeId: 'ngrx:root',
+				storeKind: 'ngrx' as const,
+				data: { count: 0 },
+				timestamp: 100,
+			},
+		};
+		render(<StateInspector phase={phase} events={[]} playheadTimestamp={100} />);
+		expect(screen.getByText('NgRx')).toBeInTheDocument();
+	});
+});
