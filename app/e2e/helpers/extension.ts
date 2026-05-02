@@ -1,5 +1,5 @@
 import { type BrowserContext, chromium } from '@playwright/test';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,7 +15,7 @@ export async function launchExtensionContext(): Promise<BrowserContext> {
 	// runner. Por isso headless: false é obrigatório para forçar o Chromium
 	// completo. Pré-requisito de CI: o comando precisa ser envolvido em
 	// xvfb-run (ou equivalente) em runners Linux sem display nativo.
-	return chromium.launchPersistentContext(userDataDir, {
+	const context = await chromium.launchPersistentContext(userDataDir, {
 		headless: false,
 		args: [
 			`--disable-extensions-except=${EXTENSION_PATH}`,
@@ -24,6 +24,12 @@ export async function launchExtensionContext(): Promise<BrowserContext> {
 			'--no-default-browser-check',
 		],
 	});
+	// Limpa o profile dir quando o contexto fecha. Em CI o runner já é
+	// descartado, mas evita acúmulo em /tmp em runs locais repetidos.
+	context.on('close', () => {
+		rm(userDataDir, { recursive: true, force: true }).catch(() => {});
+	});
+	return context;
 }
 
 export async function getExtensionId(context: BrowserContext): Promise<string> {
