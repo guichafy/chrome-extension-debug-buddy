@@ -123,7 +123,12 @@ function toStackFrames(
 
 function currentPhaseId(session: Session): string {
 	const last = session.detectionPhases[session.detectionPhases.length - 1];
-	return last?.id ?? 'no-phase';
+	if (!last) {
+		throw new Error(
+			`Session ${session.id}: nenhuma DetectionPhase ainda — evento sendo emitido antes da primeira pageDetected`,
+		);
+	}
+	return last.id;
 }
 
 function mapLogLevel(level: Protocol.Log.LogEntry['level']): ConsoleLevel {
@@ -210,12 +215,16 @@ async function emitNetworkEventForSession(
 ): Promise<void> {
 	const session = await recorder.getActiveByTab(tabId);
 	if (!session) return;
+	if (!request.method) {
+		console.warn(`[session] NetworkEvent: method ausente para ${requestId}, ignorando`);
+		return;
+	}
 	const event: SessionEvent = {
 		type: 'network',
 		timestamp: request.timestamp,
 		phaseId: currentPhaseId(session),
 		requestId,
-		method: request.method ?? '',
+		method: request.method,
 		url: request.url,
 		status: request.status,
 	};
@@ -336,6 +345,10 @@ async function patchRequest(
 			if (!session) return;
 			const ev = session.events.find((e) => e.type === 'network' && e.requestId === requestId);
 			if (ev && ev.type === 'network') {
+				// Mutação in-place de session.events e put() detached do main flow.
+				// Aceita race com outras chamadas concorrentes de addEvent (last-write-wins).
+				// Single-tab + low event rate torna observável conflict raro. Se virar dor,
+				// adicionar versionamento otimista no Session ou serializar via fila no recorder.
 				ev.durationMs = updates.duration;
 				try {
 					await sessionStore.put(session);
@@ -1357,13 +1370,15 @@ function debuggerEventListener(
 	}
 
 	// Eventos de Session Replay: encaminha para o recorder se há sessão ativa.
+	// attachedTabId é garantidamente number aqui: o outer guard (tabId !== attachedTabId)
+	// elimina undefined antes deste ponto, mas o TypeScript não infere o narrowing — usamos
+	// attachedTabId diretamente, que já é number | null e narrowed pelo outer guard.
 	if (
 		message === 'Runtime.consoleAPICalled' ||
 		message === 'Runtime.exceptionThrown' ||
 		message === 'Log.entryAdded'
 	) {
-		if (debuggeeId.tabId === undefined) return;
-		const tabId = debuggeeId.tabId;
+		const tabId = debuggeeId.tabId as number;
 		recorder.getActiveByTab(tabId).then((session) => {
 			if (!session) return;
 			if (message === 'Runtime.consoleAPICalled') {
@@ -1966,6 +1981,7 @@ async function applyTransformResponse(
 			responseHeaders: responseHeaderArray,
 			body: encodeBodyToBase64(transformedBody),
 		});
+		// TODO(session): transform requests não emitem NetworkEvent ainda (follow-up).
 		await persistRequest(requestId, fulfilledResponse);
 		console.log(`Transform aplicado com sucesso para ${requestId}`);
 	} catch (error) {
