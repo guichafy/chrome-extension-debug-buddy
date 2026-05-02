@@ -5,7 +5,12 @@
 import type { InterceptedResponse, ResponseModifications } from './intercepted';
 import type { MockConfig } from './legacy';
 import type { SessionMarker } from './sessionMarker';
-import type { EnvironmentFingerprint, PageDetectionTrigger, Session } from '@/lib/session/types';
+import type {
+	EnvironmentFingerprint,
+	PageDetectionTrigger,
+	RrwebEvent,
+	Session,
+} from '@/lib/session/types';
 
 export type MessageAction =
 	| 'startDebugging'
@@ -37,7 +42,9 @@ export type MessageAction =
 	| 'pageDetected'
 	| 'getActiveSession'
 	| 'exportSession'
-	| 'importSession';
+	| 'importSession'
+	// Session Replay — Phase 2 (rrweb)
+	| 'rrwebBatch';
 
 export interface Message {
 	action: MessageAction;
@@ -67,6 +74,9 @@ export interface Message {
 	// exportSession / importSession (Phase 1d)
 	data?: ArrayBuffer;
 	filename?: string;
+	// rrweb (Phase 2)
+	rrwebEvents?: RrwebEvent[];
+	recordCanvas?: boolean;
 }
 
 export interface MessageResponse {

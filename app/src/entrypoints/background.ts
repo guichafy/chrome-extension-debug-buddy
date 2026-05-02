@@ -15,6 +15,7 @@ import type {
 	ConsoleLevel,
 	ConsoleStackFrame,
 	PageDetection,
+	RrwebEvent,
 	Session,
 	SessionEvent,
 } from '@/lib/session/types';
@@ -1026,6 +1027,24 @@ chrome.runtime.onMessage.addListener(
 					const session = await parseDbsession(message.data as ArrayBuffer);
 					await sessionStore.put(session);
 					sendResponse({ ok: true, sessionId: session.id });
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === 'rrwebBatch') {
+			(async () => {
+				try {
+					const sid = message.sessionId as string | undefined;
+					const events = message.rrwebEvents;
+					if (!sid || !Array.isArray(events)) {
+						sendResponse({ ok: false, error: 'rrwebBatch: sessionId/rrwebEvents inválidos' });
+						return;
+					}
+					await recorder.addRrwebEvents(sid, events as RrwebEvent[]);
+					sendResponse({ ok: true });
 				} catch (err) {
 					sendResponse({ ok: false, error: String(err) });
 				}

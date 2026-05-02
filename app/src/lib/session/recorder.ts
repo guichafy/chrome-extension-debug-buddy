@@ -1,10 +1,11 @@
 import { tryCoalesceConsole } from './coalesce';
 import { fingerprintsEqual, newPhaseId } from './fingerprint';
-import { estimateEventBytes } from './sizeEstimate';
+import { estimateEventBytes, estimateRrwebBytes } from './sizeEstimate';
 import { sessionStore } from './storage';
 import type {
 	DetectionPhase,
 	PageDetection,
+	RrwebEvent,
 	Session,
 	SessionEvent,
 	SessionMetadata,
@@ -160,6 +161,32 @@ export const recorder = {
 		r.bytes += estimateEventBytes(event);
 
 		// Hard limit checks (ordem: size primeiro porque é o mais comum)
+		if (r.bytes >= sizeLimitBytes) {
+			await autoStop(s, 'size', r);
+			return;
+		}
+		const duration = Date.now() - r.startedAt;
+		if (duration >= durationLimitMs) {
+			await autoStop(s, 'time', r);
+			return;
+		}
+
+		await sessionStore.put(s);
+	},
+
+	async addRrwebEvents(sessionId: string, events: RrwebEvent[]): Promise<void> {
+		if (events.length === 0) return;
+		const s = await sessionStore.get(sessionId);
+		if (!s) throw new Error(`Session ${sessionId} não encontrada`);
+		if (s.endedAt !== null) throw new Error(`Session ${sessionId} já encerrada`);
+
+		const r = getOrInitRuntime(sessionId, s);
+
+		if (!s.rrwebEvents) s.rrwebEvents = [];
+		s.rrwebEvents.push(...events);
+		r.bytes += estimateRrwebBytes(events);
+
+		// Hard limit — mesma lógica de addEvent (size primeiro, depois time).
 		if (r.bytes >= sizeLimitBytes) {
 			await autoStop(s, 'size', r);
 			return;
