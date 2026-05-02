@@ -20,9 +20,18 @@ const FILTERS: SessionEvent['type'][] = [
 	'state',
 ];
 
+function originOfUrl(rawUrl: string): string {
+	try {
+		return new URL(rawUrl).origin;
+	} catch {
+		return rawUrl;
+	}
+}
+
 export function ReplayPage() {
 	const { sessionId } = useParams<{ sessionId: string }>();
 	const [session, setSession] = useState<Session | null>(null);
+	const [currentOrigin, setCurrentOrigin] = useState<string>('');
 	const [enabled, setEnabled] = useState<Record<string, boolean>>({
 		network: true,
 		console: true,
@@ -47,6 +56,21 @@ export function ReplayPage() {
 		};
 	}, [sessionId]);
 
+	useEffect(() => {
+		// Lê origem da tab ativa pra comparar com a sessão importada (banner de aviso).
+		// Sem fallback: se não houver chrome.tabs (testes/iframe), o banner simplesmente não aparece.
+		if (!chrome?.tabs?.query) return;
+		let cancelled = false;
+		void chrome.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+			if (cancelled) return;
+			const url = tabs[0]?.url;
+			if (url) setCurrentOrigin(originOfUrl(url));
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
 	if (!session) {
 		return <div className="p-4 text-muted-foreground text-sm">Carregando…</div>;
 	}
@@ -67,6 +91,13 @@ export function ReplayPage() {
 		return phases[0] ?? null;
 	})();
 
+	const importedOrigin = originOfUrl(session.metadata.initialUrl);
+	const showOriginBanner =
+		session.origin === 'imported' &&
+		!!currentOrigin &&
+		!!importedOrigin &&
+		importedOrigin !== currentOrigin;
+
 	return (
 		<div className="flex h-full flex-col gap-3 p-4">
 			<div className="flex items-baseline justify-between">
@@ -76,6 +107,16 @@ export function ReplayPage() {
 					{session.rrwebEvents?.length ?? 0} eventos visuais
 				</span>
 			</div>
+
+			{showOriginBanner && (
+				<div
+					role="alert"
+					className="rounded border border-amber-500/40 bg-amber-500/10 p-2 text-amber-900 text-xs dark:text-amber-200"
+				>
+					Sessão importada gravada em <strong>{importedOrigin}</strong>, mas a tab atual está em{' '}
+					<strong>{currentOrigin}</strong>. Verifique se a origem é confiável.
+				</div>
+			)}
 
 			{/* Em sidepanel (~400px) empilha vertical; ≥ lg (1024px+) volta pra 2 colunas */}
 			<div className="grid grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[65%_1fr]">
