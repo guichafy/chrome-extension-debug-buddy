@@ -75,3 +75,4 @@ dist/last-update.json
 app/playwright-report/
 app/test-results/
 app/.playwright/
+app/e2e/evidence/
