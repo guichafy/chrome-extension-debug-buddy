@@ -106,6 +106,12 @@ if ((SESSION.rrwebEvents || []).length >= 2 && PlayerCtor) {
 		},
 	});
 } else {
+	if ((SESSION.rrwebEvents || []).length >= 2 && !PlayerCtor) {
+		// Eventos visuais existem mas o construtor não bateu — versão futura do rrweb-player
+		// pode ter renomeado o global. Loga pra ser diagnosticável via DevTools em vez de
+		// silenciar. Não faz fallback (no-fallbacks): UI continua mostrando que não há replay.
+		console.warn('[debug-buddy viewer] rrweb-player constructor não encontrado em globalThis.rrwebPlayer:', typeof rrwebPlayer === 'undefined' ? 'undefined' : rrwebPlayer);
+	}
 	playerHost.innerHTML = '<div class="fallback">Sessão sem captura visual.<br/>Gravada antes da Fase 2 ou com rrweb desabilitado.</div>';
 }
 
