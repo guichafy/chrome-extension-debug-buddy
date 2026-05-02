@@ -66,5 +66,7 @@ describe('serializeSession', () => {
 		expect(html).toContain('"sess_test"');
 		expect(html).toContain('"hello"');
 		expect(html).toContain('Debug Buddy');
+		// Phase 2: banner agora marca replay visual via rrweb embutido.
+		expect(html).toContain('replay visual via rrweb embutido');
 	});
 });
