@@ -42,12 +42,33 @@ export interface PageDetection {
 	triggerType: PageDetectionTrigger;
 }
 
+export type StoreKind = 'redux' | 'zustand';
+
+export interface StateSnapshot {
+	storeId: string;
+	storeKind: StoreKind;
+	data: unknown;
+	timestamp: number;
+}
+
+export interface StateKeyframe {
+	storeId: string;
+	storeKind: StoreKind;
+	timestamp: number;
+	phaseId: string;
+	/** lz-string compressToBase64 de JSON.stringify(state) */
+	snapshotCompressed: string;
+}
+
 export interface DetectionPhase {
 	id: string;
 	startTimestamp: number;
 	endTimestamp: number;
 	fingerprint: EnvironmentFingerprint;
 	pages: PageDetection[];
+	/** Map storeId → primeiro snapshot capturado dele dentro da fase. */
+	stateBaseline?: Record<string, StateSnapshot>;
+	stateKeyframes?: StateKeyframe[];
 }
 
 export type ConsoleSource = 'app' | 'browser' | 'security';
@@ -96,7 +117,6 @@ export interface SessionTelemetry {
 	navigationCount: number;
 }
 
-// Outras variantes (state) virão em Phase 4.
 export type SessionEvent =
 	| { type: 'detection'; timestamp: number; phaseId: string }
 	| {
@@ -134,6 +154,15 @@ export type SessionEvent =
 			phaseId: string;
 			message: string;
 			stackTrace?: { frames: ConsoleStackFrame[] };
+	  }
+	| {
+			type: 'state';
+			timestamp: number;
+			phaseId: string;
+			storeId: string;
+			storeKind: StoreKind;
+			diffCompressed: string;
+			sequenceNum: number;
 	  };
 
 export interface SessionMetadata {

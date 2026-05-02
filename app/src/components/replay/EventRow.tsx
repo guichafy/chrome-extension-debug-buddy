@@ -12,6 +12,8 @@ function levelColor(type: SessionEvent['type']): string {
 			return 'text-red-700';
 		case 'detection':
 			return 'text-emerald-700';
+		case 'state':
+			return 'text-amber-700';
 	}
 }
 
@@ -30,6 +32,8 @@ function eventLabel(ev: SessionEvent): string {
 			return `[ERROR] ${ev.message}`;
 		case 'detection':
 			return `[PHASE START] ${ev.phaseId}`;
+		case 'state':
+			return `[STATE/${ev.storeKind}] ${ev.storeId} #${ev.sequenceNum}`;
 	}
 }
 
