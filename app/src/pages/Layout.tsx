@@ -15,6 +15,7 @@ import { useNetworkMetrics } from '../hooks/useNetworkMetrics';
 import { PendingActionDock } from '@/components/command-center/PendingActionDock';
 import { usePendingHotkeys } from '@/components/command-center/usePendingHotkeys';
 import type { AppOutletContext } from '@/types/outletContext';
+import { RecordingBanner } from '@/components/recording/RecordingBanner';
 
 const RouteFallback: React.FC = () => (
 	<div className="flex flex-col gap-3 p-6">
@@ -228,6 +229,7 @@ const Layout: React.FC = () => {
 					sessionDetails={metrics.sessionDetails}
 					currentPageDetails={metrics.currentPageDetails}
 				/>
+				<RecordingBanner tabId={targetTab?.id ?? null} />
 
 				<div className="main-content-container flex-1 min-h-0 min-w-0 overflow-hidden">
 					<Suspense fallback={<RouteFallback />}>

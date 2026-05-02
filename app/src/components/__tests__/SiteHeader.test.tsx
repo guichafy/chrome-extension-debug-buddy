@@ -83,7 +83,7 @@ describe('SiteHeader Component', () => {
 		render(<SiteHeader {...mockProps} />);
 
 		expect(screen.getByTestId('sidebar-trigger')).toBeTruthy();
-		expect(screen.getByTestId('separator')).toBeTruthy();
+		expect(screen.getAllByTestId('separator').length).toBeGreaterThan(0);
 
 		const tabButtons = screen.getAllByText('Test Tab');
 		expect(tabButtons.length).toBeGreaterThan(0);

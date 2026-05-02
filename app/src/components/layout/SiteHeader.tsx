@@ -7,6 +7,7 @@ import type { MetricsAggregate } from '@/lib/networkMetrics';
 import type { PillsDetailProp } from './NetworkMetricsBar';
 import { NetworkMetricsBar } from './NetworkMetricsBar';
 import type { SessionMarker } from '@/types/sessionMarker';
+import { RecordingToggle } from '@/components/recording/RecordingToggle';
 
 interface SiteHeaderProps {
 	targetTab: {
@@ -82,6 +83,11 @@ export function SiteHeader({
 				</div>
 
 				<div className="flex items-center gap-2">
+					<RecordingToggle tabId={targetTab.id} interceptionActive={isDebugging} />
+					<Separator
+						orientation="vertical"
+						className="hidden data-[orientation=vertical]:h-6 md:block"
+					/>
 					<TooltipProvider>
 						<Tooltip>
 							<TooltipTrigger asChild>
