@@ -7,6 +7,9 @@ const RulesLab = lazy(() => import('./pages/RulesLab'));
 const SessionsPage = lazy(() =>
 	import('./pages/SessionsPage').then((m) => ({ default: m.SessionsPage })),
 );
+const ReplayPage = lazy(() =>
+	import('./pages/ReplayPage').then((m) => ({ default: m.ReplayPage })),
+);
 
 const router = createHashRouter([
 	{
@@ -25,6 +28,7 @@ const router = createHashRouter([
 			{ path: 'request-history', element: <Navigate to="/command-center" replace /> },
 			{ path: 'requests', element: <Navigate to="/command-center" replace /> },
 			{ path: 'sessions', element: <SessionsPage /> },
+			{ path: 'replay/:sessionId', element: <ReplayPage /> },
 		],
 	},
 ]);
