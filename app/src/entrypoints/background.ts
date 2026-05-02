@@ -1037,13 +1037,24 @@ chrome.runtime.onMessage.addListener(
 		if (message.action === 'rrwebBatch') {
 			(async () => {
 				try {
-					const sid = message.sessionId as string | undefined;
+					const sid = message.sessionId;
 					const events = message.rrwebEvents;
 					if (!sid || !Array.isArray(events)) {
 						sendResponse({ ok: false, error: 'rrwebBatch: sessionId/rrwebEvents inválidos' });
 						return;
 					}
-					await recorder.addRrwebEvents(sid, events as RrwebEvent[]);
+					// Validação estrutural rasa: cada item precisa ter o shape mínimo de RrwebEvent.
+					// Probe bugado ou remetente externo malicioso poderia enfiar lixo no IDB
+					// se o handler só checasse Array.isArray. No-fallbacks: rejeita o batch inteiro.
+					const valid = events.every(
+						(e): e is RrwebEvent =>
+							!!e && typeof e.type === 'number' && typeof e.timestamp === 'number',
+					);
+					if (!valid) {
+						sendResponse({ ok: false, error: 'rrwebBatch: payload com items inválidos' });
+						return;
+					}
+					await recorder.addRrwebEvents(sid, events);
 					sendResponse({ ok: true });
 				} catch (err) {
 					sendResponse({ ok: false, error: String(err) });
