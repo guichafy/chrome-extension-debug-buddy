@@ -74,7 +74,7 @@
 ### Step 1.1: Instalar rrweb e rrweb-player
 
 ```bash
-cd app && npm install rrweb@^2.0.0-alpha.18 rrweb-player@^1.0.0-alpha.18
+cd app && npm install rrweb@^2.0.0-alpha.18 rrweb-player@^2.0.0-alpha.18
 ```
 
 Esperado: instalações bem-sucedidas, `package-lock.json` atualizado, sem peer-dep warnings críticos.
