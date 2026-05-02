@@ -11,6 +11,7 @@ import type {
 	MockAction,
 	ResponseModifications,
 	Rule,
+	TransformAction,
 } from '@/types';
 import { EMPTY_SESSION_MARKER, type SessionMarker } from '@/types/sessionMarker';
 import {
@@ -26,6 +27,7 @@ import {
 } from '@/domain/http';
 import { resolveMockLatencyMs, wait } from '@/domain/mockLatency';
 import { findMatchingRuleAction } from '@/domain/ruleMatching';
+import { applyTransformToBody } from '@/domain/transformExecutor';
 
 // Global variables
 let isDebugging = false;
@@ -320,6 +322,13 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 // Listen for messages from the popup or hot reload
 chrome.runtime.onMessage.addListener(
 	(message: any, _sender, sendResponse: (response: MessageResponse) => void) => {
+		// Mensagens roteadas para o offscreen document não devem ser tratadas
+		// pelo service worker — o offscreen tem seu próprio listener e disputa
+		// pelo sendResponse causaria respostas perdidas/duplicadas.
+		if (message && typeof message === 'object' && message.target === 'offscreen') {
+			return false;
+		}
+
 		// Apenas log mensagens que não são de verificação de status para reduzir ruído
 		if (message.action !== 'getDebuggingStatus' && message.action !== 'getPendingResponses') {
 			console.log('Received message:', message);
@@ -1169,6 +1178,11 @@ async function handleRequestPaused(params: any): Promise<void> {
 	// o tracker emitirá `requestUpdated` com a duration final.
 	timingTracker.linkFetchId(networkId, requestId);
 
+	if (matchedAction?.type === 'transform') {
+		await applyTransformResponse(requestId, matchedAction.action, body, responseObj);
+		return;
+	}
+
 	const willIntercept = matchedAction?.type === 'breakpoint';
 	const persistedRequest: InterceptedResponse = willIntercept
 		? { ...responseObj, isWaiting: true }
@@ -1332,6 +1346,184 @@ async function applyMockResponse(
 			await patchRequest(requestId, {
 				captureError: `${captureError}; falha ao sinalizar erro para o navegador: ${failMessage}`,
 			});
+		}
+	}
+}
+
+// Garante que o offscreen document está vivo. O service worker MV3 não tem
+// `document` nem pode usar `new Function` (CSP), por isso o transform
+// avançado (JS) é executado num iframe sandbox hospedado dentro de um
+// offscreen document. Esta função é idempotente — se o documento já existe,
+// não cria de novo.
+const OFFSCREEN_DOCUMENT_PATH = 'offscreen.html';
+let offscreenCreating: Promise<void> | null = null;
+
+async function ensureOffscreenDocument(): Promise<void> {
+	const offscreenApi = (
+		chrome as unknown as {
+			offscreen?: {
+				hasDocument?: () => Promise<boolean>;
+				createDocument: (options: {
+					url: string;
+					reasons: string[];
+					justification: string;
+				}) => Promise<void>;
+				closeDocument?: () => Promise<void>;
+			};
+		}
+	).offscreen;
+	if (!offscreenApi || typeof offscreenApi.createDocument !== 'function') {
+		throw new Error(
+			'chrome.offscreen API indisponível — Transform avançado requer Chrome 109+ com permissão "offscreen".',
+		);
+	}
+	if (offscreenApi.hasDocument && (await offscreenApi.hasDocument())) {
+		return;
+	}
+	if (offscreenCreating) {
+		await offscreenCreating;
+		return;
+	}
+	offscreenCreating = offscreenApi
+		.createDocument({
+			url: OFFSCREEN_DOCUMENT_PATH,
+			reasons: ['DOM_PARSER'],
+			justification:
+				'Executar JavaScript do usuário em sandbox isolado para regras de Transform avançadas (US-017).',
+		})
+		.finally(() => {
+			offscreenCreating = null;
+		});
+	await offscreenCreating;
+}
+
+interface AdvancedTransformReply {
+	ok: boolean;
+	output?: unknown;
+	error?: string;
+}
+
+async function runAdvancedTransformInOffscreen(
+	script: string,
+	parsedResponse: unknown,
+	timeoutMs = 5000,
+): Promise<AdvancedTransformReply> {
+	await ensureOffscreenDocument();
+	const id = `adv-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+	const reply = (await chrome.runtime.sendMessage({
+		target: 'offscreen',
+		action: 'runAdvancedTransform',
+		id,
+		script,
+		response: parsedResponse,
+		timeoutMs,
+	})) as AdvancedTransformReply | undefined;
+	if (!reply || typeof reply !== 'object') {
+		return { ok: false, error: 'Offscreen não retornou resposta para runAdvancedTransform' };
+	}
+	return reply;
+}
+
+// Aplica uma regra de Transform (declarativo ou advanced) ao body capturado e
+// devolve a resposta modificada via Fetch.fulfillRequest. Diferente de mock,
+// aqui a request já passou pela rede — o body original é insumo do transform.
+// Em qualquer falha (body indisponível, JSON inválido, operação errada,
+// advanced ainda não suportado), a request falha via Fetch.failRequest e o
+// erro é persistido em captureError — sem fallbacks silenciosos.
+async function applyTransformResponse(
+	requestId: string,
+	action: TransformAction,
+	originalBody: string | undefined,
+	baseResponse: InterceptedResponse,
+): Promise<void> {
+	const failWith = async (reason: string): Promise<void> => {
+		const captureError = `Transform falhou: ${reason}`;
+		console.error(captureError);
+		await persistRequest(requestId, { ...baseResponse, captureError });
+		try {
+			await sendDebuggerCommand('Fetch.failRequest', { requestId, errorReason: 'Failed' });
+		} catch (failError) {
+			const failMessage = getErrorMessage(failError);
+			console.error('Erro ao falhar requisição após falha do transform:', failError);
+			await patchRequest(requestId, {
+				captureError: `${captureError}; falha ao sinalizar erro para o navegador: ${failMessage}`,
+			});
+		}
+	};
+
+	if (originalBody === undefined) {
+		const reason = baseResponse.bodyUnavailableReason
+			? `corpo da resposta não disponível (${baseResponse.bodyUnavailableReason})`
+			: 'corpo da resposta não disponível';
+		await failWith(reason);
+		return;
+	}
+
+	const mode = action.mode ?? 'declarative';
+
+	let transformedBody: string;
+	if (mode === 'advanced') {
+		const script = action.advancedScript ?? '';
+		if (script.trim().length === 0) {
+			await failWith('script avançado vazio — escreva o corpo da função antes de salvar.');
+			return;
+		}
+		let parsedResponse: unknown;
+		try {
+			parsedResponse = JSON.parse(originalBody);
+		} catch (err) {
+			await failWith(`body não é JSON válido: ${(err as Error).message}`);
+			return;
+		}
+		try {
+			const reply = await runAdvancedTransformInOffscreen(script, parsedResponse);
+			if (!reply.ok) {
+				await failWith(reply.error ?? 'erro desconhecido no sandbox advanced');
+				return;
+			}
+			transformedBody = JSON.stringify(reply.output);
+		} catch (err) {
+			await failWith(`offscreen indisponível: ${getErrorMessage(err)}`);
+			return;
+		}
+	} else {
+		const result = applyTransformToBody(action, originalBody);
+		if (!result.ok) {
+			await failWith(result.error);
+			return;
+		}
+		transformedBody = result.body;
+	}
+
+	const responseHeaderArray = headersRecordToArray(baseResponse.headers);
+	const fulfilledResponse: InterceptedResponse = {
+		...baseResponse,
+		body: transformedBody,
+		response: {
+			...(baseResponse.response ?? { headers: baseResponse.headers }),
+			body: transformedBody,
+		},
+		isTransformed: true,
+	};
+
+	try {
+		await sendDebuggerCommand('Fetch.fulfillRequest', {
+			requestId,
+			responseCode: baseResponse.status,
+			responsePhrase: baseResponse.statusText,
+			responseHeaders: responseHeaderArray,
+			body: encodeBodyToBase64(transformedBody),
+		});
+		await persistRequest(requestId, fulfilledResponse);
+		console.log(`Transform aplicado com sucesso para ${requestId}`);
+	} catch (error) {
+		const captureError = `Transform: falha ao devolver resposta modificada: ${getErrorMessage(error)}`;
+		console.error(captureError, error);
+		await persistRequest(requestId, { ...baseResponse, captureError });
+		try {
+			await sendDebuggerCommand('Fetch.failRequest', { requestId, errorReason: 'Failed' });
+		} catch (failError) {
+			console.error('Erro ao falhar requisição após falha de fulfill no transform:', failError);
 		}
 	}
 }

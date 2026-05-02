@@ -46,6 +46,13 @@ interface RuleEditorProps {
 	skipTypeStep?: boolean;
 	initialDraft?: RuleDraft;
 	headerMatcherSource?: HeaderMatcherSource;
+	/**
+	 * Body capturado da response que originou esta regra (quando criada via
+	 * Quick Mock / Request Inspector). Repassado ao ActionEditor para popular
+	 * o preview do TransformActionEditor com a resposta real em vez do exemplo
+	 * fixo.
+	 */
+	samplePayload?: string;
 }
 
 type EditorView = 'welcome' | 'editor';
@@ -141,6 +148,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 	skipTypeStep = false,
 	initialDraft,
 	headerMatcherSource,
+	samplePayload,
 }) => {
 	const STEPS = skipTypeStep ? STEPS_WITHOUT_TYPE : FULL_STEPS;
 	const [view, setView] = useState<EditorView>(mode === 'edit' ? 'editor' : 'welcome');
@@ -563,7 +571,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 			<p className="mb-4 text-sm text-muted-foreground">
 				Defina a ação a ser executada quando a requisição corresponder às condições de match.
 			</p>
-			<ActionEditor action={action} onChange={setAction} />
+			<ActionEditor action={action} onChange={setAction} samplePayload={samplePayload} />
 		</div>
 	);
 
@@ -792,7 +800,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 		<>
 			<Dialog open={open} onOpenChange={handleOpenChange}>
 				<DialogContent
-					className="flex max-h-[85vh] w-[90vw] max-w-[60rem] flex-col overflow-hidden sm:max-w-[60rem]"
+					className="flex max-h-[95vh] w-[95vw] max-w-[1400px] flex-col overflow-hidden sm:max-w-[1400px]"
 					onCloseAutoFocus={(e) => {
 						e.preventDefault();
 						restoreBodyPointerEvents();

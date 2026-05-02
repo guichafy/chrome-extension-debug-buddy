@@ -29,6 +29,13 @@ import {
 interface TransformActionEditorProps {
 	action: TransformAction;
 	onChange: (action: TransformAction) => void;
+	/**
+	 * Body capturado da response que está originando esta regra (quando o
+	 * usuário cria a partir do Request Inspector). Quando válido como JSON, é
+	 * usado como sample inicial do painel de preview; senão cai no exemplo
+	 * fixo abaixo.
+	 */
+	initialSampleResponse?: string;
 	/** Hook de teste — sobrescreve o runner padrão para evitar iframe em jsdom. */
 	scriptRunner?: (
 		script: string,
@@ -42,6 +49,18 @@ const DEFAULT_SAMPLE_RESPONSE = `{
   "name": "Alice",
   "tags": ["admin", "beta"]
 }`;
+
+function pickInitialSample(provided: string | undefined): string {
+	if (provided === undefined) return DEFAULT_SAMPLE_RESPONSE;
+	const trimmed = provided.trim();
+	if (trimmed.length === 0) return DEFAULT_SAMPLE_RESPONSE;
+	try {
+		const parsed = JSON.parse(provided);
+		return JSON.stringify(parsed, null, 2);
+	} catch {
+		return provided;
+	}
+}
 
 const DEFAULT_ADVANCED_SCRIPT = `// "response" é o JSON parseado da resposta original.
 // Retorne o objeto/valor que substituirá a resposta.
@@ -90,12 +109,15 @@ function validateOperation(op: TransformOperation): OperationValidation {
 export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 	action,
 	onChange,
+	initialSampleResponse,
 	scriptRunner,
 }) => {
 	const operations = useMemo<TransformOperation[]>(() => action.operations ?? [], [action]);
 	const mode: TransformMode = action.mode ?? 'declarative';
 	const advancedScript = action.advancedScript ?? '';
-	const [sampleInput, setSampleInput] = useState<string>(DEFAULT_SAMPLE_RESPONSE);
+	const [sampleInput, setSampleInput] = useState<string>(() =>
+		pickInitialSample(initialSampleResponse),
+	);
 
 	const handleModeChange = (next: string) => {
 		const target = next as TransformMode;

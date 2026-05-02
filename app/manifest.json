@@ -15,7 +15,8 @@
     "debugger",
     "tabs",
     "storage",
-    "sidePanel"
+    "sidePanel",
+    "offscreen"
   ],
   "background": {
     "service_worker": "background.js",

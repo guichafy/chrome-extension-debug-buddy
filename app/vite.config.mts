@@ -52,6 +52,7 @@ export default defineConfig(({ mode }) => {
 					options: path.resolve(__dirname, 'options.html'),
 					sidepanel: path.resolve(__dirname, 'sidepanel.html'),
 					sandbox: path.resolve(__dirname, 'sandbox.html'),
+					offscreen: path.resolve(__dirname, 'offscreen.html'),
 					background: path.resolve(__dirname, 'src/entrypoints/background.ts'),
 					main: path.resolve(__dirname, 'src/entrypoints/options/main.tsx'),
 				},
