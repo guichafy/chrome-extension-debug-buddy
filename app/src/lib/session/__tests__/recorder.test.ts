@@ -250,4 +250,33 @@ describe('recorder', () => {
 		expect(got!.endedAt).not.toBeNull();
 		expect(got!.telemetry?.hardLimitReason).toBe('time');
 	});
+
+	it('getRuntimeStatus retorna null quando sessão não está no runtime cache', () => {
+		expect(recorder.getRuntimeStatus('inexistente')).toBeNull();
+	});
+
+	it('getRuntimeStatus retorna sizeBytes e durationMs após addEvent', async () => {
+		const id = await recorder.startSession({
+			tabId: 1,
+			initialUrl: 'https://x/',
+			userAgent: '',
+			viewportSize: { w: 1, h: 1 },
+			canvasCaptureEnabled: false,
+		});
+		await recorder.addPage(id, page('https://x/', 10, fp()));
+		const phaseId = (await sessionStore.get(id))!.detectionPhases[0].id;
+		await recorder.addEvent(id, {
+			type: 'network',
+			timestamp: 11,
+			phaseId,
+			requestId: 'r1',
+			method: 'GET',
+			url: 'https://api/x',
+			status: 200,
+		});
+		const status = recorder.getRuntimeStatus(id);
+		expect(status).not.toBeNull();
+		expect(status!.sizeBytes).toBeGreaterThan(0);
+		expect(status!.durationMs).toBeGreaterThanOrEqual(0);
+	});
 });

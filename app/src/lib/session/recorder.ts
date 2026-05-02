@@ -177,6 +177,15 @@ export const recorder = {
 		return sessionStore.findActiveByTab(tabId);
 	},
 
+	getRuntimeStatus(sessionId: string): { sizeBytes: number; durationMs: number } | null {
+		const r = runtime.get(sessionId);
+		if (!r) return null;
+		return {
+			sizeBytes: r.bytes,
+			durationMs: Date.now() - r.startedAt,
+		};
+	},
+
 	_setLimitsForTests(limits: { sizeBytes: number; durationMs: number }): void {
 		sizeLimitBytes = limits.sizeBytes;
 		durationLimitMs = limits.durationMs;

@@ -29,9 +29,11 @@ export type MessageAction =
 	| 'openSelectTabDialog'
 	| 'getSessionMarker'
 	| 'sessionMarkerUpdated'
-	// Session Replay — Phase 1a
-	| '__debug_startSession'
-	| '__debug_stopSession'
+	// Session Replay — Phase 1a / 1c
+	| 'startRecording'
+	| 'stopRecording'
+	| 'getRecordingStatus'
+	| 'deleteSession'
 	| 'pageDetected'
 	| 'getActiveSession';
 
@@ -71,9 +73,12 @@ export interface MessageResponse {
 	response?: InterceptedResponse;
 	mocks?: MockConfig[];
 	sessionMarker?: SessionMarker;
-	// Session Replay — Phase 1a
+	// Session Replay — Phase 1a / 1c
 	ok?: boolean;
 	reason?: string;
 	sessionId?: string;
 	session?: Session | null;
+	active?: boolean;
+	sizeBytes?: number;
+	durationMs?: number;
 }

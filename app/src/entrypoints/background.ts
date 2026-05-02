@@ -842,7 +842,7 @@ chrome.runtime.onMessage.addListener(
 
 		// --- Session Replay — Phase 1a ---
 
-		if (message.action === '__debug_startSession') {
+		if (message.action === 'startRecording') {
 			(async () => {
 				try {
 					// Valida que interceptação está ativa nesta tab antes de iniciar a sessão.
@@ -881,7 +881,7 @@ chrome.runtime.onMessage.addListener(
 			return true;
 		}
 
-		if (message.action === '__debug_stopSession') {
+		if (message.action === 'stopRecording') {
 			(async () => {
 				try {
 					// Lê tabId da session ANTES de stopSession (depois disso, getActiveByTab
@@ -958,6 +958,44 @@ chrome.runtime.onMessage.addListener(
 					sendResponse({ ok: true, session });
 				} catch (err) {
 					sendResponse({ ok: false, session: null, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === 'getRecordingStatus') {
+			(async () => {
+				try {
+					const session = await recorder.getActiveByTab(message.tabId as number);
+					if (!session) {
+						sendResponse({ ok: true, active: false });
+						return;
+					}
+					const status = recorder.getRuntimeStatus(session.id);
+					// `status` ser null significa "session existe no IDB mas não no runtime cache"
+					// (post service worker recycle). Devolvemos zeros — UI re-mede no próximo
+					// polling quando runtime for reconstruído pelo próximo addEvent.
+					sendResponse({
+						ok: true,
+						active: true,
+						sessionId: session.id,
+						sizeBytes: status?.sizeBytes ?? 0,
+						durationMs: status?.durationMs ?? 0,
+					});
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === 'deleteSession') {
+			(async () => {
+				try {
+					await sessionStore.delete(message.sessionId as string);
+					sendResponse({ ok: true });
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
 				}
 			})();
 			return true;
