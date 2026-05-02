@@ -50,9 +50,9 @@ export interface DetectionPhase {
 	pages: PageDetection[];
 }
 
+// Outras variantes (network, console, route, error, state) virão em Phase 1b.
 export type SessionEvent =
 	| { type: 'detection'; timestamp: number; phaseId: string };
-// Outras variantes (network, console, route, error, state) virão em Phase 1b.
 
 export interface SessionMetadata {
 	initialUrl: string;
@@ -67,7 +67,8 @@ export interface Session {
 	id: string;
 	schemaVersion: 1;
 	startedAt: number;
-	endedAt: number;
+	// null = sessão ainda em gravação; number = timestamp de encerramento.
+	endedAt: number | null;
 	origin: SessionOrigin;
 	tabId: number;
 	metadata: SessionMetadata;
