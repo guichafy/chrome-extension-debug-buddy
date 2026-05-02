@@ -6,7 +6,11 @@ export interface ReplayPlayheadState {
 	currentMs: number;
 	/** Callback a passar como `onTimeUpdate` do RrwebPlayer (mantém estado em sincronia). */
 	onTimeUpdate: (ms: number) => void;
-	/** Comanda o player a saltar para `ms`. Faz nada se ref ainda não montou. */
+	/**
+	 * Comanda o player a saltar para `ms`. No-op silencioso quando ref ainda
+	 * não montou — não emite tempo "fantasma" (no-fallbacks: estado só atualiza
+	 * quando o player realmente foi para `ms`).
+	 */
 	seek: (ms: number) => void;
 	/** Ref a passar ao RrwebPlayer. Necessário para `seek` funcionar. */
 	playerRef: React.RefObject<RrwebPlayerHandle | null>;
