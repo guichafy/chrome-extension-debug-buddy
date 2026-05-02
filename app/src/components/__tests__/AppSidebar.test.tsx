@@ -116,6 +116,7 @@ describe('AppSidebar Component', () => {
 		// Verifica se os labels da navegação estão presentes
 		expect(screen.getByText('Command Center')).toBeInTheDocument();
 		expect(screen.getByText('Rules Lab')).toBeInTheDocument();
+		expect(screen.getByText('Sessões')).toBeInTheDocument();
 	});
 
 	// Teste para verificar se o SidebarFooter exibe informações do desenvolvedor
@@ -127,13 +128,14 @@ describe('AppSidebar Component', () => {
 		expect(screen.getByText('Guilherme Chafy')).toBeTruthy();
 	});
 
-	// Após remoção do item "Pausadas", apenas Command Center e Rules Lab restam.
-	test('expõe somente Command Center e Rules Lab no menu', () => {
+	// Após remoção do item "Pausadas", os itens do menu são: Command Center, Rules Lab e Sessões.
+	test('expõe Command Center, Rules Lab e Sessões no menu', () => {
 		render(<AppSidebar />);
 
 		const navItems = screen.getAllByTestId('nav-item');
-		expect(navItems.length).toBe(2);
+		expect(navItems.length).toBe(3);
 		expect(screen.queryByText('Pausadas')).not.toBeInTheDocument();
+		expect(screen.getByText('Sessões')).toBeInTheDocument();
 
 		// Nenhum item de navegação carrega contador depois da remoção do item "Pausadas".
 		const counts = screen.queryAllByTestId('nav-item-count');
