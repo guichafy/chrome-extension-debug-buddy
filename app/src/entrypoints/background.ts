@@ -5,6 +5,8 @@ import {
 	runModifyToTransformMigration,
 } from '@/lib/legacyMigration';
 import { NetworkTimingTracker } from '@/lib/networkTiming';
+import { recorder } from '@/lib/session/recorder';
+import type { PageDetection } from '@/lib/session/types';
 import type {
 	AppliedType,
 	InterceptedResponse,
@@ -323,7 +325,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 // Listen for messages from the popup or hot reload
 chrome.runtime.onMessage.addListener(
-	(message: any, _sender, sendResponse: (response: MessageResponse) => void) => {
+	(message: any, sender, sendResponse: (response: MessageResponse) => void) => {
 		// Mensagens roteadas para o offscreen document não devem ser tratadas
 		// pelo service worker — o offscreen tem seu próprio listener e disputa
 		// pelo sendResponse causaria respostas perdidas/duplicadas.
@@ -587,6 +589,81 @@ chrome.runtime.onMessage.addListener(
 					sendResponse({ success: false, error: getErrorMessage(error) });
 				});
 			return true; // Indicates we'll respond asynchronously
+		}
+
+		// --- Session Replay — Phase 1a ---
+
+		if (message.action === '__debug_startSession') {
+			(async () => {
+				try {
+					const tab = await chrome.tabs.get(message.tabId);
+					const id = await recorder.startSession({
+						tabId: message.tabId,
+						initialUrl: tab.url ?? '',
+						userAgent: navigator.userAgent,
+						viewportSize: { w: tab.width ?? 0, h: tab.height ?? 0 },
+						canvasCaptureEnabled: message.canvasCaptureEnabled ?? false,
+					});
+					// Sinaliza o probe daquela tab pra começar a emitir detections.
+					// Se sendMessage falhar (probe não injetado), propaga erro via sendResponse.
+					await chrome.tabs.sendMessage(message.tabId, {
+						action: 'probeStartDetection',
+						reason: 'initial',
+					});
+					sendResponse({ ok: true, sessionId: id });
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === '__debug_stopSession') {
+			(async () => {
+				try {
+					await recorder.stopSession(message.sessionId as string);
+					sendResponse({ ok: true });
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === 'pageDetected') {
+			(async () => {
+				const tabId = sender?.tab?.id;
+				if (tabId === undefined) {
+					sendResponse({ ok: false, reason: 'no tab id in sender' });
+					return;
+				}
+				const session = await recorder.getActiveByTab(tabId);
+				if (!session) {
+					sendResponse({ ok: false, reason: 'no active session for tab' });
+					return;
+				}
+				try {
+					const detection: PageDetection = {
+						url: message.payload!.url,
+						timestamp: message.payload!.timestamp,
+						fingerprint: message.payload!.fingerprint,
+						triggerType: message.payload!.triggerType,
+					};
+					await recorder.addPage(session.id, detection);
+					sendResponse({ ok: true });
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === 'getActiveSession') {
+			(async () => {
+				const session = await recorder.getActiveByTab(message.tabId as number);
+				sendResponse({ session });
+			})();
+			return true;
 		}
 
 		return false;

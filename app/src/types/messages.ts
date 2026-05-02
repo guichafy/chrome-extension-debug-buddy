@@ -5,6 +5,7 @@
 import type { InterceptedResponse, ResponseModifications } from './intercepted';
 import type { MockConfig } from './legacy';
 import type { SessionMarker } from './sessionMarker';
+import type { EnvironmentFingerprint, PageDetectionTrigger, Session } from '@/lib/session/types';
 
 export type MessageAction =
 	| 'startDebugging'
@@ -27,7 +28,12 @@ export type MessageAction =
 	| 'targetTabClosed'
 	| 'openSelectTabDialog'
 	| 'getSessionMarker'
-	| 'sessionMarkerUpdated';
+	| 'sessionMarkerUpdated'
+	// Session Replay — Phase 1a
+	| '__debug_startSession'
+	| '__debug_stopSession'
+	| 'pageDetected'
+	| 'getActiveSession';
 
 export interface Message {
 	action: MessageAction;
@@ -45,6 +51,15 @@ export interface Message {
 	modifications?: ResponseModifications;
 	updates?: Partial<InterceptedResponse>;
 	sessionMarker?: SessionMarker;
+	// Session Replay — Phase 1a
+	sessionId?: string;
+	canvasCaptureEnabled?: boolean;
+	payload?: {
+		url: string;
+		timestamp: number;
+		triggerType: PageDetectionTrigger;
+		fingerprint: EnvironmentFingerprint;
+	};
 }
 
 export interface MessageResponse {
@@ -56,4 +71,9 @@ export interface MessageResponse {
 	response?: InterceptedResponse;
 	mocks?: MockConfig[];
 	sessionMarker?: SessionMarker;
+	// Session Replay — Phase 1a
+	ok?: boolean;
+	reason?: string;
+	sessionId?: string;
+	session?: Session | null;
 }
