@@ -23,6 +23,11 @@ export type MatchedRuleAction =
 			type: 'transform';
 			rule: Rule;
 			action: Extract<Action, { type: 'transform' }>;
+	  }
+	| {
+			type: 'delay';
+			rule: Rule;
+			action: Extract<Action, { type: 'delay' }>;
 	  };
 
 // Converte um padrao com wildcards `*` para uma RegExp ancorada-em-trecho que
@@ -161,8 +166,7 @@ export function explainMatchers(
 // `RulesList`/`chrome.storage.local.rules`); o background mantem essa mesma
 // ordem porque o storage e um array. Regras com `enabled === false` ou
 // `action.enabled === false` sao puladas como se nao existissem (nao bloqueiam
-// regras subsequentes). Ações `delay` ainda não são consumidas pelo background
-// e são puladas — quando forem implementadas, devem retornar aqui também.
+// regras subsequentes).
 export function findMatchingRuleAction(
 	rules: Rule[],
 	input: RequestMatchInput,
@@ -181,6 +185,10 @@ export function findMatchingRuleAction(
 
 		if (rule.action.type === 'transform') {
 			return { type: 'transform', rule, action: rule.action };
+		}
+
+		if (rule.action.type === 'delay') {
+			return { type: 'delay', rule, action: rule.action };
 		}
 	}
 

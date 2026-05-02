@@ -17,8 +17,8 @@ describe('parseFilterToken — state', () => {
 		});
 	});
 
-	test('aceita state:mocked / state:modified / state:failed / state:proxy', () => {
-		for (const v of ['mocked', 'modified', 'failed', 'proxy']) {
+	test('aceita state:modified / state:failed / state:ok', () => {
+		for (const v of ['modified', 'failed', 'ok']) {
 			expect(parseFilterToken(`state:${v}`)).toEqual({
 				field: 'state',
 				operator: 'is',
@@ -29,8 +29,30 @@ describe('parseFilterToken — state', () => {
 
 	test('descarta state:* com valor desconhecido (sem fallback silencioso)', () => {
 		expect(parseFilterToken('state:foo')).toBeNull();
+		// state:mocked e state:proxy migraram para o novo campo `tipo:` —
+		// agora não devem ser aceitos como valores válidos de Estado.
+		expect(parseFilterToken('state:mocked')).toBeNull();
+		expect(parseFilterToken('state:proxy')).toBeNull();
 		expect(parseFilterToken('state:')).toBeNull();
 		expect(parseFilterToken('state:PENDING')).toBeNull(); // case-sensitive
+	});
+});
+
+describe('parseFilterToken — tipo (novo campo de tipos de regra aplicados)', () => {
+	test('aceita tipo:proxy / tipo:mock / tipo:transform / tipo:breakpoint / tipo:latency', () => {
+		for (const v of ['proxy', 'mock', 'transform', 'breakpoint', 'latency']) {
+			expect(parseFilterToken(`tipo:${v}`)).toEqual({
+				field: 'tipo',
+				operator: 'is',
+				value: v,
+			});
+		}
+	});
+
+	test('descarta tipo:* com valor desconhecido', () => {
+		expect(parseFilterToken('tipo:foo')).toBeNull();
+		expect(parseFilterToken('tipo:')).toBeNull();
+		expect(parseFilterToken('tipo:MOCK')).toBeNull(); // case-sensitive
 	});
 });
 

@@ -1,6 +1,12 @@
 // Forma canônica das requisições interceptadas. Compartilhada entre
 // background.ts (writer) e useResponses.ts (reader).
 
+// Tipos de regra/efeito aplicados a uma requisição. Uma request pode ter mais
+// de um tipo (ex.: `['mock', 'latency']` quando MockAction tem `latency`, ou
+// `['transform', 'latency']` no futuro). `proxy` significa que nenhuma regra
+// casou — é mutuamente exclusivo com os demais.
+export type AppliedType = 'proxy' | 'mock' | 'transform' | 'breakpoint' | 'latency';
+
 export interface InterceptedResponse {
 	url: string;
 	method?: string;
@@ -63,6 +69,20 @@ export interface InterceptedResponse {
 	 * um badge "editada" distinguindo edição manual de modificações via mock.
 	 */
 	editedAtRuntime?: boolean;
+	/**
+	 * Tipos de regra efetivamente aplicados pela engine de interceptação.
+	 * Populado pelo background em todos os pontos de persistência (mock,
+	 * transform, breakpoint, delay, pass-through e captures que falharam).
+	 * Quando ausente, a UI assume `['proxy']` (passou sem regra) — não
+	 * tentamos reconstruir tipos a partir de flags antigas.
+	 */
+	appliedTypes?: AppliedType[];
+	/**
+	 * Latência standalone aplicada por uma regra do tipo Delay (em ms). Diferente
+	 * de `mockLatencyMs` (delay embutido no Mock). Permite à UI exibir quanto
+	 * tempo a request foi atrasada sem confundir com mock.
+	 */
+	delayMs?: number;
 }
 
 export interface ResponseModifications {

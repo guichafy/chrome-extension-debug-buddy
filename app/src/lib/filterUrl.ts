@@ -16,8 +16,9 @@
 //   timestamp                                   → `gte`
 
 import type { Filter, FilterField, FilterOperator, RequestState } from '@/types/filters';
+import type { AppliedType } from '@/types/intercepted';
 
-const VALID_FIELDS: ReadonlySet<FilterField> = new Set([
+const VALID_FIELDS: ReadonlySet<FilterField> = new Set<FilterField>([
 	'free',
 	'url',
 	'method',
@@ -25,16 +26,24 @@ const VALID_FIELDS: ReadonlySet<FilterField> = new Set([
 	'type',
 	'mime',
 	'state',
+	'tipo',
 	'duration',
 	'timestamp',
 ]);
 
-const VALID_STATE_VALUES: ReadonlySet<RequestState> = new Set([
+const VALID_STATE_VALUES: ReadonlySet<RequestState> = new Set<RequestState>([
 	'pending',
-	'mocked',
 	'modified',
 	'failed',
+	'ok',
+]);
+
+const VALID_TIPO_VALUES: ReadonlySet<AppliedType> = new Set<AppliedType>([
 	'proxy',
+	'mock',
+	'transform',
+	'breakpoint',
+	'latency',
 ]);
 
 const VALID_OPERATORS: ReadonlySet<FilterOperator> = new Set([
@@ -53,6 +62,7 @@ const DEFAULT_OPERATOR_BY_FIELD: Record<FilterField, FilterOperator> = {
 	type: 'is',
 	mime: 'is',
 	state: 'is',
+	tipo: 'is',
 	duration: 'is',
 	timestamp: 'gte',
 };
@@ -69,12 +79,17 @@ function isValidStateValue(value: string): value is RequestState {
 	return VALID_STATE_VALUES.has(value as RequestState);
 }
 
+function isValidTipoValue(value: string): value is AppliedType {
+	return VALID_TIPO_VALUES.has(value as AppliedType);
+}
+
 // Parser tolerante: descarta tokens malformados em vez de lançar — o que vier na
 // URL pode ter sido editado à mão pelo usuário, e quebrar a tela toda por causa
 // de um filtro inválido seria pior do que ignorá-lo.
 //
 // Para `state:*` validamos explicitamente o valor contra a lista canônica de
-// RequestState (pending/mocked/modified/failed/proxy). Sem isso, um valor
+// RequestState (pending/modified/failed/ok). Para `tipo:*`, validamos contra
+// AppliedType (proxy/mock/transform/breakpoint/latency). Sem isso, um valor
 // desconhecido (ex.: `state:foo`) silenciosamente filtraria tudo (porque
 // nenhuma request casa com um estado inexistente) — comportamento que viola a
 // regra "no fallbacks" do projeto e esconderia o erro.
@@ -109,6 +124,7 @@ export function parseFilterToken(raw: string): Omit<Filter, 'id'> | null {
 	}
 
 	if (field === 'state' && !isValidStateValue(value)) return null;
+	if (field === 'tipo' && !isValidTipoValue(value)) return null;
 
 	return { field, operator, value };
 }

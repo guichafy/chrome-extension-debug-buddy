@@ -172,7 +172,7 @@ export function DataTable<TData, TValue>({
 												? 'URL'
 												: column.id === 'method'
 													? 'Método'
-													: column.id === 'status'
+													: column.id === 'tipo'
 														? 'Tipo'
 														: column.id === 'statusCode'
 															? 'Status Code'

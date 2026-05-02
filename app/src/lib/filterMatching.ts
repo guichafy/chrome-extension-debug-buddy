@@ -1,6 +1,7 @@
-import type { InterceptedResponse } from '@/types/intercepted';
+import type { AppliedType, InterceptedResponse } from '@/types/intercepted';
 import type { Filter, FilterField, RequestState } from '@/types/filters';
 import { getRequestState } from './requestState';
+import { getAppliedTypes } from './appliedType';
 
 export { getRequestState };
 
@@ -93,6 +94,10 @@ export function matchesFilter(request: InterceptedResponse, filter: Filter): boo
 		case 'state': {
 			const state = getRequestState(request);
 			return state === (value as RequestState);
+		}
+		case 'tipo': {
+			const applied = getAppliedTypes(request);
+			return applied.includes(value as AppliedType);
 		}
 		case 'duration': {
 			if (typeof request.duration !== 'number') return false;

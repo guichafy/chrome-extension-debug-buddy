@@ -6,6 +6,7 @@ import {
 } from '@/lib/legacyMigration';
 import { NetworkTimingTracker } from '@/lib/networkTiming';
 import type {
+	AppliedType,
 	InterceptedResponse,
 	MessageResponse,
 	MockAction,
@@ -13,6 +14,7 @@ import type {
 	Rule,
 	TransformAction,
 } from '@/types';
+import type { MatchedRuleAction } from '@/domain/ruleMatching';
 import { EMPTY_SESSION_MARKER, type SessionMarker } from '@/types/sessionMarker';
 import {
 	encodeBodyToBase64,
@@ -991,6 +993,25 @@ function debuggerEventListener(
 	}
 }
 
+// Mapeia o `MatchedRuleAction` retornado pelo matcher para a lista de tipos
+// que serão exibidos na coluna "Tipo" do histórico. `mock`/`transform` são
+// derivados nos próprios `applyMockResponse`/`applyTransformResponse` (que
+// têm acesso a metadados extras como `latency`); aqui tratamos os casos de
+// pass-through e capture failure no Response stage.
+function deriveAppliedTypesFromMatch(match: MatchedRuleAction | undefined): AppliedType[] {
+	if (!match) return ['proxy'];
+	switch (match.type) {
+		case 'breakpoint':
+			return ['breakpoint'];
+		case 'delay':
+			return ['latency'];
+		case 'mock':
+			return match.action.latency ? ['mock', 'latency'] : ['mock'];
+		case 'transform':
+			return ['transform'];
+	}
+}
+
 // Handle paused request
 async function handleRequestPaused(params: any): Promise<void> {
 	const {
@@ -1044,6 +1065,18 @@ async function handleRequestPaused(params: any): Promise<void> {
 				responseHeaders: [],
 				resourceType,
 			});
+			return;
+		}
+
+		// DelayAction (Latência standalone): aguarda no Request stage para que o
+		// Chrome DevTools contabilize o atraso na coluna "Time" do Network panel
+		// (mesma técnica do mock+latência). Após o wait, libera a request — ela
+		// ainda passará pelo Response stage normalmente.
+		if (matchedAction?.type === 'delay') {
+			const timeMs = matchedAction.action.timeMs;
+			console.log(`Aplicando delay de ${timeMs}ms via Request stage: ${url}`);
+			await wait(timeMs);
+			await continueRequest(requestId);
 			return;
 		}
 
@@ -1146,6 +1179,7 @@ async function handleRequestPaused(params: any): Promise<void> {
 				captureError: continueErrorMessage
 					? `${captureError}; falha ao continuar request: ${continueErrorMessage}`
 					: captureError,
+				appliedTypes: deriveAppliedTypesFromMatch(matchedAction),
 			};
 
 			persistRequest(requestId, failedCaptureRequest).catch((persistError) => {
@@ -1184,9 +1218,15 @@ async function handleRequestPaused(params: any): Promise<void> {
 	}
 
 	const willIntercept = matchedAction?.type === 'breakpoint';
+	const appliedTypes = deriveAppliedTypesFromMatch(matchedAction);
+	const delayMs = matchedAction?.type === 'delay' ? matchedAction.action.timeMs : undefined;
 	const persistedRequest: InterceptedResponse = willIntercept
-		? { ...responseObj, isWaiting: true }
-		: responseObj;
+		? { ...responseObj, isWaiting: true, appliedTypes }
+		: {
+				...responseObj,
+				appliedTypes,
+				...(delayMs !== undefined ? { delayMs } : {}),
+			};
 
 	if (willIntercept) {
 		await persistRequest(requestId, persistedRequest);
@@ -1267,6 +1307,7 @@ async function applyMockResponse(
 		const mimeType = getOptionalMimeTypeFromHeaders(responseHeaders);
 
 		// Criar objeto de resposta para armazenar no histórico
+		const mockAppliedTypes: AppliedType[] = latencyMs > 0 ? ['mock', 'latency'] : ['mock'];
 		const responseObj: InterceptedResponse = {
 			url: originalRequest.url,
 			method: originalRequest.method,
@@ -1286,6 +1327,7 @@ async function applyMockResponse(
 				...(bodyValidation.shouldSendBody ? { body: bodyValidation.body } : {}),
 			},
 			mockLatencyMs: latencyMs,
+			appliedTypes: mockAppliedTypes,
 		};
 		if (bodyValidation.shouldSendBody) responseObj.body = bodyValidation.body;
 
@@ -1334,6 +1376,7 @@ async function applyMockResponse(
 				headers: headersArrayToRecord(originalRequest.responseHeaders),
 			},
 			captureError,
+			appliedTypes: ['mock'],
 		};
 
 		await persistRequest(requestId, failedMockRequest);
@@ -1439,7 +1482,11 @@ async function applyTransformResponse(
 	const failWith = async (reason: string): Promise<void> => {
 		const captureError = `Transform falhou: ${reason}`;
 		console.error(captureError);
-		await persistRequest(requestId, { ...baseResponse, captureError });
+		await persistRequest(requestId, {
+			...baseResponse,
+			captureError,
+			appliedTypes: ['transform'],
+		});
 		try {
 			await sendDebuggerCommand('Fetch.failRequest', { requestId, errorReason: 'Failed' });
 		} catch (failError) {
@@ -1504,6 +1551,7 @@ async function applyTransformResponse(
 			body: transformedBody,
 		},
 		isTransformed: true,
+		appliedTypes: ['transform'],
 	};
 
 	try {
@@ -1519,7 +1567,11 @@ async function applyTransformResponse(
 	} catch (error) {
 		const captureError = `Transform: falha ao devolver resposta modificada: ${getErrorMessage(error)}`;
 		console.error(captureError, error);
-		await persistRequest(requestId, { ...baseResponse, captureError });
+		await persistRequest(requestId, {
+			...baseResponse,
+			captureError,
+			appliedTypes: ['transform'],
+		});
 		try {
 			await sendDebuggerCommand('Fetch.failRequest', { requestId, errorReason: 'Failed' });
 		} catch (failError) {

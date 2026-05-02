@@ -12,10 +12,12 @@ import {
 	DropdownMenuLabel,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { InterceptedResponse } from '../../hooks/useResponses';
 import { compareDurations, formatDurationWithMock, getDurationColorClass } from './duration';
 import { formatBytes } from '@/components/layout/networkMetricsFormat';
-import { getRequestState, getStateBadgeMeta, getStatePriority } from '@/lib/requestState';
+import { getRequestState } from '@/lib/requestState';
+import { getAppliedTypeBadgeMeta, getAppliedTypes } from '@/lib/appliedType';
 import { cn } from '@/lib/utils';
 
 // Tipo para representar uma requisição
@@ -24,7 +26,87 @@ export type RequestRow = {
 	request: InterceptedResponse;
 };
 
+// Largura fixa da coluna URL (px). Single source of truth — usada tanto no
+// `size` da column quanto no `maxWidth` inline do span filho, garantindo
+// que o `truncate` use exatamente a largura da TD.
+const URL_COLUMN_WIDTH = 500;
+
 export const columns: ColumnDef<RequestRow>[] = [
+	// Coluna "Tipo" (primeira da tabela): exibe os tipos de regra efetivamente
+	// aplicados (Proxy/Mock/Transform/Breakpoint/Latência). Pode haver mais de
+	// um por request (ex: Mock+Latência) — badges icon-only + tooltip preservam
+	// a largura. O badge "editada" entra aqui também, no mesmo padrão visual,
+	// já que a coluna Estado foi removida (redundante com Status Code).
+	{
+		id: 'tipo',
+		accessorFn: (row) => getAppliedTypes(row.request)[0],
+		header: ({ column }) => {
+			return (
+				<Button
+					variant="ghost"
+					onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+					className="pl-0"
+				>
+					Tipo
+					<ArrowUpDown className="ml-2 h-4 w-4" />
+				</Button>
+			);
+		},
+		sortingFn: (rowA, rowB) => {
+			const a = getAppliedTypes(rowA.original.request)[0];
+			const b = getAppliedTypes(rowB.original.request)[0];
+			return (a ?? 'proxy').localeCompare(b ?? 'proxy');
+		},
+		cell: ({ row }) => {
+			const request = row.original.request;
+			const types = getAppliedTypes(request);
+			return (
+				<TooltipProvider delayDuration={150}>
+					<div className="flex flex-wrap items-center gap-1">
+						{types.map((type) => {
+							const meta = getAppliedTypeBadgeMeta(type);
+							return (
+								<Tooltip key={type}>
+									<TooltipTrigger asChild>
+										<Badge
+											variant={meta.variant}
+											aria-label={meta.label}
+											data-testid={`applied-type-badge-${type}-${row.original.id}`}
+											className={cn(
+												'text-xs whitespace-nowrap inline-flex items-center justify-center px-1.5 py-0.5',
+												meta.colorClass,
+											)}
+										>
+											<LucideIcon name={meta.iconName} className="h-3 w-3" />
+											<span className="sr-only">{meta.label}</span>
+										</Badge>
+									</TooltipTrigger>
+									<TooltipContent>{meta.label}</TooltipContent>
+								</Tooltip>
+							);
+						})}
+						{request.editedAtRuntime === true && (
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Badge
+										variant="outline"
+										aria-label="Editada em runtime"
+										data-testid={`edited-runtime-badge-${row.original.id}`}
+										className="text-xs whitespace-nowrap inline-flex items-center justify-center px-1.5 py-0.5 border-info/40 text-info"
+									>
+										<LucideIcon name="edit" className="h-3 w-3" />
+										<span className="sr-only">Editada em runtime</span>
+									</Badge>
+								</TooltipTrigger>
+								<TooltipContent>Editada em runtime</TooltipContent>
+							</Tooltip>
+						)}
+					</div>
+				</TooltipProvider>
+			);
+		},
+		size: 60,
+	},
 	{
 		accessorKey: 'timestamp',
 		header: ({ column }) => {
@@ -128,56 +210,6 @@ export const columns: ColumnDef<RequestRow>[] = [
 		size: 90,
 	},
 	{
-		accessorKey: 'status',
-		header: ({ column }) => {
-			return (
-				<Button
-					variant="ghost"
-					onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-					className="pl-0"
-				>
-					Tipo
-					<ArrowUpDown className="ml-2 h-4 w-4" />
-				</Button>
-			);
-		},
-		sortingFn: (rowA, rowB) => {
-			return (
-				getStatePriority(getRequestState(rowA.original.request)) -
-				getStatePriority(getRequestState(rowB.original.request))
-			);
-		},
-		cell: ({ row }) => {
-			const request = row.original.request;
-			const meta = getStateBadgeMeta(getRequestState(request));
-			return (
-				<div className="flex flex-wrap items-center gap-1">
-					<Badge
-						variant={meta.variant}
-						className={cn(
-							'text-xs whitespace-nowrap inline-flex items-center gap-1',
-							meta.pulse && 'animate-pulse',
-						)}
-					>
-						<LucideIcon name={meta.iconName} className="h-3 w-3" />
-						{meta.label}
-					</Badge>
-					{request.editedAtRuntime === true && (
-						<Badge
-							variant="outline"
-							className="text-xs whitespace-nowrap inline-flex items-center gap-1"
-							data-testid={`edited-runtime-badge-${row.original.id}`}
-						>
-							<LucideIcon name="edit" className="h-3 w-3" />
-							editada
-						</Badge>
-					)}
-				</div>
-			);
-		},
-		size: 140,
-	},
-	{
 		accessorKey: 'method',
 		header: ({ column }) => {
 			return (
@@ -225,19 +257,27 @@ export const columns: ColumnDef<RequestRow>[] = [
 		},
 		cell: ({ row }) => {
 			const request = row.original.request;
-			// Para state=pending o halo respirando da linha (pending-row-halo no
-			// data-table) já cobre o destaque — pending/proxy ficam sem borda aqui.
-			const borderClassByState = {
-				failed: 'border-l-2 border-l-destructive pl-2',
-				modified: 'border-l-2 border-l-info pl-2',
-				mocked: 'border-l-2 border-l-primary pl-2',
-				pending: '',
-				proxy: '',
-			} as const;
-			const borderClass = borderClassByState[getRequestState(request)];
-			return <span className={cn('truncate block max-w-[300px]', borderClass)}>{request.url}</span>;
+			// Combina estado (failed/modified pintam border) e mock (border
+			// primary). Pending tem o halo respirando da linha no data-table,
+			// então não precisa de border aqui. Uso `isMocked` direto em vez
+			// de derivar `getAppliedTypes(...).includes('mock')` — evita uma
+			// chamada redundante por linha.
+			const state = getRequestState(request);
+			let borderClass = '';
+			if (state === 'failed') {
+				borderClass = 'border-l-2 border-l-destructive pl-2';
+			} else if (state === 'modified') {
+				borderClass = 'border-l-2 border-l-info pl-2';
+			} else if (request.isMocked === true) {
+				borderClass = 'border-l-2 border-l-primary pl-2';
+			}
+			return (
+				<span className={cn('truncate block', borderClass)} style={{ maxWidth: URL_COLUMN_WIDTH }}>
+					{request.url}
+				</span>
+			);
 		},
-		size: 300,
+		size: URL_COLUMN_WIDTH,
 	},
 	{
 		accessorKey: 'statusCode',
