@@ -1,0 +1,13 @@
+{
+	"extends": "../tsconfig.json",
+	"compilerOptions": {
+		"rootDir": ".",
+		"types": ["@playwright/test", "node"],
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"baseUrl": ".",
+		"paths": {}
+	},
+	"include": ["./**/*"],
+	"exclude": ["node_modules"]
+}
