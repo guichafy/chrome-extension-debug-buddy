@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { Session } from '@/lib/session/types';
+import { ExportConfirmDialog } from './ExportConfirmDialog';
 
 function formatBytes(bytes: number): string {
 	if (bytes < 1024) return `${bytes} B`;
@@ -26,8 +28,26 @@ export function SessionRow({ session, onDelete }: Props) {
 	// Estimativa quick — bytes reais persistidos são ~5% maior por overhead IDB.
 	const sizeBytes = JSON.stringify(session).length;
 	const duration = session.endedAt !== null ? session.endedAt - session.startedAt : null;
+
+	const [exportOpen, setExportOpen] = useState(false);
+
+	const onConfirmExport = async () => {
+		const res = await chrome.runtime.sendMessage({
+			action: 'exportSession',
+			sessionId: session.id,
+		});
+		if (!res?.ok || !res.data) return;
+		const blob = new Blob([res.data], { type: 'application/zip' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `${session.id}.dbsession`;
+		a.click();
+		URL.revokeObjectURL(url);
+	};
+
 	return (
-		<div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] items-center gap-3 border-b px-4 py-2 text-sm">
+		<div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto] items-center gap-3 border-b px-4 py-2 text-sm">
 			<Badge variant={session.origin === 'recorded' ? 'default' : 'secondary'}>
 				{session.origin === 'recorded' ? 'Gravada' : 'Importada'}
 			</Badge>
@@ -39,9 +59,17 @@ export function SessionRow({ session, onDelete }: Props) {
 			<span className="text-muted-foreground text-xs">
 				{new Date(session.startedAt).toLocaleString('pt-BR')}
 			</span>
+			<Button size="sm" variant="ghost" onClick={() => setExportOpen(true)}>
+				Exportar
+			</Button>
 			<Button size="sm" variant="ghost" onClick={() => onDelete(session.id)}>
 				Excluir
 			</Button>
+			<ExportConfirmDialog
+				open={exportOpen}
+				onOpenChange={setExportOpen}
+				onConfirm={() => void onConfirmExport()}
+			/>
 		</div>
 	);
 }

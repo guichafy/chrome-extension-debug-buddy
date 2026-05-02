@@ -7,6 +7,8 @@ import {
 } from '@/lib/legacyMigration';
 import { NetworkTimingTracker } from '@/lib/networkTiming';
 import { recorder } from '@/lib/session/recorder';
+import { serializeSession } from '@/lib/session/exporter';
+import { parseDbsession } from '@/lib/session/importer';
 import { sessionStore } from '@/lib/session/storage';
 import type {
 	ConsoleArgPreview,
@@ -994,6 +996,36 @@ chrome.runtime.onMessage.addListener(
 				try {
 					await sessionStore.delete(message.sessionId as string);
 					sendResponse({ ok: true });
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === 'exportSession') {
+			(async () => {
+				try {
+					const session = await sessionStore.get(message.sessionId as string);
+					if (!session) {
+						sendResponse({ ok: false, error: 'Sessão não encontrada' });
+						return;
+					}
+					const data = await serializeSession(session);
+					sendResponse({ ok: true, data });
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === 'importSession') {
+			(async () => {
+				try {
+					const session = await parseDbsession(message.data as ArrayBuffer);
+					await sessionStore.put(session);
+					sendResponse({ ok: true, sessionId: session.id });
 				} catch (err) {
 					sendResponse({ ok: false, error: String(err) });
 				}

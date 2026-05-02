@@ -29,13 +29,15 @@ export type MessageAction =
 	| 'openSelectTabDialog'
 	| 'getSessionMarker'
 	| 'sessionMarkerUpdated'
-	// Session Replay — Phase 1a / 1c
+	// Session Replay — Phase 1a / 1c / 1d
 	| 'startRecording'
 	| 'stopRecording'
 	| 'getRecordingStatus'
 	| 'deleteSession'
 	| 'pageDetected'
-	| 'getActiveSession';
+	| 'getActiveSession'
+	| 'exportSession'
+	| 'importSession';
 
 export interface Message {
 	action: MessageAction;
@@ -53,7 +55,7 @@ export interface Message {
 	modifications?: ResponseModifications;
 	updates?: Partial<InterceptedResponse>;
 	sessionMarker?: SessionMarker;
-	// Session Replay — Phase 1a
+	// Session Replay — Phase 1a / 1d
 	sessionId?: string;
 	canvasCaptureEnabled?: boolean;
 	payload?: {
@@ -62,6 +64,9 @@ export interface Message {
 		triggerType: PageDetectionTrigger;
 		fingerprint: EnvironmentFingerprint;
 	};
+	// exportSession / importSession (Phase 1d)
+	data?: ArrayBuffer;
+	filename?: string;
 }
 
 export interface MessageResponse {
@@ -73,7 +78,7 @@ export interface MessageResponse {
 	response?: InterceptedResponse;
 	mocks?: MockConfig[];
 	sessionMarker?: SessionMarker;
-	// Session Replay — Phase 1a / 1c
+	// Session Replay — Phase 1a / 1c / 1d
 	ok?: boolean;
 	reason?: string;
 	sessionId?: string;
@@ -81,4 +86,6 @@ export interface MessageResponse {
 	active?: boolean;
 	sizeBytes?: number;
 	durationMs?: number;
+	// exportSession (Phase 1d)
+	data?: ArrayBuffer;
 }
