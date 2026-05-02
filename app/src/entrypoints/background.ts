@@ -11,12 +11,21 @@ import { serializeSession } from '@/lib/session/exporter';
 import { parseDbsession } from '@/lib/session/importer';
 import { resolveCallsite } from '@/lib/session/sourceMap';
 import { sessionStore } from '@/lib/session/storage';
+import { purgeOldSessions } from '@/lib/session/privacy/autoPurge';
+import { redactBody } from '@/lib/session/privacy/bodyRedactor';
+import { getPrivacyConfig, setPrivacyConfig } from '@/lib/session/privacy/config';
+import { redactConsoleArgs } from '@/lib/session/privacy/consoleRedactor';
+import { redactHeaders } from '@/lib/session/privacy/headerRedactor';
+import { truncatePath } from '@/lib/session/privacy/pathTruncator';
+import { redactState } from '@/lib/session/privacy/stateRedactor';
+import { shouldIgnoreUrl } from '@/lib/session/privacy/urlGate';
 import type {
 	AntipatternHit,
 	ConsoleArgPreview,
 	ConsoleLevel,
 	ConsoleStackFrame,
 	PageDetection,
+	RedactionConfig,
 	RrwebEvent,
 	Session,
 	SessionEvent,
@@ -67,6 +76,21 @@ let targetTabClosed = false;
 // "Página atual" exibidas pelo NetworkMetricsBar do header. Persistido em
 // chrome.storage.local pra sobreviver ao reload do service worker (MV3).
 let sessionMarker: SessionMarker = { ...EMPTY_SESSION_MARKER };
+
+// privacyConfig em cache local. Carregado de chrome.storage.local no boot e
+// recarregado em chrome.storage.onChanged. Quando null (boot ainda não
+// terminou), os capture sites pulam a redação — best-effort, não falha.
+let livePrivacyConfig: RedactionConfig | null = null;
+
+async function reloadPrivacyConfig(): Promise<void> {
+	try {
+		livePrivacyConfig = await getPrivacyConfig();
+	} catch (err) {
+		console.warn('[privacy] reloadPrivacyConfig falhou:', err);
+	}
+}
+
+void reloadPrivacyConfig();
 
 // --- Session Replay — helpers CDP Runtime/Log ---
 
@@ -161,6 +185,15 @@ async function handleConsoleAPI(
 		args: params.args.map(toArgPreview),
 		stackTrace: toStackFrames(params.stackTrace),
 	};
+	if (livePrivacyConfig) {
+		event.args = redactConsoleArgs(event.args, livePrivacyConfig);
+		if (event.stackTrace && livePrivacyConfig.truncateUserPaths) {
+			event.stackTrace.frames = event.stackTrace.frames.map((f) => ({
+				...f,
+				url: truncatePath(f.url),
+			}));
+		}
+	}
 	try {
 		await recorder.addEvent(session.id, event);
 	} catch (err) {
@@ -181,6 +214,12 @@ async function handleExceptionThrown(
 		message,
 		stackTrace: toStackFrames(det.stackTrace),
 	};
+	if (livePrivacyConfig?.truncateUserPaths && event.stackTrace) {
+		event.stackTrace.frames = event.stackTrace.frames.map((f) => ({
+			...f,
+			url: truncatePath(f.url),
+		}));
+	}
 	try {
 		await recorder.addEvent(session.id, event);
 	} catch (err) {
@@ -202,6 +241,15 @@ async function handleLogEntry(
 		args: [{ type: 'string', description: e.text }],
 		stackTrace: toStackFrames(e.stackTrace),
 	};
+	if (livePrivacyConfig) {
+		event.args = redactConsoleArgs(event.args, livePrivacyConfig);
+		if (event.stackTrace && livePrivacyConfig.truncateUserPaths) {
+			event.stackTrace.frames = event.stackTrace.frames.map((f) => ({
+				...f,
+				url: truncatePath(f.url),
+			}));
+		}
+	}
 	try {
 		await recorder.addEvent(session.id, event);
 	} catch (err) {
@@ -223,6 +271,38 @@ async function tryResolveHitCallsite(hit: AntipatternHit): Promise<void> {
 		hit.context.callsite = await resolveCallsite(hit.context.callsite.raw);
 	} catch (err) {
 		console.warn('[antipattern] resolveCallsite falhou:', err);
+	}
+	// Pós-resolução: trunca paths absolutos com username (Phase 6).
+	if (livePrivacyConfig?.truncateUserPaths && hit.context.callsite) {
+		hit.context.callsite.raw.file = truncatePath(hit.context.callsite.raw.file);
+		if (hit.context.callsite.resolved) {
+			hit.context.callsite.resolved.file = truncatePath(hit.context.callsite.resolved.file);
+		}
+	}
+}
+
+// Aplica redação em headers (resposta + requisição) e body de um InterceptedResponse.
+// Muta in-place para minimizar custo — a InterceptedResponse já é construída neste
+// frame (não há leitor concorrente). Chamado antes de persistRequest e
+// emitNetworkEventForSession nos pontos de captura.
+function applyPrivacyToInterceptedResponse(resp: InterceptedResponse): void {
+	const cfg = livePrivacyConfig;
+	if (!cfg || !cfg.enabled) return;
+	resp.headers = redactHeaders(resp.headers, cfg);
+	if (resp.response?.headers) {
+		resp.response.headers = redactHeaders(resp.response.headers, cfg);
+	}
+	if (resp.request?.headers) {
+		resp.request.headers = redactHeaders(resp.request.headers, cfg);
+	}
+	if (typeof resp.body === 'string') {
+		resp.body = redactBody(resp.body, cfg);
+	}
+	if (typeof resp.response?.body === 'string') {
+		resp.response.body = redactBody(resp.response.body, cfg);
+	}
+	if (typeof resp.request?.postData === 'string') {
+		resp.request.postData = redactBody(resp.request.postData, cfg);
 	}
 }
 
@@ -369,6 +449,10 @@ function persistTargetTabInfo(): void {
 }
 
 async function persistRequest(requestId: string, request: InterceptedResponse): Promise<void> {
+	// Aplica redaction defensiva — todos os caminhos de captura passam por aqui
+	// (handleRequestPaused, applyMockResponse, applyTransformResponse, approve).
+	// In-place, idempotente — repetir é seguro porque [REDACTED] não casa as regex.
+	applyPrivacyToInterceptedResponse(request);
 	allRequests[requestId] = request;
 	try {
 		await indexedDBService.saveRequest(requestId, request);
@@ -439,6 +523,15 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 	if (enabledResult.migrated) {
 		console.log(`[background] Backfilled enabled em ${enabledResult.backfilled} regras.`);
 	}
+	try {
+		const cfg = await getPrivacyConfig();
+		if (cfg.autoPurgeEnabled) {
+			const deleted = await purgeOldSessions(cfg.autoPurgeRetentionDays);
+			console.log(`[debug-buddy] auto-purge (onInstalled): ${deleted} sessões deletadas`);
+		}
+	} catch (err) {
+		console.warn('[debug-buddy] auto-purge (onInstalled) falhou:', err);
+	}
 });
 
 // Roda a migração também no startup do navegador (extensão já instalada).
@@ -448,13 +541,26 @@ chrome.runtime.onStartup.addListener(async () => {
 	await runLegacyMigration();
 	await runModifyToTransformMigration();
 	await runEnabledBackfillMigration();
+	try {
+		const cfg = await getPrivacyConfig();
+		if (cfg.autoPurgeEnabled) {
+			const deleted = await purgeOldSessions(cfg.autoPurgeRetentionDays);
+			console.log(`[debug-buddy] auto-purge: ${deleted} sessões deletadas`);
+		}
+	} catch (err) {
+		console.warn('[debug-buddy] auto-purge (onStartup) falhou:', err);
+	}
 });
 
 // Listener para mudanças no storage (para atualizar regras em tempo real)
 chrome.storage.onChanged.addListener((changes, namespace) => {
-	if (namespace === 'local' && changes.rules) {
+	if (namespace !== 'local') return;
+	if (changes.rules) {
 		rules = changes.rules.newValue || [];
 		console.log(`Regras atualizadas: ${rules.length} regras carregadas`);
+	}
+	if (changes.privacyConfig) {
+		void reloadPrivacyConfig();
 	}
 });
 
@@ -1168,13 +1274,63 @@ chrome.runtime.onMessage.addListener(
 						sendResponse({ ok: false, error: 'Sem sessão ativa para a tab remetente' });
 						return;
 					}
-					const payload = message.statePayload;
-					if (!payload) {
+					const rawPayload = message.statePayload;
+					if (!rawPayload) {
 						sendResponse({ ok: false, error: 'stateChange sem statePayload' });
 						return;
 					}
+					const payload = livePrivacyConfig
+						? {
+								...rawPayload,
+								prev: redactState(rawPayload.prev, livePrivacyConfig),
+								next: redactState(rawPayload.next, livePrivacyConfig),
+							}
+						: rawPayload;
 					await recorder.addStateChange(session.id, payload);
 					sendResponse({ ok: true });
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		// Phase 6 — privacyConfig CRUD + autoPurge on demand.
+		if (message.action === 'getPrivacyConfig') {
+			(async () => {
+				try {
+					const cfg = await getPrivacyConfig();
+					sendResponse({ ok: true, privacyConfig: cfg });
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === 'setPrivacyConfig') {
+			(async () => {
+				try {
+					if (!message.config) {
+						sendResponse({ ok: false, error: 'config ausente' });
+						return;
+					}
+					await setPrivacyConfig(message.config);
+					await reloadPrivacyConfig();
+					sendResponse({ ok: true });
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === 'purgeOldSessions') {
+			(async () => {
+				try {
+					const cfg = await getPrivacyConfig();
+					const purgedCount = await purgeOldSessions(cfg.autoPurgeRetentionDays);
+					sendResponse({ ok: true, purgedCount });
 				} catch (err) {
 					sendResponse({ ok: false, error: String(err) });
 				}
@@ -1698,6 +1854,16 @@ async function handleRequestPaused(params: any): Promise<void> {
 		throw new Error(`CDP nao informou resourceType para ${requestId}`);
 	}
 
+	// Privacy URL gate: domínios em blacklist passam pela rede sem persistência
+	// nem emissão de NetworkEvent — captura zero. networkId fica órfão no tracker
+	// (descartamos para liberar memória). Sem fallback: se continueRequest falhar,
+	// erro propaga normalmente.
+	if (livePrivacyConfig && shouldIgnoreUrl(url, livePrivacyConfig)) {
+		timingTracker.discardByNetworkId(networkId);
+		await continueRequest(requestId);
+		return;
+	}
+
 	// Request stage: responseStatusCode é undefined (a request ainda não foi para a rede).
 	// Response stage: responseStatusCode é sempre um número.
 	const isResponseStage = typeof responseStatusCode === 'number';
@@ -1845,6 +2011,8 @@ async function handleRequestPaused(params: any): Promise<void> {
 				appliedTypes: deriveAppliedTypesFromMatch(matchedAction),
 			};
 
+			applyPrivacyToInterceptedResponse(failedCaptureRequest);
+
 			persistRequest(requestId, failedCaptureRequest).catch((persistError) => {
 				console.error(`Falha ao persistir erro de captura para ${requestId}:`, persistError);
 			});
@@ -1895,6 +2063,8 @@ async function handleRequestPaused(params: any): Promise<void> {
 				appliedTypes,
 				...(delayMs !== undefined ? { delayMs } : {}),
 			};
+
+	applyPrivacyToInterceptedResponse(persistedRequest);
 
 	if (willIntercept) {
 		await persistRequest(requestId, persistedRequest);

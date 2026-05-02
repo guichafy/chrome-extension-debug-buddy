@@ -1,6 +1,7 @@
 import { AntipatternEngine } from './antipattern/engine';
 import { tryCoalesceConsole } from './coalesce';
 import { fingerprintsEqual, newPhaseId } from './fingerprint';
+import { getPrivacyConfig, toRedactionApplied } from './privacy/config';
 import { estimateEventBytes, estimateRrwebBytes } from './sizeEstimate';
 import { compressDiff, compressSnapshot, computeDiff } from './state/diff';
 import { sessionStore } from './storage';
@@ -193,6 +194,15 @@ export const recorder = {
 			// clicou em "Parar gravação"). Não-encontrada continua erro.
 			if (s.endedAt !== null) return;
 			s.endedAt = Date.now();
+			// Phase 6: snapshot do que foi (potencialmente) redigido nesta sessão.
+			// Usamos toRedactionApplied para evitar vazar regex específicas — só
+			// preservamos chaves de header e contagem de regex.
+			try {
+				const cfg = await getPrivacyConfig();
+				s.redactionApplied = toRedactionApplied(cfg);
+			} catch (err) {
+				console.warn('[session] stopSession: falha ao ler privacyConfig:', err);
+			}
 			sessionEngines.delete(id);
 			runtime.delete(id);
 			stateRuntime.delete(id);
