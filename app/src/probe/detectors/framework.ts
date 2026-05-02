@@ -28,25 +28,45 @@ function detectReact(): FrameworkResult | null {
 	}
 	if (hook) return { name: 'react' };
 
-	// Fallback: fiber container em qualquer elemento root comum
+	// Fallback: fiber container em qualquer elemento root comum.
+	// React 18: __reactContainer$. React 17: __reactFiber$. React 16: __reactInternalInstance$.
 	const candidates = document.querySelectorAll('[data-reactroot], #root, #__next');
 	for (const node of candidates) {
 		const keys = Object.keys(node as unknown as Record<string, unknown>);
-		if (keys.some((k) => k.startsWith('__reactContainer'))) {
+		if (
+			keys.some(
+				(k) =>
+					k.startsWith('__reactContainer') ||
+					k.startsWith('__reactFiber') ||
+					k.startsWith('__reactInternalInstance'),
+			)
+		) {
 			return { name: 'react' };
 		}
 	}
 	return null;
 }
 
+interface AngularNgGlobal {
+	getComponent?: unknown;
+	getDirectives?: unknown;
+	getDebugNode?: unknown;
+}
+
 function detectAngular(): FrameworkResult | null {
-	const hasNg = (window as unknown as { ng?: unknown }).ng !== undefined;
+	const ngObj = (window as unknown as { ng?: AngularNgGlobal }).ng;
+	// Guard contra false positive: AngularJS e libs que squatam `ng` não têm getComponent/etc.
+	const hasNgApis =
+		ngObj !== undefined &&
+		ngObj !== null &&
+		typeof ngObj === 'object' &&
+		('getComponent' in ngObj || 'getDirectives' in ngObj || 'getDebugNode' in ngObj);
 	const versioned = document.querySelector('[ng-version]');
 	if (versioned) {
 		const version = versioned.getAttribute('ng-version') ?? undefined;
 		return { name: 'angular', version };
 	}
-	if (hasNg) return { name: 'angular' };
+	if (hasNgApis) return { name: 'angular' };
 	return null;
 }
 

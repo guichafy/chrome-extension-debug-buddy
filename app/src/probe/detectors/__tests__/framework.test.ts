@@ -35,12 +35,43 @@ describe('detectFramework', () => {
 		expect(detectFramework()).toEqual({ name: 'react' });
 	});
 
-	it('detecta React via fallback (fiber em root)', () => {
+	it('detecta React 18 via fallback __reactContainer$', () => {
 		const root = document.createElement('div');
 		root.id = 'root';
 		(root as unknown as Record<string, unknown>).__reactContainer$xyz = {};
 		document.body.appendChild(root);
 		expect(detectFramework()).toEqual({ name: 'react' });
+	});
+
+	it('detecta React 17 via fallback __reactFiber$', () => {
+		const root = document.createElement('div');
+		root.id = 'root';
+		(root as unknown as Record<string, unknown>).__reactFiber$abc = {};
+		document.body.appendChild(root);
+		expect(detectFramework()).toEqual({ name: 'react' });
+	});
+
+	it('detecta React 16 via fallback __reactInternalInstance$', () => {
+		const root = document.createElement('div');
+		root.id = 'root';
+		(root as unknown as Record<string, unknown>).__reactInternalInstance$xyz = {};
+		document.body.appendChild(root);
+		expect(detectFramework()).toEqual({ name: 'react' });
+	});
+
+	it('detecta React via renderers em formato Record', () => {
+		(
+			window as unknown as { __REACT_DEVTOOLS_GLOBAL_HOOK__: unknown }
+		).__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
+			renderers: { '1': { version: '17.0.2' } },
+		};
+		expect(detectFramework()).toEqual({ name: 'react', version: '17.0.2' });
+	});
+
+	it('ignora window.ng quando objeto não tem APIs do Angular (false positive guard)', () => {
+		// AngularJS e libs que squatam window.ng não devem virar Angular detection
+		(window as unknown as { ng: unknown }).ng = { version: 'AngularJS 1.x' };
+		expect(detectFramework()).toEqual({ name: 'vanilla' });
 	});
 
 	it('detecta Angular via window.ng + ng-version', () => {
