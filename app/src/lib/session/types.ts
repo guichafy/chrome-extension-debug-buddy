@@ -50,9 +50,90 @@ export interface DetectionPhase {
 	pages: PageDetection[];
 }
 
-// Outras variantes (network, console, route, error, state) virão em Phase 1b.
+export type ConsoleSource = 'app' | 'browser' | 'security';
+
+export type ConsoleLevel =
+	| 'log'
+	| 'info'
+	| 'warn'
+	| 'error'
+	| 'debug'
+	| 'trace'
+	| 'dir'
+	| 'table'
+	| 'group'
+	| 'groupCollapsed'
+	| 'groupEnd'
+	| 'count'
+	| 'countReset'
+	| 'assert'
+	| 'time'
+	| 'timeEnd'
+	| 'timeLog'
+	| 'clear';
+
+export interface ConsoleArgPreview {
+	type: 'string' | 'number' | 'boolean' | 'undefined' | 'null' | 'object' | 'function' | 'symbol';
+	description: string;
+	preview?: {
+		properties: Array<{ name: string; type: string; value?: string }>;
+		overflow: boolean;
+	};
+}
+
+export interface ConsoleStackFrame {
+	url: string;
+	lineNumber: number;
+	columnNumber: number;
+	functionName: string;
+}
+
+export interface SessionTelemetry {
+	hitHardLimit: boolean;
+	hardLimitReason?: 'size' | 'time';
+	endedSizeBytes: number;
+	endedDurationMs: number;
+	navigationCount: number;
+}
+
+// Outras variantes (state) virão em Phase 4.
 export type SessionEvent =
-	| { type: 'detection'; timestamp: number; phaseId: string };
+	| { type: 'detection'; timestamp: number; phaseId: string }
+	| {
+			type: 'network';
+			timestamp: number;
+			phaseId: string;
+			requestId: string;
+			method: string;
+			url: string;
+			status: number;
+			durationMs?: number;
+			bodyRef?: string;
+	  }
+	| {
+			type: 'console';
+			timestamp: number;
+			phaseId: string;
+			source: ConsoleSource;
+			level: ConsoleLevel;
+			args: ConsoleArgPreview[];
+			stackTrace?: { frames: ConsoleStackFrame[] };
+			coalesceCount?: number;
+	  }
+	| {
+			type: 'route';
+			timestamp: number;
+			phaseId: string;
+			url: string;
+			triggerType: PageDetectionTrigger;
+	  }
+	| {
+			type: 'error';
+			timestamp: number;
+			phaseId: string;
+			message: string;
+			stackTrace?: { frames: ConsoleStackFrame[] };
+	  };
 
 export interface SessionMetadata {
 	initialUrl: string;
@@ -74,4 +155,5 @@ export interface Session {
 	metadata: SessionMetadata;
 	detectionPhases: DetectionPhase[];
 	events: SessionEvent[];
+	telemetry?: SessionTelemetry;
 }
