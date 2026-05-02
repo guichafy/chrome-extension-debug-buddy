@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RecordingBanner } from '../RecordingBanner';
 
@@ -16,7 +16,7 @@ describe('RecordingBanner', () => {
 		await waitFor(() => expect(container.firstChild).toBeNull());
 	});
 
-	it('renderiza counter quando active=true', async () => {
+	it('renderiza GRAVANDO quando active=true', async () => {
 		sendMessageMock.mockResolvedValue({
 			ok: true,
 			active: true,
@@ -25,20 +25,45 @@ describe('RecordingBanner', () => {
 			durationMs: 30 * 1000,
 		});
 		render(<RecordingBanner tabId={7} />);
-		await waitFor(() => expect(screen.getByText(/Gravando sessão/i)).toBeInTheDocument());
-		expect(screen.getByText('00:30 / 10:00')).toBeInTheDocument();
-		expect(screen.getByText('5.0 MB / 50 MB')).toBeInTheDocument();
+		await waitFor(() => expect(screen.getByText('GRAVANDO')).toBeInTheDocument());
+		expect(screen.getByText(/5\.0 MB \/ 50 MB · 0\.5 \/ 10 min/)).toBeInTheDocument();
+		expect(screen.getByText(/clique para parar/i)).toBeInTheDocument();
 	});
 
-	it('aplica estilo de alerta perto do limite (>80%)', async () => {
+	it('mostra alerta perto do limite (>=80%)', async () => {
 		sendMessageMock.mockResolvedValue({
 			ok: true,
 			active: true,
 			sessionId: 'sess_1',
-			sizeBytes: 1024 * 1024 * 45,
+			sizeBytes: 1024 * 1024 * 45, // 45 MB / 50 = 90%
 			durationMs: 60 * 1000,
 		});
 		render(<RecordingBanner tabId={7} />);
-		await waitFor(() => expect(screen.getByText(/perto do limite/i)).toBeInTheDocument());
+		await waitFor(() => expect(screen.getByText(/próximo do limite/i)).toBeInTheDocument());
+	});
+
+	it('clique no banner para a gravação', async () => {
+		sendMessageMock.mockImplementation((msg: { action: string }) => {
+			if (msg.action === 'getRecordingStatus') {
+				return Promise.resolve({
+					ok: true,
+					active: true,
+					sessionId: 'sess_1',
+					sizeBytes: 100,
+					durationMs: 1000,
+				});
+			}
+			if (msg.action === 'stopRecording') {
+				return Promise.resolve({ ok: true });
+			}
+			return Promise.resolve({ ok: false });
+		});
+		render(<RecordingBanner tabId={7} />);
+		await waitFor(() => expect(screen.getByText('GRAVANDO')).toBeInTheDocument());
+		fireEvent.click(screen.getByRole('button', { name: /Gravando — clique para parar/i }));
+		await waitFor(() => {
+			const calls = sendMessageMock.mock.calls.map((c) => c[0]);
+			expect(calls.some((c: { action: string }) => c.action === 'stopRecording')).toBe(true);
+		});
 	});
 });

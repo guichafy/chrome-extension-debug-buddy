@@ -1,4 +1,3 @@
-import { Button } from '@/components/ui/button';
 import { useRecording } from '@/hooks/useRecording';
 
 const SIZE_LIMIT_MB = 50;
@@ -10,13 +9,6 @@ function formatBytes(bytes: number): string {
 	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function formatDuration(ms: number): string {
-	const totalSec = Math.floor(ms / 1000);
-	const mm = String(Math.floor(totalSec / 60)).padStart(2, '0');
-	const ss = String(totalSec % 60).padStart(2, '0');
-	return `${mm}:${ss}`;
-}
-
 interface Props {
 	tabId: number | null;
 }
@@ -24,31 +16,35 @@ interface Props {
 export function RecordingBanner({ tabId }: Props) {
 	const { status, stopRecording } = useRecording(tabId);
 	if (!status.active) return null;
+
 	const sizeMB = status.sizeBytes / (1024 * 1024);
-	const durationMin = status.durationMs / (60 * 1000);
-	const nearLimit = sizeMB >= SIZE_LIMIT_MB * 0.8 || durationMin >= DURATION_LIMIT_MIN * 0.8;
+	const durationMin = status.durationMs / 60000;
+	const sizePercent = Math.min(100, (sizeMB / SIZE_LIMIT_MB) * 100);
+	const timePercent = Math.min(100, (durationMin / DURATION_LIMIT_MIN) * 100);
+	const nearLimit = sizePercent >= 80 || timePercent >= 80;
 
 	return (
-		<output
-			aria-label="Gravação ativa"
-			className={`flex items-center justify-between border-b px-4 py-2 text-sm ${
-				nearLimit ? 'bg-amber-100 text-amber-900' : 'bg-red-100 text-red-900'
-			}`}
+		<button
+			type="button"
+			onClick={() => void stopRecording()}
+			className="fixed inset-x-0 top-0 z-50 flex w-full items-center justify-center gap-3 bg-red-600 px-4 py-2 text-white shadow-lg hover:bg-red-700"
+			aria-label="Gravando — clique para parar"
 		>
-			<div className="flex items-center gap-3">
-				<span className="size-2 rounded-full bg-current animate-pulse" aria-hidden="true" />
-				<span className="font-medium">Gravando sessão</span>
-				<span className="font-mono">
-					{formatDuration(status.durationMs)} / {DURATION_LIMIT_MIN}:00
+			<span
+				className="inline-block h-2 w-2 animate-pulse rounded-full bg-white"
+				aria-hidden="true"
+			/>
+			<span className="font-bold">GRAVANDO</span>
+			<span className="font-mono text-xs">
+				{formatBytes(status.sizeBytes)} / {SIZE_LIMIT_MB} MB · {durationMin.toFixed(1)} /{' '}
+				{DURATION_LIMIT_MIN} min
+			</span>
+			{nearLimit && (
+				<span className="rounded bg-yellow-300 px-2 py-0.5 font-semibold text-red-900 text-xs">
+					próximo do limite
 				</span>
-				<span className="font-mono">
-					{formatBytes(status.sizeBytes)} / {SIZE_LIMIT_MB} MB
-				</span>
-				{nearLimit && <span>(perto do limite — exporte ou pare)</span>}
-			</div>
-			<Button size="sm" variant="outline" onClick={() => void stopRecording()}>
-				Parar gravação
-			</Button>
-		</output>
+			)}
+			<span className="text-xs underline">clique para parar</span>
+		</button>
 	);
 }
