@@ -231,6 +231,116 @@ describe('NetworkTimingTracker', () => {
 		expect(metrics).toEqual([{ fetchId: 'fetch-m3', timing: { fromDiskCache: true } }]);
 	});
 
+	it('emite onMetricsReady para hop de redirect a partir de redirectResponse', () => {
+		// Trace típico de um 301 → 200:
+		//   1. requestWillBeSent (inicial) — start do 301
+		//   2. Fetch.requestPaused (301) → linkFetchId(networkId, fetch-301)
+		//   3. requestWillBeSent (com redirectResponse contendo encodedDataLength
+		//      e timing do 301) — fim do 301 / início do destino
+		//   4. Fetch.requestPaused (destino) → linkFetchId(networkId, fetch-final)
+		//   5. loadingFinished — fim do destino
+		// O hop do 301 não recebe Network.responseReceived/Network.loadingFinished
+		// próprios — o CDP empurra os dados embutidos em redirectResponse. Sem
+		// extrair daí, o transferSize do hop 301 fica undefined e a coluna
+		// "Tamanho" da UI mostra "—" mesmo a rede tendo transferido bytes.
+		const metrics: Array<{ fetchId: string; timing: unknown }> = [];
+		const t = new NetworkTimingTracker(
+			() => {},
+			(fetchId, timing) => metrics.push({ fetchId, timing }),
+		);
+		t.handleNetworkEvent('Network.requestWillBeSent', { requestId: 'rm1', timestamp: 1.0 });
+		t.linkFetchId('rm1', 'fetch-301');
+
+		t.handleNetworkEvent('Network.requestWillBeSent', {
+			requestId: 'rm1',
+			timestamp: 1.2,
+			redirectResponse: {
+				status: 301,
+				encodedDataLength: 512,
+				timing: {
+					dnsStart: 0,
+					dnsEnd: 5,
+					connectStart: 5,
+					connectEnd: 15,
+					sslStart: -1,
+					sslEnd: -1,
+					receiveHeadersEnd: 30,
+				},
+				fromDiskCache: false,
+				fromServiceWorker: false,
+			},
+		});
+
+		expect(metrics).toEqual([
+			{
+				fetchId: 'fetch-301',
+				timing: {
+					ttfbMs: 30,
+					dnsMs: 5,
+					tcpMs: 10,
+					transferSize: 512,
+					encodedDataLength: 512,
+				},
+			},
+		]);
+	});
+
+	it('emite onMetricsReady para cada hop em cadeia de redirects', () => {
+		const metrics: Array<{ fetchId: string; timing: unknown }> = [];
+		const t = new NetworkTimingTracker(
+			() => {},
+			(fetchId, timing) => metrics.push({ fetchId, timing }),
+		);
+		t.handleNetworkEvent('Network.requestWillBeSent', { requestId: 'rm2', timestamp: 1.0 });
+		t.linkFetchId('rm2', 'hop-a');
+
+		t.handleNetworkEvent('Network.requestWillBeSent', {
+			requestId: 'rm2',
+			timestamp: 1.1,
+			redirectResponse: { status: 301, encodedDataLength: 256 },
+		});
+		t.linkFetchId('rm2', 'hop-b');
+
+		t.handleNetworkEvent('Network.requestWillBeSent', {
+			requestId: 'rm2',
+			timestamp: 1.3,
+			redirectResponse: { status: 302, encodedDataLength: 384 },
+		});
+		t.linkFetchId('rm2', 'hop-c');
+
+		t.handleNetworkEvent('Network.responseReceived', {
+			requestId: 'rm2',
+			timestamp: 1.4,
+			response: { fromDiskCache: false, fromServiceWorker: false },
+		});
+		t.handleNetworkEvent('Network.loadingFinished', {
+			requestId: 'rm2',
+			timestamp: 1.6,
+			encodedDataLength: 4096,
+		});
+
+		expect(metrics).toEqual([
+			{ fetchId: 'hop-a', timing: { transferSize: 256, encodedDataLength: 256 } },
+			{ fetchId: 'hop-b', timing: { transferSize: 384, encodedDataLength: 384 } },
+			{ fetchId: 'hop-c', timing: { transferSize: 4096, encodedDataLength: 4096 } },
+		]);
+	});
+
+	it('redirect sem fetchRequestId no hop anterior não emite metrics (defensivo)', () => {
+		const metrics: Array<{ fetchId: string; timing: unknown }> = [];
+		const t = new NetworkTimingTracker(
+			() => {},
+			(fetchId, timing) => metrics.push({ fetchId, timing }),
+		);
+		t.handleNetworkEvent('Network.requestWillBeSent', { requestId: 'rm3', timestamp: 1.0 });
+		t.handleNetworkEvent('Network.requestWillBeSent', {
+			requestId: 'rm3',
+			timestamp: 1.2,
+			redirectResponse: { status: 301, encodedDataLength: 512 },
+		});
+		expect(metrics).toEqual([]);
+	});
+
 	it('emite onMetricsReady idempotente (uma vez por fetchId)', () => {
 		const metrics: Array<{ fetchId: string; timing: unknown }> = [];
 		const t = new NetworkTimingTracker(
