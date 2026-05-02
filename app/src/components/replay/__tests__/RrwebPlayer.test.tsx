@@ -51,6 +51,13 @@ describe('RrwebPlayer', () => {
 		expect(ref.current?.getCurrentTime()).toBe(1234);
 	});
 
+	it('getCurrentTime retorna null quando player não montou (events < 2)', () => {
+		const ref = createRef<RrwebPlayerHandle>();
+		render(<RrwebPlayer ref={ref} events={[]} />);
+		// player não foi montado → ref ainda existe mas playerRef interno é null
+		expect(ref.current?.getCurrentTime()).toBeNull();
+	});
+
 	it('chama onTimeUpdate quando player emite ui-update-current-time', () => {
 		const onTimeUpdate = vi.fn();
 		render(<RrwebPlayer events={minimalEvents} onTimeUpdate={onTimeUpdate} />);

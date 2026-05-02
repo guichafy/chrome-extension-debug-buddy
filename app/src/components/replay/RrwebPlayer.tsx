@@ -8,7 +8,12 @@ import type { RrwebEvent } from '@/lib/session/types';
 
 export interface RrwebPlayerHandle {
 	goto: (timeMs: number) => void;
-	getCurrentTime: () => number;
+	/**
+	 * Tempo corrente em ms (relativo ao início do replay) ou `null` quando o
+	 * player ainda não montou (ex: ref consultada antes de events chegarem).
+	 * Caller decide como tratar — no-fallbacks: não inventamos `0` como tempo.
+	 */
+	getCurrentTime: () => number | null;
 	play: () => void;
 	pause: () => void;
 }
@@ -82,7 +87,7 @@ export const RrwebPlayer = forwardRef<RrwebPlayerHandle, Props>(function RrwebPl
 		ref,
 		(): RrwebPlayerHandle => ({
 			goto: (ms: number) => playerRef.current?.goto(ms),
-			getCurrentTime: () => playerRef.current?.getCurrentTime() ?? 0,
+			getCurrentTime: () => (playerRef.current ? playerRef.current.getCurrentTime() : null),
 			play: () => playerRef.current?.play(),
 			pause: () => playerRef.current?.pause(),
 		}),
