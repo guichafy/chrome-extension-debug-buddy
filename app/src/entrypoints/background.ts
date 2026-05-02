@@ -937,12 +937,14 @@ async function stopDebugging(): Promise<boolean> {
 		// Remove event listener
 		chrome.debugger.onEvent.removeListener(debuggerEventListener);
 
-		// Reset global state
+		// Reset global state. `timingTracker.reset()` antes de zerar `allRequests`
+		// fecha a janela em que callbacks pendentes (onDurationReady/onMetricsReady)
+		// poderiam chamar `patchRequest` e cair em `allRequests[id] === undefined`.
 		isDebugging = false;
 		attachedTabId = null;
 		pendingResponses = {};
-		allRequests = {};
 		timingTracker.reset();
+		allRequests = {};
 
 		console.log('Debugging stopped successfully');
 		return true;
@@ -1086,11 +1088,8 @@ async function handleRequestPaused(params: any): Promise<void> {
 		return;
 	}
 
-	// A partir daqui: Response stage. responseStatusCode é garantidamente um número.
-	if (typeof responseStatusCode !== 'number') {
-		throw new Error(`CDP nao informou status de resposta para ${requestId}`);
-	}
-
+	// A partir daqui: Response stage — `isResponseStage` foi true, então
+	// responseStatusCode é garantidamente um número.
 	const responseHeaderArray = responseHeaders ?? [];
 	const responseHeadersRecord = headersArrayToRecord(responseHeaderArray);
 	const statusText = getHttpStatusPhrase(responseStatusCode, responseStatusText);
