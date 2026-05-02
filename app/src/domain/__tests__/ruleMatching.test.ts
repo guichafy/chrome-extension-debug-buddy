@@ -35,6 +35,25 @@ describe('findMatchingRuleAction', () => {
 		expect(match && 'body' in match.action).toBe(false);
 	});
 
+	test('retorna transform quando a regra casa (regressão: antes era pulado)', () => {
+		const rule = baseRule({
+			action: {
+				type: 'transform',
+				enabled: true,
+				mode: 'declarative',
+				operations: [{ id: 'op1', type: 'replace', path: '$.x', value: '"y"' }],
+			},
+		});
+
+		const match = findMatchingRuleAction([rule], {
+			url: 'https://example.test/api/users',
+			method: 'GET',
+			headers: {},
+		});
+
+		expect(match).toEqual({ type: 'transform', rule, action: rule.action });
+	});
+
 	test('corresponde metodo ANY sem fabricar metodo ausente', () => {
 		const rule = baseRule({
 			matchers: [

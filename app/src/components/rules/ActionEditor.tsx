@@ -9,9 +9,15 @@ import { MockActionEditor } from './MockActionEditor';
 interface ActionEditorProps {
 	action: Action;
 	onChange: (action: Action) => void;
+	/**
+	 * Body capturado da response que originou a regra (quando aplicável).
+	 * Repassado ao TransformActionEditor para popular o painel de preview com
+	 * o JSON real do servidor em vez do exemplo fixo.
+	 */
+	samplePayload?: string;
 }
 
-export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange }) => {
+export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange, samplePayload }) => {
 	// Renderizar editor específico para cada tipo de ação
 	const renderActionEditor = () => {
 		switch (action.type) {
@@ -20,7 +26,13 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange }) 
 			case 'delay':
 				return <DelayActionEditor action={action as DelayAction} onChange={onChange} />;
 			case 'transform':
-				return <TransformActionEditor action={action as TransformAction} onChange={onChange} />;
+				return (
+					<TransformActionEditor
+						action={action as TransformAction}
+						onChange={onChange}
+						initialSampleResponse={samplePayload}
+					/>
+				);
 			case 'breakpoint':
 				return renderBreakpointActionEditor(action as BreakpointAction);
 			default:

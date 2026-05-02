@@ -1,3 +1,5 @@
+export {};
+
 // Sandbox para execução de scripts avançados de Transform.
 //
 // Esta página é declarada em `manifest.json` como `sandbox.pages` — Chrome

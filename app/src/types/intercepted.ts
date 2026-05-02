@@ -24,6 +24,13 @@ export interface InterceptedResponse {
 	body?: string;
 	isWaiting?: boolean;
 	isMocked?: boolean;
+	/**
+	 * Marca respostas alteradas em runtime por uma regra de Transform (declarativo
+	 * ou advanced). Diferente de `isMocked` (mock substitui body inteiro sem
+	 * chamar a rede) — transform passa pela rede, captura o body original e
+	 * reescreve antes de devolver ao cliente.
+	 */
+	isTransformed?: boolean;
 	captureError?: string;
 	bodyUnavailableReason?: string;
 	/** Tempo total da requisição em milissegundos (capturado via Network domain do CDP). */

@@ -18,6 +18,11 @@ export type MatchedRuleAction =
 			type: 'breakpoint';
 			rule: Rule;
 			action: Extract<Action, { type: 'breakpoint' }>;
+	  }
+	| {
+			type: 'transform';
+			rule: Rule;
+			action: Extract<Action, { type: 'transform' }>;
 	  };
 
 // Converte um padrao com wildcards `*` para uma RegExp ancorada-em-trecho que
@@ -156,10 +161,8 @@ export function explainMatchers(
 // `RulesList`/`chrome.storage.local.rules`); o background mantem essa mesma
 // ordem porque o storage e um array. Regras com `enabled === false` ou
 // `action.enabled === false` sao puladas como se nao existissem (nao bloqueiam
-// regras subsequentes). Acoes que ainda nao sao consumidas pelo background
-// (delay/transform) tambem sao puladas para nao bloquear regras `mock` ou
-// `breakpoint` que venham depois — quando essas acoes forem implementadas,
-// elas devem retornar aqui igualmente para preservar a regra de prioridade.
+// regras subsequentes). Ações `delay` ainda não são consumidas pelo background
+// e são puladas — quando forem implementadas, devem retornar aqui também.
 export function findMatchingRuleAction(
 	rules: Rule[],
 	input: RequestMatchInput,
@@ -174,6 +177,10 @@ export function findMatchingRuleAction(
 
 		if (rule.action.type === 'breakpoint') {
 			return { type: 'breakpoint', rule, action: rule.action };
+		}
+
+		if (rule.action.type === 'transform') {
+			return { type: 'transform', rule, action: rule.action };
 		}
 	}
 
