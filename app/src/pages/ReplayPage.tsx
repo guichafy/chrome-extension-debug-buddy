@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { AntipatternsTab } from '@/components/replay/AntipatternsTab';
 import { EventRow } from '@/components/replay/EventRow';
 import { PhaseList } from '@/components/replay/PhaseList';
 import { RrwebPlayer } from '@/components/replay/RrwebPlayer';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useReplayPlayhead } from '@/hooks/useReplayPlayhead';
 import { sessionStore } from '@/lib/session/storage';
 import type { RrwebEvent, Session, SessionEvent } from '@/lib/session/types';
@@ -78,37 +80,60 @@ export function ReplayPage() {
 					)}
 				</div>
 
-				{/* Coluna direita: filtros + timeline + fases */}
+				{/* Coluna direita: tabs (timeline / antipatterns) */}
 				<div className="flex flex-col gap-3 overflow-hidden">
-					<div className="flex flex-wrap items-center gap-3 rounded border p-2 text-xs">
-						<span className="font-medium">Filtros:</span>
-						{FILTERS.map((f) => (
-							<label key={f} htmlFor={`filter-${f}`} className="flex items-center gap-1">
-								<Checkbox
-									id={`filter-${f}`}
-									checked={!!enabled[f]}
-									onCheckedChange={(v) => setEnabled((prev) => ({ ...prev, [f]: v === true }))}
-								/>
-								{f}
-							</label>
-						))}
-					</div>
+					<Tabs defaultValue="timeline" className="flex h-full flex-col gap-3 overflow-hidden">
+						<TabsList className="self-start">
+							<TabsTrigger value="timeline">Timeline</TabsTrigger>
+							<TabsTrigger value="antipatterns">
+								Antipatterns
+								{(session.antipatternHits?.length ?? 0) > 0 && (
+									<span className="ml-2 rounded bg-muted px-1.5 text-[10px]">
+										{session.antipatternHits?.length}
+									</span>
+								)}
+							</TabsTrigger>
+						</TabsList>
 
-					<div className="flex-1 overflow-auto rounded border">
-						{visibleEvents.length === 0 ? (
-							<p className="p-3 text-muted-foreground text-sm">
-								Nenhum evento até o ponto atual ({(playhead.currentMs / 1000).toFixed(2)}s).
-							</p>
-						) : (
-							visibleEvents.map((ev, i) => (
-								<EventRow key={i} event={ev} startedAt={session.startedAt} />
-							))
-						)}
-					</div>
+						<TabsContent
+							value="timeline"
+							className="mt-0 flex flex-1 flex-col gap-3 overflow-hidden"
+						>
+							<div className="flex flex-wrap items-center gap-3 rounded border p-2 text-xs">
+								<span className="font-medium">Filtros:</span>
+								{FILTERS.map((f) => (
+									<label key={f} htmlFor={`filter-${f}`} className="flex items-center gap-1">
+										<Checkbox
+											id={`filter-${f}`}
+											checked={!!enabled[f]}
+											onCheckedChange={(v) => setEnabled((prev) => ({ ...prev, [f]: v === true }))}
+										/>
+										{f}
+									</label>
+								))}
+							</div>
 
-					<aside className="max-h-48 overflow-auto">
-						<PhaseList phases={session.detectionPhases} />
-					</aside>
+							<div className="flex-1 overflow-auto rounded border">
+								{visibleEvents.length === 0 ? (
+									<p className="p-3 text-muted-foreground text-sm">
+										Nenhum evento até o ponto atual ({(playhead.currentMs / 1000).toFixed(2)}s).
+									</p>
+								) : (
+									visibleEvents.map((ev, i) => (
+										<EventRow key={i} event={ev} startedAt={session.startedAt} />
+									))
+								)}
+							</div>
+
+							<aside className="max-h-48 overflow-auto">
+								<PhaseList phases={session.detectionPhases} />
+							</aside>
+						</TabsContent>
+
+						<TabsContent value="antipatterns" className="mt-0 flex-1 overflow-hidden">
+							<AntipatternsTab hits={session.antipatternHits ?? []} startedAt={session.startedAt} />
+						</TabsContent>
+					</Tabs>
 				</div>
 			</div>
 		</div>
