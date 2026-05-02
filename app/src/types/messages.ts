@@ -5,6 +5,7 @@
 import type { InterceptedResponse, ResponseModifications } from './intercepted';
 import type { MockConfig } from './legacy';
 import type { SessionMarker } from './sessionMarker';
+import type { ProbeStateChangePayload } from '@/probe/protocol';
 import type {
 	AntipatternHit,
 	EnvironmentFingerprint,
@@ -47,7 +48,9 @@ export type MessageAction =
 	// Session Replay — Phase 2 (rrweb)
 	| 'rrwebBatch'
 	// Session Replay — Phase 3 (antipatterns ao vivo)
-	| 'liveAntipatternHit';
+	| 'liveAntipatternHit'
+	// Session Replay — Phase 4 (state change capture)
+	| 'stateChange';
 
 export interface Message {
 	action: MessageAction;
@@ -82,6 +85,8 @@ export interface Message {
 	recordCanvas?: boolean;
 	// Antipattern (Phase 3)
 	antipatternHit?: AntipatternHit;
+	// State change (Phase 4)
+	statePayload?: ProbeStateChangePayload;
 }
 
 export interface MessageResponse {

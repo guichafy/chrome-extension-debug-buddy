@@ -3,6 +3,8 @@ import { detectFramework } from './detectors/framework';
 import { detectHttpClients } from './detectors/httpClients';
 import { detectStateManagers } from './detectors/stateManagers';
 import { isProbeMessage, PROBE_NAMESPACE, type ProbeMessage } from './protocol';
+import { installReduxTap } from './state/reduxTap';
+import { installZustandTap } from './state/zustandTap';
 import type { EnvironmentFingerprint, PageDetectionTrigger } from '@/lib/session/types';
 
 let active = false;
@@ -72,6 +74,9 @@ window.addEventListener('message', (e: MessageEvent) => {
 			patchHistoryForSpaRouting();
 			historyPatched = true;
 		}
+		// State manager taps são idempotentes (each one tem seu guard `installed`).
+		installReduxTap();
+		installZustandTap();
 		emitDetection(e.data.reason);
 	} else if (e.data.type === 'probe:idle') {
 		active = false;

@@ -1,18 +1,29 @@
 import type { StateManagerDetection } from '@/lib/session/types';
+import { reduxStoreRegistry } from '../state/reduxTap';
+import { zustandStoreRegistry } from '../state/zustandTap';
 
 export function detectStateManagers(): StateManagerDetection[] {
 	const out: StateManagerDetection[] = [];
 
-	// Redux: presença do hook do DevTools. Phase 1a não conta stores
-	// (precisa wrappar createStore). storesDetected=0 sinaliza "presente, não contado".
-	if (
-		(window as unknown as { __REDUX_DEVTOOLS_EXTENSION__?: unknown }).__REDUX_DEVTOOLS_EXTENSION__
-	) {
-		out.push({ name: 'redux', storesDetected: 0, treatment: 'tracked' });
+	// Redux: presença do hook do DevTools OU stores wrappadas pelo tap.
+	// `storesDetected=0` permanece quando o hook está presente mas nenhuma
+	// store foi instanciada ainda (tap não disparou).
+	const hasReduxDevtools = !!(window as unknown as { __REDUX_DEVTOOLS_EXTENSION__?: unknown })
+		.__REDUX_DEVTOOLS_EXTENSION__;
+	if (hasReduxDevtools || reduxStoreRegistry.count > 0) {
+		out.push({ name: 'redux', storesDetected: reduxStoreRegistry.count, treatment: 'tracked' });
 	}
 
-	// Zustand, MobX, Jotai, NgRx, Angular signals: detecção robusta exige
-	// hooks em create() / store factories. Implementado em Phase 4.
+	// Zustand: detecção via proxy em globalThis.zustand.create (Phase 4).
+	if (zustandStoreRegistry.count > 0) {
+		out.push({
+			name: 'zustand',
+			storesDetected: zustandStoreRegistry.count,
+			treatment: 'tracked',
+		});
+	}
+
+	// MobX, Jotai, NgRx, Angular signals: ainda não cobertos.
 
 	return out;
 }
