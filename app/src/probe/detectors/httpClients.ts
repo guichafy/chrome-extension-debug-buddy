@@ -13,5 +13,16 @@ export function detectHttpClients(): HttpClientDetection[] {
 		out.push({ name: 'axios', confidence: 'high' });
 	}
 
+	// Angular HttpClient: high quando window.ng (Angular DevTools API) existe;
+	// medium se apenas <app-root> está presente (Angular sem devtools/prod build).
+	const ng = (window as unknown as { ng?: { getComponent?: unknown } }).ng;
+	const hasAppRoot = !!document.querySelector('app-root');
+	if (ng?.getComponent || hasAppRoot) {
+		out.push({
+			name: 'angular-http',
+			confidence: ng?.getComponent ? 'high' : 'medium',
+		});
+	}
+
 	return out;
 }

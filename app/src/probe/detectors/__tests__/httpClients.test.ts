@@ -3,6 +3,8 @@ import { detectHttpClients } from '../httpClients';
 
 afterEach(() => {
 	(window as unknown as { axios?: unknown }).axios = undefined;
+	(window as unknown as { ng?: unknown }).ng = undefined;
+	document.body.innerHTML = '';
 });
 
 describe('detectHttpClients', () => {
@@ -21,5 +23,22 @@ describe('detectHttpClients', () => {
 	it('sem Axios, não inclui axios', () => {
 		const got = detectHttpClients();
 		expect(got.find((c) => c.name === 'axios')).toBeUndefined();
+	});
+
+	it('detecta angular-http com confidence high quando window.ng existe', () => {
+		(window as unknown as { ng?: unknown }).ng = { getComponent: () => null };
+		const out = detectHttpClients();
+		const angular = out.find((c) => c.name === 'angular-http');
+		expect(angular).toBeDefined();
+		expect(angular?.confidence).toBe('high');
+		(window as unknown as { ng?: unknown }).ng = undefined;
+	});
+
+	it('detecta angular-http com confidence medium quando só app-root existe', () => {
+		document.body.innerHTML = '<app-root></app-root>';
+		const out = detectHttpClients();
+		const angular = out.find((c) => c.name === 'angular-http');
+		expect(angular?.confidence).toBe('medium');
+		document.body.innerHTML = '';
 	});
 });

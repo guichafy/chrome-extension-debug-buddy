@@ -27,6 +27,16 @@ export type ProbeMessage =
 			ns: typeof PROBE_NAMESPACE;
 			type: 'probe:state-change';
 			payload: ProbeStateChangePayload;
+	  }
+	| {
+			ns: typeof PROBE_NAMESPACE;
+			type: 'probe:angular-http-tag';
+			payload: {
+				url: string;
+				method: string;
+				timestampHint: number;
+				confidence: 'high' | 'medium' | 'low';
+			};
 	  };
 
 export function isProbeMessage(value: unknown): value is ProbeMessage {

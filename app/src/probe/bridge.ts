@@ -20,6 +20,13 @@ window.addEventListener('message', (e: MessageEvent) => {
 				if (String(err).includes('Extension context invalidated')) return;
 				throw err;
 			});
+	} else if (e.data.type === 'probe:angular-http-tag') {
+		chrome.runtime
+			.sendMessage({ action: 'angularHttpTag', angularHttpTag: e.data.payload })
+			.catch((err: unknown) => {
+				if (String(err).includes('Extension context invalidated')) return;
+				throw err;
+			});
 	}
 });
 

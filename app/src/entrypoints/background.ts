@@ -1182,6 +1182,42 @@ chrome.runtime.onMessage.addListener(
 			return true;
 		}
 
+		if (message.action === 'angularHttpTag') {
+			const tag = message.angularHttpTag;
+			if (!tag) return false;
+			// Match heurístico: mesma URL+method e timestamp do request dentro de
+			// 250ms da tag. Sem fallback: se nada casar, log de debug — não tagueamos
+			// uma request arbitrária.
+			const cutoff = tag.timestampHint - 250;
+			const candidates = Object.values(allRequests).filter(
+				(req) =>
+					req.url === tag.url &&
+					req.method === tag.method &&
+					typeof req.timestamp === 'number' &&
+					req.timestamp >= cutoff &&
+					req.timestamp <= tag.timestampHint + 250,
+			);
+			if (candidates.length === 0) {
+				console.debug(
+					`[probe] angularHttpTag sem match: ${tag.method} ${tag.url} (timestampHint=${tag.timestampHint})`,
+				);
+				return false;
+			}
+			// Pega a candidata com timestamp mais próximo do hint. NOTA: o campo
+			// `client` ainda NÃO existe em InterceptedResponse — quando for adicionado
+			// ao schema (futura phase), trocar este log por
+			// `patchRequest(matched.id ?? key, { client: 'angular-http' })`.
+			const matched = candidates.reduce((best, cur) =>
+				Math.abs(cur.timestamp - tag.timestampHint) < Math.abs(best.timestamp - tag.timestampHint)
+					? cur
+					: best,
+			);
+			console.debug(
+				`[probe] angularHttpTag match: ${tag.method} ${tag.url} → request@${matched.timestamp} (client=angular-http; aguardando InterceptedResponse.client)`,
+			);
+			return false;
+		}
+
 		return false;
 	},
 );

@@ -50,7 +50,9 @@ export type MessageAction =
 	// Session Replay — Phase 3 (antipatterns ao vivo)
 	| 'liveAntipatternHit'
 	// Session Replay — Phase 4 (state change capture)
-	| 'stateChange';
+	| 'stateChange'
+	// Session Replay — Phase 5 (Angular HttpClient tag)
+	| 'angularHttpTag';
 
 export interface Message {
 	action: MessageAction;
@@ -87,6 +89,13 @@ export interface Message {
 	antipatternHit?: AntipatternHit;
 	// State change (Phase 4)
 	statePayload?: ProbeStateChangePayload;
+	// Angular HttpClient tag (Phase 5)
+	angularHttpTag?: {
+		url: string;
+		method: string;
+		timestampHint: number;
+		confidence: 'high' | 'medium' | 'low';
+	};
 }
 
 export interface MessageResponse {

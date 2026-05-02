@@ -20,5 +20,13 @@ export function detectDataFetching(): DataFetchingDetection[] {
 	// SWR, urql, Relay, RTK Query: signatures de comportamento (parsing de
 	// stack em fetch, headers) ficam pra v1.x.
 
+	// Angular HttpClient é tratado como "tracked" (interceptamos via XHR tap em
+	// angularHttpTap.ts). Marcamos presença sempre que detectamos contexto Angular.
+	const ng = (window as unknown as { ng?: { getComponent?: unknown } }).ng;
+	const hasAppRoot = !!document.querySelector('app-root');
+	if (ng?.getComponent || hasAppRoot) {
+		out.push({ name: 'angular-http', treatment: 'tracked' });
+	}
+
 	return out;
 }
