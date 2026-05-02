@@ -126,3 +126,59 @@ describe('groupConsecutiveDetections', () => {
 		expect(groupConsecutiveDetections([])).toEqual([]);
 	});
 });
+
+const base: EnvironmentFingerprint = {
+	framework: { name: 'react', version: '18.2.0' },
+	httpClients: [],
+	dataFetching: [],
+	stateManagers: [],
+	detectedAt: 0,
+	isProductionBuild: false,
+};
+
+describe('fingerprintsEqual — storesDetected sentinel', () => {
+	it('considera 1 store e 5 stores equivalentes (sentinel hasStores)', () => {
+		const a: EnvironmentFingerprint = {
+			...base,
+			stateManagers: [{ name: 'redux', storesDetected: 1, treatment: 'tracked' }],
+		};
+		const b: EnvironmentFingerprint = {
+			...base,
+			stateManagers: [{ name: 'redux', storesDetected: 5, treatment: 'tracked' }],
+		};
+		expect(fingerprintsEqual(a, b)).toBe(true);
+	});
+
+	it('considera 0 stores e 1 store equivalentes (carregamento progressivo)', () => {
+		const a: EnvironmentFingerprint = {
+			...base,
+			stateManagers: [{ name: 'redux', storesDetected: 0, treatment: 'tracked' }],
+		};
+		const b: EnvironmentFingerprint = {
+			...base,
+			stateManagers: [{ name: 'redux', storesDetected: 1, treatment: 'tracked' }],
+		};
+		expect(fingerprintsEqual(a, b)).toBe(false);
+	});
+
+	it('considera ambiente sem state manager diferente de ambiente com Redux', () => {
+		const a: EnvironmentFingerprint = { ...base, stateManagers: [] };
+		const b: EnvironmentFingerprint = {
+			...base,
+			stateManagers: [{ name: 'redux', storesDetected: 1, treatment: 'tracked' }],
+		};
+		expect(fingerprintsEqual(a, b)).toBe(false);
+	});
+
+	it('considera Zustand e Redux diferentes mesmo com mesma quantidade de stores', () => {
+		const a: EnvironmentFingerprint = {
+			...base,
+			stateManagers: [{ name: 'redux', storesDetected: 1, treatment: 'tracked' }],
+		};
+		const b: EnvironmentFingerprint = {
+			...base,
+			stateManagers: [{ name: 'zustand', storesDetected: 1, treatment: 'tracked' }],
+		};
+		expect(fingerprintsEqual(a, b)).toBe(false);
+	});
+});
