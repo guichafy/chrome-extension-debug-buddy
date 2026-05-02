@@ -3,7 +3,7 @@ import { normalizeInterceptedResponse } from '@/domain/intercepted';
 
 // Nome do banco de dados e versão
 const DB_NAME = 'debugger-extension-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 // Nome das stores (tabelas)
 const REQUESTS_STORE = 'requests';
@@ -52,6 +52,16 @@ class IndexedDBServiceImpl implements IndexedDBService {
 					store.createIndex('status', 'data.status', { unique: false });
 
 					console.log('Store de requisições criada');
+				}
+
+				// Criar store de sessions (v2)
+				if (!db.objectStoreNames.contains('sessions')) {
+					const sessionsStore = db.createObjectStore('sessions', { keyPath: 'id' });
+					sessionsStore.createIndex('startedAt', 'startedAt');
+					sessionsStore.createIndex('tabId', 'tabId');
+					// Sem índice em endedAt: null não entra em índices IndexedDB.
+					// findActiveByTab filtra em JS.
+					console.log('Store de sessions criada');
 				}
 			};
 		});

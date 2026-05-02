@@ -97,6 +97,7 @@
     "chrome-webstore-upload-cli": "^3.5.0",
     "conventional-changelog-conventionalcommits": "^8.0.0",
     "express": "^5.2.1",
+    "fake-indexeddb": "^6.2.5",
     "husky": "^9.1.7",
     "jsdom": "^29.1.0",
     "lint-staged": "^15.5.2",

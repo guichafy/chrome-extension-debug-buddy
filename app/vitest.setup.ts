@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest';
+import 'fake-indexeddb/auto';
 import { TextDecoder, TextEncoder } from 'node:util';
 import { vi } from 'vitest';
 
