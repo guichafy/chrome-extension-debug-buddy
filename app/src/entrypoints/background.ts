@@ -6,6 +6,7 @@ import {
 } from '@/lib/legacyMigration';
 import { NetworkTimingTracker } from '@/lib/networkTiming';
 import { recorder } from '@/lib/session/recorder';
+import { sessionStore } from '@/lib/session/storage';
 import type { PageDetection } from '@/lib/session/types';
 import type {
 	AppliedType,
@@ -337,8 +338,18 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
 			reason: 'navigation',
 		});
 	} catch (err) {
-		// Tab pode ter fechado entre o evento e o sendMessage. Não fazer nada.
-		console.log(`[session] probeStartDetection ignorado para tab ${details.tabId}:`, err);
+		// Casos esperados: tab fechada entre evento e sendMessage, OR bridge ainda
+		// não injetado (race com document_start). Ambos não-actionables.
+		const msg = String(err);
+		if (
+			msg.includes('Could not establish connection') ||
+			msg.includes('The tab was closed') ||
+			msg.includes('No tab with id')
+		) {
+			// Esperado e silencioso.
+			return;
+		}
+		console.warn(`[session] probeStartDetection inesperado em tab ${details.tabId}:`, err);
 	}
 });
 
@@ -640,7 +651,17 @@ chrome.runtime.onMessage.addListener(
 		if (message.action === '__debug_stopSession') {
 			(async () => {
 				try {
+					// Lê tabId da session ANTES de stopSession (depois disso, getActiveByTab
+					// não retorna mais essa session porque endedAt foi setado).
+					const session = await sessionStore.get(message.sessionId as string);
 					await recorder.stopSession(message.sessionId as string);
+					if (session?.tabId !== undefined) {
+						try {
+							await chrome.tabs.sendMessage(session.tabId, { action: 'probeIdle' });
+						} catch {
+							// Tab pode ter fechado; ignorar.
+						}
+					}
 					sendResponse({ ok: true });
 				} catch (err) {
 					sendResponse({ ok: false, error: String(err) });
@@ -679,8 +700,12 @@ chrome.runtime.onMessage.addListener(
 
 		if (message.action === 'getActiveSession') {
 			(async () => {
-				const session = await recorder.getActiveByTab(message.tabId as number);
-				sendResponse({ session });
+				try {
+					const session = await recorder.getActiveByTab(message.tabId as number);
+					sendResponse({ ok: true, session });
+				} catch (err) {
+					sendResponse({ ok: false, session: null, error: String(err) });
+				}
 			})();
 			return true;
 		}
