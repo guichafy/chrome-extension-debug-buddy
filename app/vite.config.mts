@@ -57,6 +57,7 @@ export default defineConfig(({ mode }) => {
 					main: path.resolve(__dirname, 'src/entrypoints/options/main.tsx'),
 					'probe-main': path.resolve(__dirname, 'src/probe/main.ts'),
 					'probe-bridge': path.resolve(__dirname, 'src/probe/bridge.ts'),
+					'rrweb-recorder': path.resolve(__dirname, 'src/probe/rrwebRecorder.ts'),
 				},
 				output: {
 					entryFileNames: '[name].js',
