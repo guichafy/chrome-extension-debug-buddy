@@ -1,14 +1,14 @@
-import express from "express";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import express from 'express';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const PORT = 3100;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 
-app.get("/api/users", (_req, res) => {
-	res.status(200).json({ users: [{ id: 1, name: "real-user" }] });
+app.get('/api/users', (_req, res) => {
+	res.status(200).json({ users: [{ id: 1, name: 'real-user' }] });
 });
 
 app.use(express.static(__dirname));
