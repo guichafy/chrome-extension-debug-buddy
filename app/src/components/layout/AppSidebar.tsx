@@ -19,6 +19,7 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
 		{ title: 'Command Center', path: '/command-center', icon: 'layout', count: 0 },
 		{ title: 'Rules Lab', path: '/rules-lab', icon: 'flask', count: 0 },
 		{ title: 'Sessões', path: '/sessions', icon: 'film', count: 0 },
+		{ title: 'Privacidade', path: '/settings/privacy', icon: 'shield', count: 0 },
 	];
 
 	return (
