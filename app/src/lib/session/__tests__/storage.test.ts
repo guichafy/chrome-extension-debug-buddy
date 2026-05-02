@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { sessionStorage } from '../storage';
+import { _resetForTests, sessionStore } from '../storage';
 import type { Session } from '../types';
 
 const baseSession = (overrides: Partial<Session> = {}): Session => ({
@@ -20,51 +20,62 @@ const baseSession = (overrides: Partial<Session> = {}): Session => ({
 	...overrides,
 });
 
-describe('sessionStorage', () => {
+describe('sessionStore', () => {
 	beforeEach(async () => {
-		await sessionStorage.clear();
+		_resetForTests();
+		await sessionStore.clear();
 	});
 
 	afterEach(async () => {
-		await sessionStorage.clear();
+		await sessionStore.clear();
 	});
 
 	it('persiste e recupera uma session pelo id', async () => {
 		const s = baseSession();
-		await sessionStorage.put(s);
-		const got = await sessionStorage.get('sess-1');
+		await sessionStore.put(s);
+		const got = await sessionStore.get('sess-1');
 		expect(got).toEqual(s);
 	});
 
 	it('lista sessions ordenadas por startedAt desc', async () => {
-		await sessionStorage.put(baseSession({ id: 'a', startedAt: 1 }));
-		await sessionStorage.put(baseSession({ id: 'b', startedAt: 3 }));
-		await sessionStorage.put(baseSession({ id: 'c', startedAt: 2 }));
-		const list = await sessionStorage.list();
+		await sessionStore.put(baseSession({ id: 'a', startedAt: 1 }));
+		await sessionStore.put(baseSession({ id: 'b', startedAt: 3 }));
+		await sessionStore.put(baseSession({ id: 'c', startedAt: 2 }));
+		const list = await sessionStore.list();
 		expect(list.map((s) => s.id)).toEqual(['b', 'c', 'a']);
 	});
 
 	it('encontra session ativa por tabId (endedAt === null)', async () => {
-		await sessionStorage.put(baseSession({ id: 'closed', tabId: 7, endedAt: 5 }));
-		await sessionStorage.put(baseSession({ id: 'active', tabId: 7, endedAt: null }));
-		const active = await sessionStorage.findActiveByTab(7);
+		await sessionStore.put(baseSession({ id: 'closed', tabId: 7, endedAt: 5 }));
+		await sessionStore.put(baseSession({ id: 'active', tabId: 7, endedAt: null }));
+		const active = await sessionStore.findActiveByTab(7);
 		expect(active?.id).toBe('active');
 	});
 
 	it('retorna null quando não há session ativa pra tab', async () => {
-		const active = await sessionStorage.findActiveByTab(99);
+		const active = await sessionStore.findActiveByTab(99);
 		expect(active).toBeNull();
 	});
 
 	it('delete remove a session', async () => {
-		await sessionStorage.put(baseSession({ id: 'gone' }));
-		await sessionStorage.delete('gone');
-		expect(await sessionStorage.get('gone')).toBeNull();
+		await sessionStore.put(baseSession({ id: 'gone' }));
+		await sessionStore.delete('gone');
+		expect(await sessionStore.get('gone')).toBeNull();
 	});
 
 	it('count retorna número total', async () => {
-		await sessionStorage.put(baseSession({ id: 'a' }));
-		await sessionStorage.put(baseSession({ id: 'b' }));
-		expect(await sessionStorage.count()).toBe(2);
+		await sessionStore.put(baseSession({ id: 'a' }));
+		await sessionStore.put(baseSession({ id: 'b' }));
+		expect(await sessionStore.count()).toBe(2);
+	});
+
+	it('findActiveByTab com duas active sessions na mesma tab retorna a primeira encontrada', async () => {
+		// Invariante violada (recorder não deveria criar dupla), mas o storage deve responder
+		// determinísticamente em vez de explodir. Documenta o comportamento atual.
+		await sessionStore.put(baseSession({ id: 'a', tabId: 5, endedAt: null, startedAt: 1 }));
+		await sessionStore.put(baseSession({ id: 'b', tabId: 5, endedAt: null, startedAt: 2 }));
+		const active = await sessionStore.findActiveByTab(5);
+		expect(active).not.toBeNull();
+		expect(['a', 'b']).toContain(active?.id);
 	});
 });
