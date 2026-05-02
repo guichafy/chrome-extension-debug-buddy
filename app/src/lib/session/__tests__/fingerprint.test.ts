@@ -182,3 +182,38 @@ describe('fingerprintsEqual — storesDetected sentinel', () => {
 		expect(fingerprintsEqual(a, b)).toBe(false);
 	});
 });
+
+describe('fingerprintsEqual — Phase 5 Angular libs', () => {
+	const baseFp = {
+		framework: { name: 'angular' as const, version: '17' },
+		httpClients: [],
+		dataFetching: [],
+		stateManagers: [],
+		detectedAt: 1,
+		isProductionBuild: false,
+	};
+
+	it('fingerprintsEqual=false quando angular-http muda de detection-only para tracked', () => {
+		const before = {
+			...baseFp,
+			httpClients: [{ name: 'angular-http', confidence: 'high' as const }],
+			dataFetching: [{ name: 'angular-http', treatment: 'detection-only' as const }],
+		};
+		const after = {
+			...before,
+			dataFetching: [{ name: 'angular-http', treatment: 'tracked' as const }],
+		};
+		expect(fingerprintsEqual(before, after)).toBe(false);
+	});
+
+	it('fingerprintsEqual=true para dois snapshots com angular-signal tracked', () => {
+		const a = {
+			...baseFp,
+			stateManagers: [
+				{ name: 'angular-signal', storesDetected: 0, treatment: 'tracked' as const },
+			],
+		};
+		const b = { ...a, detectedAt: 999 };
+		expect(fingerprintsEqual(a, b)).toBe(true);
+	});
+});
