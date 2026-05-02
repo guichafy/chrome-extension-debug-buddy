@@ -6,6 +6,7 @@ import type { InterceptedResponse, ResponseModifications } from './intercepted';
 import type { MockConfig } from './legacy';
 import type { SessionMarker } from './sessionMarker';
 import type {
+	AntipatternHit,
 	EnvironmentFingerprint,
 	PageDetectionTrigger,
 	RrwebEvent,
@@ -44,7 +45,9 @@ export type MessageAction =
 	| 'exportSession'
 	| 'importSession'
 	// Session Replay — Phase 2 (rrweb)
-	| 'rrwebBatch';
+	| 'rrwebBatch'
+	// Session Replay — Phase 3 (antipatterns ao vivo)
+	| 'liveAntipatternHit';
 
 export interface Message {
 	action: MessageAction;
@@ -77,6 +80,8 @@ export interface Message {
 	// rrweb (Phase 2)
 	rrwebEvents?: RrwebEvent[];
 	recordCanvas?: boolean;
+	// Antipattern (Phase 3)
+	antipatternHit?: AntipatternHit;
 }
 
 export interface MessageResponse {
@@ -98,4 +103,6 @@ export interface MessageResponse {
 	durationMs?: number;
 	// exportSession (Phase 1d)
 	data?: ArrayBuffer;
+	// Antipattern (Phase 3)
+	antipatternHits?: AntipatternHit[];
 }

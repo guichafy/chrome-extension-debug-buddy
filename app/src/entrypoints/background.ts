@@ -9,8 +9,10 @@ import { NetworkTimingTracker } from '@/lib/networkTiming';
 import { recorder } from '@/lib/session/recorder';
 import { serializeSession } from '@/lib/session/exporter';
 import { parseDbsession } from '@/lib/session/importer';
+import { resolveCallsite } from '@/lib/session/sourceMap';
 import { sessionStore } from '@/lib/session/storage';
 import type {
+	AntipatternHit,
 	ConsoleArgPreview,
 	ConsoleLevel,
 	ConsoleStackFrame,
@@ -211,30 +213,80 @@ async function handleLogEntry(
 
 // --- Session Replay — network event helper ---
 
+// Resolve callsite via source map quando o detector populou hit.context.callsite
+// com o raw frame. Falha silenciosamente (mantém o raw) — é informativo, não
+// bloqueante. NÃO inventa valores: se resolveCallsite lança, o callsite original
+// já está intacto na hit (sem fallback).
+async function tryResolveHitCallsite(hit: AntipatternHit): Promise<void> {
+	if (!hit.context.callsite?.raw) return;
+	try {
+		hit.context.callsite = await resolveCallsite(hit.context.callsite.raw);
+	} catch (err) {
+		console.warn('[antipattern] resolveCallsite falhou:', err);
+	}
+}
+
 async function emitNetworkEventForSession(
 	tabId: number,
 	requestId: string,
 	request: InterceptedResponse,
 ): Promise<void> {
-	const session = await recorder.getActiveByTab(tabId);
-	if (!session) return;
 	if (!request.method) {
 		console.warn(`[session] NetworkEvent: method ausente para ${requestId}, ignorando`);
 		return;
 	}
+
+	const session = await recorder.getActiveByTab(tabId);
+
+	// Construímos o NetworkEvent uma vez. phaseId só faz sentido quando há sessão
+	// gravada (modo passivo não tem detection phases) — usamos string vazia como
+	// marcador "sem fase" no buffer da engine; detectores não dependem de phaseId
+	// para detecção, apenas para popular o hit.
 	const event: SessionEvent = {
 		type: 'network',
 		timestamp: request.timestamp,
-		phaseId: currentPhaseId(session),
+		phaseId: session ? currentPhaseId(session) : '',
 		requestId,
 		method: request.method,
 		url: request.url,
 		status: request.status,
 	};
+
+	if (session) {
+		try {
+			await recorder.addEvent(session.id, event);
+		} catch (err) {
+			console.warn('[session] addEvent network falhou:', err);
+		}
+	}
+
+	// Antipattern engine — gravado vs passivo. Esta é uma HOT path; nenhum erro
+	// aqui pode quebrar a interceptação. Tudo é envolvido em try/catch defensivo.
 	try {
-		await recorder.addEvent(session.id, event);
+		if (session) {
+			const hits = recorder.pushNetworkForAntipatterns(session.id, event);
+			for (const hit of hits) {
+				await tryResolveHitCallsite(hit);
+				try {
+					await recorder.addAntipatternHit(session.id, hit);
+				} catch (err) {
+					console.warn('[antipattern] addAntipatternHit falhou:', err);
+				}
+				broadcastToUI('liveAntipatternHit', { tabId, antipatternHit: hit });
+			}
+		} else {
+			// Modo passivo: roda engine só se interceptação está ativa nesta tab.
+			if (isDebugging && attachedTabId === tabId) {
+				const eng = recorder.getOrCreatePassiveEngineForTab(tabId);
+				const hits = eng.pushEvent(event);
+				for (const hit of hits) {
+					await tryResolveHitCallsite(hit);
+					broadcastToUI('liveAntipatternHit', { tabId, antipatternHit: hit });
+				}
+			}
+		}
 	} catch (err) {
-		console.warn('[session] addEvent network falhou:', err);
+		console.warn('[antipattern] engine pipeline error:', err);
 	}
 }
 
@@ -484,6 +536,10 @@ chrome.action.onClicked.addListener(() => {
 
 // Quando uma aba é fechada, verificar se é a aba do interceptor ou a aba alvo.
 chrome.tabs.onRemoved.addListener((tabId) => {
+	// Engines passivas são por-tab; ao fechar a tab, libera memória mesmo se a
+	// tab fechada não era a target — é no-op se nunca houve engine pra ela.
+	recorder.clearPassiveEngineForTab(tabId);
+
 	if (tabId === interceptorTabId) {
 		console.log('Aba do interceptor fechada, parando debugging');
 		interceptorTabId = null;
@@ -1448,11 +1504,15 @@ async function stopDebugging(): Promise<boolean> {
 		// Reset global state. `timingTracker.reset()` antes de zerar `allRequests`
 		// fecha a janela em que callbacks pendentes (onDurationReady/onMetricsReady)
 		// poderiam chamar `patchRequest` e cair em `allRequests[id] === undefined`.
+		const previousAttachedTabId = attachedTabId;
 		isDebugging = false;
 		attachedTabId = null;
 		pendingResponses = {};
 		timingTracker.reset();
 		allRequests = {};
+		if (previousAttachedTabId !== null) {
+			recorder.clearPassiveEngineForTab(previousAttachedTabId);
+		}
 
 		console.log('Debugging stopped successfully');
 		return true;

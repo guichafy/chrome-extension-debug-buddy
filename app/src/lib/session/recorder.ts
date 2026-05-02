@@ -1,8 +1,10 @@
+import { AntipatternEngine } from './antipattern/engine';
 import { tryCoalesceConsole } from './coalesce';
 import { fingerprintsEqual, newPhaseId } from './fingerprint';
 import { estimateEventBytes, estimateRrwebBytes } from './sizeEstimate';
 import { sessionStore } from './storage';
 import type {
+	AntipatternHit,
 	DetectionPhase,
 	PageDetection,
 	RrwebEvent,
@@ -45,6 +47,12 @@ interface SessionRuntime {
 	navigationCount: number;
 }
 const runtime = new Map<string, SessionRuntime>();
+
+// Engines de antipatterns: um por sessão gravada, um por tab passiva (modo ao
+// vivo sem session). Mantidos em memória — descartados em stopSession /
+// stopDebugging / tab.onRemoved.
+const sessionEngines = new Map<string, AntipatternEngine>();
+const tabEngines = new Map<number, AntipatternEngine>();
 
 /**
  * Cadeia de promises por sessionId para serializar mutations.
@@ -145,6 +153,7 @@ export const recorder = {
 			// clicou em "Parar gravação"). Não-encontrada continua erro.
 			if (s.endedAt !== null) return;
 			s.endedAt = Date.now();
+			sessionEngines.delete(id);
 			runtime.delete(id);
 			await sessionStore.put(s);
 		});
@@ -240,6 +249,50 @@ export const recorder = {
 		});
 	},
 
+	addAntipatternHit(sessionId: string, hit: AntipatternHit): Promise<void> {
+		return serializeBySessionId(sessionId, async () => {
+			const s = await sessionStore.get(sessionId);
+			if (!s) throw new Error(`Session ${sessionId} não encontrada`);
+			if (s.endedAt !== null) throw new Error(`Session ${sessionId} já encerrada`);
+			if (!s.antipatternHits) s.antipatternHits = [];
+			const dedupKey = `${hit.patternId}|${hit.startTimestamp}|${hit.endTimestamp}|${hit.context.summary}`;
+			const exists = s.antipatternHits.some(
+				(h) =>
+					`${h.patternId}|${h.startTimestamp}|${h.endTimestamp}|${h.context.summary}` === dedupKey,
+			);
+			if (exists) return;
+			s.antipatternHits.push(hit);
+			await sessionStore.put(s);
+		});
+	},
+
+	pushNetworkForAntipatterns(sessionId: string, ev: SessionEvent): AntipatternHit[] {
+		let eng = sessionEngines.get(sessionId);
+		if (!eng) {
+			eng = new AntipatternEngine();
+			sessionEngines.set(sessionId, eng);
+		}
+		return eng.pushEvent(ev);
+	},
+
+	getOrCreatePassiveEngineForTab(tabId: number): AntipatternEngine {
+		let eng = tabEngines.get(tabId);
+		if (!eng) {
+			eng = new AntipatternEngine();
+			tabEngines.set(tabId, eng);
+		}
+		return eng;
+	},
+
+	clearPassiveEngineForTab(tabId: number): void {
+		tabEngines.delete(tabId);
+	},
+
+	_resetEnginesForTests(): void {
+		sessionEngines.clear();
+		tabEngines.clear();
+	},
+
 	async getActiveByTab(tabId: number): Promise<Session | null> {
 		return sessionStore.findActiveByTab(tabId);
 	},
@@ -263,5 +316,7 @@ export const recorder = {
 		durationLimitMs = DEFAULT_DURATION_LIMIT_MS;
 		runtime.clear();
 		mutationChain.clear();
+		sessionEngines.clear();
+		tabEngines.clear();
 	},
 };
