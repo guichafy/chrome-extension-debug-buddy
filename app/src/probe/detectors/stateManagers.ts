@@ -1,5 +1,6 @@
 import type { StateManagerDetection } from '@/lib/session/types';
 import { angularSignalsTrackable } from '../state/angularSignalTap';
+import { ngrxDetected } from '../state/ngrxTap';
 import { reduxStoreRegistry } from '../state/reduxTap';
 import { zustandStoreRegistry } from '../state/zustandTap';
 
@@ -29,7 +30,12 @@ export function detectStateManagers(): StateManagerDetection[] {
 		out.push({ name: 'angular-signal', storesDetected: 0, treatment: 'tracked' });
 	}
 
-	// MobX, Jotai, NgRx: ainda não cobertos.
+	// NgRx: detecção via hook `__NGRX_DEVTOOLS__` ou `__STORE__` global (Phase 5).
+	if (ngrxDetected()) {
+		out.push({ name: 'ngrx', storesDetected: 0, treatment: 'tracked' });
+	}
+
+	// MobX, Jotai: ainda não cobertos.
 
 	return out;
 }

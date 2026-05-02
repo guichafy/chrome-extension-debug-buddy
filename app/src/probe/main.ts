@@ -5,6 +5,7 @@ import { detectStateManagers } from './detectors/stateManagers';
 import { isProbeMessage, PROBE_NAMESPACE, type ProbeMessage } from './protocol';
 import { installAngularHttpTap } from './state/angularHttpTap';
 import { installAngularSignalTap } from './state/angularSignalTap';
+import { installNgRxTap } from './state/ngrxTap';
 import { installReduxTap } from './state/reduxTap';
 import { installZustandTap } from './state/zustandTap';
 import type { EnvironmentFingerprint, PageDetectionTrigger } from '@/lib/session/types';
@@ -85,6 +86,9 @@ window.addEventListener('message', (e: MessageEvent) => {
 		// Angular Signals tap: wrappa `.set()`/`.update()` em signals expostos via
 		// `ng.getComponent()`. Retorna null em apps não-Angular.
 		installAngularSignalTap();
+		// NgRx tap: wrappa `Store.dispatch` quando `__STORE__` global é encontrado.
+		// Retorna null em apps sem Store NgRx exposto.
+		installNgRxTap();
 		emitDetection(e.data.reason);
 	} else if (e.data.type === 'probe:idle') {
 		active = false;
