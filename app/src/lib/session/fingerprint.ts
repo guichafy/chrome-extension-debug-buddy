@@ -14,6 +14,9 @@ export function sameSet<T>(a: T[], b: T[], key: (item: T) => string): boolean {
 	return true;
 }
 
+// `treatment` entra na chave canônica (dataFetching/stateManagers): duas detections
+// da mesma lib mas com treatments diferentes representam environments distintos.
+// Hoje treatment é estático por detector, mas mantemos por defesa em profundidade.
 export function fingerprintsEqual(
 	a: EnvironmentFingerprint,
 	b: EnvironmentFingerprint,

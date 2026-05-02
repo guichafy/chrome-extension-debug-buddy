@@ -200,10 +200,14 @@ function fingerprintsEqual(a: EnvironmentFingerprint, b: EnvironmentFingerprint)
     a.framework.name === b.framework.name &&
     a.framework.version === b.framework.version &&
     sameSet(a.httpClients, b.httpClients, key => `${key.name}:${key.confidence}`) &&
-    sameSet(a.dataFetching, b.dataFetching, key => `${key.name}:${key.version ?? ''}`) &&
-    sameSet(a.stateManagers, b.stateManagers, key => `${key.name}:${key.storesDetected}`)
+    sameSet(a.dataFetching, b.dataFetching, key => `${key.name}:${key.version ?? ''}:${key.treatment}`) &&
+    sameSet(a.stateManagers, b.stateManagers, key => `${key.name}:${key.storesDetected}:${key.treatment}`)
   );
 }
+// `treatment` entra na chave canônica: duas detections da mesma lib mas com
+// treatments diferentes (tracked vs. detection-only) representam environments
+// semanticamente distintos — devem abrir phase nova. Hoje treatment é estático
+// por detector, então isso é defesa em profundidade.
 ```
 
 `isProductionBuild` e `detectedAt` não entram na comparação (metadados, não identidade).
