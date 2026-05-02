@@ -3,7 +3,13 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { Filter, RequestState } from '@/types/filters';
-import { FILTER_FIELD_LABELS, FILTER_OPERATOR_LABELS, REQUEST_STATE_LABELS } from '@/types/filters';
+import {
+	APPLIED_TYPE_LABELS,
+	FILTER_FIELD_LABELS,
+	FILTER_OPERATOR_LABELS,
+	REQUEST_STATE_LABELS,
+} from '@/types/filters';
+import type { AppliedType } from '@/types/intercepted';
 
 interface FilterChipProps {
 	filter: Filter;
@@ -12,6 +18,10 @@ interface FilterChipProps {
 
 function isRequestState(value: string): value is RequestState {
 	return value in REQUEST_STATE_LABELS;
+}
+
+function isAppliedType(value: string): value is AppliedType {
+	return value in APPLIED_TYPE_LABELS;
 }
 
 function chipBadgeVariant(filter: Filter): 'warning' | 'destructive' | 'secondary' | 'outline' {
@@ -24,6 +34,9 @@ function chipBadgeVariant(filter: Filter): 'warning' | 'destructive' | 'secondar
 function formatFilterValue(filter: Filter): string {
 	if (filter.field === 'state' && isRequestState(filter.value)) {
 		return REQUEST_STATE_LABELS[filter.value];
+	}
+	if (filter.field === 'tipo' && isAppliedType(filter.value)) {
+		return APPLIED_TYPE_LABELS[filter.value];
 	}
 	return filter.value;
 }

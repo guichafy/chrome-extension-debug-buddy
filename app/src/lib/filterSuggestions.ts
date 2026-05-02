@@ -1,4 +1,4 @@
-import type { InterceptedResponse } from '@/types/intercepted';
+import type { AppliedType, InterceptedResponse } from '@/types/intercepted';
 import type { Filter, FilterField, FilterOperator, RequestState } from '@/types/filters';
 
 // Sugestão exibida no Combobox da FilterBar. `display` é o texto visível, `hint`
@@ -14,17 +14,25 @@ const FIELD_PREFIXES: Array<{ prefix: string; field: FilterField; hint: string }
 	{ prefix: 'method:', field: 'method', hint: 'Método HTTP' },
 	{ prefix: 'status:', field: 'status', hint: 'Status code' },
 	{ prefix: 'url:', field: 'url', hint: 'URL contém' },
-	{ prefix: 'type:', field: 'type', hint: 'Request type' },
+	{ prefix: 'type:', field: 'type', hint: 'Resource type' },
 	{ prefix: 'mime:', field: 'mime', hint: 'Content-Type' },
 	{ prefix: 'state:', field: 'state', hint: 'Estado' },
+	{ prefix: 'tipo:', field: 'tipo', hint: 'Tipo de regra aplicada' },
 ];
 
 const STATE_VALUES: Array<{ value: RequestState; label: string }> = [
 	{ value: 'pending', label: 'Aguardando' },
 	{ value: 'failed', label: 'Falha' },
-	{ value: 'mocked', label: 'Mockado' },
 	{ value: 'modified', label: 'Modificado' },
+	{ value: 'ok', label: 'OK' },
+];
+
+const TIPO_VALUES: Array<{ value: AppliedType; label: string }> = [
 	{ value: 'proxy', label: 'Proxy' },
+	{ value: 'mock', label: 'Mock' },
+	{ value: 'transform', label: 'Transform' },
+	{ value: 'breakpoint', label: 'Breakpoint' },
+	{ value: 'latency', label: 'Latência' },
 ];
 
 const COMMON_STATUS_GROUPS = ['2xx', '3xx', '4xx', '5xx'];
@@ -97,6 +105,10 @@ function buildFieldValueSuggestions(
 			return STATE_VALUES.filter(
 				(s) => s.value.includes(lowerValue) || s.label.toLowerCase().includes(lowerValue),
 			).map((s) => buildSuggestion(s.value, 'is', `Estado: ${s.label}`));
+		case 'tipo':
+			return TIPO_VALUES.filter(
+				(t) => t.value.includes(lowerValue) || t.label.toLowerCase().includes(lowerValue),
+			).map((t) => buildSuggestion(t.value, 'is', `Tipo: ${t.label}`));
 		case 'status': {
 			const groups = COMMON_STATUS_GROUPS.map((g) => buildSuggestion(g, 'is', `Faixa ${g}`));
 			const exact = facets.statuses
@@ -138,12 +150,15 @@ export function buildSuggestions(
 		}
 	}
 
+	const isExactOperatorField = (field: FilterField): boolean =>
+		field === 'state' || field === 'tipo';
+
 	if (input.length === 0) {
 		const fieldShortcuts: FilterSuggestion[] = FIELD_PREFIXES.map(({ prefix, field, hint }) => ({
 			id: `prefix:${field}`,
 			display: prefix,
 			hint,
-			apply: { field, operator: field === 'state' ? 'is' : 'contains', value: '' },
+			apply: { field, operator: isExactOperatorField(field) ? 'is' : 'contains', value: '' },
 		}));
 		const pendingShortcut: FilterSuggestion = {
 			id: 'shortcut:state:pending',
@@ -161,7 +176,7 @@ export function buildSuggestions(
 		id: `prefix:${field}:partial`,
 		display: prefix,
 		hint,
-		apply: { field, operator: field === 'state' ? 'is' : 'contains', value: '' },
+		apply: { field, operator: isExactOperatorField(field) ? 'is' : 'contains', value: '' },
 	}));
 
 	const freeSuggestion: FilterSuggestion = {

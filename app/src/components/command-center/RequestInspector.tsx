@@ -220,7 +220,7 @@ export function RequestInspector({
 				<ScrollArea className="flex-1 px-4 py-3">
 					<TabsContent value="overview" className="space-y-2 text-sm">
 						<div>
-							<span className="font-medium">Tipo: </span>
+							<span className="font-medium">Resource type: </span>
 							{request.type}
 						</div>
 						<div>

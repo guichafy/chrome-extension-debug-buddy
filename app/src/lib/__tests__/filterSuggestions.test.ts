@@ -56,11 +56,17 @@ describe('buildSuggestions', () => {
 		expect(operators).toContain('lte');
 	});
 
-	test('prefixo state: lista todos os estados', () => {
+	test('prefixo state: lista todos os estados (failed/pending/modified/ok)', () => {
 		const suggestions = buildSuggestions('state:', []);
 		const values = suggestions.map((s) => s.apply.value);
+		expect(values).toEqual(expect.arrayContaining(['pending', 'failed', 'modified', 'ok']));
+	});
+
+	test('prefixo tipo: lista todos os tipos de regra aplicados', () => {
+		const suggestions = buildSuggestions('tipo:', []);
+		const values = suggestions.map((s) => s.apply.value);
 		expect(values).toEqual(
-			expect.arrayContaining(['pending', 'failed', 'mocked', 'modified', 'proxy']),
+			expect.arrayContaining(['proxy', 'mock', 'transform', 'breakpoint', 'latency']),
 		);
 	});
 

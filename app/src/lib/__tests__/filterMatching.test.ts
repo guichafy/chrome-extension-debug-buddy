@@ -33,19 +33,19 @@ describe('getRequestState', () => {
 	test('isWaiting=true → pending', () => {
 		expect(getRequestState(makeRequest({ isWaiting: true }))).toBe('pending');
 	});
-	test('isMocked=true → mocked', () => {
-		expect(getRequestState(makeRequest({ isMocked: true }))).toBe('mocked');
+	test('isMocked=true sem edição → ok (mock virou Tipo, não Estado)', () => {
+		expect(getRequestState(makeRequest({ isMocked: true }))).toBe('ok');
 	});
-	test('isWaiting=false sem editedAtRuntime → proxy (aprovação ou ignore passthrough)', () => {
-		expect(getRequestState(makeRequest({ isWaiting: false }))).toBe('proxy');
+	test('isWaiting=false sem editedAtRuntime → ok (aprovação ou ignore passthrough)', () => {
+		expect(getRequestState(makeRequest({ isWaiting: false }))).toBe('ok');
 	});
 	test('isWaiting=false + editedAtRuntime=true → modified', () => {
 		expect(getRequestState(makeRequest({ isWaiting: false, editedAtRuntime: true }))).toBe(
 			'modified',
 		);
 	});
-	test('default → proxy', () => {
-		expect(getRequestState(makeRequest())).toBe('proxy');
+	test('default → ok', () => {
+		expect(getRequestState(makeRequest())).toBe('ok');
 	});
 });
 
@@ -130,9 +130,12 @@ describe('matchesFilter — state', () => {
 		expect(matchesFilter(makeRequest({ isWaiting: true }), filter)).toBe(true);
 		expect(matchesFilter(makeRequest({ isWaiting: false }), filter)).toBe(false);
 	});
-	test('state mocked', () => {
-		const filter = makeFilter({ field: 'state', operator: 'is', value: 'mocked' });
-		expect(matchesFilter(makeRequest({ isMocked: true }), filter)).toBe(true);
+	test('tipo mock (substituiu state:mocked) — casa via appliedTypes do background', () => {
+		const filter = makeFilter({ field: 'tipo', operator: 'is', value: 'mock' });
+		expect(matchesFilter(makeRequest({ appliedTypes: ['mock'] }), filter)).toBe(true);
+		expect(matchesFilter(makeRequest({ appliedTypes: ['mock', 'latency'] }), filter)).toBe(true);
+		// Sem appliedTypes, tratamos como proxy — não casa com tipo:mock.
+		expect(matchesFilter(makeRequest({ isMocked: true }), filter)).toBe(false);
 	});
 	test('state failed quando captureError presente', () => {
 		const filter = makeFilter({ field: 'state', operator: 'is', value: 'failed' });

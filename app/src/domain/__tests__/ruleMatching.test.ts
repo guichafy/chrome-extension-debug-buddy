@@ -35,6 +35,24 @@ describe('findMatchingRuleAction', () => {
 		expect(match && 'body' in match.action).toBe(false);
 	});
 
+	test('retorna delay quando a regra de Latência casa (DelayAction agora consumido)', () => {
+		const rule = baseRule({
+			action: {
+				type: 'delay',
+				enabled: true,
+				timeMs: 1500,
+			},
+		});
+
+		const match = findMatchingRuleAction([rule], {
+			url: 'https://example.test/api/users',
+			method: 'GET',
+			headers: {},
+		});
+
+		expect(match).toEqual({ type: 'delay', rule, action: rule.action });
+	});
+
 	test('retorna transform quando a regra casa (regressão: antes era pulado)', () => {
 		const rule = baseRule({
 			action: {
