@@ -39,8 +39,10 @@ describe('useReplayPlayhead', () => {
 			pause: vi.fn(),
 		};
 		act(() => {
-			(result.current.playerRef as React.MutableRefObject<RrwebPlayerHandle | null>).current =
-				fakePlayer;
+			// React 19 desaconselha `MutableRefObject`; o `RefObject<T | null>` aceita
+			// atribuição em `.current` quando T inclui null. Cast só para silenciar
+			// readonly visual no tipo público da hook.
+			(result.current.playerRef as { current: RrwebPlayerHandle | null }).current = fakePlayer;
 			result.current.seek(2500);
 		});
 		expect(goto).toHaveBeenCalledWith(2500);
