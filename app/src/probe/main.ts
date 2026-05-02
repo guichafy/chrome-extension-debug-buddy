@@ -6,6 +6,7 @@ import { isProbeMessage, PROBE_NAMESPACE, type ProbeMessage } from './protocol';
 import type { EnvironmentFingerprint, PageDetectionTrigger } from '@/lib/session/types';
 
 let active = false;
+let historyPatched = false;
 
 function isProductionBuild(): boolean {
 	// Heurística leve: ausência de hooks de devtools em React/Angular sugere prod build.
@@ -63,9 +64,14 @@ window.addEventListener('message', (e: MessageEvent) => {
 	if (e.source !== window) return;
 	if (!isProbeMessage(e.data)) return;
 	if (e.data.type === 'probe:start-detection') {
-		const wasActive = active;
 		active = true;
-		if (!wasActive) patchHistoryForSpaRouting();
+		// Patch é one-shot: não há como reverter wrappers sem corromper a app,
+		// então deixamos instalado mesmo após probe:idle. `historyPatched` previne
+		// double-wrap em ciclos start→idle→start (que dobrariam detections).
+		if (!historyPatched) {
+			patchHistoryForSpaRouting();
+			historyPatched = true;
+		}
 		emitDetection(e.data.reason);
 	} else if (e.data.type === 'probe:idle') {
 		active = false;
