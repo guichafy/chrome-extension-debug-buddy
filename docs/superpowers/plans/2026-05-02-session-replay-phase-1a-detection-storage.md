@@ -161,7 +161,7 @@ Arquivo `app/src/lib/session/__tests__/storage.test.ts`:
 ```ts
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import 'fake-indexeddb/auto';
-import { sessionStorage } from '../storage';
+import { sessionStore } from '../storage';
 import type { Session } from '../types';
 
 const baseSession = (overrides: Partial<Session> = {}): Session => ({
@@ -182,52 +182,52 @@ const baseSession = (overrides: Partial<Session> = {}): Session => ({
 	...overrides,
 });
 
-describe('sessionStorage', () => {
+describe('sessionStore', () => {
 	beforeEach(async () => {
-		await sessionStorage.clear();
+		await sessionStore.clear();
 	});
 
 	afterEach(async () => {
-		await sessionStorage.clear();
+		await sessionStore.clear();
 	});
 
 	it('persiste e recupera uma session pelo id', async () => {
 		const s = baseSession();
-		await sessionStorage.put(s);
-		const got = await sessionStorage.get('sess-1');
+		await sessionStore.put(s);
+		const got = await sessionStore.get('sess-1');
 		expect(got).toEqual(s);
 	});
 
 	it('lista sessions ordenadas por startedAt desc', async () => {
-		await sessionStorage.put(baseSession({ id: 'a', startedAt: 1 }));
-		await sessionStorage.put(baseSession({ id: 'b', startedAt: 3 }));
-		await sessionStorage.put(baseSession({ id: 'c', startedAt: 2 }));
-		const list = await sessionStorage.list();
+		await sessionStore.put(baseSession({ id: 'a', startedAt: 1 }));
+		await sessionStore.put(baseSession({ id: 'b', startedAt: 3 }));
+		await sessionStore.put(baseSession({ id: 'c', startedAt: 2 }));
+		const list = await sessionStore.list();
 		expect(list.map((s) => s.id)).toEqual(['b', 'c', 'a']);
 	});
 
 	it('encontra session ativa por tabId (endedAt === null)', async () => {
-		await sessionStorage.put(baseSession({ id: 'closed', tabId: 7, endedAt: 5 }));
-		await sessionStorage.put(baseSession({ id: 'active', tabId: 7, endedAt: null }));
-		const active = await sessionStorage.findActiveByTab(7);
+		await sessionStore.put(baseSession({ id: 'closed', tabId: 7, endedAt: 5 }));
+		await sessionStore.put(baseSession({ id: 'active', tabId: 7, endedAt: null }));
+		const active = await sessionStore.findActiveByTab(7);
 		expect(active?.id).toBe('active');
 	});
 
 	it('retorna null quando não há session ativa pra tab', async () => {
-		const active = await sessionStorage.findActiveByTab(99);
+		const active = await sessionStore.findActiveByTab(99);
 		expect(active).toBeNull();
 	});
 
 	it('delete remove a session', async () => {
-		await sessionStorage.put(baseSession({ id: 'gone' }));
-		await sessionStorage.delete('gone');
-		expect(await sessionStorage.get('gone')).toBeNull();
+		await sessionStore.put(baseSession({ id: 'gone' }));
+		await sessionStore.delete('gone');
+		expect(await sessionStore.get('gone')).toBeNull();
 	});
 
 	it('count retorna número total', async () => {
-		await sessionStorage.put(baseSession({ id: 'a' }));
-		await sessionStorage.put(baseSession({ id: 'b' }));
-		expect(await sessionStorage.count()).toBe(2);
+		await sessionStore.put(baseSession({ id: 'a' }));
+		await sessionStore.put(baseSession({ id: 'b' }));
+		expect(await sessionStore.count()).toBe(2);
 	});
 });
 ```
@@ -312,7 +312,7 @@ function reqToPromise<T>(req: IDBRequest<T>): Promise<T> {
 	});
 }
 
-export const sessionStorage = {
+export const sessionStore = {
 	async put(session: Session): Promise<void> {
 		await withStore('readwrite', (store) => reqToPromise(store.put(session)));
 	},
@@ -1393,7 +1393,7 @@ Arquivo `app/src/lib/session/__tests__/recorder.test.ts`:
 ```ts
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { recorder } from '../recorder';
-import { sessionStorage } from '../storage';
+import { sessionStore } from '../storage';
 import type { EnvironmentFingerprint, PageDetection } from '../types';
 
 const fp = (overrides: Partial<EnvironmentFingerprint> = {}): EnvironmentFingerprint => ({
@@ -1414,11 +1414,11 @@ const page = (url: string, ts: number, fingerprint: EnvironmentFingerprint): Pag
 });
 
 beforeEach(async () => {
-	await sessionStorage.clear();
+	await sessionStore.clear();
 });
 
 afterEach(async () => {
-	await sessionStorage.clear();
+	await sessionStore.clear();
 });
 
 describe('recorder', () => {
@@ -1430,7 +1430,7 @@ describe('recorder', () => {
 			viewportSize: { w: 1280, h: 720 },
 			canvasCaptureEnabled: false,
 		});
-		const got = await sessionStorage.get(id);
+		const got = await sessionStore.get(id);
 		expect(got?.tabId).toBe(7);
 		expect(got?.endedAt).toBeNull();
 		expect(got?.origin).toBe('recorded');
@@ -1466,7 +1466,7 @@ describe('recorder', () => {
 		});
 		await recorder.addPage(id, page('https://x/a', 10, fp()));
 		await recorder.addPage(id, page('https://x/b', 20, fp()));
-		const got = await sessionStorage.get(id);
+		const got = await sessionStore.get(id);
 		expect(got?.detectionPhases).toHaveLength(1);
 		expect(got?.detectionPhases[0].pages).toHaveLength(2);
 		expect(got?.detectionPhases[0].endTimestamp).toBe(20);
@@ -1482,7 +1482,7 @@ describe('recorder', () => {
 		});
 		await recorder.addPage(id, page('https://x/', 10, fp()));
 		await recorder.addPage(id, page('https://y/', 20, fp({ framework: { name: 'angular' } })));
-		const got = await sessionStorage.get(id);
+		const got = await sessionStore.get(id);
 		expect(got?.detectionPhases).toHaveLength(2);
 		expect(got?.detectionPhases[1].fingerprint.framework.name).toBe('angular');
 	});
@@ -1497,7 +1497,7 @@ describe('recorder', () => {
 		});
 		await recorder.addPage(id, page('https://x/', 10, fp()));
 		await recorder.addPage(id, page('https://y/', 20, fp({ framework: { name: 'angular' } })));
-		const got = await sessionStorage.get(id);
+		const got = await sessionStore.get(id);
 		const detectionEvents = got?.events.filter((e) => e.type === 'detection') ?? [];
 		expect(detectionEvents).toHaveLength(2);
 		expect(detectionEvents[0].phaseId).toBe(got?.detectionPhases[0].id);
@@ -1513,7 +1513,7 @@ describe('recorder', () => {
 			canvasCaptureEnabled: false,
 		});
 		await recorder.stopSession(id);
-		const got = await sessionStorage.get(id);
+		const got = await sessionStore.get(id);
 		expect(got?.endedAt).toBeGreaterThan(0);
 		// Permite criar nova sessão na mesma tab
 		const id2 = await recorder.startSession({
@@ -1542,7 +1542,7 @@ Arquivo `app/src/lib/session/recorder.ts`:
 
 ```ts
 import { fingerprintsEqual } from './fingerprint';
-import { sessionStorage } from './storage';
+import { sessionStore } from './storage';
 import type {
 	DetectionPhase,
 	PageDetection,
@@ -1579,7 +1579,7 @@ function makeDetectionEvent(timestamp: number, phaseId: string): SessionEvent {
 
 export const recorder = {
 	async startSession(args: StartArgs): Promise<string> {
-		const existing = await sessionStorage.findActiveByTab(args.tabId);
+		const existing = await sessionStore.findActiveByTab(args.tabId);
 		if (existing) {
 			throw new Error(`Já existe session ativa para tab ${args.tabId} (${existing.id})`);
 		}
@@ -1599,20 +1599,20 @@ export const recorder = {
 			detectionPhases: [],
 			events: [],
 		};
-		await sessionStorage.put(session);
+		await sessionStore.put(session);
 		return session.id;
 	},
 
 	async stopSession(id: string): Promise<void> {
-		const s = await sessionStorage.get(id);
+		const s = await sessionStore.get(id);
 		if (!s) throw new Error(`Session ${id} não encontrada`);
 		if (s.endedAt !== null) return;
 		s.endedAt = Date.now();
-		await sessionStorage.put(s);
+		await sessionStore.put(s);
 	},
 
 	async addPage(sessionId: string, detection: PageDetection): Promise<void> {
-		const s = await sessionStorage.get(sessionId);
+		const s = await sessionStore.get(sessionId);
 		if (!s) throw new Error(`Session ${sessionId} não encontrada`);
 		if (s.endedAt !== null) throw new Error(`Session ${sessionId} já encerrada`);
 		const last = s.detectionPhases[s.detectionPhases.length - 1];
@@ -1624,11 +1624,11 @@ export const recorder = {
 			s.detectionPhases.push(phase);
 			s.events.push(makeDetectionEvent(detection.timestamp, phase.id));
 		}
-		await sessionStorage.put(s);
+		await sessionStore.put(s);
 	},
 
 	async getActiveByTab(tabId: number): Promise<Session | null> {
-		return sessionStorage.findActiveByTab(tabId);
+		return sessionStore.findActiveByTab(tabId);
 	},
 };
 ```
