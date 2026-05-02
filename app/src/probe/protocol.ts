@@ -4,7 +4,7 @@ export const PROBE_NAMESPACE = 'debug-buddy-probe';
 
 export interface ProbeStateChangePayload {
 	storeId: string;
-	storeKind: 'redux' | 'zustand';
+	storeKind: 'redux' | 'zustand' | 'angular-signal' | 'ngrx';
 	timestamp: number;
 	prev: unknown;
 	next: unknown;

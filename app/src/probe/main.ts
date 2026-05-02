@@ -4,6 +4,7 @@ import { detectHttpClients } from './detectors/httpClients';
 import { detectStateManagers } from './detectors/stateManagers';
 import { isProbeMessage, PROBE_NAMESPACE, type ProbeMessage } from './protocol';
 import { installAngularHttpTap } from './state/angularHttpTap';
+import { installAngularSignalTap } from './state/angularSignalTap';
 import { installReduxTap } from './state/reduxTap';
 import { installZustandTap } from './state/zustandTap';
 import type { EnvironmentFingerprint, PageDetectionTrigger } from '@/lib/session/types';
@@ -81,6 +82,9 @@ window.addEventListener('message', (e: MessageEvent) => {
 		// Angular HttpClient tap: instala wrapper em XMLHttpRequest.prototype quando
 		// contexto Angular é detectado. Retorna null em apps não-Angular.
 		installAngularHttpTap();
+		// Angular Signals tap: wrappa `.set()`/`.update()` em signals expostos via
+		// `ng.getComponent()`. Retorna null em apps não-Angular.
+		installAngularSignalTap();
 		emitDetection(e.data.reason);
 	} else if (e.data.type === 'probe:idle') {
 		active = false;

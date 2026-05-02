@@ -1,4 +1,5 @@
 import type { StateManagerDetection } from '@/lib/session/types';
+import { angularSignalsTrackable } from '../state/angularSignalTap';
 import { reduxStoreRegistry } from '../state/reduxTap';
 import { zustandStoreRegistry } from '../state/zustandTap';
 
@@ -23,7 +24,12 @@ export function detectStateManagers(): StateManagerDetection[] {
 		});
 	}
 
-	// MobX, Jotai, NgRx, Angular signals: ainda não cobertos.
+	// Angular Signals: detecção via presença de `window.ng.getComponent` (Phase 5).
+	if (angularSignalsTrackable()) {
+		out.push({ name: 'angular-signal', storesDetected: 0, treatment: 'tracked' });
+	}
+
+	// MobX, Jotai, NgRx: ainda não cobertos.
 
 	return out;
 }
