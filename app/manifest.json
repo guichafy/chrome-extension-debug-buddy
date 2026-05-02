@@ -16,7 +16,8 @@
     "tabs",
     "storage",
     "sidePanel",
-    "offscreen"
+    "offscreen",
+    "webNavigation"
   ],
   "background": {
     "service_worker": "background.js",

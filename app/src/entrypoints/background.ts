@@ -323,6 +323,25 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 	}
 });
 
+// Re-detecção em navegação real: quando o usuário navega na tab alvo (full page load
+// ou SPA que dispara onCommitted), sinaliza o probe para emitir uma nova detection
+// com triggerType='navigation'. O probe já foi re-injetado pelo content_script via
+// document_start; o sendMessage apenas dispara o início do scan.
+chrome.webNavigation.onCommitted.addListener(async (details) => {
+	if (details.frameId !== 0) return; // só top frame — ignora iframes
+	const session = await recorder.getActiveByTab(details.tabId);
+	if (!session) return;
+	try {
+		await chrome.tabs.sendMessage(details.tabId, {
+			action: 'probeStartDetection',
+			reason: 'navigation',
+		});
+	} catch (err) {
+		// Tab pode ter fechado entre o evento e o sendMessage. Não fazer nada.
+		console.log(`[session] probeStartDetection ignorado para tab ${details.tabId}:`, err);
+	}
+});
+
 // Listen for messages from the popup or hot reload
 chrome.runtime.onMessage.addListener(
 	(message: any, sender, sendResponse: (response: MessageResponse) => void) => {
