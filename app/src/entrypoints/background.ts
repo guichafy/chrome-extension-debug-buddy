@@ -1,3 +1,4 @@
+import type { Protocol } from 'devtools-protocol/types/protocol';
 import { indexedDBService } from '@/lib/indexedDB';
 import {
 	runEnabledBackfillMigration,
@@ -7,7 +8,14 @@ import {
 import { NetworkTimingTracker } from '@/lib/networkTiming';
 import { recorder } from '@/lib/session/recorder';
 import { sessionStore } from '@/lib/session/storage';
-import type { PageDetection } from '@/lib/session/types';
+import type {
+	ConsoleArgPreview,
+	ConsoleLevel,
+	ConsoleStackFrame,
+	PageDetection,
+	Session,
+	SessionEvent,
+} from '@/lib/session/types';
 import type {
 	AppliedType,
 	InterceptedResponse,
@@ -54,6 +62,144 @@ let targetTabClosed = false;
 // "Página atual" exibidas pelo NetworkMetricsBar do header. Persistido em
 // chrome.storage.local pra sobreviver ao reload do service worker (MV3).
 let sessionMarker: SessionMarker = { ...EMPTY_SESSION_MARKER };
+
+// --- Session Replay — helpers CDP Runtime/Log ---
+
+function mapConsoleApiType(type: Protocol.Runtime.ConsoleAPICalledEvent['type']): ConsoleLevel {
+	const map: Record<string, ConsoleLevel> = {
+		log: 'log',
+		debug: 'debug',
+		info: 'info',
+		error: 'error',
+		warning: 'warn',
+		dir: 'dir',
+		dirxml: 'dir',
+		table: 'table',
+		trace: 'trace',
+		clear: 'clear',
+		startGroup: 'group',
+		startGroupCollapsed: 'groupCollapsed',
+		endGroup: 'groupEnd',
+		assert: 'assert',
+		profile: 'log',
+		profileEnd: 'log',
+		count: 'count',
+		timeEnd: 'timeEnd',
+	};
+	return map[type] ?? 'log';
+}
+
+function toArgPreview(obj: Protocol.Runtime.RemoteObject): ConsoleArgPreview {
+	const out: ConsoleArgPreview = {
+		type: (obj.type ?? 'string') as ConsoleArgPreview['type'],
+		description: obj.description ?? String(obj.value ?? ''),
+	};
+	if (obj.preview) {
+		out.preview = {
+			properties: obj.preview.properties.map((p) => ({
+				name: p.name,
+				type: p.type,
+				value: p.value,
+			})),
+			overflow: obj.preview.overflow ?? false,
+		};
+	}
+	return out;
+}
+
+function toStackFrames(
+	stack?: Protocol.Runtime.StackTrace,
+): { frames: ConsoleStackFrame[] } | undefined {
+	if (!stack) return undefined;
+	return {
+		frames: stack.callFrames.map((f) => ({
+			url: f.url,
+			lineNumber: f.lineNumber,
+			columnNumber: f.columnNumber,
+			functionName: f.functionName,
+		})),
+	};
+}
+
+function currentPhaseId(session: Session): string {
+	const last = session.detectionPhases[session.detectionPhases.length - 1];
+	return last?.id ?? 'no-phase';
+}
+
+function mapLogLevel(level: Protocol.Log.LogEntry['level']): ConsoleLevel {
+	if (level === 'error') return 'error';
+	if (level === 'warning') return 'warn';
+	if (level === 'info') return 'info';
+	return 'debug';
+}
+
+function mapLogSource(source: Protocol.Log.LogEntry['source']): 'browser' | 'security' {
+	return source === 'security' ? 'security' : 'browser';
+}
+
+async function handleConsoleAPI(
+	session: Session,
+	params: Protocol.Runtime.ConsoleAPICalledEvent,
+): Promise<void> {
+	const event: SessionEvent = {
+		type: 'console',
+		// CDP timestamp em segundos com fração; multiplicamos por 1 (ms compatível com Date.now da app).
+		timestamp: params.timestamp,
+		phaseId: currentPhaseId(session),
+		source: 'app',
+		level: mapConsoleApiType(params.type),
+		args: params.args.map(toArgPreview),
+		stackTrace: toStackFrames(params.stackTrace),
+	};
+	try {
+		await recorder.addEvent(session.id, event);
+	} catch (err) {
+		console.warn('[session] addEvent console falhou:', err);
+	}
+}
+
+async function handleExceptionThrown(
+	session: Session,
+	params: Protocol.Runtime.ExceptionThrownEvent,
+): Promise<void> {
+	const det = params.exceptionDetails;
+	const message = det.exception?.description ?? det.text ?? 'Exception';
+	const event: SessionEvent = {
+		type: 'error',
+		timestamp: params.timestamp,
+		phaseId: currentPhaseId(session),
+		message,
+		stackTrace: toStackFrames(det.stackTrace),
+	};
+	try {
+		await recorder.addEvent(session.id, event);
+	} catch (err) {
+		console.warn('[session] addEvent error falhou:', err);
+	}
+}
+
+async function handleLogEntry(
+	session: Session,
+	params: Protocol.Log.EntryAddedEvent,
+): Promise<void> {
+	const e = params.entry;
+	const event: SessionEvent = {
+		type: 'console',
+		timestamp: e.timestamp,
+		phaseId: currentPhaseId(session),
+		source: mapLogSource(e.source),
+		level: mapLogLevel(e.level),
+		args: [{ type: 'string', description: e.text }],
+		stackTrace: toStackFrames(e.stackTrace),
+	};
+	try {
+		await recorder.addEvent(session.id, event);
+	} catch (err) {
+		console.warn('[session] addEvent log falhou:', err);
+	}
+}
+
+// --- fim helpers CDP Runtime/Log ---
 
 function broadcastSessionMarker(): void {
 	broadcastToUI('sessionMarkerUpdated', { sessionMarker });
@@ -626,6 +772,14 @@ chrome.runtime.onMessage.addListener(
 		if (message.action === '__debug_startSession') {
 			(async () => {
 				try {
+					// Valida que interceptação está ativa nesta tab antes de iniciar a sessão.
+					const targets = await chrome.debugger.getTargets();
+					const attached = targets.find((t) => t.tabId === message.tabId && t.attached);
+					if (!attached) {
+						sendResponse({ ok: false, error: 'Interceptação não está ativa nesta tab' });
+						return;
+					}
+
 					const tab = await chrome.tabs.get(message.tabId);
 					const id = await recorder.startSession({
 						tabId: message.tabId,
@@ -634,6 +788,12 @@ chrome.runtime.onMessage.addListener(
 						viewportSize: { w: tab.width ?? 0, h: tab.height ?? 0 },
 						canvasCaptureEnabled: message.canvasCaptureEnabled ?? false,
 					});
+
+					// Ativa Runtime e Log para captura de console/exceptions.
+					// Se falhar (debugger detachou entre check e enable), propaga.
+					await chrome.debugger.sendCommand({ tabId: message.tabId }, 'Runtime.enable');
+					await chrome.debugger.sendCommand({ tabId: message.tabId }, 'Log.enable');
+
 					// Sinaliza o probe daquela tab pra começar a emitir detections.
 					// Se sendMessage falhar (probe não injetado), propaga erro via sendResponse.
 					await chrome.tabs.sendMessage(message.tabId, {
@@ -656,6 +816,13 @@ chrome.runtime.onMessage.addListener(
 					const session = await sessionStore.get(message.sessionId as string);
 					await recorder.stopSession(message.sessionId as string);
 					if (session?.tabId !== undefined) {
+						// Desativa Runtime e Log antes do probeIdle.
+						try {
+							await chrome.debugger.sendCommand({ tabId: session.tabId }, 'Runtime.disable');
+							await chrome.debugger.sendCommand({ tabId: session.tabId }, 'Log.disable');
+						} catch {
+							// Debugger pode ter detached entre stopSession e disable; ignorar.
+						}
 						try {
 							await chrome.tabs.sendMessage(session.tabId, { action: 'probeIdle' });
 						} catch {
@@ -1112,6 +1279,35 @@ function debuggerEventListener(
 					console.error('Erro ao sinalizar falha para request pausada:', failError);
 				},
 			);
+		});
+		return;
+	}
+
+	// Eventos de Session Replay: encaminha para o recorder se há sessão ativa.
+	if (
+		message === 'Runtime.consoleAPICalled' ||
+		message === 'Runtime.exceptionThrown' ||
+		message === 'Log.entryAdded'
+	) {
+		if (debuggeeId.tabId === undefined) return;
+		const tabId = debuggeeId.tabId;
+		recorder.getActiveByTab(tabId).then((session) => {
+			if (!session) return;
+			if (message === 'Runtime.consoleAPICalled') {
+				handleConsoleAPI(session, params as Protocol.Runtime.ConsoleAPICalledEvent).catch((err) => {
+					console.warn('[session] handleConsoleAPI falhou:', err);
+				});
+			} else if (message === 'Runtime.exceptionThrown') {
+				handleExceptionThrown(session, params as Protocol.Runtime.ExceptionThrownEvent).catch(
+					(err) => {
+						console.warn('[session] handleExceptionThrown falhou:', err);
+					},
+				);
+			} else {
+				handleLogEntry(session, params as Protocol.Log.EntryAddedEvent).catch((err) => {
+					console.warn('[session] handleLogEntry falhou:', err);
+				});
+			}
 		});
 	}
 }
