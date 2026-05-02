@@ -45,6 +45,16 @@ export default defineConfig(({ mode }) => {
 	}
 	return {
 		root: '.',
+		// Força esbuild a escapar caracteres não-ASCII como `\uXXXX` em vez de gravar
+		// os bytes UTF-8 originais. rrweb agrupa o postcss que tem string literals
+		// com U+FFFE (non-character byte-swap BOM), e o loader de content script
+		// do Chrome rejeita o arquivo como "não UTF-8" mesmo sendo UTF-8 válido —
+		// tem heurística estrita que falha em U+FFFE. Pure-ASCII output evita isso.
+		// Trade-off: alguns KB a mais por arquivo (escape sequences são mais longos
+		// que UTF-8 multi-byte), mas elimina o problema definitivamente.
+		esbuild: {
+			charset: 'ascii',
+		},
 		build: {
 			outDir: 'dist',
 			emptyOutDir: true,
