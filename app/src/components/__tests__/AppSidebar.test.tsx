@@ -1,5 +1,4 @@
-import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { AppSidebar } from '../layout/AppSidebar';
 
 // Mock para o react-router-dom
@@ -19,7 +18,7 @@ vi.mock('@/components/ui/sidebar', () => ({
 	SidebarFooter: ({ children }: any) => <div data-testid="sidebar-footer">{children}</div>,
 	SidebarMenu: ({ children }: any) => <div data-testid="sidebar-menu">{children}</div>,
 	SidebarMenuItem: ({ children }: any) => <div data-testid="sidebar-menu-item">{children}</div>,
-	SidebarMenuButton: ({ children, asChild, className, size }: any) => (
+	SidebarMenuButton: ({ children, className, size }: any) => (
 		<div data-testid="sidebar-menu-button" className={className} data-size={size}>
 			{children}
 		</div>

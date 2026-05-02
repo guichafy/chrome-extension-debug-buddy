@@ -6,7 +6,10 @@ import { record } from 'rrweb';
 import type { recordOptions } from 'rrweb';
 import type { eventWithTime } from '@rrweb/types';
 
-type RrwebRecordOptions = recordOptions<eventWithTime>;
+// `recordOptions<T>` em rrweb v2 é `T | undefined` (matching `record(opts?)`).
+// `NonNullable<...>` força o tipo concreto pra que `buildRrwebOptions()` não
+// devolva `... | undefined` — facilita testes e clareia a API.
+type RrwebRecordOptions = NonNullable<recordOptions<eventWithTime>>;
 
 const FLUSH_INTERVAL_MS = 1000;
 const FLUSH_BATCH_SIZE = 100;
