@@ -40,6 +40,18 @@ export interface ResponseFlagsRaw {
 	fromServiceWorker?: boolean;
 }
 
+// Subset relevante de `Network.requestWillBeSent.redirectResponse`.
+// O CDP envia muito mais campos (status, url, headers, etc.) que ignoramos —
+// `[key: string]: unknown` mantém o tipo aberto para evitar quebrar callers
+// que repassam o objeto inteiro do CDP.
+export interface RedirectResponseRaw {
+	timing?: ResponseTimingRaw;
+	fromDiskCache?: boolean;
+	fromServiceWorker?: boolean;
+	encodedDataLength?: number;
+	[key: string]: unknown;
+}
+
 // Diferença "segura" — retorna o intervalo apenas quando ambos os tempos existem
 // e são >= 0. CDP usa -1 para indicar "não houve esta fase" (ex.: sslStart = -1
 // em http puro). Fora desse caso, undefined deixa o helper omitir o campo.
@@ -133,7 +145,7 @@ export class NetworkTimingTracker {
 		params: {
 			requestId?: string;
 			timestamp?: number;
-			redirectResponse?: unknown;
+			redirectResponse?: RedirectResponseRaw;
 			response?: {
 				timing?: ResponseTimingRaw;
 				fromDiskCache?: boolean;
@@ -156,7 +168,7 @@ export class NetworkTimingTracker {
 				// Sem este tratamento, recordStart sobrescreveria o start original e
 				// o 301 nunca teria duration emitida.
 				if (params.redirectResponse) {
-					this.handleRedirect(networkId, ts);
+					this.handleRedirect(networkId, ts, params.redirectResponse);
 				} else {
 					this.recordStart(networkId, ts);
 				}
@@ -194,12 +206,33 @@ export class NetworkTimingTracker {
 		}
 	}
 
-	private handleRedirect(networkId: string, redirectTs: number): void {
+	private handleRedirect(
+		networkId: string,
+		redirectTs: number,
+		redirectResponse: RedirectResponseRaw,
+	): void {
 		const entry = this.entries.get(networkId);
 		if (entry?.start != null && entry.fetchRequestId && !entry.durationEmitted) {
 			const duration = Math.max(0, Math.round(redirectTs - entry.start));
+			entry.durationEmitted = true;
 			this.onDurationReady(entry.fetchRequestId, duration);
 		}
+
+		// Hops de redirect não recebem `Network.responseReceived`/`loadingFinished`
+		// próprios — o CDP encapsula os dados do hop terminado em `redirectResponse`.
+		// Sem extrair aqui, a coluna "Tamanho" da UI mostra "—" para 301/302/etc.
+		// mesmo a rede tendo transferido bytes (headers + body do redirect).
+		if (this.onMetricsReady && entry?.fetchRequestId && !entry.metricsEmitted) {
+			const timing = deriveNetworkTiming(redirectResponse.timing, redirectResponse.encodedDataLength, {
+				fromDiskCache: redirectResponse.fromDiskCache,
+				fromServiceWorker: redirectResponse.fromServiceWorker,
+			});
+			if (timing) {
+				entry.metricsEmitted = true;
+				this.onMetricsReady(entry.fetchRequestId, timing);
+			}
+		}
+
 		// Reseta a entrada para o próximo hop: novo start = momento do redirect, sem
 		// fetchRequestId nem end (serão preenchidos pelo próximo Fetch.requestPaused
 		// e pelo loadingFinished/responseReceived seguinte).
