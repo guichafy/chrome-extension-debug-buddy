@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="pt-br">
+	<head>
+		<meta charset="utf-8" />
+		<title>E2E Target</title>
+	</head>
+	<body>
+		<h1>Página alvo E2E</h1>
+		<pre id="users-data">loading...</pre>
+		<script>
+			fetch("/api/users")
+				.then((r) => r.json())
+				.then((data) => {
+					document.getElementById("users-data").textContent = JSON.stringify(data);
+				})
+				.catch((err) => {
+					document.getElementById("users-data").textContent = "ERROR: " + err.message;
+				});
+		</script>
+	</body>
+</html>
