@@ -201,6 +201,33 @@ async function handleLogEntry(
 
 // --- fim helpers CDP Runtime/Log ---
 
+// --- Session Replay — network event helper ---
+
+async function emitNetworkEventForSession(
+	tabId: number,
+	requestId: string,
+	request: InterceptedResponse,
+): Promise<void> {
+	const session = await recorder.getActiveByTab(tabId);
+	if (!session) return;
+	const event: SessionEvent = {
+		type: 'network',
+		timestamp: request.timestamp,
+		phaseId: currentPhaseId(session),
+		requestId,
+		method: request.method ?? '',
+		url: request.url,
+		status: request.status,
+	};
+	try {
+		await recorder.addEvent(session.id, event);
+	} catch (err) {
+		console.warn('[session] addEvent network falhou:', err);
+	}
+}
+
+// --- fim network event helper ---
+
 function broadcastSessionMarker(): void {
 	broadcastToUI('sessionMarkerUpdated', { sessionMarker });
 }
@@ -301,6 +328,23 @@ async function patchRequest(
 		console.error(`Erro ao atualizar requisição ${requestId} no IndexedDB:`, err);
 	}
 	broadcastToUI('requestUpdated', { requestId, updates });
+
+	// Atualiza durationMs no NetworkEvent da sessão quando duration chega assíncrono.
+	if (updates.duration !== undefined && attachedTabId !== null) {
+		const tabId = attachedTabId;
+		recorder.getActiveByTab(tabId).then(async (session) => {
+			if (!session) return;
+			const ev = session.events.find((e) => e.type === 'network' && e.requestId === requestId);
+			if (ev && ev.type === 'network') {
+				ev.durationMs = updates.duration;
+				try {
+					await sessionStore.put(session);
+				} catch (err) {
+					console.warn('[session] patchRequest: falha ao persistir durationMs:', err);
+				}
+			}
+		});
+	}
 }
 
 const timingTracker = new NetworkTimingTracker(
@@ -1501,6 +1545,11 @@ async function handleRequestPaused(params: any): Promise<void> {
 			persistRequest(requestId, failedCaptureRequest).catch((persistError) => {
 				console.error(`Falha ao persistir erro de captura para ${requestId}:`, persistError);
 			});
+			if (attachedTabId !== null) {
+				emitNetworkEventForSession(attachedTabId, requestId, failedCaptureRequest).catch((err) => {
+					console.warn('[session] emitNetworkEventForSession (captureError) falhou:', err);
+				});
+			}
 			return;
 		}
 	}
@@ -1546,6 +1595,11 @@ async function handleRequestPaused(params: any): Promise<void> {
 
 	if (willIntercept) {
 		await persistRequest(requestId, persistedRequest);
+		if (attachedTabId !== null) {
+			emitNetworkEventForSession(attachedTabId, requestId, persistedRequest).catch((err) => {
+				console.warn('[session] emitNetworkEventForSession (breakpoint) falhou:', err);
+			});
+		}
 		console.log(`Intercepting response for ${url}`);
 		pendingResponses[requestId] = persistedRequest;
 		chrome.runtime.sendMessage({
@@ -1579,6 +1633,11 @@ async function handleRequestPaused(params: any): Promise<void> {
 		persistRequest(requestId, toPersist).catch((persistError) => {
 			console.error(`Falha ao persistir request ${requestId}:`, persistError);
 		});
+		if (attachedTabId !== null) {
+			emitNetworkEventForSession(attachedTabId, requestId, toPersist).catch((err) => {
+				console.warn('[session] emitNetworkEventForSession (pass-through) falhou:', err);
+			});
+		}
 	}
 }
 
