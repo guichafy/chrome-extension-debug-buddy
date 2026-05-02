@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
 	Dialog,
 	DialogContent,
@@ -154,6 +154,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 	const [initialSnapshot, setInitialSnapshot] = useState<string>('');
 	const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
+	const initSessionRef = useRef(false);
 
 	const currentDraftKey = useMemo(
 		() => snapshot({ name, enabled, matchers, action }),
@@ -208,8 +209,15 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 		return reset;
 	}, [open]);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: STEPS é derivado de skipTypeStep
 	useEffect(() => {
-		if (!open) return;
+		if (!open) {
+			initSessionRef.current = false;
+			return;
+		}
+		if (initSessionRef.current) return;
+		initSessionRef.current = true;
+
 		if (mode === 'edit' && rule) {
 			setName(rule.name);
 			setMatchers(rule.matchers);
@@ -255,7 +263,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 			setInitialSnapshot('');
 			setShowCancelConfirm(false);
 		}
-		// biome-ignore lint/correctness/useExhaustiveDependencies: STEPS é derivado de skipTypeStep
 	}, [open, mode, rule, skipTypeStep, initialDraft]);
 
 	const beginEditingFromDraft = (draft: DraftSnapshot) => {
@@ -537,6 +544,21 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
 	const renderActionStep = () => (
 		<div className="rounded-lg bg-muted p-4">
+			<div className="mb-3 flex items-center gap-2 rounded-md border bg-background px-3 py-2">
+				<span
+					className={cn(
+						'flex h-7 w-7 shrink-0 items-center justify-center rounded-md',
+						visuals.bgClass,
+						visuals.textClass,
+					)}
+				>
+					<LucideIcon name={visuals.iconName} className="h-4 w-4" />
+				</span>
+				<div className="text-sm">
+					<span className="text-muted-foreground">Configurando ação </span>
+					<strong>{visuals.label}</strong>
+				</div>
+			</div>
 			<h3 className="mb-2 text-lg font-medium">Ação</h3>
 			<p className="mb-4 text-sm text-muted-foreground">
 				Defina a ação a ser executada quando a requisição corresponder às condições de match.
