@@ -1,3 +1,50 @@
+## [0.9.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.8.0...v0.9.0) (2026-05-02)
+
+### Features
+
+* **build:** adiciona build dev compatível com React DevTools standalone ([efb461a](https://github.com/guichafy/chrome-extension-debug-buddy/commit/efb461a34a8289853558ff262eb3e12d417747e4))
+* chrome-extension-debug-buddy-wlr.2 - US-002: Banner de pendentes ganha botão 'Ver pausadas' ([cf4559c](https://github.com/guichafy/chrome-extension-debug-buddy/commit/cf4559cdb42c2fb9af17e9fe6a51819e5b831d33))
+* chrome-extension-debug-buddy-wlr.5 - US-003: Tabela de /pending oferece ações inline por linha ([93d92ca](https://github.com/guichafy/chrome-extension-debug-buddy/commit/93d92ca394fda1ff3d3471d7b3f42c604389186d))
+* **command-center:** coluna Tipo reflete tipos de regra aplicados ([3dc6554](https://github.com/guichafy/chrome-extension-debug-buddy/commit/3dc6554d03ffa8908433cedeb010144f35f2d5a0))
+* **command-center:** hidrata ?edit e ?mock para abrir sheets cross-route ([f381025](https://github.com/guichafy/chrome-extension-debug-buddy/commit/f3810256a851ae9564c1972fcf469fe2181f28f2))
+* **command-center:** revamp pending requests UX e fixes pós-review ([7823370](https://github.com/guichafy/chrome-extension-debug-buddy/commit/782337019fd33e080b458e89d44fa79a87248bd4))
+* **command-center:** substitui QuickMockPanel por RuleEditor pré-preenchido ([41c0214](https://github.com/guichafy/chrome-extension-debug-buddy/commit/41c0214fd4c47c908fd37f93672059d5a1acc4f1))
+* **command-center:** tooltip explicativo na coluna Tamanho ([2223b5d](https://github.com/guichafy/chrome-extension-debug-buddy/commit/2223b5df40d678996d28fa38b78d4d36895ca143))
+* **inspector:** substitui botão por dropdown de criação de regras ([eaf59ba](https://github.com/guichafy/chrome-extension-debug-buddy/commit/eaf59ba1613926a59da05b25e27825b0639aec69))
+* **layout:** promove PendingActionDock + hotkeys para o Layout ([6355f64](https://github.com/guichafy/chrome-extension-debug-buddy/commit/6355f64b4b6da84f5c7870e6ee092491746cb018))
+* **routing:** adiciona AppOutletContext para estado compartilhado entre rotas ([be62bde](https://github.com/guichafy/chrome-extension-debug-buddy/commit/be62bde73b57eda200f99b94ccfbe3d7ec2121a9))
+* **rules:** aceita skipTypeStep/initialDraft/headerMatcherSource no editor ([e98cec0](https://github.com/guichafy/chrome-extension-debug-buddy/commit/e98cec0aa2766099ef385d738dd525d7a5d82f99))
+* **rules:** adiciona HeaderMatcherSelector reutilizável ([ba571bc](https://github.com/guichafy/chrome-extension-debug-buddy/commit/ba571bceda0b6b7fa09f429bd33e645a95566d45))
+* **transform:** aplica regras de Transform em runtime + UX do editor ([9a3df9d](https://github.com/guichafy/chrome-extension-debug-buddy/commit/9a3df9dcfd5693abf15c423357b2feabfa510c0f))
+
+### Bug Fixes
+
+* **command-center:** aplica achados do code review (A1-A3, M1-M5, B5-B7) ([d5ca4d2](https://github.com/guichafy/chrome-extension-debug-buddy/commit/d5ca4d2bd5f07f63948b1c71968f7a11b293bd3e))
+* **command-center:** elimina scroll horizontal e move split button para a linha do status ([bad00fe](https://github.com/guichafy/chrome-extension-debug-buddy/commit/bad00fe858bc48c31b8acfc97b6fe0b30e0bce8f))
+* **command-center:** preserva edição one-shot durante polling de pendingResponses ([8010732](https://github.com/guichafy/chrome-extension-debug-buddy/commit/80107320c1d20bd5f7145259fe276a4c06a259bf))
+* **inspector:** aplica revisões de qualidade do RequestInspector ([fcdbe06](https://github.com/guichafy/chrome-extension-debug-buddy/commit/fcdbe062818f3cf91afffbae282accf136c2d385))
+* **networkTiming:** captura transferSize em hops de redirect ([9bd3e87](https://github.com/guichafy/chrome-extension-debug-buddy/commit/9bd3e876eaf89baf6706f0ee2061950dbb9f4155))
+* **rules:** habilita scroll-y no welcome do wizard e enxuga mocks ([75f4625](https://github.com/guichafy/chrome-extension-debug-buddy/commit/75f4625d34b827c8cbaf2e5bef5a3a1250fd84b1))
+* **rules:** permite editar nome em skipTypeStep + cobre URL routing ([520823e](https://github.com/guichafy/chrome-extension-debug-buddy/commit/520823e54e5ddef2ff0f9e25e006fc73ad1cab2b))
+* **rules:** preserva progresso do wizard e exibe tipo no passo Ação ([a4c6359](https://github.com/guichafy/chrome-extension-debug-buddy/commit/a4c63591129d0a1a97dda90fc8114c15b71ad69e))
+
+### Refactoring
+
+* **command-center:** centraliza decisões de pausadas no Dock e simplifica inspector ([3b96c13](https://github.com/guichafy/chrome-extension-debug-buddy/commit/3b96c13df90ba1bf24d5b6dd6e8bda2e9cd39429))
+* **command-center:** consome estado via useAppOutlet ([fbd2447](https://github.com/guichafy/chrome-extension-debug-buddy/commit/fbd2447842af4df440bd95464f3e1001f61921e6))
+* **command-center:** remove QuickMockPanel obsoleto ([14aa5d9](https://github.com/guichafy/chrome-extension-debug-buddy/commit/14aa5d9d1bc2891873522a8214fa1f560d9f083d))
+* **command-center:** unifica labels do Dock e default target na primeira pausada ([c13a8de](https://github.com/guichafy/chrome-extension-debug-buddy/commit/c13a8de225a28c237f29c91f5bb04f910323ed3b))
+* **data-table:** remove botão Live Tail e auto-refresh togglable ([10f5952](https://github.com/guichafy/chrome-extension-debug-buddy/commit/10f5952cdba8eb20dd63005e39790ca40c0792f9))
+* **domain:** generaliza buildQuickMockDraft em buildRuleDraftFromRequest ([8d7cf0d](https://github.com/guichafy/chrome-extension-debug-buddy/commit/8d7cf0de58594cbb0816b54fc073a059b74a05a7))
+* **layout:** instancia hooks consolidados e expõe outlet context ([8221670](https://github.com/guichafy/chrome-extension-debug-buddy/commit/82216703d8a77bd6cff06a546935bc3f182e8957))
+
+### Documentation
+
+* **plan:** plano de implementação do dropdown Criar regra ([7c92ad4](https://github.com/guichafy/chrome-extension-debug-buddy/commit/7c92ad47e9db611933a7560ae5d2472b43de6576))
+* **plan:** plano de implementação para PendingActionDock global ([ab5cf3e](https://github.com/guichafy/chrome-extension-debug-buddy/commit/ab5cf3ec4ebda6f14d145b5ff85c6ea7e6850113))
+* **spec:** design para tornar PendingActionDock global em todas as rotas ([a644e67](https://github.com/guichafy/chrome-extension-debug-buddy/commit/a644e670105325aaac31e6446937d6a21997b4c4))
+* **spec:** substituir botão Criar Mock por dropdown de criação de regras ([653b06c](https://github.com/guichafy/chrome-extension-debug-buddy/commit/653b06c4fd15f87116cd67dd9409e0532321c3cb))
+
 ## [0.8.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.7.0...v0.8.0) (2026-04-30)
 
 ### Features
