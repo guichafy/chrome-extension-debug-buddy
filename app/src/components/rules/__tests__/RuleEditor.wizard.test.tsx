@@ -541,5 +541,193 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 			);
 			expect(screen.queryByText(/Header matchers \(opcional\)/)).toBeNull();
 		});
+
+		test('mudança de identidade do initialDraft enquanto o modal está aberto NÃO reseta o step do wizard', () => {
+			const baseDraft = {
+				name: 'Mock teste',
+				enabled: true,
+				matchers: [
+					{ type: 'url' as const, enabled: true, pattern: '/api', isRegex: false },
+					{ type: 'method' as const, enabled: true, method: 'GET' },
+				],
+				action: { type: 'mock' as const, enabled: true, status: 200, headers: {} },
+			};
+			const { rerender } = render(
+				<RuleEditor
+					open
+					mode="create"
+					skipTypeStep
+					initialDraft={baseDraft}
+					onOpenChange={vi.fn()}
+					onSave={vi.fn()}
+				/>,
+			);
+			// Avança para Ação
+			fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
+			expect(screen.getByTestId('rule-wizard-step-action')).toHaveAttribute('aria-current', 'step');
+
+			// Re-renderiza com initialDraft de identidade nova mas conteúdo equivalente
+			// (simulando o requestUpdated do background que altera o objeto request).
+			rerender(
+				<RuleEditor
+					open
+					mode="create"
+					skipTypeStep
+					initialDraft={{ ...baseDraft, matchers: [...baseDraft.matchers] }}
+					onOpenChange={vi.fn()}
+					onSave={vi.fn()}
+				/>,
+			);
+
+			// O step deve continuar em 'action', não voltar para 'matcher'.
+			expect(screen.getByTestId('rule-wizard-step-action')).toHaveAttribute('aria-current', 'step');
+		});
+
+		test('mudança de identidade do rule (mode=edit) NÃO reseta o step do wizard', () => {
+			const baseRule = {
+				id: 'r1',
+				name: 'Existing',
+				enabled: true,
+				matchers: [
+					{ type: 'url' as const, enabled: true, pattern: '/api', isRegex: false },
+					{ type: 'method' as const, enabled: true, method: 'GET' },
+				],
+				action: { type: 'mock' as const, enabled: true, status: 200, headers: {} },
+				createdAt: 0,
+				updatedAt: 0,
+			};
+			const { rerender } = render(
+				<RuleEditor open mode="edit" rule={baseRule} onOpenChange={vi.fn()} onSave={vi.fn()} />,
+			);
+			// Em mode=edit, todos os steps são clicáveis. Vai para Ação.
+			fireEvent.click(screen.getByTestId('rule-wizard-step-action'));
+			expect(screen.getByTestId('rule-wizard-step-action')).toHaveAttribute('aria-current', 'step');
+
+			// Re-renderiza com rule de identidade nova.
+			rerender(
+				<RuleEditor
+					open
+					mode="edit"
+					rule={{ ...baseRule, matchers: [...baseRule.matchers] }}
+					onOpenChange={vi.fn()}
+					onSave={vi.fn()}
+				/>,
+			);
+
+			expect(screen.getByTestId('rule-wizard-step-action')).toHaveAttribute('aria-current', 'step');
+		});
+
+		test('reabrir o modal (open false→true) reinicializa o wizard mesmo com mesmo initialDraft', () => {
+			const draft = {
+				name: 'Mock teste',
+				enabled: true,
+				matchers: [
+					{ type: 'url' as const, enabled: true, pattern: '/api', isRegex: false },
+					{ type: 'method' as const, enabled: true, method: 'GET' },
+				],
+				action: { type: 'mock' as const, enabled: true, status: 200, headers: {} },
+			};
+			const { rerender } = render(
+				<RuleEditor
+					open
+					mode="create"
+					skipTypeStep
+					initialDraft={draft}
+					onOpenChange={vi.fn()}
+					onSave={vi.fn()}
+				/>,
+			);
+			// Avança e fecha.
+			fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
+			expect(screen.getByTestId('rule-wizard-step-action')).toHaveAttribute('aria-current', 'step');
+			rerender(
+				<RuleEditor
+					open={false}
+					mode="create"
+					skipTypeStep
+					initialDraft={draft}
+					onOpenChange={vi.fn()}
+					onSave={vi.fn()}
+				/>,
+			);
+			rerender(
+				<RuleEditor
+					open
+					mode="create"
+					skipTypeStep
+					initialDraft={draft}
+					onOpenChange={vi.fn()}
+					onSave={vi.fn()}
+				/>,
+			);
+			// Voltou ao primeiro step (matcher) na nova sessão.
+			expect(screen.getByTestId('rule-wizard-step-matcher')).toHaveAttribute(
+				'aria-current',
+				'step',
+			);
+		});
+
+		test.each([
+			['mock' as const, 'Mock'],
+			['breakpoint' as const, 'Breakpoint'],
+			['transform' as const, 'Transform'],
+			['delay' as const, 'Latência'],
+		])('passo Ação exibe badge "Configurando ação %s" para o tipo selecionado', (type, label) => {
+			const action =
+				type === 'mock'
+					? { type: 'mock' as const, enabled: true, status: 200, headers: {} }
+					: type === 'breakpoint'
+						? { type: 'breakpoint' as const, enabled: true, description: '' }
+						: type === 'transform'
+							? {
+									type: 'transform' as const,
+									enabled: true,
+									mode: 'declarative' as const,
+									operations: [],
+								}
+							: { type: 'delay' as const, enabled: true, timeMs: 1000 };
+			render(
+				<RuleEditor
+					open
+					mode="create"
+					skipTypeStep
+					initialDraft={{
+						name: 'Test',
+						enabled: true,
+						matchers: [
+							{ type: 'url' as const, enabled: true, pattern: '/api', isRegex: false },
+							{ type: 'method' as const, enabled: true, method: 'GET' },
+						],
+						action,
+					}}
+					onOpenChange={vi.fn()}
+					onSave={vi.fn()}
+				/>,
+			);
+			// Avança Matcher → Ação
+			fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
+			const banner = screen.getByText(/Configurando ação/).closest('div');
+			expect(banner).toBeInTheDocument();
+			expect(within(banner as HTMLElement).getByText(label)).toBeInTheDocument();
+		});
+
+		test('badge do tipo aparece também no fluxo padrão (mode=edit, sem skipTypeStep)', () => {
+			const baseRule = {
+				id: 'r1',
+				name: 'Existing',
+				enabled: true,
+				matchers: [{ type: 'url' as const, enabled: true, pattern: '/api', isRegex: false }],
+				action: { type: 'breakpoint' as const, enabled: true, description: '' },
+				createdAt: 0,
+				updatedAt: 0,
+			};
+			render(
+				<RuleEditor open mode="edit" rule={baseRule} onOpenChange={vi.fn()} onSave={vi.fn()} />,
+			);
+			fireEvent.click(screen.getByTestId('rule-wizard-step-action'));
+			const banner = screen.getByText(/Configurando ação/).closest('div');
+			expect(banner).toBeInTheDocument();
+			expect(within(banner as HTMLElement).getByText('Breakpoint')).toBeInTheDocument();
+		});
 	});
 });
