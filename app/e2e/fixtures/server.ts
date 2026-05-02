@@ -14,6 +14,5 @@ app.get('/api/users', (_req, res) => {
 app.use(express.static(__dirname));
 
 app.listen(PORT, () => {
-	// eslint-disable-next-line no-console
 	console.log(`[e2e fixture] servidor ouvindo em http://localhost:${PORT}`);
 });
