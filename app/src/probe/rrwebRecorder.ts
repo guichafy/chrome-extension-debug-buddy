@@ -9,7 +9,9 @@ const FLUSH_INTERVAL_MS = 1000;
 const FLUSH_BATCH_SIZE = 100;
 
 let buffer: eventWithTime[] = [];
-let stopRecording: (() => void) | null = null;
+// Função `stop` retornada por rrweb.record(); usar `null` quando idle.
+// Não confundir com `stopRecordingNow()` (handler do `__rrweb_stop`).
+let rrwebStopFn: (() => void) | null = null;
 let flushTimer: number | null = null;
 let activeSessionId: string | null = null;
 
@@ -44,13 +46,21 @@ function scheduleFlush(): void {
 }
 
 function startRecording(sessionId: string, recordCanvas: boolean): void {
-	if (stopRecording) {
-		// Já gravando — provavelmente re-injeção pós-navegação. Atualiza sessionId
-		// e reinicia para gerar FullSnapshot do novo documento.
-		stopRecording();
-		stopRecording = null;
+	if (rrwebStopFn && activeSessionId === sessionId) {
+		// Mesma sessão, mesmo documento — start redundante (retry / misfire de
+		// webNavigation). Ignora para não derrubar buffer e perder eventos.
+		return;
+	}
+	if (rrwebStopFn) {
+		// Já gravando outra sessão / documento — provavelmente re-injeção pós-navegação.
+		// Atualiza sessionId e reinicia para gerar FullSnapshot do novo documento.
+		rrwebStopFn();
+		rrwebStopFn = null;
 		buffer = [];
 	}
+	// IMPORTANTE: definir activeSessionId ANTES de chamar record(). rrweb dispara
+	// o FullSnapshot sincronicamente dentro de record(), e o emit precisa do
+	// sessionId já populado para não cair no branch de descarte do flush().
 	activeSessionId = sessionId;
 	const stop = record({
 		emit(event: eventWithTime) {
@@ -69,16 +79,16 @@ function startRecording(sessionId: string, recordCanvas: boolean): void {
 	});
 	if (!stop) {
 		// rrweb retorna undefined quando já há gravação ativa no mesmo doc —
-		// nunca deveria acontecer porque limpamos `stopRecording` acima.
+		// nunca deveria acontecer porque limpamos `rrwebStopFn` acima.
 		throw new Error('[rrweb] record() retornou undefined inesperadamente');
 	}
-	stopRecording = stop;
+	rrwebStopFn = stop;
 }
 
 function stopRecordingNow(): void {
-	if (stopRecording) {
-		stopRecording();
-		stopRecording = null;
+	if (rrwebStopFn) {
+		rrwebStopFn();
+		rrwebStopFn = null;
 	}
 	if (flushTimer !== null) {
 		clearTimeout(flushTimer);
@@ -110,7 +120,7 @@ chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
 
 // Flush antes de a tab fechar (best-effort — service worker pode não receber).
 window.addEventListener('pagehide', () => {
-	if (stopRecording) {
+	if (rrwebStopFn) {
 		flush();
 	}
 });
