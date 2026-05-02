@@ -365,7 +365,7 @@ const DB_VERSION = 2;
 if (!db.objectStoreNames.contains('sessions')) {
 	const store = db.createObjectStore('sessions', { keyPath: 'id' });
 	store.createIndex('startedAt', 'startedAt');
-	store.createIndex('tabId_endedAt', ['tabId', 'endedAt']);
+	store.createIndex('tabId', 'tabId');
 }
 ```
 
