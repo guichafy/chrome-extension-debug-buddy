@@ -24,7 +24,16 @@ export function ReplayPage() {
 
 	useEffect(() => {
 		if (!sessionId) return;
-		void sessionStore.get(sessionId).then(setSession);
+		// Limpa estado anterior pra mostrar "Carregando…" e não vazar dados de outra sessão
+		// se o usuário trocar de URL durante o load.
+		setSession(null);
+		let cancelled = false;
+		void sessionStore.get(sessionId).then((s) => {
+			if (!cancelled) setSession(s);
+		});
+		return () => {
+			cancelled = true;
+		};
 	}, [sessionId]);
 
 	if (!session) {
@@ -50,7 +59,8 @@ export function ReplayPage() {
 				</span>
 			</div>
 
-			<div className="grid grid-cols-[65%_1fr] gap-3 overflow-hidden">
+			{/* Em sidepanel (~400px) empilha vertical; ≥ lg (1024px+) volta pra 2 colunas */}
+			<div className="grid grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[65%_1fr]">
 				{/* Coluna esquerda: rrweb-player ou fallback visual */}
 				<div className="overflow-auto rounded border bg-black">
 					{hasRrweb && rrwebEvents ? (
