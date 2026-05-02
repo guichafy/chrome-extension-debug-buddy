@@ -7,8 +7,7 @@ export async function seedRules(context: BrowserContext, rules: Rule[]): Promise
 		sw = await context.waitForEvent('serviceworker', { timeout: 10_000 });
 	}
 
-	await sw.evaluate(async (rulesToSeed: typeof rules) => {
-		// @ts-ignore: chrome global lives in the service worker runtime, not the test runtime
+	await sw.evaluate(async (rulesToSeed) => {
 		await chrome.storage.local.set({ rules: rulesToSeed });
 	}, rules);
 }

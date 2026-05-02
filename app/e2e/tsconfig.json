@@ -2,7 +2,7 @@
 	"extends": "../tsconfig.json",
 	"compilerOptions": {
 		"rootDir": "..",
-		"types": ["@playwright/test", "node"],
+		"types": ["@playwright/test", "node", "chrome"],
 		"module": "ESNext",
 		"moduleResolution": "bundler",
 		"baseUrl": ".",
