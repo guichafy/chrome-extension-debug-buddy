@@ -1,66 +1,42 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { _resetForTests, sessionStore } from '@/lib/session/storage';
-import { ReplayPage } from '../ReplayPage';
 import type { Session } from '@/lib/session/types';
+import { ReplayPage } from '../ReplayPage';
 
-const baseSession = (): Session => ({
-	id: 'sess_x',
+// Mock RrwebPlayer pra evitar montar rrweb-player real (já testado isolado).
+vi.mock('@/components/replay/RrwebPlayer', () => ({
+	RrwebPlayer: () => <div data-testid="rrweb-player-mock" />,
+}));
+
+const baseSession = (overrides: Partial<Session> = {}): Session => ({
+	id: 'sess_test',
 	schemaVersion: 1,
 	startedAt: 1_000,
-	endedAt: 5_000,
+	endedAt: 2_000,
 	origin: 'recorded',
 	tabId: 1,
 	metadata: {
-		initialUrl: 'https://example/',
-		userAgent: '',
-		viewportSize: { w: 1, h: 1 },
+		initialUrl: 'https://example.test/',
+		userAgent: 'jsdom',
+		viewportSize: { w: 1280, h: 720 },
 		canvasCaptureEnabled: false,
 	},
-	detectionPhases: [
-		{
-			id: 'phase_1',
-			startTimestamp: 1_000,
-			endTimestamp: 1_500,
-			fingerprint: {
-				framework: { name: 'react', version: '18.2.0' },
-				httpClients: [{ name: 'fetch', confidence: 'high' }],
-				dataFetching: [],
-				stateManagers: [],
-				detectedAt: 1_000,
-				isProductionBuild: false,
-			},
-			pages: [
-				{
-					url: 'https://example/',
-					timestamp: 1_000,
-					fingerprint: {} as never,
-					triggerType: 'initial',
-				},
-			],
-		},
-	],
-	events: [
-		{
-			type: 'network',
-			timestamp: 2_000,
-			phaseId: 'phase_1',
-			requestId: 'r1',
-			method: 'GET',
-			url: 'https://api/x',
-			status: 200,
-		},
-		{
-			type: 'console',
-			timestamp: 2_500,
-			phaseId: 'phase_1',
-			source: 'app',
-			level: 'log',
-			args: [{ type: 'string', description: 'hello' }],
-		},
-	],
+	detectionPhases: [],
+	events: [],
+	...overrides,
 });
+
+function renderAt(sessionId: string) {
+	return render(
+		<MemoryRouter initialEntries={[`/replay/${sessionId}`]}>
+			<Routes>
+				<Route path="/replay/:sessionId" element={<ReplayPage />} />
+			</Routes>
+		</MemoryRouter>,
+	);
+}
 
 beforeEach(async () => {
 	_resetForTests();
@@ -72,41 +48,49 @@ afterEach(async () => {
 });
 
 describe('ReplayPage', () => {
-	it('renderiza eventos da sessão e contagem', async () => {
+	it('mostra fallback quando rrwebEvents ausente', async () => {
 		await sessionStore.put(baseSession());
-		render(
-			<MemoryRouter initialEntries={['/replay/sess_x']}>
-				<Routes>
-					<Route path="/replay/:sessionId" element={<ReplayPage />} />
-				</Routes>
-			</MemoryRouter>,
-		);
-		await waitFor(() => expect(screen.getByText(/Replay/i)).toBeInTheDocument());
-		expect(screen.getByText(/2 eventos · 1 fases/i)).toBeInTheDocument();
-		expect(screen.getByText(/\[GET\]/)).toBeInTheDocument();
-		expect(screen.getByText(/\[LOG\] hello/)).toBeInTheDocument();
+		renderAt('sess_test');
+		await waitFor(() => {
+			expect(screen.getByText(/Sessão sem captura visual/i)).toBeInTheDocument();
+		});
 	});
 
-	it('renderiza fase com framework', async () => {
-		await sessionStore.put(baseSession());
-		render(
-			<MemoryRouter initialEntries={['/replay/sess_x']}>
-				<Routes>
-					<Route path="/replay/:sessionId" element={<ReplayPage />} />
-				</Routes>
-			</MemoryRouter>,
+	it('renderiza RrwebPlayer quando rrwebEvents tem >=2 eventos', async () => {
+		await sessionStore.put(
+			baseSession({
+				id: 'sess_with_rrweb',
+				rrwebEvents: [
+					{ type: 4, timestamp: 1_000, data: {} },
+					{ type: 2, timestamp: 1_001, data: {} },
+				],
+			}),
 		);
-		await waitFor(() => expect(screen.getByText(/react/i)).toBeInTheDocument());
+		renderAt('sess_with_rrweb');
+		await waitFor(() => {
+			expect(screen.getByTestId('rrweb-player-mock')).toBeInTheDocument();
+		});
 	});
 
-	it('mostra "Carregando…" quando sessionId não encontrado', () => {
-		render(
-			<MemoryRouter initialEntries={['/replay/inexistente']}>
-				<Routes>
-					<Route path="/replay/:sessionId" element={<ReplayPage />} />
-				</Routes>
-			</MemoryRouter>,
+	it('inicialmente filtra eventos com timestamp > startedAt + currentMs (currentMs=0)', async () => {
+		await sessionStore.put(
+			baseSession({
+				id: 'sess_filter',
+				events: [
+					{
+						type: 'route',
+						timestamp: 1_500,
+						phaseId: 'p1',
+						url: 'https://x',
+						triggerType: 'initial',
+					},
+				],
+			}),
 		);
-		expect(screen.getByText(/Carregando/i)).toBeInTheDocument();
+		renderAt('sess_filter');
+		await waitFor(() => {
+			// currentMs=0 → cutoff=1000, evento em 1500 NÃO aparece
+			expect(screen.getByText(/Nenhum evento até o ponto atual/i)).toBeInTheDocument();
+		});
 	});
 });
