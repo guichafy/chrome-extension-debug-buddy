@@ -89,6 +89,9 @@ export interface Message {
 	// rrweb (Phase 2)
 	rrwebEvents?: RrwebEvent[];
 	recordCanvas?: boolean;
+	// rrweb mascaramento (Phase 6 — Task 10)
+	maskTextSelector?: string;
+	maskAllInputs?: boolean;
 	// Antipattern (Phase 3)
 	antipatternHit?: AntipatternHit;
 	// State change (Phase 4)

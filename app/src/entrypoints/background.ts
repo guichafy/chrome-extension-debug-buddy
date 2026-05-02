@@ -744,6 +744,8 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
 			action: '__rrweb_start',
 			sessionId: session.id,
 			recordCanvas: session.metadata.canvasCaptureEnabled,
+			maskTextSelector: livePrivacyConfig?.rrwebMaskTextSelector,
+			maskAllInputs: livePrivacyConfig?.rrwebMaskAllInputs,
 		});
 	} catch (err) {
 		const msg = String(err);
@@ -1066,6 +1068,8 @@ chrome.runtime.onMessage.addListener(
 						action: '__rrweb_start',
 						sessionId: id,
 						recordCanvas: message.canvasCaptureEnabled ?? false,
+						maskTextSelector: livePrivacyConfig?.rrwebMaskTextSelector,
+						maskAllInputs: livePrivacyConfig?.rrwebMaskAllInputs,
 					});
 					sendResponse({ ok: true, sessionId: id });
 				} catch (err) {

@@ -3,7 +3,10 @@
 // `__rrweb_start` antes de iniciar a captura — sem isso, fica idle (sem overhead).
 
 import { record } from 'rrweb';
+import type { recordOptions } from 'rrweb';
 import type { eventWithTime } from '@rrweb/types';
+
+type RrwebRecordOptions = recordOptions<eventWithTime>;
 
 const FLUSH_INTERVAL_MS = 1000;
 const FLUSH_BATCH_SIZE = 100;
@@ -14,6 +17,54 @@ let buffer: eventWithTime[] = [];
 let rrwebStopFn: (() => void) | null = null;
 let flushTimer: number | null = null;
 let activeSessionId: string | null = null;
+
+export interface RrwebMaskOpts {
+	maskTextSelector: string;
+	maskAllInputs: boolean;
+	recordCanvas: boolean;
+	emit: NonNullable<RrwebRecordOptions['emit']>;
+}
+
+// Helper puro testável — monta o objeto de opções de rrweb.record() a partir
+// das flags de privacidade. Não chama record() diretamente.
+export function buildRrwebOptions(opts: RrwebMaskOpts): RrwebRecordOptions {
+	const allInputs = {
+		password: true,
+		color: true,
+		date: true,
+		'datetime-local': true,
+		email: true,
+		month: true,
+		number: true,
+		range: true,
+		search: true,
+		tel: true,
+		text: true,
+		time: true,
+		url: true,
+		week: true,
+		textarea: true,
+		select: true,
+	};
+	const passwordOnly = { password: true };
+	return {
+		emit: opts.emit,
+		recordCanvas: opts.recordCanvas,
+		maskTextSelector: opts.maskTextSelector,
+		maskInputOptions: opts.maskAllInputs ? allInputs : passwordOnly,
+		maskInputFn: (text: string, element: HTMLElement | null) => {
+			const ac = (element as HTMLInputElement | null)?.getAttribute?.('autocomplete') ?? '';
+			if (ac.startsWith('cc-')) return '[REDACTED]';
+			return text;
+		},
+	};
+}
+
+interface StartOpts {
+	recordCanvas: boolean;
+	maskTextSelector: string;
+	maskAllInputs: boolean;
+}
 
 function flush(): void {
 	if (buffer.length === 0) return;
@@ -45,7 +96,7 @@ function scheduleFlush(): void {
 	}, FLUSH_INTERVAL_MS);
 }
 
-function startRecording(sessionId: string, recordCanvas: boolean): void {
+function startRecording(sessionId: string, opts: StartOpts): void {
 	if (rrwebStopFn && activeSessionId === sessionId) {
 		// Mesma sessão, mesmo documento — start redundante (retry / misfire de
 		// webNavigation). Ignora para não derrubar buffer e perder eventos.
@@ -62,21 +113,25 @@ function startRecording(sessionId: string, recordCanvas: boolean): void {
 	// o FullSnapshot sincronicamente dentro de record(), e o emit precisa do
 	// sessionId já populado para não cair no branch de descarte do flush().
 	activeSessionId = sessionId;
-	const stop = record({
-		emit(event: eventWithTime) {
-			buffer.push(event);
-			if (buffer.length >= FLUSH_BATCH_SIZE) {
-				if (flushTimer !== null) {
-					clearTimeout(flushTimer);
-					flushTimer = null;
+	const stop = record(
+		buildRrwebOptions({
+			maskTextSelector: opts.maskTextSelector,
+			maskAllInputs: opts.maskAllInputs,
+			recordCanvas: opts.recordCanvas,
+			emit(event: eventWithTime) {
+				buffer.push(event);
+				if (buffer.length >= FLUSH_BATCH_SIZE) {
+					if (flushTimer !== null) {
+						clearTimeout(flushTimer);
+						flushTimer = null;
+					}
+					flush();
+					return;
 				}
-				flush();
-				return;
-			}
-			scheduleFlush();
-		},
-		recordCanvas,
-	});
+				scheduleFlush();
+			},
+		}),
+	);
 	if (!stop) {
 		// rrweb retorna undefined quando já há gravação ativa no mesmo doc —
 		// nunca deveria acontecer porque limpamos `rrwebStopFn` acima.
@@ -103,12 +158,17 @@ chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
 	if (message?.action === '__rrweb_start') {
 		const sid = message.sessionId;
 		const recordCanvas = !!message.recordCanvas;
+		const maskTextSelector =
+			typeof message.maskTextSelector === 'string'
+				? message.maskTextSelector
+				: '.dbb-mask, [data-dbb-mask]';
+		const maskAllInputs = !!message.maskAllInputs;
 		if (typeof sid !== 'string' || sid.length === 0) {
 			console.warn('[rrweb] __rrweb_start sem sessionId válido — ignorado');
 			return false;
 		}
 		try {
-			startRecording(sid, recordCanvas);
+			startRecording(sid, { recordCanvas, maskTextSelector, maskAllInputs });
 		} catch (err) {
 			console.warn('[rrweb] startRecording falhou:', err);
 		}
