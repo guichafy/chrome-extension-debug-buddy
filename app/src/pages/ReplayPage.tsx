@@ -61,7 +61,10 @@ export function ReplayPage() {
 		// Sem fallback: se não houver chrome.tabs (testes/iframe), o banner simplesmente não aparece.
 		if (!chrome?.tabs?.query) return;
 		let cancelled = false;
-		void chrome.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+		const result = chrome.tabs.query({ active: true, currentWindow: true });
+		// Em testes, o mock pode retornar undefined — nesse caso o efeito vira no-op.
+		if (!result || typeof (result as Promise<unknown>).then !== 'function') return;
+		void (result as Promise<chrome.tabs.Tab[]>).then((tabs) => {
 			if (cancelled) return;
 			const url = tabs[0]?.url;
 			if (url) setCurrentOrigin(originOfUrl(url));
