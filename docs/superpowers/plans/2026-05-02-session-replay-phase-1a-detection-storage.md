@@ -592,7 +592,7 @@ export function fingerprintsEqual(
 	return true;
 }
 
-function newPhaseId(): string {
+export function newPhaseId(): string {
 	return `phase_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
@@ -1600,7 +1600,7 @@ Esperado: FAIL — module não encontrado.
 Arquivo `app/src/lib/session/recorder.ts`:
 
 ```ts
-import { fingerprintsEqual } from './fingerprint';
+import { fingerprintsEqual, newPhaseId } from './fingerprint';
 import { sessionStore } from './storage';
 import type {
 	DetectionPhase,
@@ -1616,10 +1616,6 @@ interface StartArgs extends SessionMetadata {
 
 function newSessionId(): string {
 	return `sess_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function newPhaseId(): string {
-	return `phase_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function makePhase(detection: PageDetection): DetectionPhase {
