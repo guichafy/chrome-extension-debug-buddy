@@ -128,16 +128,17 @@ describe('AppSidebar Component', () => {
 		expect(screen.getByText('Guilherme Chafy')).toBeTruthy();
 	});
 
-	// Após remoção do item "Pausadas", os itens do menu são: Command Center, Rules Lab e Sessões.
-	test('expõe Command Center, Rules Lab e Sessões no menu', () => {
+	// Itens do menu: Command Center, Rules Lab, Sessões, Privacidade.
+	test('expõe Command Center, Rules Lab, Sessões e Privacidade no menu', () => {
 		render(<AppSidebar />);
 
 		const navItems = screen.getAllByTestId('nav-item');
-		expect(navItems.length).toBe(3);
+		expect(navItems.length).toBe(4);
 		expect(screen.queryByText('Pausadas')).not.toBeInTheDocument();
 		expect(screen.getByText('Sessões')).toBeInTheDocument();
+		expect(screen.getByText('Privacidade')).toBeInTheDocument();
 
-		// Nenhum item de navegação carrega contador depois da remoção do item "Pausadas".
+		// Nenhum item de navegação carrega contador.
 		const counts = screen.queryAllByTestId('nav-item-count');
 		expect(counts.length).toBe(0);
 	});
