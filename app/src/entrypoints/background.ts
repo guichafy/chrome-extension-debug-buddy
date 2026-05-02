@@ -206,7 +206,15 @@ async function handleExceptionThrown(
 	params: Protocol.Runtime.ExceptionThrownEvent,
 ): Promise<void> {
 	const det = params.exceptionDetails;
-	const message = det.exception?.description ?? det.text ?? 'Exception';
+	const rawMessage = det.exception?.description ?? det.text ?? 'Exception';
+	// Phase 6: aplica bodyRedactor na mensagem da exception. Mensagens de erro
+	// frequentemente carregam payload sensível ("Error: invalid token eyJ...",
+	// "SQLException: SELECT ... password='abc'"). Sem isso, a redaction de
+	// network/console deixaria um vazamento via stack-trace error events.
+	const message =
+		livePrivacyConfig && livePrivacyConfig.enabled
+			? redactBody(rawMessage, livePrivacyConfig)
+			: rawMessage;
 	const event: SessionEvent = {
 		type: 'error',
 		timestamp: params.timestamp,
