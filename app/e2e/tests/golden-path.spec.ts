@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Rule } from '../../src/types/rules';
+import { captureEvidence } from '../helpers/evidence';
 import { getExtensionId, launchExtensionContext } from '../helpers/extension';
 import { seedRules } from '../helpers/seed';
 
@@ -32,13 +33,16 @@ test('Golden Path: regra mocka fetch e request aparece no histórico', async () 
 		const targetPage = await context.newPage();
 		await targetPage.goto('http://localhost:3100/target.html');
 		await expect(targetPage.locator('#users-data')).toContainText('real-user');
+		await captureEvidence(targetPage, '01-target-real');
 
 		const optionsPage = await context.newPage();
 		await optionsPage.goto(`chrome-extension://${extId}/options.html`);
+		await captureEvidence(optionsPage, '02-options-loaded');
 
 		// Abre o diálogo de seleção e escolhe a aba alvo. As linhas da lista
 		// usam <div role="option"> — ver app/src/components/select-tab/TabRow.tsx.
 		await optionsPage.getByRole('button', { name: /selecionar aba/i }).click();
+		await captureEvidence(optionsPage, '03-tab-dialog');
 		await optionsPage.getByRole('option', { name: /target\.html/i }).click();
 
 		// Inicia interceptação (botão fica habilitado quando a aba é válida).
@@ -48,11 +52,13 @@ test('Golden Path: regra mocka fetch e request aparece no histórico', async () 
 
 		// Confirma a transição: o botão muda para "Parar Interceptação".
 		await expect(optionsPage.getByRole('button', { name: /parar interceptação/i })).toBeVisible();
+		await captureEvidence(optionsPage, '04-debugging-active');
 
 		// Recarrega a aba alvo: o fetch agora passa pelo Fetch.requestPaused e é mockado.
 		await targetPage.bringToFront();
 		await targetPage.reload();
 		await expect(targetPage.locator('#users-data')).toContainText('mocked-user');
+		await captureEvidence(targetPage, '05-target-mocked');
 
 		// Histórico: a request precisa aparecer no Command Center (visão canônica).
 		// Navega explicitamente para /command-center e força reload — sem o reload
@@ -65,6 +71,7 @@ test('Golden Path: regra mocka fetch e request aparece no histórico', async () 
 				timeout: 8000,
 			})
 			.toBeGreaterThan(0);
+		await captureEvidence(optionsPage, '06-history-row');
 	} finally {
 		await context.close();
 	}
