@@ -71,6 +71,16 @@
 				"message": "chore(release): ${nextRelease.version} [skip ci]"
 			}
 		],
-		"@semantic-release/github"
+		[
+			"@semantic-release/github",
+			{
+				"assets": [
+					{
+						"path": "e2e/evidence/*.png",
+						"label": "E2E evidence — golden path (${nextRelease.gitTag})"
+					}
+				]
+			}
+		]
 	]
 }
