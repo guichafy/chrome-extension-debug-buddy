@@ -1,4 +1,6 @@
+import { tryCoalesceConsole } from './coalesce';
 import { fingerprintsEqual, newPhaseId } from './fingerprint';
+import { estimateEventBytes } from './sizeEstimate';
 import { sessionStore } from './storage';
 import type {
 	DetectionPhase,
@@ -28,6 +30,50 @@ function makePhase(detection: PageDetection): DetectionPhase {
 
 function makeDetectionEvent(timestamp: number, phaseId: string): SessionEvent {
 	return { type: 'detection', timestamp, phaseId };
+}
+
+const DEFAULT_SIZE_LIMIT_BYTES = 50 * 1024 * 1024; // 50 MB
+const DEFAULT_DURATION_LIMIT_MS = 10 * 60 * 1000; // 10 min
+
+let sizeLimitBytes = DEFAULT_SIZE_LIMIT_BYTES;
+let durationLimitMs = DEFAULT_DURATION_LIMIT_MS;
+
+interface SessionRuntime {
+	bytes: number;
+	startedAt: number;
+	navigationCount: number;
+}
+const runtime = new Map<string, SessionRuntime>();
+
+function getOrInitRuntime(sessionId: string, session: Session): SessionRuntime {
+	let r = runtime.get(sessionId);
+	if (!r) {
+		// Reconstruir após service worker recycle
+		r = {
+			bytes: JSON.stringify(session).length,
+			startedAt: session.startedAt,
+			navigationCount: session.events.filter((e) => e.type === 'route').length,
+		};
+		runtime.set(sessionId, r);
+	}
+	return r;
+}
+
+async function autoStop(
+	session: Session,
+	reason: 'size' | 'time',
+	r: SessionRuntime,
+): Promise<void> {
+	session.endedAt = Date.now();
+	session.telemetry = {
+		hitHardLimit: true,
+		hardLimitReason: reason,
+		endedSizeBytes: r.bytes,
+		endedDurationMs: session.endedAt - r.startedAt,
+		navigationCount: r.navigationCount,
+	};
+	await sessionStore.put(session);
+	runtime.delete(session.id);
 }
 
 export const recorder = {
@@ -64,6 +110,7 @@ export const recorder = {
 		// clicou em "Parar gravação"). Não-encontrada continua erro.
 		if (s.endedAt !== null) return;
 		s.endedAt = Date.now();
+		runtime.delete(id);
 		await sessionStore.put(s);
 	},
 
@@ -87,7 +134,57 @@ export const recorder = {
 		await sessionStore.put(s);
 	},
 
+	async addEvent(sessionId: string, event: SessionEvent): Promise<void> {
+		const s = await sessionStore.get(sessionId);
+		if (!s) throw new Error(`Session ${sessionId} não encontrada`);
+		if (s.endedAt !== null) throw new Error(`Session ${sessionId} já encerrada`);
+
+		const r = getOrInitRuntime(sessionId, s);
+
+		// Coalesce console idênticos consecutivos
+		if (event.type === 'console') {
+			const last = s.events[s.events.length - 1];
+			if (last) {
+				const result = tryCoalesceConsole(last, event);
+				if (result.coalesced) {
+					s.events[s.events.length - 1] = result.event;
+					// Não cresce bytes (coalesce só atualiza count na entrada existente)
+					await sessionStore.put(s);
+					return;
+				}
+			}
+		}
+
+		s.events.push(event);
+		if (event.type === 'route') r.navigationCount++;
+		r.bytes += estimateEventBytes(event);
+
+		// Hard limit checks (ordem: size primeiro porque é o mais comum)
+		if (r.bytes >= sizeLimitBytes) {
+			await autoStop(s, 'size', r);
+			return;
+		}
+		const duration = Date.now() - r.startedAt;
+		if (duration >= durationLimitMs) {
+			await autoStop(s, 'time', r);
+			return;
+		}
+
+		await sessionStore.put(s);
+	},
+
 	async getActiveByTab(tabId: number): Promise<Session | null> {
 		return sessionStore.findActiveByTab(tabId);
+	},
+
+	_setLimitsForTests(limits: { sizeBytes: number; durationMs: number }): void {
+		sizeLimitBytes = limits.sizeBytes;
+		durationLimitMs = limits.durationMs;
+	},
+
+	_resetLimitsForTests(): void {
+		sizeLimitBytes = DEFAULT_SIZE_LIMIT_BYTES;
+		durationLimitMs = DEFAULT_DURATION_LIMIT_MS;
+		runtime.clear();
 	},
 };

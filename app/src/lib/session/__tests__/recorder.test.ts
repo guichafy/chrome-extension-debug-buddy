@@ -25,6 +25,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+	recorder._resetLimitsForTests();
 	await sessionStore.clear();
 });
 
@@ -141,5 +142,112 @@ describe('recorder', () => {
 		await expect(
 			recorder.addPage('inexistente', page('https://x/', 1, fp())),
 		).rejects.toThrow(/não encontrada/i);
+	});
+
+	it('addEvent persiste evento e atualiza session.events', async () => {
+		const id = await recorder.startSession({
+			tabId: 1,
+			initialUrl: 'https://x/',
+			userAgent: '',
+			viewportSize: { w: 1, h: 1 },
+			canvasCaptureEnabled: false,
+		});
+		await recorder.addPage(id, page('https://x/', 10, fp()));
+		const phaseId = (await sessionStore.get(id))!.detectionPhases[0].id;
+		await recorder.addEvent(id, {
+			type: 'network',
+			timestamp: 11,
+			phaseId,
+			requestId: 'r1',
+			method: 'GET',
+			url: 'https://api/x',
+			status: 200,
+		});
+		const got = await sessionStore.get(id);
+		const networkEvents = got!.events.filter((e) => e.type === 'network');
+		expect(networkEvents).toHaveLength(1);
+	});
+
+	it('addEvent coalesce 2 console idênticos consecutivos em 1 entrada com count=2', async () => {
+		const id = await recorder.startSession({
+			tabId: 1,
+			initialUrl: 'https://x/',
+			userAgent: '',
+			viewportSize: { w: 1, h: 1 },
+			canvasCaptureEnabled: false,
+		});
+		await recorder.addPage(id, page('https://x/', 10, fp()));
+		const phaseId = (await sessionStore.get(id))!.detectionPhases[0].id;
+		const baseConsole = {
+			type: 'console' as const,
+			phaseId,
+			source: 'app' as const,
+			level: 'log' as const,
+			args: [{ type: 'string' as const, description: 'rendered' }],
+		};
+		await recorder.addEvent(id, { ...baseConsole, timestamp: 11 });
+		await recorder.addEvent(id, { ...baseConsole, timestamp: 12 });
+		const got = await sessionStore.get(id);
+		const consoleEvents = got!.events.filter((e) => e.type === 'console');
+		expect(consoleEvents).toHaveLength(1);
+		const first = consoleEvents[0];
+		if (first.type !== 'console') throw new Error('expected console');
+		expect(first.coalesceCount).toBe(2);
+	});
+
+	it('addEvent dispara auto-stop quando ultrapassa SIZE_LIMIT_BYTES', async () => {
+		const id = await recorder.startSession({
+			tabId: 1,
+			initialUrl: 'https://x/',
+			userAgent: '',
+			viewportSize: { w: 1, h: 1 },
+			canvasCaptureEnabled: false,
+		});
+		await recorder.addPage(id, page('https://x/', 10, fp()));
+		const phaseId = (await sessionStore.get(id))!.detectionPhases[0].id;
+		recorder._setLimitsForTests({ sizeBytes: 500, durationMs: 60_000 });
+		try {
+			for (let i = 0; i < 100; i++) {
+				await recorder.addEvent(id, {
+					type: 'console',
+					timestamp: 11 + i,
+					phaseId,
+					source: 'app',
+					level: 'log',
+					args: [{ type: 'string', description: `n${i}` }],
+				});
+			}
+		} catch {
+			// Auto-stop pode rejeitar adicionais posteriores; ignorar nesse loop.
+		}
+		const got = await sessionStore.get(id);
+		expect(got!.endedAt).not.toBeNull();
+		expect(got!.telemetry?.hitHardLimit).toBe(true);
+		expect(got!.telemetry?.hardLimitReason).toBe('size');
+	});
+
+	it('addEvent dispara auto-stop quando ultrapassa DURATION_LIMIT_MS', async () => {
+		const id = await recorder.startSession({
+			tabId: 1,
+			initialUrl: 'https://x/',
+			userAgent: '',
+			viewportSize: { w: 1, h: 1 },
+			canvasCaptureEnabled: false,
+		});
+		await recorder.addPage(id, page('https://x/', 10, fp()));
+		const phaseId = (await sessionStore.get(id))!.detectionPhases[0].id;
+		recorder._setLimitsForTests({ sizeBytes: 50_000_000, durationMs: 1 });
+		await new Promise((r) => setTimeout(r, 10));
+		await recorder.addEvent(id, {
+			type: 'console',
+			timestamp: 100,
+			phaseId,
+			source: 'app',
+			level: 'log',
+			args: [{ type: 'string', description: 'late' }],
+		});
+		const got = await sessionStore.get(id);
+		expect(got!.endedAt).not.toBeNull();
+		expect(got!.telemetry?.hardLimitReason).toBe('time');
 	});
 });
