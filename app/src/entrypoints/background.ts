@@ -522,6 +522,22 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
 	if (details.frameId !== 0) return; // só top frame — ignora iframes
 	const session = await recorder.getActiveByTab(details.tabId);
 	if (!session) return;
+
+	// 1. Emite RouteChangeEvent para a sessão ativa.
+	try {
+		const routeEvent: SessionEvent = {
+			type: 'route',
+			timestamp: details.timeStamp,
+			phaseId: currentPhaseId(session),
+			url: details.url,
+			triggerType: 'navigation',
+		};
+		await recorder.addEvent(session.id, routeEvent);
+	} catch (err) {
+		console.warn('[session] addEvent route (webNavigation) falhou:', err);
+	}
+
+	// 2. Sinaliza o probe daquela tab pra começar a emitir detections.
 	try {
 		await chrome.tabs.sendMessage(details.tabId, {
 			action: 'probeStartDetection',
@@ -901,6 +917,19 @@ chrome.runtime.onMessage.addListener(
 						triggerType: message.payload!.triggerType,
 					};
 					await recorder.addPage(session.id, detection);
+					// Emite RouteChangeEvent com o mesmo trigger do probe, relendo a sessão
+					// para que currentPhaseId retorne a phase recém-criada (ou atualizada).
+					const updated = await recorder.getActiveByTab(tabId);
+					if (updated) {
+						const routeEvent: SessionEvent = {
+							type: 'route',
+							timestamp: message.payload!.timestamp,
+							phaseId: currentPhaseId(updated),
+							url: message.payload!.url,
+							triggerType: message.payload!.triggerType,
+						};
+						await recorder.addEvent(updated.id, routeEvent);
+					}
 					sendResponse({ ok: true });
 				} catch (err) {
 					sendResponse({ ok: false, error: String(err) });
