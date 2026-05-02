@@ -27,7 +27,14 @@ function evictIfNeeded(): void {
 			oldestKey = k;
 		}
 	}
-	if (oldestKey) cache.delete(oldestKey);
+	if (oldestKey) {
+		// SourceMapConsumer (source-map 0.7.x) usa WASM internamente — sem destroy()
+		// o backing memory vaza. evictIfNeeded() é o único caminho fora de
+		// _resetCacheForTests onde a entrada some, então fecha o consumer aqui.
+		const evicted = cache.get(oldestKey);
+		evicted?.consumer?.destroy();
+		cache.delete(oldestKey);
+	}
 }
 
 function looksMinified(call: RawCallsite): boolean {
