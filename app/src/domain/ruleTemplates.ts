@@ -17,9 +17,7 @@ export type RuleTemplateId =
 	| 'mock_500'
 	| 'mock_404'
 	| 'mock_401'
-	| 'mock_403'
 	| 'mock_empty'
-	| 'mock_latency_fixed'
 	| 'delay_3s'
 	| 'transform_cors_header'
 	| 'transform_remove_id'
@@ -83,9 +81,7 @@ export const TEMPLATES: Record<RuleTemplateId, TemplateSpec> = {
 	mock_500: mockSpec('mock_500', 'http_error_500'),
 	mock_404: mockSpec('mock_404', 'http_error_404'),
 	mock_401: mockSpec('mock_401', 'http_error_401'),
-	mock_403: mockSpec('mock_403', 'http_error_403'),
 	mock_empty: mockSpec('mock_empty', 'empty_response'),
-	mock_latency_fixed: mockSpec('mock_latency_fixed', 'latency_fixed'),
 	delay_3s: {
 		id: 'delay_3s',
 		name: 'Atrasar resposta em 3s',
@@ -130,7 +126,7 @@ export const TEMPLATE_GROUPS: TemplateGroup[] = [
 	{
 		id: 'mock',
 		label: 'Mock — não chama o servidor',
-		templates: ['mock_500', 'mock_404', 'mock_401', 'mock_403', 'mock_empty', 'mock_latency_fixed'],
+		templates: ['mock_500', 'mock_404', 'mock_401', 'mock_empty'],
 	},
 	{
 		id: 'delay',

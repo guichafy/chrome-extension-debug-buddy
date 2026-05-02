@@ -107,14 +107,6 @@ describe('ruleTemplates — Mock templates reuso de presets', () => {
 		const draft = createTemplateRule('mock_empty');
 		expect(draft.action).toMatchObject({ type: 'mock', status: 200, body: '' });
 	});
-
-	test('mock_latency_fixed cria mock com latency mode=fixed', () => {
-		const draft = createTemplateRule('mock_latency_fixed');
-		expect(draft.action).toMatchObject({
-			type: 'mock',
-			latency: { mode: 'fixed', delayMs: 1000 },
-		});
-	});
 });
 
 describe('ruleTemplates — Delay template', () => {
