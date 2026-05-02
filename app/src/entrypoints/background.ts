@@ -1153,6 +1153,35 @@ chrome.runtime.onMessage.addListener(
 			return true;
 		}
 
+		if (message.action === 'stateChange') {
+			(async () => {
+				try {
+					const tabId = sender?.tab?.id;
+					if (typeof tabId !== 'number') {
+						sendResponse({ ok: false, error: 'stateChange sem tabId no sender' });
+						return;
+					}
+					const session = await sessionStore.findActiveByTab(tabId);
+					if (!session) {
+						// Sem sessão — modo passivo não persiste state changes (spec: state
+						// só com gravação ON).
+						sendResponse({ ok: false, error: 'Sem sessão ativa para a tab remetente' });
+						return;
+					}
+					const payload = message.statePayload;
+					if (!payload) {
+						sendResponse({ ok: false, error: 'stateChange sem statePayload' });
+						return;
+					}
+					await recorder.addStateChange(session.id, payload);
+					sendResponse({ ok: true });
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
 		return false;
 	},
 );
