@@ -132,4 +132,14 @@ describe('recorder', () => {
 		});
 		expect(id2).not.toBe(id);
 	});
+
+	it('stopSession lança erro quando session não existe', async () => {
+		await expect(recorder.stopSession('inexistente')).rejects.toThrow(/não encontrada/i);
+	});
+
+	it('addPage lança erro quando session não existe', async () => {
+		await expect(
+			recorder.addPage('inexistente', page('https://x/', 1, fp())),
+		).rejects.toThrow(/não encontrada/i);
+	});
 });

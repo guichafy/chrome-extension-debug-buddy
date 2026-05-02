@@ -47,7 +47,7 @@ export function fingerprintsEqual(
 	return true;
 }
 
-function newPhaseId(): string {
+export function newPhaseId(): string {
 	return `phase_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 

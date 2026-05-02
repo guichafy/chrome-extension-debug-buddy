@@ -1,4 +1,4 @@
-import { fingerprintsEqual } from './fingerprint';
+import { fingerprintsEqual, newPhaseId } from './fingerprint';
 import { sessionStore } from './storage';
 import type {
 	DetectionPhase,
@@ -14,10 +14,6 @@ interface StartArgs extends SessionMetadata {
 
 function newSessionId(): string {
 	return `sess_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function newPhaseId(): string {
-	return `phase_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function makePhase(detection: PageDetection): DetectionPhase {
@@ -63,6 +59,9 @@ export const recorder = {
 	async stopSession(id: string): Promise<void> {
 		const s = await sessionStore.get(id);
 		if (!s) throw new Error(`Session ${id} não encontrada`);
+		// Idempotente por design: background pode chamar stopSession em tab close
+		// sem precisar saber se a sessão já foi encerrada antes (ex: usuário ja
+		// clicou em "Parar gravação"). Não-encontrada continua erro.
 		if (s.endedAt !== null) return;
 		s.endedAt = Date.now();
 		await sessionStore.put(s);
@@ -73,6 +72,10 @@ export const recorder = {
 		if (!s) throw new Error(`Session ${sessionId} não encontrada`);
 		if (s.endedAt !== null) throw new Error(`Session ${sessionId} já encerrada`);
 		const last = s.detectionPhases[s.detectionPhases.length - 1];
+		// Mutação in-place de `last` é segura aqui porque o background processa
+		// chrome.runtime.onMessage serialmente (event loop single-threaded).
+		// Se addPage passar a ter múltiplos callers concorrentes, precisará de
+		// lock otimista (compare-and-swap em endedAt ou versão).
 		if (last && fingerprintsEqual(last.fingerprint, detection.fingerprint)) {
 			last.pages.push(detection);
 			last.endTimestamp = detection.timestamp;
