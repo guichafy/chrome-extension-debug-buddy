@@ -52,7 +52,11 @@ export type MessageAction =
 	// Session Replay — Phase 4 (state change capture)
 	| 'stateChange'
 	// Session Replay — Phase 5 (Angular HttpClient tag)
-	| 'angularHttpTag';
+	| 'angularHttpTag'
+	// Session Replay — Phase 6 (privacyConfig + autoPurge)
+	| 'getPrivacyConfig'
+	| 'setPrivacyConfig'
+	| 'purgeOldSessions';
 
 export interface Message {
 	action: MessageAction;
@@ -96,6 +100,8 @@ export interface Message {
 		timestampHint: number;
 		confidence: 'high' | 'medium' | 'low';
 	};
+	// Phase 6 — privacyConfig
+	config?: import('@/lib/session/types').RedactionConfig;
 }
 
 export interface MessageResponse {
@@ -119,4 +125,7 @@ export interface MessageResponse {
 	data?: ArrayBuffer;
 	// Antipattern (Phase 3)
 	antipatternHits?: AntipatternHit[];
+	// Phase 6 — privacyConfig + autoPurge
+	privacyConfig?: import('@/lib/session/types').RedactionConfig;
+	purgedCount?: number;
 }
