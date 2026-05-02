@@ -165,6 +165,24 @@ When writing or auditing code:
 
 **Vitest** with `jsdom` environment and `globals: true` (no per-file `import { describe, test, expect, vi } from 'vitest'` needed). `app/vitest.setup.ts` imports `@testing-library/jest-dom/vitest` for DOM matchers and mocks the `chrome` global (`runtime`, `storage.local`, `tabs.query`); add to that mock when a new test needs an API beyond what's there. Test files live next to the code in `__tests__/` directories. Path alias `@/*` → `src/*` is configured in `vitest.config.ts`.
 
+### E2E (Playwright)
+
+Suite E2E em `app/e2e/` cobre o Golden Path da interceptação (anexar debugger → request mockada → request renderizada no Command Center, lida do IndexedDB). Roda Chromium real com a extensão construída em `dist/`.
+
+```bash
+cd app
+npm run build              # pré-requisito: dist/ atualizado
+npm run e2e                # roda contra dist/ + Express em :3100
+npm run e2e:headed         # janela visível, útil pra debugar fluxos
+npm run e2e:ui             # modo interativo do Playwright
+```
+
+`launchExtensionContext` usa `headless: false` deliberadamente: Playwright 1.59 seleciona o binário `chromium-headless-shell` quando `headless: true`, e esse binário não consegue carregar extensões. Em runners Linux sem display nativo, o comando precisa ser envolvido em `xvfb-run` — o workflow `.github/workflows/e2e.yml` faz isso.
+
+CI: o workflow `e2e` roda em todo PR para `main` e em pushes para `main`. Em falha, baixe o artefato `playwright-report` (HTML report + trace) por 7 dias. Para virar bloqueante, adicionar manualmente o check `e2e` aos required status checks de `main` no GitHub.
+
+Limites desse primeiro corte: cobre **só o Golden Path** com regra de mock; outros tipos (`delay`, `transform`, `breakpoint`), criação de regra via UI, side panel e migração legacy ficam em issues de follow-up.
+
 ## Commit hooks
 
 **Husky 9** at the repo root (`.husky/`) wires two hooks:
