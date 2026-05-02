@@ -42,7 +42,7 @@ export interface PageDetection {
 	triggerType: PageDetectionTrigger;
 }
 
-export type StoreKind = 'redux' | 'zustand';
+export type StoreKind = 'redux' | 'zustand' | 'angular-signal' | 'ngrx';
 
 export interface StateSnapshot {
 	storeId: string;
@@ -130,6 +130,7 @@ export type SessionEvent =
 			durationMs?: number;
 			bodyRef?: string;
 			callsite?: RawCallsite;
+			client?: string;
 	  }
 	| {
 			type: 'console';
