@@ -219,6 +219,31 @@ export interface AntipatternHit {
 	suggestion?: string;
 }
 
+export interface RedactionConfig {
+	enabled: boolean;
+	// Network — headers
+	headerKeys: string[]; // case-insensitive; ex: ['authorization', 'cookie']
+	headerRegex: string[]; // ex: ['^x-.*-token$']
+	// Network — bodies
+	bodyRegex: string[]; // ex: card-pan, JWT-like
+	// Console
+	consoleRegex: string[]; // aplicado em ConsoleArgPreview.description
+	consoleEnabled: boolean; // permite desligar p/ localhost
+	// State
+	stateBlacklistPaths: string[]; // glob simples — ex: 'auth.*.token'
+	stateWhitelistPaths: string[]; // se preenchido, SÓ esses paths são preservados
+	// rrweb
+	rrwebMaskAllInputs: boolean; // default false — só password
+	rrwebMaskTextSelector: string; // default '.dbb-mask, [data-dbb-mask]'
+	// URL gate
+	urlBlacklist: string[]; // domains/glob — ex: '*.banco.com.br'
+	// Paths em stacks/source maps
+	truncateUserPaths: boolean; // default true
+	// Retenção
+	autoPurgeEnabled: boolean;
+	autoPurgeRetentionDays: number; // default 30
+}
+
 export interface Session {
 	id: string;
 	schemaVersion: 1;
@@ -233,4 +258,5 @@ export interface Session {
 	rrwebEvents?: RrwebEvent[];
 	antipatternHits?: AntipatternHit[];
 	telemetry?: SessionTelemetry;
+	redactionApplied?: RedactionConfig; // NOVO em Phase 6 — opcional
 }
