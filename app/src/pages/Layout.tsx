@@ -16,6 +16,8 @@ import { PendingActionDock } from '@/components/command-center/PendingActionDock
 import { usePendingHotkeys } from '@/components/command-center/usePendingHotkeys';
 import type { AppOutletContext } from '@/types/outletContext';
 import { RecordingBanner } from '@/components/recording/RecordingBanner';
+import { LiveAntipatternsPanel } from '@/components/replay/LiveAntipatternsPanel';
+import { useRecording } from '../hooks/useRecording';
 
 const RouteFallback: React.FC = () => (
 	<div className="flex flex-col gap-3 p-6">
@@ -42,6 +44,14 @@ const Layout: React.FC = () => {
 
 	const sessionMarker = useSessionMarker();
 	const metrics = useNetworkMetrics(allRequestsState.allRequests, sessionMarker);
+
+	// Modo passivo: interceptação ON + gravação OFF. Nesse caso, queremos
+	// exibir os hits de antipattern recebidos via runtime.onMessage para a tab
+	// alvo. Quando a gravação está ativa, os hits são exibidos pelo painel da
+	// sessão (AntipatternsTab dentro do replay) — não duplicar aqui.
+	const targetTabId = targetTab?.id ?? null;
+	const recording = useRecording(targetTabId);
+	const passiveTabId = isDebugging && !recording.status.active && targetTabId ? targetTabId : null;
 
 	const [selectTabDialogOpen, setSelectTabDialogOpen] = useState(false);
 
@@ -247,6 +257,7 @@ const Layout: React.FC = () => {
 					onIgnoreAll={handleIgnoreAll}
 					onViewPending={onViewPending}
 				/>
+				<LiveAntipatternsPanel tabId={passiveTabId} />
 			</SidebarInset>
 		</SidebarProvider>
 	);
