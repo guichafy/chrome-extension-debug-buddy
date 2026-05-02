@@ -47,9 +47,7 @@ test('Golden Path: regra mocka fetch e request aparece no histórico', async () 
 		await startButton.click();
 
 		// Confirma a transição: o botão muda para "Parar Interceptação".
-		await expect(
-			optionsPage.getByRole('button', { name: /parar interceptação/i }),
-		).toBeVisible();
+		await expect(optionsPage.getByRole('button', { name: /parar interceptação/i })).toBeVisible();
 
 		// Recarrega a aba alvo: o fetch agora passa pelo Fetch.requestPaused e é mockado.
 		await targetPage.bringToFront();
@@ -63,10 +61,9 @@ test('Golden Path: regra mocka fetch e request aparece no histórico', async () 
 		await optionsPage.goto(`chrome-extension://${extId}/options.html#/command-center`);
 		await optionsPage.reload();
 		await expect
-			.poll(
-				async () => optionsPage.locator('tr', { hasText: '/api/users' }).count(),
-				{ timeout: 8000 },
-			)
+			.poll(async () => optionsPage.locator('tr', { hasText: '/api/users' }).count(), {
+				timeout: 8000,
+			})
 			.toBeGreaterThan(0);
 	} finally {
 		await context.close();

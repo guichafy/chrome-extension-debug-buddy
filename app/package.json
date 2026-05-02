@@ -19,17 +19,17 @@
     "e2e": "playwright test",
     "e2e:headed": "playwright test --headed",
     "e2e:ui": "playwright test --ui",
-    "lint": "biome check src",
-    "lint:fix": "biome check --write src",
+    "lint": "biome check src e2e",
+    "lint:fix": "biome check --write src e2e",
     "lint:ext": "node scripts/validate-extension.mjs",
-    "format": "biome format --write src",
+    "format": "biome format --write src e2e",
     "typecheck": "tsc --noEmit",
     "package": "node scripts/publish-cws.mjs --dry-run",
     "publish:cws": "node scripts/publish-cws.mjs",
     "prepare": "cd .. && husky"
   },
   "lint-staged": {
-    "src/**/*.{ts,tsx,js,jsx,json}": [
+    "{src,e2e}/**/*.{ts,tsx,js,jsx,json}": [
       "biome check --write --no-errors-on-unmatched"
     ]
   },
