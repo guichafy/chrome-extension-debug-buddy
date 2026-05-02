@@ -1,3 +1,26 @@
+## [0.10.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.9.0...v0.10.0) (2026-05-02)
+
+### Features
+
+* **e2e:** adiciona servidor de fixture com endpoint /api/users ([b282135](https://github.com/guichafy/chrome-extension-debug-buddy/commit/b282135d3692ed8839ba1a721e88220e9d17e1d4))
+* **e2e:** captura screenshots de evidência em 6 checkpoints do Golden Path ([f62bcdd](https://github.com/guichafy/chrome-extension-debug-buddy/commit/f62bcdda29725005483a2fba9c1c9ae1b1ea00ea))
+* **e2e:** configura Playwright com globalSetup validando dist/ ([44f52cb](https://github.com/guichafy/chrome-extension-debug-buddy/commit/44f52cbf692bcb37ed5b1bec6a5dfdb470beed82))
+* **e2e:** helper seedRules grava chrome.storage.local ([e921b9d](https://github.com/guichafy/chrome-extension-debug-buddy/commit/e921b9dbe8000ec652de05911a42a461fda36faf))
+* **e2e:** helpers para lançar contexto persistente com extensão ([41a9376](https://github.com/guichafy/chrome-extension-debug-buddy/commit/41a9376830266dc7008577a5955eebc86e09c3fd))
+
+### Refactoring
+
+* **e2e:** aplica review final — lint cobre e2e, cleanup de profile ([795004e](https://github.com/guichafy/chrome-extension-debug-buddy/commit/795004e975fa212ff1f1b72d6350ca69b2ab6e4b))
+* **e2e:** aplica revisão do code reviewer no Golden Path ([9a2bcd7](https://github.com/guichafy/chrome-extension-debug-buddy/commit/9a2bcd76a79e8ac51a77c3a2a11e9de6b20921f3))
+
+### Documentation
+
+* **e2e:** documenta como rodar a suite Playwright ([a2c0cd6](https://github.com/guichafy/chrome-extension-debug-buddy/commit/a2c0cd66999072a2c29793a00564e51fc96aa0ff))
+* **plans:** adiciona plano de implementação E2E Golden Path ([1449921](https://github.com/guichafy/chrome-extension-debug-buddy/commit/1449921a90b4352ad446d7a98e1db92ad92b06a9))
+* **plans:** adiciona plano de implementação screenshots de evidência + Release ([d006217](https://github.com/guichafy/chrome-extension-debug-buddy/commit/d006217268ac9363802568ad96a134b38fe0cd97))
+* **specs:** adiciona spec de E2E Golden Path com Playwright ([f07c70c](https://github.com/guichafy/chrome-extension-debug-buddy/commit/f07c70c8b21cc7798570157d748cd2cd94e8637a))
+* **specs:** adiciona spec de screenshots como evidência + anexo na Release ([942a231](https://github.com/guichafy/chrome-extension-debug-buddy/commit/942a23192bbdcd0a2e8414ec6c2001b87273d07a))
+
 ## [0.9.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.8.0...v0.9.0) (2026-05-02)
 
 ### Features
