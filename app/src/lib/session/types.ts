@@ -109,6 +109,7 @@ export type SessionEvent =
 			status: number;
 			durationMs?: number;
 			bodyRef?: string;
+			callsite?: RawCallsite;
 	  }
 	| {
 			type: 'console';
@@ -153,6 +154,41 @@ export interface RrwebEvent {
 	timestamp: number;
 }
 
+export type AntipatternSeverity = 'info' | 'warn' | 'error';
+
+export type AntipatternId =
+	| 'dup-req-burst'
+	| 'retry-storm'
+	| 'effect-fetch-loop'
+	| 'waterfall'
+	| 'auth-refresh-storm';
+
+export interface RawCallsite {
+	file: string;
+	line: number;
+	column?: number;
+}
+
+export interface ResolvedCallsite {
+	raw: RawCallsite;
+	resolved?: RawCallsite;
+}
+
+export interface AntipatternHit {
+	patternId: AntipatternId;
+	severity: AntipatternSeverity;
+	startTimestamp: number;
+	endTimestamp: number;
+	phaseId: string;
+	evidenceEventIds: string[];
+	context: {
+		component?: string;
+		callsite?: ResolvedCallsite;
+		summary: string;
+	};
+	suggestion?: string;
+}
+
 export interface Session {
 	id: string;
 	schemaVersion: 1;
@@ -165,5 +201,6 @@ export interface Session {
 	detectionPhases: DetectionPhase[];
 	events: SessionEvent[];
 	rrwebEvents?: RrwebEvent[];
+	antipatternHits?: AntipatternHit[];
 	telemetry?: SessionTelemetry;
 }
