@@ -46,6 +46,14 @@ jobs:
         env:
           CI: '1'
 
+      - name: Upload evidence (success)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-evidence
+          path: app/e2e/evidence/
+          retention-days: 7
+
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4

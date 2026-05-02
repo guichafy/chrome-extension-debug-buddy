@@ -44,6 +44,24 @@ jobs:
         run: npm ci
       - name: Build (so semantic-release runs against a known-good tree)
         run: npm run build
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('app/package-lock.json') }}
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Xvfb
+        run: sudo apt-get install -y xvfb
+
+      - name: Run E2E (gera evidência para a release)
+        run: xvfb-run --auto-servernum npx playwright test
+        env:
+          CI: '1'
+
       - name: Lint extension shape
         run: npm run lint:ext
       - name: Run semantic-release

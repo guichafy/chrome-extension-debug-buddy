@@ -183,6 +183,8 @@ CI: o workflow `e2e` roda em todo PR para `main` e em pushes para `main`. Em fal
 
 Limites desse primeiro corte: cobre **só o Golden Path** com regra de mock; outros tipos (`delay`, `transform`, `breakpoint`), criação de regra via UI, side panel e migração legacy ficam em issues de follow-up.
 
+**Evidência visual**: cada execução verde gera 6 PNGs em `app/e2e/evidence/` (gitignored, regenerada a cada run pelo globalSetup). O workflow `e2e` sobe esses arquivos como artefato `playwright-evidence` (retenção 7 dias) — útil para revisores de PR. O workflow `release` também roda o E2E antes do semantic-release; em sucesso, os 6 PNGs são anexados à GitHub Release publicada via plugin `@semantic-release/github` com label `E2E evidence — golden path (<tag>)`.
+
 ## Commit hooks
 
 **Husky 9** at the repo root (`.husky/`) wires two hooks:
