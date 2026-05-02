@@ -9,9 +9,12 @@ const EXTENSION_PATH = path.resolve(__dirname, '../../dist');
 
 export async function launchExtensionContext(): Promise<BrowserContext> {
 	const userDataDir = await mkdtemp(path.join(os.tmpdir(), 'debug-buddy-e2e-'));
-	// Chrome não suporta extensões em modo headless padrão; headless: false é
-	// necessário para que o service worker MV3 registre corretamente.
-	// Em CI usa-se Xvfb (ou o ambiente já tem display virtual).
+	// Playwright 1.59 seleciona o binário `chromium-headless-shell` quando
+	// headless: true. Esse binário não consegue carregar extensões — não é
+	// limitação do flag --headless do Chrome, é seleção de binário pelo
+	// runner. Por isso headless: false é obrigatório para forçar o Chromium
+	// completo. Pré-requisito de CI: o comando precisa ser envolvido em
+	// xvfb-run (ou equivalente) em runners Linux sem display nativo.
 	return chromium.launchPersistentContext(userDataDir, {
 		headless: false,
 		args: [
