@@ -83,4 +83,20 @@ describe('AntipatternEngine', () => {
 		expect(hits).toHaveLength(1);
 		expect(eng.bufferSize).toBe(1);
 	});
+
+	it('emitted tem cap FIFO (não vaza memória em sessões longas)', () => {
+		// Detector que produz hit único por evento (summary derivado do timestamp)
+		const det: Detector = (ev) =>
+			fakeHit('dup-req-burst', `unique-${ev.timestamp}`);
+		const eng = new AntipatternEngine([det]);
+		// Dispara mais do que MAX_EMITTED (500) hits únicos com timestamps crescentes
+		// dentro da janela de 5s pra forçar o engine a manter mantendo eventos no buffer.
+		// Usamos timestamps espaçados em 1ms — janela WINDOW_MS=5000 cobre todos.
+		for (let i = 0; i < 600; i++) {
+			eng.pushEvent(netEv({ timestamp: i, requestId: `r${i}` }));
+		}
+		// Set não pode crescer além de MAX_EMITTED (500).
+		expect(eng.emittedSize).toBeLessThanOrEqual(500);
+		expect(eng.emittedSize).toBeGreaterThan(0);
+	});
 });
