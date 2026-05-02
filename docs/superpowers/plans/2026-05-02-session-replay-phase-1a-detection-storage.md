@@ -107,9 +107,9 @@ export interface DetectionPhase {
 	pages: PageDetection[];
 }
 
+// Outras variantes (network, console, route, error, state) virão em Phase 1b.
 export type SessionEvent =
 	| { type: 'detection'; timestamp: number; phaseId: string };
-// Outras variantes (network, console, route, error, state) virão em Phase 1b.
 
 export interface SessionMetadata {
 	initialUrl: string;
@@ -124,7 +124,8 @@ export interface Session {
 	id: string;
 	schemaVersion: 1;
 	startedAt: number;
-	endedAt: number;
+	// null = sessão ainda em gravação; number = timestamp de encerramento.
+	endedAt: number | null;
 	origin: SessionOrigin;
 	tabId: number;
 	metadata: SessionMetadata;
@@ -167,7 +168,7 @@ const baseSession = (overrides: Partial<Session> = {}): Session => ({
 	id: 'sess-1',
 	schemaVersion: 1,
 	startedAt: 1_000,
-	endedAt: 0,
+	endedAt: null,
 	origin: 'recorded',
 	tabId: 42,
 	metadata: {
@@ -205,9 +206,9 @@ describe('sessionStorage', () => {
 		expect(list.map((s) => s.id)).toEqual(['b', 'c', 'a']);
 	});
 
-	it('encontra session ativa por tabId (endedAt === 0)', async () => {
+	it('encontra session ativa por tabId (endedAt === null)', async () => {
 		await sessionStorage.put(baseSession({ id: 'closed', tabId: 7, endedAt: 5 }));
-		await sessionStorage.put(baseSession({ id: 'active', tabId: 7, endedAt: 0 }));
+		await sessionStorage.put(baseSession({ id: 'active', tabId: 7, endedAt: null }));
 		const active = await sessionStorage.findActiveByTab(7);
 		expect(active?.id).toBe('active');
 	});
@@ -275,7 +276,9 @@ function openDB(): Promise<IDBDatabase> {
 			if (!db.objectStoreNames.contains(STORE_NAME)) {
 				const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
 				store.createIndex('startedAt', 'startedAt');
-				store.createIndex('tabId_endedAt', ['tabId', 'endedAt']);
+				store.createIndex('tabId', 'tabId');
+				// Sem índice composto em endedAt: null não entra em índices na maioria
+				// das implementações de IndexedDB. findActiveByTab filtra em JS.
 			}
 			// Mantém o store 'requests' existente intacto.
 			if (!db.objectStoreNames.contains('requests')) {
@@ -326,7 +329,7 @@ export const sessionStorage = {
 
 	async findActiveByTab(tabId: number): Promise<Session | null> {
 		const all = await withStore('readonly', (store) => reqToPromise(store.getAll()));
-		return (all as Session[]).find((s) => s.tabId === tabId && s.endedAt === 0) ?? null;
+		return (all as Session[]).find((s) => s.tabId === tabId && s.endedAt === null) ?? null;
 	},
 
 	async delete(id: string): Promise<void> {
@@ -1429,7 +1432,7 @@ describe('recorder', () => {
 		});
 		const got = await sessionStorage.get(id);
 		expect(got?.tabId).toBe(7);
-		expect(got?.endedAt).toBe(0);
+		expect(got?.endedAt).toBeNull();
 		expect(got?.origin).toBe('recorded');
 		expect(got?.detectionPhases).toEqual([]);
 	});
@@ -1584,7 +1587,7 @@ export const recorder = {
 			id: newSessionId(),
 			schemaVersion: 1,
 			startedAt: Date.now(),
-			endedAt: 0,
+			endedAt: null,
 			origin: 'recorded',
 			tabId: args.tabId,
 			metadata: {
@@ -1603,7 +1606,7 @@ export const recorder = {
 	async stopSession(id: string): Promise<void> {
 		const s = await sessionStorage.get(id);
 		if (!s) throw new Error(`Session ${id} não encontrada`);
-		if (s.endedAt !== 0) return;
+		if (s.endedAt !== null) return;
 		s.endedAt = Date.now();
 		await sessionStorage.put(s);
 	},
@@ -1611,7 +1614,7 @@ export const recorder = {
 	async addPage(sessionId: string, detection: PageDetection): Promise<void> {
 		const s = await sessionStorage.get(sessionId);
 		if (!s) throw new Error(`Session ${sessionId} não encontrada`);
-		if (s.endedAt !== 0) throw new Error(`Session ${sessionId} já encerrada`);
+		if (s.endedAt !== null) throw new Error(`Session ${sessionId} já encerrada`);
 		const last = s.detectionPhases[s.detectionPhases.length - 1];
 		if (last && fingerprintsEqual(last.fingerprint, detection.fingerprint)) {
 			last.pages.push(detection);
