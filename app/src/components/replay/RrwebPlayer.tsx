@@ -35,6 +35,23 @@ interface RrwebPlayerInstance {
 	$destroy?: () => void;
 }
 
+/**
+ * Wrapper React de rrweb-player. Decisões de isolamento (Phase 2 Task 9):
+ *
+ * - **Não envolvemos o player em `<iframe sandbox srcDoc>`** no shell da
+ *   extensão, mesmo que a spec (seção 14.8) recomende. O próprio rrweb-player
+ *   v2 cria um iframe interno (`replayer-wrapper > iframe`) que já isola o
+ *   DOM gravado do shell. Adicionar outro iframe externo seria redundante e
+ *   quebraria imports ESM (`srcDoc` não resolve módulos).
+ * - **Viewer.html standalone** (`viewerTemplate.ts`): o HTML inteiro é o
+ *   próprio iframe quando aberto via `file://` ou anexado em Jira/Slack —
+ *   browser trata como documento isolado. Sem ajuste extra.
+ * - **CSP**: `rrweb-player` v2 não usa `eval`/`new Function` no runtime de
+ *   replay. MV3 default `script-src 'self'; object-src 'self'` é suficiente.
+ * - **Shadow DOM nativo**: replayer-wrapper já cria uma boundary. Se uma app
+ *   debugada tiver CSS agressivo que vaze (improvável), Phase 2.x adiciona
+ *   Shadow Root ao host.
+ */
 export const RrwebPlayer = forwardRef<RrwebPlayerHandle, Props>(function RrwebPlayer(
 	{ events, autoPlay = false, width = 1024, height = 576, onTimeUpdate },
 	ref,
