@@ -15,6 +15,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { InterceptedResponse } from '../../hooks/useResponses';
 import { compareDurations, formatDurationWithMock, getDurationColorClass } from './duration';
+import { getTransferSizeTooltip } from './transferSize';
 import { formatBytes } from '@/components/layout/networkMetricsFormat';
 import { getRequestState } from '@/lib/requestState';
 import { getAppliedTypeBadgeMeta, getAppliedTypes } from '@/lib/appliedType';
@@ -200,11 +201,29 @@ export const columns: ColumnDef<RequestRow>[] = [
 			return a - b;
 		},
 		cell: ({ row }) => {
-			const ts = row.original.request.networkTiming?.transferSize;
-			return (
+			const request = row.original.request;
+			const ts = request.networkTiming?.transferSize;
+			const tooltip = getTransferSizeTooltip(request);
+			const span = (
 				<span className="font-mono tabular-nums text-xs text-muted-foreground whitespace-nowrap">
 					{ts === undefined ? '—' : formatBytes(ts)}
 				</span>
+			);
+			if (tooltip === undefined) return span;
+			return (
+				<TooltipProvider delayDuration={150}>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<span
+								className="cursor-help underline decoration-dotted decoration-muted-foreground/40 underline-offset-4"
+								data-testid={`transfer-size-tooltip-${row.original.id}`}
+							>
+								{span}
+							</span>
+						</TooltipTrigger>
+						<TooltipContent>{tooltip}</TooltipContent>
+					</Tooltip>
+				</TooltipProvider>
 			);
 		},
 		size: 90,
