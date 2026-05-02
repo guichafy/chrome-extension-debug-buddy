@@ -144,6 +144,15 @@ export interface SessionMetadata {
 
 export type SessionOrigin = 'recorded' | 'imported';
 
+// rrweb event payload é opaco para a extensão — apenas serializa/deserializa.
+// Tipagem mínima: timestamp + type + data. rrweb v2 usa enum numérico para `type`
+// (0=DomContentLoaded, 1=Load, 2=FullSnapshot, 3=IncrementalSnapshot, 4=Meta, 5=Custom, 6=Plugin).
+export interface RrwebEvent {
+	type: number;
+	data: unknown;
+	timestamp: number;
+}
+
 export interface Session {
 	id: string;
 	schemaVersion: 1;
@@ -155,5 +164,6 @@ export interface Session {
 	metadata: SessionMetadata;
 	detectionPhases: DetectionPhase[];
 	events: SessionEvent[];
+	rrwebEvents?: RrwebEvent[];
 	telemetry?: SessionTelemetry;
 }
