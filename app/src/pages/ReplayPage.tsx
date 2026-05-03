@@ -123,11 +123,15 @@ export function ReplayPage() {
 			)}
 
 			<div className="flex flex-1 flex-col gap-3 overflow-hidden">
-				{/* Topo: rrweb-player full-width, ~58% altura. min-h-0 essencial pra
-				    flexbox respeitar overflow do filho (player tem scroll interno). */}
+				{/* Player wrapper: aspect-ratio fixo (16:9 padrão) com max-height
+				    capped a 55vh. Sem flex-basis percentual — o wrapper tem dimensões
+				    exatas calculadas pelo CSS, e o RrwebPlayer (via ResizeObserver)
+				    mede o host e cria o player com as MESMAS dimensões. Isso elimina
+				    o gap visual ("black space") que aparecia quando o player calculado
+				    via aspect ratio era menor que os 58% reservados. */}
 				<div
-					className="overflow-auto rounded border bg-black"
-					style={{ flex: '0 0 58%', minHeight: 0 }}
+					className="mx-auto flex w-full flex-shrink-0 items-center justify-center overflow-hidden rounded border bg-black"
+					style={{ aspectRatio: '16 / 9', maxHeight: '55vh' }}
 				>
 					{hasRrweb && rrwebEvents ? (
 						<RrwebPlayer
