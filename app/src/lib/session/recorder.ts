@@ -11,6 +11,7 @@ import type {
 	AntipatternHit,
 	DetectionPhase,
 	PageDetection,
+	Recommendation,
 	RrwebEvent,
 	Session,
 	SessionEvent,
@@ -558,6 +559,17 @@ export const recorder = {
 				return;
 			}
 
+			scheduleFlush(sessionId);
+		});
+	},
+
+	addRecommendation(sessionId: string, rec: Recommendation): Promise<void> {
+		return serializeBySessionId(sessionId, async () => {
+			const s = await getCachedOrLoad(sessionId);
+			if (!s) throw new Error(`Session ${sessionId} não encontrada`);
+			if (s.endedAt !== null) throw new Error(`Session ${sessionId} já encerrada`);
+			if (!s.recommendations) s.recommendations = [];
+			s.recommendations.push(rec);
 			scheduleFlush(sessionId);
 		});
 	},

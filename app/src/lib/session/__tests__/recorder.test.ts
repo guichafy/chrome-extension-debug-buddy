@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, test } from 'vitest';
 import { recorder } from '../recorder';
 import { sessionStore } from '../storage';
-import type { EnvironmentFingerprint, PageDetection } from '../types';
+import type { EnvironmentFingerprint, PageDetection, Recommendation } from '../types';
 
 const fp = (overrides: Partial<EnvironmentFingerprint> = {}): EnvironmentFingerprint => ({
 	framework: { name: 'react', version: '18.2.0' },
@@ -296,4 +296,53 @@ describe('recorder', () => {
 		expect(status!.sizeBytes).toBeGreaterThan(0);
 		expect(status!.durationMs).toBeGreaterThanOrEqual(0);
 	});
+});
+
+test('addRecommendation persiste em session.recommendations', async () => {
+	const id = await recorder.startSession({
+		tabId: 1,
+		initialUrl: 'https://example.com',
+		userAgent: 'test-ua',
+		viewportSize: { w: 1024, h: 768 },
+		canvasCaptureEnabled: false,
+	});
+
+	const rec: Recommendation = {
+		id: 'rec-1',
+		ruleId: 'compression-missing',
+		severity: 'warn',
+		timestamp: 100,
+		url: 'https://example.com/api',
+		host: 'example.com',
+		summary: 'sem gzip',
+		evidence: { 'content-encoding': 'absent' },
+	};
+	await recorder.addRecommendation(id, rec);
+	await recorder._flushForTests(id);
+
+	const session = await recorder.getActiveByTab(1);
+	expect(session?.recommendations).toEqual([rec]);
+});
+
+test('addRecommendation lança quando session encerrada', async () => {
+	const id = await recorder.startSession({
+		tabId: 2,
+		initialUrl: 'https://example.com',
+		userAgent: 'test-ua',
+		viewportSize: { w: 1024, h: 768 },
+		canvasCaptureEnabled: false,
+	});
+	await recorder.stopSession(id);
+
+	const rec: Recommendation = {
+		id: 'rec-2',
+		ruleId: 'csp-missing',
+		severity: 'error',
+		timestamp: 100,
+		url: 'https://example.com',
+		host: 'example.com',
+		summary: 'csp ausente',
+		evidence: {},
+	};
+	await expect(recorder.addRecommendation(id, rec)).rejects.toThrow(/já encerrada/);
 });
