@@ -123,16 +123,14 @@ export function ReplayPage() {
 			)}
 
 			<div className="flex flex-1 flex-col gap-3 overflow-hidden">
-				{/* Player wrapper: aspect-ratio fixo (16:9 padrão) com max-height
-				    capped a 55vh. Sem flex-basis percentual — o wrapper tem dimensões
-				    exatas calculadas pelo CSS, e o RrwebPlayer (via ResizeObserver)
-				    mede o host e cria o player com as MESMAS dimensões. Isso elimina
-				    o gap visual ("black space") que aparecia quando o player calculado
-				    via aspect ratio era menor que os 58% reservados. */}
-				<div
-					className="mx-auto flex w-full flex-shrink-0 items-center justify-center overflow-hidden rounded border bg-black"
-					style={{ aspectRatio: '16 / 9', maxHeight: '55vh' }}
-				>
+				{/* Player wrapper sizes naturalmente ao conteúdo do RrwebPlayer
+				    (iframe de replay + controller bar). Sem aspect-ratio forçado nem
+				    overflow-hidden — o player decide suas dimensões internamente
+				    (ResizeObserver) e o wrapper acompanha. flex-shrink-0 impede que
+				    o flex column comprima o player quando a aba abaixo tem muito
+				    conteúdo. bg-black mantido como fallback durante load do iframe.
+				    O fallback (sem rrweb) usa min-h-[200px] para ter área visível. */}
+				<div className="flex-shrink-0 rounded border bg-black">
 					{hasRrweb && rrwebEvents ? (
 						<RrwebPlayer
 							ref={playhead.playerRef}
@@ -140,7 +138,7 @@ export function ReplayPage() {
 							onTimeUpdate={playhead.onTimeUpdate}
 						/>
 					) : (
-						<div className="flex h-full items-center justify-center p-6 text-center text-muted-foreground text-sm">
+						<div className="flex min-h-[200px] items-center justify-center p-6 text-center text-muted-foreground text-sm">
 							Sessão sem captura visual.
 							<br />
 							Esta sessão foi gravada antes da Fase 2 ou com rrweb desabilitado.

@@ -39,9 +39,9 @@ interface RrwebPlayerInstance {
 }
 
 const ASPECT_RATIO = 16 / 9;
-// Threshold em px — mudanças menores que isto são ignoradas para evitar
-// re-mount do player a cada pixel de resize do container.
 const RESIZE_THRESHOLD_PX = 16;
+const MAX_VIEWPORT_FRACTION = 0.5; // iframe nunca passa de 50% da altura da viewport
+const MIN_PLAYER_HEIGHT_PX = 200;
 
 /**
  * Wrapper React de rrweb-player. Decisões de isolamento (Phase 2 Task 9):
@@ -76,22 +76,33 @@ export const RrwebPlayer = forwardRef<RrwebPlayerHandle, Props>(function RrwebPl
 	const [observedSize, setObservedSize] = useState<{ w: number; h: number } | null>(null);
 	const lastAppliedSize = useRef<{ w: number; h: number } | null>(null);
 
-	// ResizeObserver para medir o container quando dimensões não vêm via props.
-	// Side effect: se ambas props vierem explícitas, skip (sem observador).
+	// ResizeObserver + window.resize → mede o container quando dimensões não vêm via props.
+	// Calcula altura ideal pelo aspect 16:9, mas clampa pelo MAX_VIEWPORT_FRACTION da
+	// altura da janela para que o player + controles caibam na viewport (não passem do
+	// 50% e sobrem espaço pras tabs embaixo). Quando clamp ativa, recomputa width
+	// pra manter aspect — wrapper terá largura efetiva menor que 100% (centralizado).
 	useEffect(() => {
 		if (propsWidth !== undefined && propsHeight !== undefined) return;
 		if (!hostRef.current) return;
 		const el = hostRef.current;
-		const apply = (): void => {
-			const w = Math.max(1, el.clientWidth);
-			const h = propsHeight ?? Math.round(w / ASPECT_RATIO);
+		const apply = () => {
+			const containerW = Math.max(1, el.clientWidth);
+			const idealH = Math.round(containerW / ASPECT_RATIO);
+			const maxAllowedH = Math.max(
+				MIN_PLAYER_HEIGHT_PX,
+				Math.floor(window.innerHeight * MAX_VIEWPORT_FRACTION),
+			);
+			const h = propsHeight ?? Math.min(idealH, maxAllowedH);
+			// Se idealH foi clampado, recomputa w pra manter aspect — caso contrário usa
+			// containerW (player ocupa 100% da largura disponível).
+			const w = propsWidth ?? (idealH > maxAllowedH ? Math.round(h * ASPECT_RATIO) : containerW);
 			setObservedSize((prev) => {
 				if (
 					prev &&
 					Math.abs(prev.w - w) < RESIZE_THRESHOLD_PX &&
 					Math.abs(prev.h - h) < RESIZE_THRESHOLD_PX
 				) {
-					return prev; // sem mudança significativa — evita re-render
+					return prev;
 				}
 				return { w, h };
 			});
@@ -99,8 +110,10 @@ export const RrwebPlayer = forwardRef<RrwebPlayerHandle, Props>(function RrwebPl
 		apply();
 		const ro = new ResizeObserver(apply);
 		ro.observe(el);
+		window.addEventListener('resize', apply);
 		return () => {
 			ro.disconnect();
+			window.removeEventListener('resize', apply);
 		};
 	}, [propsWidth, propsHeight]);
 
@@ -186,5 +199,8 @@ export const RrwebPlayer = forwardRef<RrwebPlayerHandle, Props>(function RrwebPl
 		[],
 	);
 
-	return <div ref={hostRef} className="rrweb-player-host h-full w-full" />;
+	// host sizes naturalmente à altura do player (iframe + controller). flex
+	// justify-center centraliza horizontalmente quando o clamp de altura reduziu
+	// o player a uma largura menor que o container.
+	return <div ref={hostRef} className="rrweb-player-host flex w-full justify-center" />;
 });
