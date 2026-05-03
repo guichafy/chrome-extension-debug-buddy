@@ -57,6 +57,9 @@ export type MessageAction =
 	| 'liveDetection'
 	// Session Replay — Phase 4 (state change capture)
 	| 'stateChange'
+	// Phase C — broadcast incondicional de state change (UI passiva consome
+	// mesmo sem sessão de gravação).
+	| 'liveStateChange'
 	// Session Replay — Phase 5 (Angular HttpClient tag)
 	| 'angularHttpTag'
 	// Session Replay — Phase 6 (privacyConfig + autoPurge)

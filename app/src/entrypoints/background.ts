@@ -1354,6 +1354,18 @@ chrome.runtime.onMessage.addListener(
 		}
 
 		if (message.action === 'stateChange') {
+			// Phase C: broadcast incondicional para a UI passiva (sem sessão).
+			// LiveInsightsPanel consome via `liveStateChange`; quando há gravação,
+			// a UI também recebe (não duplica — passivo é só visível sem sessão).
+			// Broadcast acontece ANTES da validação async de sessão pra não
+			// perder state changes em corrida.
+			const senderTabId = sender?.tab?.id;
+			if (typeof senderTabId === 'number' && message.statePayload) {
+				broadcastToUI('liveStateChange', {
+					tabId: senderTabId,
+					payload: message.statePayload,
+				});
+			}
 			(async () => {
 				try {
 					const tabId = sender?.tab?.id;
@@ -1364,7 +1376,8 @@ chrome.runtime.onMessage.addListener(
 					const session = await sessionStore.findActiveByTab(tabId);
 					if (!session) {
 						// Sem sessão — modo passivo não persiste state changes (spec: state
-						// só com gravação ON).
+						// só com gravação ON). Broadcast `liveStateChange` acima já alimentou
+						// a UI passiva.
 						sendResponse({ ok: false, error: 'Sem sessão ativa para a tab remetente' });
 						return;
 					}
