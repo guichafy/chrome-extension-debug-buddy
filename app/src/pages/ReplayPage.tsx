@@ -122,10 +122,13 @@ export function ReplayPage() {
 				</div>
 			)}
 
-			{/* Em sidepanel (~400px) empilha vertical; ≥ lg (1024px+) volta pra 2 colunas */}
-			<div className="grid grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[65%_1fr]">
-				{/* Coluna esquerda: rrweb-player ou fallback visual */}
-				<div className="overflow-auto rounded border bg-black">
+			<div className="flex flex-1 flex-col gap-3 overflow-hidden">
+				{/* Topo: rrweb-player full-width, ~58% altura. min-h-0 essencial pra
+				    flexbox respeitar overflow do filho (player tem scroll interno). */}
+				<div
+					className="overflow-auto rounded border bg-black"
+					style={{ flex: '0 0 58%', minHeight: 0 }}
+				>
 					{hasRrweb && rrwebEvents ? (
 						<RrwebPlayer
 							ref={playhead.playerRef}
@@ -141,8 +144,8 @@ export function ReplayPage() {
 					)}
 				</div>
 
-				{/* Coluna direita: tabs (timeline / antipatterns) */}
-				<div className="flex flex-col gap-3 overflow-hidden">
+				{/* Embaixo: tabs full-width preenchendo o espaço restante. */}
+				<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
 					<Tabs defaultValue="timeline" className="flex h-full flex-col gap-3 overflow-hidden">
 						<TabsList className="self-start">
 							<TabsTrigger value="timeline">Timeline</TabsTrigger>
@@ -202,7 +205,7 @@ export function ReplayPage() {
 							</aside>
 						</TabsContent>
 
-						<TabsContent value="requests" className="mt-0 flex-1 overflow-auto">
+						<TabsContent value="requests" className="mt-0 flex-1 overflow-hidden">
 							<ReplayRequestsTab events={session.events} cutoffTimestamp={cutoffTimestamp} />
 						</TabsContent>
 
