@@ -1363,7 +1363,7 @@ chrome.runtime.onMessage.addListener(
 			if (typeof senderTabId === 'number' && message.statePayload) {
 				broadcastToUI('liveStateChange', {
 					tabId: senderTabId,
-					payload: message.statePayload,
+					statePayload: message.statePayload,
 				});
 			}
 			(async () => {
