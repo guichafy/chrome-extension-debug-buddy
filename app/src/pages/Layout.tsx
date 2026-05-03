@@ -15,7 +15,7 @@ import { useNetworkMetrics } from '../hooks/useNetworkMetrics';
 import { PendingActionDock } from '@/components/command-center/PendingActionDock';
 import { usePendingHotkeys } from '@/components/command-center/usePendingHotkeys';
 import type { AppOutletContext } from '@/types/outletContext';
-import { LiveAntipatternsPanel } from '@/components/replay/LiveAntipatternsPanel';
+import { LiveInsightsPanel } from '@/components/replay/LiveInsightsPanel';
 import { useRecording } from '../hooks/useRecording';
 
 const RouteFallback: React.FC = () => (
@@ -254,7 +254,7 @@ const Layout: React.FC = () => {
 					onIgnoreAll={handleIgnoreAll}
 					onViewPending={onViewPending}
 				/>
-				<LiveAntipatternsPanel tabId={passiveTabId} />
+				<LiveInsightsPanel tabId={passiveTabId} />
 			</SidebarInset>
 		</SidebarProvider>
 	);
