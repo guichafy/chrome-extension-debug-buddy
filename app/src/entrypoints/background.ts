@@ -7,6 +7,7 @@ import {
 } from '@/lib/legacyMigration';
 import { NetworkTimingTracker } from '@/lib/networkTiming';
 import { recorder } from '@/lib/session/recorder';
+import { arrayBufferToBase64 } from '@/lib/session/binaryTransport';
 import { serializeSession } from '@/lib/session/exporter';
 import { parseDbsession } from '@/lib/session/importer';
 import { getRecordingDisabled, setRecordingDisabled } from '@/lib/session/recordingPreference';
@@ -762,6 +763,32 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 chrome.webNavigation.onCommitted.addListener(async (details) => {
 	if (details.frameId !== 0) return; // só top frame — ignora iframes
 	const session = await recorder.getActiveByTab(details.tabId);
+
+	// Bug 4: probe deve emitir detection a cada navegação enquanto a tab está
+	// sendo interceptada, mesmo sem session de gravação (modo passivo). Em
+	// passivo, withStateTaps=false (sem wrappers em redux/zustand/etc).
+	const interceptingThisTab = isDebugging && attachedTabId === details.tabId;
+	if (interceptingThisTab) {
+		try {
+			await chrome.tabs.sendMessage(details.tabId, {
+				action: 'probeStartDetection',
+				reason: 'navigation',
+				withStateTaps: !!session,
+			});
+		} catch (err) {
+			const msg = String(err);
+			// Casos esperados: tab fechada entre evento e sendMessage, OR bridge ainda
+			// não injetado (race com document_start). Ambos não-actionables.
+			if (
+				!msg.includes('Could not establish connection') &&
+				!msg.includes('The tab was closed') &&
+				!msg.includes('No tab with id')
+			) {
+				console.warn(`[session] probeStartDetection inesperado em tab ${details.tabId}:`, err);
+			}
+		}
+	}
+
 	if (!session) return;
 
 	// 1. Emite RouteChangeEvent para a sessão ativa.
@@ -776,27 +803,6 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
 		await recorder.addEvent(session.id, routeEvent);
 	} catch (err) {
 		console.warn('[session] addEvent route (webNavigation) falhou:', err);
-	}
-
-	// 2. Sinaliza o probe daquela tab pra começar a emitir detections.
-	try {
-		await chrome.tabs.sendMessage(details.tabId, {
-			action: 'probeStartDetection',
-			reason: 'navigation',
-		});
-	} catch (err) {
-		// Casos esperados: tab fechada entre evento e sendMessage, OR bridge ainda
-		// não injetado (race com document_start). Ambos não-actionables.
-		const msg = String(err);
-		if (
-			msg.includes('Could not establish connection') ||
-			msg.includes('The tab was closed') ||
-			msg.includes('No tab with id')
-		) {
-			// Esperado e silencioso.
-			return;
-		}
-		console.warn(`[session] probeStartDetection inesperado em tab ${details.tabId}:`, err);
 	}
 
 	// 3. Re-inicia rrweb no novo documento — content_script é re-injetado pelo Chrome
@@ -1118,11 +1124,13 @@ chrome.runtime.onMessage.addListener(
 					await chrome.debugger.sendCommand({ tabId: message.tabId }, 'Runtime.enable');
 					await chrome.debugger.sendCommand({ tabId: message.tabId }, 'Log.enable');
 
-					// Sinaliza o probe daquela tab pra começar a emitir detections.
-					// Se sendMessage falhar (probe não injetado), propaga erro via sendResponse.
+					// Sinaliza o probe daquela tab pra começar a emitir detections + state
+					// taps (recording=true). Se sendMessage falhar (probe não injetado),
+					// propaga erro via sendResponse.
 					await chrome.tabs.sendMessage(message.tabId, {
 						action: 'probeStartDetection',
 						reason: 'initial',
+						withStateTaps: true,
 					});
 
 					// Inicia rrweb no content script ISOLATED da tab alvo. Falha aqui propaga
@@ -1185,6 +1193,13 @@ chrome.runtime.onMessage.addListener(
 				}
 				const session = await recorder.getActiveByTab(tabId);
 				if (!session) {
+					// Bug 4: modo passivo (interceptação ON, sem gravação). Não há sessão
+					// pra persistir, mas podemos exibir o fingerprint detectado ao vivo
+					// no painel lateral (linter de runtime). UI só mostra quando essa tab
+					// é a target de interceptação.
+					if (isDebugging && attachedTabId === tabId && message.payload) {
+						broadcastToUI('liveDetection', { tabId, payload: message.payload });
+					}
 					sendResponse({ ok: false, reason: 'no active session for tab' });
 					return;
 				}
@@ -1275,8 +1290,10 @@ chrome.runtime.onMessage.addListener(
 						sendResponse({ ok: false, error: 'Sessão não encontrada' });
 						return;
 					}
-					const data = await serializeSession(session);
-					sendResponse({ ok: true, data });
+					const buf = await serializeSession(session);
+					// chrome.runtime.sendMessage descarta ArrayBuffer no transporte (vira {}).
+					// Encodamos como base64 — UI decoda em SessionRow antes do new Blob().
+					sendResponse({ ok: true, data: arrayBufferToBase64(buf) });
 				} catch (err) {
 					sendResponse({ ok: false, error: String(err) });
 				}
@@ -1720,9 +1737,9 @@ async function applyResponseModifications(
 // `startSession` ter sucesso, fazemos rollback da sessão (stopSession) para
 // não vazar uma sessão "fake-ativa" para a UI — sessão sem console/exceptions
 // é silenciosamente quebrada e violaria a regra de no-fallbacks.
-async function tryAutoStartRecording(tabId: number): Promise<void> {
+async function tryAutoStartRecording(tabId: number): Promise<boolean> {
 	const recordingDisabled = await getRecordingDisabled();
-	if (recordingDisabled) return;
+	if (recordingDisabled) return false;
 	const tab = await chrome.tabs.get(tabId);
 	const sessionId = await recorder.startSession({
 		tabId,
@@ -1748,7 +1765,7 @@ async function tryAutoStartRecording(tabId: number): Promise<void> {
 			console.warn('[session] rollback de stopSession falhou:', rollbackErr);
 		}
 		// Sai sem broadcast — UI nao vai mostrar "Gravando" indevidamente.
-		return;
+		return false;
 	}
 	// Sinaliza probe + rrweb. Falhas aqui são fatais para a gravação
 	// mas não para a interceptação — log e seguir.
@@ -1756,6 +1773,7 @@ async function tryAutoStartRecording(tabId: number): Promise<void> {
 		await chrome.tabs.sendMessage(tabId, {
 			action: 'probeStartDetection',
 			reason: 'initial',
+			withStateTaps: true,
 		});
 		await chrome.tabs.sendMessage(tabId, {
 			action: '__rrweb_start',
@@ -1771,6 +1789,7 @@ async function tryAutoStartRecording(tabId: number): Promise<void> {
 		);
 	}
 	broadcastRecordingState({ tabId, active: true, sessionId });
+	return true;
 }
 
 // Start debugging
@@ -1878,12 +1897,37 @@ async function startDebugging(specificTabId: number | null = null): Promise<bool
 		// Falhas aqui são logadas e ignoradas — a interceptação continua mesmo se
 		// gravação não puder começar (ex.: storage corrompido, content script
 		// ausente para probe/rrweb).
+		let recordingStarted = false;
 		try {
-			await tryAutoStartRecording(tabId);
+			recordingStarted = await tryAutoStartRecording(tabId);
 		} catch (err) {
 			// Não-fatal: interceptação continua mesmo se gravação falha (ex.: aba
 			// sem permissão de probe). Erro é logado para depuração.
 			console.warn('[session] auto-start de gravação falhou:', err);
+		}
+
+		// Modo passivo (Bug 4): se gravação NÃO auto-iniciou, ainda queremos
+		// rodar smart detection per-URL para alimentar Live Antipatterns com
+		// contexto de fase e mostrar framework/libs ao usuário em tempo real.
+		// withStateTaps=false evita instalar wrappers em redux/zustand/etc — em
+		// passivo não persistimos state, então wrappers seriam puro overhead.
+		if (!recordingStarted) {
+			try {
+				await chrome.tabs.sendMessage(tabId, {
+					action: 'probeStartDetection',
+					reason: 'initial',
+					withStateTaps: false,
+				});
+			} catch (err) {
+				const msg = String(err);
+				if (
+					!msg.includes('Could not establish connection') &&
+					!msg.includes('The tab was closed') &&
+					!msg.includes('No tab with id')
+				) {
+					console.warn('[session] probeStartDetection passivo falhou:', err);
+				}
+			}
 		}
 
 		console.log('Debugging started successfully');

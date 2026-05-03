@@ -51,6 +51,10 @@ export type MessageAction =
 	| 'rrwebBatch'
 	// Session Replay — Phase 3 (antipatterns ao vivo)
 	| 'liveAntipatternHit'
+	// Bug 4 — fingerprint detectado em modo passivo (broadcast quando
+	// pageDetected chega sem session ativa). Permite UI mostrar framework
+	// + libs detectados na página atual durante linting de runtime.
+	| 'liveDetection'
 	// Session Replay — Phase 4 (state change capture)
 	| 'stateChange'
 	// Session Replay — Phase 5 (Angular HttpClient tag)
@@ -111,6 +115,11 @@ export interface Message {
 	config?: import('@/lib/session/types').RedactionConfig;
 	// Bug 3 — live toggle gravacao durante interceptacao
 	active?: boolean;
+	// Bug 4 — probeStartDetection metadata. Background envia probe via bridge:
+	// `reason` casa com PageDetectionTrigger (initial/navigation/pushstate/...);
+	// `withStateTaps` controla instalação de wrappers (false em modo passivo).
+	reason?: PageDetectionTrigger;
+	withStateTaps?: boolean;
 }
 
 export interface MessageResponse {
@@ -130,8 +139,10 @@ export interface MessageResponse {
 	active?: boolean;
 	sizeBytes?: number;
 	durationMs?: number;
-	// exportSession (Phase 1d)
-	data?: ArrayBuffer;
+	// exportSession (Phase 1d) — string base64 do .dbsession (zip).
+	// chrome.runtime.sendMessage não preserva ArrayBuffer no transporte, então
+	// codificamos no background e decodamos na UI antes do new Blob().
+	data?: string;
 	// Antipattern (Phase 3)
 	antipatternHits?: AntipatternHit[];
 	// Phase 6 — privacyConfig + autoPurge

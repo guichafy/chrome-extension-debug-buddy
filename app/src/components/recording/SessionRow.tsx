@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { base64ToArrayBuffer } from '@/lib/session/binaryTransport';
 import type { Session } from '@/lib/session/types';
 import { ExportConfirmDialog } from './ExportConfirmDialog';
 
@@ -36,8 +37,11 @@ export function SessionRow({ session, onDelete }: Props) {
 			action: 'exportSession',
 			sessionId: session.id,
 		});
-		if (!res?.ok || !res.data) return;
-		const blob = new Blob([res.data], { type: 'application/zip' });
+		if (!res?.ok || typeof res.data !== 'string') return;
+		// Background entrega ArrayBuffer encodado em base64 (sendMessage não
+		// preserva ArrayBuffer cru no transporte). Decodamos antes do Blob.
+		const buf = base64ToArrayBuffer(res.data);
+		const blob = new Blob([buf], { type: 'application/zip' });
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;

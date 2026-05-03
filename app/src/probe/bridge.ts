@@ -37,6 +37,10 @@ chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
 			ns: PROBE_NAMESPACE,
 			type: 'probe:start-detection',
 			reason: message.reason,
+			// withStateTaps é obrigatório no protocolo — background sempre envia.
+			// Default-false aqui é defesa contra mensagens malformadas: passive
+			// é o modo mais seguro (sem wrappers).
+			withStateTaps: message.withStateTaps === true,
 		};
 		window.postMessage(msg, location.origin);
 	} else if (message?.action === 'probeIdle') {
