@@ -109,17 +109,19 @@ export function useAllRequests() {
 		};
 		chrome.runtime.onMessage.addListener(messageListener);
 
-		// Safety-net contra eventos perdidos (ex.: hook montada após uma rajada).
-		// Skip em background pra não gastar CPU à toa.
-		const interval = setInterval(() => {
+		// Safety-net: re-fetch quando a tab volta a ser visible. Cobre o gap em que
+		// service worker reciclou e perdeu broadcasts. Substitui o polling de 10s
+		// (redundante com message listeners + custoso em IDB scan).
+		const handleVisibility = () => {
 			if (document.visibilityState === 'visible') {
 				reloadFromDB();
 			}
-		}, 10000);
+		};
+		document.addEventListener('visibilitychange', handleVisibility);
 
 		return () => {
 			chrome.runtime.onMessage.removeListener(messageListener);
-			clearInterval(interval);
+			document.removeEventListener('visibilitychange', handleVisibility);
 		};
 	}, [reloadFromDB]);
 
