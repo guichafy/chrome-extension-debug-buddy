@@ -119,7 +119,8 @@
     "vite": "^6.4.2",
     "vite-plugin-static-copy": "^2.3.2",
     "vitest": "^4.1.5",
-    "web-ext": "^10.1.0"
+    "web-ext": "^10.1.0",
+    "zod": "^3.25.76"
   },
   "overrides": {
     "ajv": "^8.18.0",
