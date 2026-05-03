@@ -216,4 +216,52 @@ describe('LiveInsightsPanel', () => {
 		expect(screen.queryByText(/Segurança \(/)).not.toBeInTheDocument();
 		expect(screen.getByText(/Nenhuma recomendação até agora/)).toBeInTheDocument();
 	});
+
+	test('agrupa instâncias da mesma rule sob um sub-grupo (ruleId × N)', async () => {
+		render(<LiveInsightsPanel tabId={1} isInterceptionActive={true} />);
+		await waitFor(() => expect(messageListeners.length).toBeGreaterThan(0));
+
+		deliverMessage({
+			action: 'liveRecommendation',
+			tabId: 1,
+			recommendation: makeRec({ ruleId: 'csp-missing', severity: 'error', host: 'a.com' }),
+		});
+		deliverMessage({
+			action: 'liveRecommendation',
+			tabId: 1,
+			recommendation: makeRec({ ruleId: 'csp-missing', severity: 'error', host: 'b.com' }),
+		});
+		deliverMessage({
+			action: 'liveRecommendation',
+			tabId: 1,
+			recommendation: makeRec({ ruleId: 'hsts-missing', severity: 'error' }),
+		});
+
+		expect(await screen.findByText(/Segurança \(3\)/)).toBeInTheDocument();
+		expect(screen.getByText('csp-missing')).toBeInTheDocument();
+		expect(screen.getByText(/^\(2\)$/)).toBeInTheDocument();
+		expect(screen.getByText('hsts-missing')).toBeInTheDocument();
+	});
+
+	test('grupos de regras começam collapsed (details sem open)', async () => {
+		render(<LiveInsightsPanel tabId={1} isInterceptionActive={true} />);
+		await waitFor(() => expect(messageListeners.length).toBeGreaterThan(0));
+
+		deliverMessage({
+			action: 'liveRecommendation',
+			tabId: 1,
+			recommendation: makeRec({
+				ruleId: 'csp-missing',
+				severity: 'error',
+				url: 'https://x.com/api/users',
+				host: 'x.com',
+			}),
+		});
+
+		const ruleLabel = await screen.findByText('csp-missing');
+		// Sub-grupo (<details>) deve estar collapsed por default — sem atributo `open`.
+		const detailsEl = ruleLabel.closest('details');
+		expect(detailsEl).not.toBeNull();
+		expect(detailsEl?.hasAttribute('open')).toBe(false);
+	});
 });
