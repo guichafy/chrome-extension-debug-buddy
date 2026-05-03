@@ -100,6 +100,41 @@ describe('useRecording', () => {
 		expect(sendMessageMock).not.toHaveBeenCalled();
 	});
 
+	it('ignora recordingStateChanged de outra tab', async () => {
+		const listeners: Array<(msg: unknown) => void> = [];
+		window.chrome = {
+			runtime: {
+				sendMessage: sendMessageMock,
+				onMessage: {
+					addListener: (cb: unknown) => {
+						listeners.push(cb as (msg: unknown) => void);
+					},
+					removeListener: vi.fn(),
+				},
+			},
+		} as unknown as typeof chrome;
+
+		sendMessageMock.mockResolvedValueOnce({
+			ok: true,
+			active: false,
+			sizeBytes: 0,
+			durationMs: 0,
+		});
+
+		const { result } = renderHook(() => useRecording(7));
+		await waitFor(() => expect(result.current.status.active).toBe(false));
+
+		const callsBefore = sendMessageMock.mock.calls.length;
+		listeners.forEach((cb) =>
+			cb({ action: 'recordingStateChanged', tabId: 99, active: true, sessionId: 'sess_other' }),
+		);
+		// Aguarda um tick — refresh nao deve ser chamado para tabId=99 quando o
+		// hook esta montado para tabId=7.
+		await new Promise((r) => setTimeout(r, 50));
+		expect(sendMessageMock.mock.calls.length).toBe(callsBefore);
+		expect(result.current.status.active).toBe(false);
+	});
+
 	it('refresh ao receber recordingStateChanged via runtime.onMessage', async () => {
 		const listeners: Array<(msg: unknown) => void> = [];
 		window.chrome = {

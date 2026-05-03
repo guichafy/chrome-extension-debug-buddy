@@ -87,7 +87,10 @@ export function useRecording(tabId: number | null): {
 		const handler = (msg: unknown): void => {
 			const m = msg as { action?: string; tabId?: number };
 			if (m?.action !== 'recordingStateChanged') return;
-			if (m.tabId !== undefined && m.tabId !== tabId) return;
+			// Strict match — broadcasts sem tabId nao sao validos. Os 2 call sites
+			// no background sempre incluem tabId; aceitar undefined seria silencioso
+			// (no-fallbacks) e dispararia refresh para outras tabs.
+			if (m.tabId !== tabId) return;
 			void refresh();
 		};
 		chrome.runtime.onMessage.addListener(handler);
