@@ -25,3 +25,13 @@ export function parsePattern(raw: string): CompiledPattern {
 		raw,
 	};
 }
+
+export function expandVersion(
+	template: string | undefined,
+	groups: RegExpMatchArray | null,
+): string | undefined {
+	if (!template || !groups) return undefined;
+	const expanded = template.replace(/\\(\d)/g, (_, d) => groups[Number(d)] ?? '');
+	const trimmed = expanded.trim();
+	return trimmed === '' ? undefined : trimmed;
+}

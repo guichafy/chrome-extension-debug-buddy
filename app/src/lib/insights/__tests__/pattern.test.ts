@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { parsePattern } from '../pattern';
+import { expandVersion, parsePattern } from '../pattern';
 
 describe('parsePattern', () => {
 	test('parses plain regex without modifiers', () => {
@@ -20,5 +20,48 @@ describe('parsePattern', () => {
 
 	test('non-numeric confidence falls back to default 100', () => {
 		expect(parsePattern('foo\\;confidence:abc').confidence).toBe(100);
+	});
+});
+
+describe('parsePattern — version template', () => {
+	test('extracts version template', () => {
+		const p = parsePattern('jquery-([0-9.]+)\\;version:\\1');
+		expect(p.versionTemplate).toBe('\\1');
+	});
+
+	test('combines confidence and version', () => {
+		const p = parsePattern('foo-([0-9.]+)\\;confidence:50\\;version:\\1');
+		expect(p.confidence).toBe(50);
+		expect(p.versionTemplate).toBe('\\1');
+	});
+});
+
+describe('expandVersion', () => {
+	test('returns undefined when template is undefined', () => {
+		expect(expandVersion(undefined, ['x'] as unknown as RegExpMatchArray)).toBeUndefined();
+	});
+
+	test('returns undefined when groups is null', () => {
+		expect(expandVersion('\\1', null)).toBeUndefined();
+	});
+
+	test('expands single group reference', () => {
+		const m = 'jquery-3.6.0'.match(/jquery-([0-9.]+)/);
+		expect(expandVersion('\\1', m)).toBe('3.6.0');
+	});
+
+	test('expands multiple group references', () => {
+		const m = 'v3.6.0-beta'.match(/v(\d+\.\d+)\.(\d+)/);
+		expect(expandVersion('\\1.\\2', m)).toBe('3.6.0');
+	});
+
+	test('returns undefined when expansion is empty/whitespace', () => {
+		const m = 'foo'.match(/foo/);
+		expect(expandVersion('\\1', m)).toBeUndefined();
+	});
+
+	test('missing group reference resolves to empty', () => {
+		const m = 'foo'.match(/foo/);
+		expect(expandVersion('static-\\1', m)).toBe('static-');
 	});
 });
