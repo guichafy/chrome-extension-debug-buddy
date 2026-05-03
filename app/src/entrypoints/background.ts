@@ -435,6 +435,28 @@ function broadcastToUI(action: string, payload: Record<string, unknown>): void {
 	});
 }
 
+// Cache de top-frame URL por tab. Recommendations regra `mixed-content`
+// precisa saber o origin da página principal — invalidamos a cada
+// onCommitted no top frame.
+const topFrameUrlCache = new Map<number, string>();
+
+async function getTopFrameUrl(tabId: number): Promise<string | null> {
+	const cached = topFrameUrlCache.get(tabId);
+	if (cached !== undefined) return cached;
+	try {
+		const tab = await chrome.tabs.get(tabId);
+		const url = tab.url ?? null;
+		if (url) topFrameUrlCache.set(tabId, url);
+		return url;
+	} catch {
+		return null;
+	}
+}
+
+function invalidateTopFrameUrl(tabId: number): void {
+	topFrameUrlCache.delete(tabId);
+}
+
 // Eventos de ciclo de vida da aba alvo precisam alcançar tanto a página de
 // opções quanto o side panel. `broadcastToUI` só atinge o `interceptorTabId`,
 // então também emitimos via `chrome.runtime.sendMessage` para que qualquer
@@ -710,6 +732,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 	// Engines passivas são por-tab; ao fechar a tab, libera memória mesmo se a
 	// tab fechada não era a target — é no-op se nunca houve engine pra ela.
 	recorder.clearPassiveEngineForTab(tabId);
+	topFrameUrlCache.delete(tabId);
 
 	if (tabId === interceptorTabId) {
 		console.log('Aba do interceptor fechada, parando debugging');
@@ -763,6 +786,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 // document_start; o sendMessage apenas dispara o início do scan.
 chrome.webNavigation.onCommitted.addListener(async (details) => {
 	if (details.frameId !== 0) return; // só top frame — ignora iframes
+	invalidateTopFrameUrl(details.tabId);
 	const session = await recorder.getActiveByTab(details.tabId);
 
 	// Bug 4: probe deve emitir detection a cada navegação enquanto a tab está
