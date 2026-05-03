@@ -1,52 +1,44 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from '@/components/ui/dialog';
+import { useEffect, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { useRecording } from '@/hooks/useRecording';
-import { useSessions } from '@/hooks/useSessions';
-
-const RETENTION_LIMIT = 10;
+import { getRecordingDisabled, setRecordingDisabled } from '@/lib/session/recordingPreference';
 
 interface Props {
 	tabId: number | null;
 	interceptionActive: boolean;
 }
 
+// Switch agora é opt-out: storage guarda `recordingDisabled` (boolean), default
+// false. UI mostra "Gravação ON" quando storage=false (gravando junto com a
+// interceptação). Click inverte e persiste.
+//
+// Importante: este componente NÃO chama mais startRecording/stopRecording — esse
+// fluxo está acoplado ao startDebugging/stopDebugging em background.ts (Bug 1).
+// O switch só decide se o auto-start vai disparar na próxima interceptação.
 export function RecordingToggle({ tabId, interceptionActive }: Props) {
-	const { status, startRecording, stopRecording } = useRecording(tabId);
-	const { sessions } = useSessions();
-	const [openCanvas, setOpenCanvas] = useState(false);
-	const [openRetention, setOpenRetention] = useState(false);
-	const [canvasOpt, setCanvasOpt] = useState(false);
+	const [disabled, setDisabled] = useState<boolean | null>(null);
 
-	const disabled = tabId === null || !interceptionActive;
+	useEffect(() => {
+		let cancelled = false;
+		void getRecordingDisabled().then((v) => {
+			if (!cancelled) setDisabled(v);
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, []);
 
-	const onToggle = async (checked: boolean) => {
-		if (!checked) {
-			await stopRecording();
-			return;
-		}
-		// Verifica limite de retenção
-		if (sessions.length >= RETENTION_LIMIT) {
-			setOpenRetention(true);
-			return;
-		}
-		setCanvasOpt(false);
-		setOpenCanvas(true);
-	};
+	const switchDisabled = tabId === null || !interceptionActive || disabled === null;
+	// UI mostra ligado quando storage=false. Loading (null) também mostra ligado
+	// para não enganar o usuário durante o carregamento inicial — controle vira
+	// editável ao terminar o load.
+	const checked = disabled === false || disabled === null;
 
-	const onConfirmStart = async () => {
-		setOpenCanvas(false);
-		await startRecording(canvasOpt);
+	const onToggle = async (next: boolean) => {
+		// next = true significa usuário quer ligar gravação = recordingDisabled=false
+		const newDisabled = !next;
+		setDisabled(newDisabled);
+		await setRecordingDisabled(newDisabled);
 	};
 
 	return (
@@ -56,56 +48,11 @@ export function RecordingToggle({ tabId, interceptionActive }: Props) {
 			</Label>
 			<Switch
 				id="recording-switch"
-				checked={status.active}
+				checked={checked}
 				onCheckedChange={onToggle}
-				disabled={disabled}
+				disabled={switchDisabled}
 				aria-label="Gravação"
 			/>
-
-			<Dialog open={openCanvas} onOpenChange={setOpenCanvas}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Iniciar gravação</DialogTitle>
-						<DialogDescription>
-							A sessão será gravada localmente até você parar ou atingir o limite (50 MB / 10 min).
-						</DialogDescription>
-					</DialogHeader>
-					<div className="flex items-start gap-3 py-2">
-						<Checkbox
-							id="canvas-opt"
-							checked={canvasOpt}
-							onCheckedChange={(v) => setCanvasOpt(v === true)}
-						/>
-						<div>
-							<Label htmlFor="canvas-opt">Capturar canvas (overhead alto)</Label>
-							<p className="text-muted-foreground text-xs">
-								Necessário para apps com charts, jogos ou editores. Aumenta tamanho da sessão.
-							</p>
-						</div>
-					</div>
-					<DialogFooter>
-						<Button variant="ghost" onClick={() => setOpenCanvas(false)}>
-							Cancelar
-						</Button>
-						<Button onClick={onConfirmStart}>Iniciar gravação</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
-
-			<Dialog open={openRetention} onOpenChange={setOpenRetention}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Limite de sessões atingido</DialogTitle>
-						<DialogDescription>
-							Você já tem {RETENTION_LIMIT} sessões salvas. Delete pelo menos uma na página
-							"Sessões" antes de iniciar uma nova gravação.
-						</DialogDescription>
-					</DialogHeader>
-					<DialogFooter>
-						<Button onClick={() => setOpenRetention(false)}>Entendi</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
 		</div>
 	);
 }
