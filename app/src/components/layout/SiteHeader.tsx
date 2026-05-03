@@ -100,7 +100,10 @@ export function SiteHeader({
 									)}
 								</Button>
 							</SheetTrigger>
-							<SheetContent side="right" className="w-[400px] p-0 sm:w-[440px] sm:max-w-none">
+							<SheetContent
+								side="right"
+								className="w-[520px] p-0 sm:w-[640px] sm:max-w-none lg:w-[760px]"
+							>
 								<LiveInsightsPanel
 									tabId={targetTab.id}
 									isInterceptionActive={isDebugging}

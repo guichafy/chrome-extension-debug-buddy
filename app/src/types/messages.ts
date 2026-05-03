@@ -144,9 +144,17 @@ export interface MessageResponse {
 	// Phase 6 — privacyConfig + autoPurge
 	privacyConfig?: import('@/lib/session/types').RedactionConfig;
 	purgedCount?: number;
-	// Phase M — snapshot Live Insights pra hidratar UI ao mount
+	// Phase M — snapshot Live Insights pra hidratar UI ao mount.
+	// `detections` é uma lista por host (DNS) preservando ordem de visita
+	// mais-recente-primeiro. Permite acumular framework/libs de todos os hosts
+	// visitados na sessão de interceptação atual sem perder contexto ao navegar.
 	liveSnapshot?: {
-		detection: { url: string; timestamp: number; fingerprint: EnvironmentFingerprint } | null;
+		detections: Array<{
+			host: string;
+			url: string;
+			timestamp: number;
+			fingerprint: EnvironmentFingerprint;
+		}>;
 		recommendations: Recommendation[];
 	};
 }

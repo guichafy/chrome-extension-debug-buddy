@@ -424,6 +424,11 @@ const recommendationEngine = new RecommendationEngine(RECOMMENDATION_REGISTRY);
 // monta seus filhos quando o drawer abre — broadcasts emitidos antes ficariam
 // perdidos. Esse cache funciona como snapshot hidratável (espelha o que a UI
 // receberia se estivesse aberta desde o `startDebugging`).
+//
+// Detecções são agrupadas por host (DNS): durante uma sessão de interceptação
+// o usuário pode navegar por vários hosts e queremos preservar o framework/libs
+// de cada um, não só do último. Recomendações continuam em lista plana global
+// (cap em 50) porque cada Recommendation já carrega o campo `host`.
 interface LiveDetectionEntry {
 	url: string;
 	timestamp: number;
@@ -431,7 +436,10 @@ interface LiveDetectionEntry {
 }
 
 interface LiveSnapshot {
-	detection: LiveDetectionEntry | null;
+	// Map preserva ordem de inserção. Re-set bumps host pra "mais recente"
+	// (precedido de delete). Serializado como array na ordem mais-recente-primeiro
+	// para o wire em `getLiveSnapshot`.
+	detectionsByHost: Map<string, LiveDetectionEntry>;
 	recommendations: Recommendation[];
 }
 
@@ -441,15 +449,26 @@ const liveSnapshotByTab = new Map<number, LiveSnapshot>();
 function getOrInitLiveSnapshot(tabId: number): LiveSnapshot {
 	let snap = liveSnapshotByTab.get(tabId);
 	if (!snap) {
-		snap = { detection: null, recommendations: [] };
+		snap = { detectionsByHost: new Map(), recommendations: [] };
 		liveSnapshotByTab.set(tabId, snap);
 	}
 	return snap;
 }
 
+function extractHost(url: string): string {
+	try {
+		return new URL(url).host;
+	} catch {
+		return 'unknown';
+	}
+}
+
 function updateLiveDetection(tabId: number, entry: LiveDetectionEntry): void {
 	const snap = getOrInitLiveSnapshot(tabId);
-	snap.detection = entry;
+	const host = extractHost(entry.url);
+	// Bump host para "mais recente" preservando ordem de visita.
+	if (snap.detectionsByHost.has(host)) snap.detectionsByHost.delete(host);
+	snap.detectionsByHost.set(host, entry);
 }
 
 function pushLiveRecommendation(tabId: number, rec: Recommendation): void {
@@ -464,12 +483,32 @@ function clearLiveSnapshot(tabId: number): void {
 	liveSnapshotByTab.delete(tabId);
 }
 
-function resetLiveSnapshotForNavigation(tabId: number): void {
-	// Top-frame navigation: recommendations não fazem mais sentido (nova
-	// fronteira de página). Detection será sobrescrito pelo próximo pageDetected.
-	const snap = liveSnapshotByTab.get(tabId);
-	if (!snap) return;
-	snap.recommendations = [];
+function serializeLiveSnapshot(snap: LiveSnapshot): {
+	detections: Array<{
+		host: string;
+		url: string;
+		timestamp: number;
+		fingerprint: EnvironmentFingerprint;
+	}>;
+	recommendations: Recommendation[];
+} {
+	// Ordem mais-recente-primeiro: Map mantém inserção ascendente; reverter pra
+	// o último host visitado aparecer no topo do drawer.
+	const detections: Array<{
+		host: string;
+		url: string;
+		timestamp: number;
+		fingerprint: EnvironmentFingerprint;
+	}> = [];
+	for (const [host, entry] of snap.detectionsByHost) {
+		detections.unshift({
+			host,
+			url: entry.url,
+			timestamp: entry.timestamp,
+			fingerprint: entry.fingerprint,
+		});
+	}
+	return { detections, recommendations: snap.recommendations };
 }
 
 function buildNetworkRuleEvent(
@@ -816,8 +855,10 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 chrome.webNavigation.onCommitted.addListener(async (details) => {
 	if (details.frameId !== 0) return; // só top frame — ignora iframes
 	invalidateTopFrameUrl(details.tabId);
-	recommendationEngine.reset();
-	resetLiveSnapshotForNavigation(details.tabId);
+	// Não resetamos `recommendationEngine` nem `liveSnapshotByTab` aqui: o painel
+	// Live Insights deve acumular insights de todos os hosts visitados durante a
+	// sessão de interceptação. O dedup do engine (ruleId|host|path) já evita
+	// duplicatas entre navegações na mesma sessão. Reset acontece em start/stopDebugging.
 	const session = await recorder.getActiveByTab(details.tabId);
 
 	// Bug 4: probe deve emitir detection a cada navegação enquanto a tab está
@@ -1318,11 +1359,11 @@ chrome.runtime.onMessage.addListener(
 				sendResponse({ ok: false, error: 'tabId obrigatório' });
 				return false;
 			}
-			const snapshot = liveSnapshotByTab.get(tabId) ?? {
-				detection: null,
-				recommendations: [],
-			};
-			sendResponse({ ok: true, liveSnapshot: snapshot });
+			const snap = liveSnapshotByTab.get(tabId);
+			const serialized = snap
+				? serializeLiveSnapshot(snap)
+				: { detections: [], recommendations: [] };
+			sendResponse({ ok: true, liveSnapshot: serialized });
 			return false;
 		}
 
@@ -1967,6 +2008,9 @@ async function startDebugging(specificTabId: number | null = null): Promise<bool
 		pendingResponses = {};
 		timingTracker.reset();
 		recommendationEngine.reset();
+		// Live Insights: nova sessão = snapshot zerado. Detections/recomendações
+		// passam a acumular por host até o próximo startDebugging.
+		clearLiveSnapshot(tabId);
 
 		// --- Acoplamento gravação ↔ interceptação (Bug 1) ---
 		// Default: ao iniciar interceptação, iniciamos uma sessão de gravação.

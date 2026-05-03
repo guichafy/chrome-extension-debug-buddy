@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useReducer, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useReducer, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import {
 	CATEGORY_LABEL,
@@ -16,55 +16,77 @@ import { RECOMMENDATION_ROW_TOKENS, RecommendationRow } from './RecommendationRo
 
 const MAX_RECOMMENDATIONS = 50;
 
-interface LiveDetection {
+interface LiveDetectionEntry {
 	url: string;
-	fingerprint: EnvironmentFingerprint;
 	timestamp: number;
+	fingerprint: EnvironmentFingerprint;
 }
 
 interface PanelState {
-	detection: LiveDetection | null;
+	// Map<host, detection-mais-recente>. Re-set bumps host pra ordem mais
+	// recente preservando a ordem de inserção do Map.
+	detectionsByHost: Map<string, LiveDetectionEntry>;
 	recommendations: Recommendation[];
 }
 
 interface HydrateSnapshot {
-	detection: { url: string; timestamp: number; fingerprint: EnvironmentFingerprint } | null;
+	detections: Array<{
+		host: string;
+		url: string;
+		timestamp: number;
+		fingerprint: EnvironmentFingerprint;
+	}>;
 	recommendations: Recommendation[];
 }
 
 type PanelAction =
-	| { type: 'detection'; payload: LiveDetection }
+	| { type: 'detection'; payload: { host: string; entry: LiveDetectionEntry } }
 	| { type: 'recommendation'; payload: Recommendation }
 	| { type: 'clear' }
 	| { type: 'hydrate'; snapshot: HydrateSnapshot };
 
 const INITIAL: PanelState = {
-	detection: null,
+	detectionsByHost: new Map(),
 	recommendations: [],
 };
 
+function extractHost(url: string): string {
+	try {
+		return new URL(url).host;
+	} catch {
+		return 'unknown';
+	}
+}
+
 function reducer(s: PanelState, a: PanelAction): PanelState {
 	switch (a.type) {
-		case 'detection':
-			return { ...s, detection: a.payload };
+		case 'detection': {
+			const next = new Map(s.detectionsByHost);
+			// Bump host pra "mais recente" deletando + re-inserindo no fim.
+			if (next.has(a.payload.host)) next.delete(a.payload.host);
+			next.set(a.payload.host, a.payload.entry);
+			return { ...s, detectionsByHost: next };
+		}
 		case 'recommendation':
 			return {
 				...s,
 				recommendations: [a.payload, ...s.recommendations].slice(0, MAX_RECOMMENDATIONS),
 			};
 		case 'clear':
-			return INITIAL;
-		case 'hydrate':
+			return { detectionsByHost: new Map(), recommendations: [] };
+		case 'hydrate': {
+			// Snapshot vem mais-recente-primeiro; reinserir invertido pra que
+			// Map.entries() (ascendente) coincida com a ordem do backend.
+			const next = new Map<string, LiveDetectionEntry>();
+			for (let i = a.snapshot.detections.length - 1; i >= 0; i--) {
+				const d = a.snapshot.detections[i];
+				next.set(d.host, { url: d.url, timestamp: d.timestamp, fingerprint: d.fingerprint });
+			}
 			return {
-				detection: a.snapshot.detection
-					? {
-							url: a.snapshot.detection.url,
-							fingerprint: a.snapshot.detection.fingerprint,
-							timestamp: a.snapshot.detection.timestamp,
-						}
-					: null,
+				detectionsByHost: next,
 				recommendations: a.snapshot.recommendations,
 			};
+		}
 	}
 }
 
@@ -74,19 +96,21 @@ interface Props {
 	onCountChange?: (count: number) => void;
 }
 
-// Live Insights — duas seções colapsáveis renderizadas dentro de um Sheet:
-//   1. Framework & Libraries — fingerprint mais recente do probe.
-//   2. Recomendações — lista (max 50) das últimas regras disparadas.
-// Reseta tudo quando `tabId` muda.
-// `onCountChange` notifica o pai (SiteHeader) para atualizar o badge do trigger.
+// Live Insights — drawer agrupa todos os insights da sessão de interceptação atual
+// por host (DNS). Para cada host:
+//   1. Framework & Libraries — fingerprint mais recente daquele host
+//   2. Recomendações daquele host — agrupadas por categoria (segurança/performance)
+//      e sub-agrupadas por ruleId
+// Hosts são ordenados por última atividade (mais recente primeiro). Reseta tudo
+// quando `tabId` muda. `onCountChange` notifica o pai (SiteHeader) com o total
+// de recomendações para alimentar o badge.
 //
 // Hidratação: `SheetContent` (Radix) só monta seus filhos quando o drawer abre,
 // então broadcasts emitidos antes ficariam perdidos no void. No mount pedimos
 // `getLiveSnapshot` ao background e dispatchamos `hydrate` antes de registrar
-// o listener — garantindo que o painel reflita o estado acumulado.
+// o listener — garantindo que o painel reflita o estado acumulado da sessão.
 export function LiveInsightsPanel({ tabId, isInterceptionActive, onCountChange }: Props) {
 	const [state, dispatch] = useReducer(reducer, INITIAL);
-	const [open, setOpen] = useState({ framework: true, recommendations: true });
 
 	useEffect(() => {
 		dispatch({ type: 'clear' });
@@ -113,9 +137,12 @@ export function LiveInsightsPanel({ tabId, isInterceptionActive, onCountChange }
 				dispatch({
 					type: 'detection',
 					payload: {
-						url: msg.payload.url,
-						fingerprint: msg.payload.fingerprint,
-						timestamp: msg.payload.timestamp,
+						host: extractHost(msg.payload.url),
+						entry: {
+							url: msg.payload.url,
+							fingerprint: msg.payload.fingerprint,
+							timestamp: msg.payload.timestamp,
+						},
 					},
 				});
 			} else if (msg.action === 'liveRecommendation') {
@@ -134,12 +161,58 @@ export function LiveInsightsPanel({ tabId, isInterceptionActive, onCountChange }
 		onCountChange?.(state.recommendations.length);
 	}, [state.recommendations.length, onCountChange]);
 
+	// Agrupa recomendações por host para renderização. Memoizado pra evitar
+	// O(n) a cada re-render quando outras props mudam.
+	const recsByHost = useMemo(() => {
+		const map = new Map<string, Recommendation[]>();
+		for (const r of state.recommendations) {
+			const arr = map.get(r.host);
+			if (arr) arr.push(r);
+			else map.set(r.host, [r]);
+		}
+		return map;
+	}, [state.recommendations]);
+
+	// Lista de hosts a renderizar: união de hosts com detection + hosts com
+	// recomendações. Ordem mais-recente-primeiro = ordem reversa da inserção
+	// no Map.detectionsByHost; hosts órfãos (só recomendações, sem detection)
+	// vão pro final.
+	const hostList = useMemo(() => {
+		const ordered: string[] = [];
+		const seen = new Set<string>();
+		const detectionHosts = [...state.detectionsByHost.keys()].reverse();
+		for (const h of detectionHosts) {
+			if (!seen.has(h)) {
+				ordered.push(h);
+				seen.add(h);
+			}
+		}
+		for (const h of recsByHost.keys()) {
+			if (!seen.has(h)) {
+				ordered.push(h);
+				seen.add(h);
+			}
+		}
+		return ordered;
+	}, [state.detectionsByHost, recsByHost]);
+
 	if (tabId == null) return null;
+
+	const totalRecommendations = state.recommendations.length;
+	const totalHosts = hostList.length;
 
 	return (
 		<div className="flex h-full flex-col overflow-auto" aria-label="Live Insights">
 			<header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background px-4 py-3">
-				<h2 className="font-semibold text-sm">Live Insights</h2>
+				<div className="flex flex-col">
+					<h2 className="font-semibold text-sm">Live Insights</h2>
+					{totalHosts > 0 && (
+						<span className="text-[11px] text-muted-foreground">
+							{totalHosts} {totalHosts === 1 ? 'host' : 'hosts'} · {totalRecommendations}{' '}
+							{totalRecommendations === 1 ? 'recomendação' : 'recomendações'}
+						</span>
+					)}
+				</div>
 				<button
 					type="button"
 					className="text-muted-foreground text-xs hover:underline"
@@ -155,47 +228,89 @@ export function LiveInsightsPanel({ tabId, isInterceptionActive, onCountChange }
 				</div>
 			)}
 
-			<Section
-				title="Framework & Libraries"
-				open={open.framework}
-				onToggle={() => setOpen((o) => ({ ...o, framework: !o.framework }))}
-			>
-				<FrameworkSection detection={state.detection} />
-			</Section>
-
-			<Section
-				title={`Recomendações (${state.recommendations.length})`}
-				open={open.recommendations}
-				onToggle={() => setOpen((o) => ({ ...o, recommendations: !o.recommendations }))}
-			>
-				<RecommendationsSection items={state.recommendations} />
-			</Section>
+			{totalHosts === 0 ? (
+				<EmptyState />
+			) : (
+				hostList.map((host) => (
+					<HostSection
+						key={host}
+						host={host}
+						detection={state.detectionsByHost.get(host) ?? null}
+						recommendations={recsByHost.get(host) ?? []}
+					/>
+				))
+			)}
 		</div>
 	);
 }
 
-function Section({
-	title,
-	open,
-	onToggle,
-	children,
-}: {
-	title: string;
-	open: boolean;
-	onToggle: () => void;
-	children: React.ReactNode;
-}) {
+function EmptyState() {
 	return (
-		<section className="border-t">
+		<div className="flex flex-1 flex-col items-center justify-center gap-1 px-6 py-10 text-center">
+			<p className="text-muted-foreground text-xs">Aguardando primeira detecção do probe…</p>
+			<p className="text-[11px] text-muted-foreground/80">
+				Nenhuma recomendação até agora. Carregue recursos da página para acionar regras.
+			</p>
+		</div>
+	);
+}
+
+function HostSection({
+	host,
+	detection,
+	recommendations,
+}: {
+	host: string;
+	detection: LiveDetectionEntry | null;
+	recommendations: Recommendation[];
+}) {
+	// Sessões iniciam expandidas: usuário abriu o drawer pra ver tudo. Pode
+	// recolher manualmente para focar em um host específico.
+	const [open, setOpen] = useState(true);
+
+	const recCount = recommendations.length;
+	const frameworkLabel = detection
+		? `${detection.fingerprint.framework.name}${
+				detection.fingerprint.framework.version ? ` ${detection.fingerprint.framework.version}` : ''
+			}`
+		: null;
+
+	return (
+		<section className="border-t" data-host={host}>
 			<button
 				type="button"
-				onClick={onToggle}
-				className="flex w-full items-center justify-between px-3 py-2 font-medium text-muted-foreground text-xs uppercase hover:bg-muted/40"
+				onClick={() => setOpen((o) => !o)}
+				data-testid={`live-insights-host-toggle-${host}`}
+				className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-muted/40"
 			>
-				<span>{title}</span>
-				<span aria-hidden>{open ? '▾' : '▸'}</span>
+				<div className="flex min-w-0 items-center gap-2">
+					<span aria-hidden className="text-muted-foreground text-xs">
+						{open ? '▾' : '▸'}
+					</span>
+					<span className="truncate font-mono font-medium text-sm" title={host}>
+						{host}
+					</span>
+				</div>
+				<div className="flex items-center gap-2">
+					{frameworkLabel && (
+						<Badge variant="default" className="text-[10px]">
+							{frameworkLabel}
+						</Badge>
+					)}
+					{recCount > 0 && (
+						<Badge variant="secondary" className="text-[10px]">
+							{recCount} {recCount === 1 ? 'rec' : 'recs'}
+						</Badge>
+					)}
+				</div>
 			</button>
-			{open && <div>{children}</div>}
+
+			{open && (
+				<div className="border-t">
+					<HostFramework detection={detection} />
+					<HostRecommendations items={recommendations} />
+				</div>
+			)}
 		</section>
 	);
 }
@@ -217,11 +332,11 @@ function SubSection({
 	);
 }
 
-function FrameworkSection({ detection }: { detection: LiveDetection | null }) {
+function HostFramework({ detection }: { detection: LiveDetectionEntry | null }) {
 	if (!detection) {
 		return (
 			<p className="px-3 py-2 text-muted-foreground text-xs">
-				Aguardando primeira detecção do probe…
+				Sem detecção do probe para este host.
 			</p>
 		);
 	}
@@ -229,7 +344,7 @@ function FrameworkSection({ detection }: { detection: LiveDetection | null }) {
 	const interestingHttp = fp.httpClients.filter((c) => c.name !== 'fetch' && c.name !== 'xhr');
 
 	return (
-		<div className="space-y-3 px-3 py-2">
+		<div className="space-y-3 border-b px-3 py-2">
 			<SubSection label="URL">
 				<p className="break-all font-mono text-[11px] text-muted-foreground" title={detection.url}>
 					{detection.url}
@@ -290,11 +405,11 @@ function FrameworkSection({ detection }: { detection: LiveDetection | null }) {
 	);
 }
 
-function RecommendationsSection({ items }: { items: Recommendation[] }) {
+function HostRecommendations({ items }: { items: Recommendation[] }) {
 	if (items.length === 0) {
 		return (
 			<p className="px-3 py-2 text-muted-foreground text-xs">
-				Nenhuma recomendação até agora. Carregue recursos da página para acionar regras.
+				Nenhuma recomendação para este host.
 			</p>
 		);
 	}
