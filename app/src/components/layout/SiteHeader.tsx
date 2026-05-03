@@ -27,7 +27,6 @@ interface SiteHeaderProps {
 	sessionMarker: SessionMarker;
 	sessionDetails?: PillsDetailProp;
 	currentPageDetails?: PillsDetailProp;
-	liveInsightsTabId: number | null;
 }
 
 type TabButtonState = 'empty' | 'available' | 'closed';
@@ -48,7 +47,6 @@ export function SiteHeader({
 	sessionMarker,
 	sessionDetails,
 	currentPageDetails,
-	liveInsightsTabId,
 }: SiteHeaderProps) {
 	const hasCurrentPage = sessionMarker.currentPageNavigatedAt != null;
 	const tabState = resolveTabButtonState(targetTab);
@@ -90,7 +88,7 @@ export function SiteHeader({
 
 				<div className="flex items-center gap-2">
 					<RecordingToggle tabId={targetTab.id} interceptionActive={isDebugging} />
-					{liveInsightsTabId !== null && (
+					{targetTab.id !== null && (
 						<Sheet>
 							<SheetTrigger asChild>
 								<Button variant="ghost" size="icon" aria-label="Live Insights" className="relative">
@@ -103,7 +101,11 @@ export function SiteHeader({
 								</Button>
 							</SheetTrigger>
 							<SheetContent side="right" className="w-[400px] p-0 sm:w-[440px] sm:max-w-none">
-								<LiveInsightsPanel tabId={liveInsightsTabId} onCountChange={setLiveInsightsCount} />
+								<LiveInsightsPanel
+									tabId={targetTab.id}
+									isInterceptionActive={isDebugging}
+									onCountChange={setLiveInsightsCount}
+								/>
 							</SheetContent>
 						</Sheet>
 					)}

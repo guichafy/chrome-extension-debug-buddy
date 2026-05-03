@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import type { ProbeStateChangePayload } from '@/probe/protocol';
-import type { EnvironmentFingerprint, Recommendation } from '@/lib/session/types';
+import type { EnvironmentFingerprint, Recommendation, StoreKind } from '@/lib/session/types';
 import type { Message } from '@/types/messages';
 import type { LiveStateSnapshot } from './StateInspector';
 import { StateInspector } from './StateInspector';
@@ -21,12 +21,22 @@ interface PanelState {
 	recommendations: Recommendation[];
 }
 
+interface HydrateSnapshot {
+	detection: { url: string; timestamp: number; fingerprint: EnvironmentFingerprint } | null;
+	state: Record<
+		string,
+		{ storeKind: StoreKind; current: unknown; recentChanges: number; lastChangeAt: number }
+	>;
+	recommendations: Recommendation[];
+}
+
 type PanelAction =
 	| { type: 'detection'; payload: LiveDetection }
 	| { type: 'state-change'; payload: ProbeStateChangePayload }
 	| { type: 'recommendation'; payload: Recommendation }
 	| { type: 'clear' }
-	| { type: 'reset-state' };
+	| { type: 'reset-state' }
+	| { type: 'hydrate'; snapshot: HydrateSnapshot };
 
 const INITIAL: PanelState = {
 	detection: null,
@@ -65,11 +75,24 @@ function reducer(s: PanelState, a: PanelAction): PanelState {
 			return INITIAL;
 		case 'reset-state':
 			return { ...s, state: { byStoreId: {} } };
+		case 'hydrate':
+			return {
+				detection: a.snapshot.detection
+					? {
+							url: a.snapshot.detection.url,
+							fingerprint: a.snapshot.detection.fingerprint,
+							timestamp: a.snapshot.detection.timestamp,
+						}
+					: null,
+				state: { byStoreId: a.snapshot.state },
+				recommendations: a.snapshot.recommendations,
+			};
 	}
 }
 
 interface Props {
 	tabId: number | null;
+	isInterceptionActive: boolean;
 	onCountChange?: (count: number) => void;
 }
 
@@ -79,13 +102,33 @@ interface Props {
 //   3. Recomendações — lista (max 50) das últimas regras disparadas.
 // Reseta tudo quando `tabId` muda; navegação SPA limpa apenas o estado.
 // `onCountChange` notifica o pai (SiteHeader) para atualizar o badge do trigger.
-export function LiveInsightsPanel({ tabId, onCountChange }: Props) {
+//
+// Hidratação: `SheetContent` (Radix) só monta seus filhos quando o drawer abre,
+// então broadcasts emitidos antes ficariam perdidos no void. No mount pedimos
+// `getLiveSnapshot` ao background e dispatchamos `hydrate` antes de registrar
+// o listener — garantindo que o painel reflita o estado acumulado.
+export function LiveInsightsPanel({ tabId, isInterceptionActive, onCountChange }: Props) {
 	const [state, dispatch] = useReducer(reducer, INITIAL);
 	const [open, setOpen] = useState({ framework: true, state: true, recommendations: true });
 
 	useEffect(() => {
 		dispatch({ type: 'clear' });
 		if (tabId == null) return;
+
+		let cancelled = false;
+		chrome.runtime
+			.sendMessage({ action: 'getLiveSnapshot', tabId })
+			.then((response) => {
+				if (cancelled) return;
+				if (response?.ok && response.liveSnapshot) {
+					dispatch({ type: 'hydrate', snapshot: response.liveSnapshot });
+				}
+			})
+			.catch(() => {
+				// Background indisponível ou worker reciclando — broadcasts futuras
+				// ainda chegam via listener registrado abaixo.
+			});
+
 		const onMessage = (msg: Message) => {
 			if (msg.tabId !== tabId) return;
 			if (msg.action === 'liveDetection') {
@@ -110,7 +153,10 @@ export function LiveInsightsPanel({ tabId, onCountChange }: Props) {
 			}
 		};
 		chrome.runtime.onMessage.addListener(onMessage);
-		return () => chrome.runtime.onMessage.removeListener(onMessage);
+		return () => {
+			cancelled = true;
+			chrome.runtime.onMessage.removeListener(onMessage);
+		};
 	}, [tabId]);
 
 	useEffect(() => {
@@ -131,6 +177,12 @@ export function LiveInsightsPanel({ tabId, onCountChange }: Props) {
 					limpar
 				</button>
 			</header>
+
+			{!isInterceptionActive && (
+				<div className="border-b bg-warning/10 px-3 py-2 text-foreground text-xs">
+					Inicie a interceptação para coletar insights desta página.
+				</div>
+			)}
 
 			<Section
 				title="Framework & Libraries"

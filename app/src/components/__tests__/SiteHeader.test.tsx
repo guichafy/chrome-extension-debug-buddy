@@ -60,6 +60,22 @@ vi.mock('../layout/NetworkMetricsBar', () => ({
 	NetworkMetricsBar: () => <div data-testid="network-metrics-bar" />,
 }));
 
+// LiveInsightsPanel é montado dentro de Sheet (que renderiza por portal);
+// isolar o painel do teste evita ter que mockar Radix + chrome.runtime.
+vi.mock('../replay/LiveInsightsPanel', () => ({
+	LiveInsightsPanel: () => <div data-testid="live-insights-panel" />,
+}));
+
+vi.mock('../recording/RecordingToggle', () => ({
+	RecordingToggle: () => <div data-testid="recording-toggle" />,
+}));
+
+vi.mock('../ui/sheet', () => ({
+	Sheet: ({ children }: any) => <div data-testid="sheet">{children}</div>,
+	SheetTrigger: ({ asChild, children }: any) => <div data-testid="sheet-trigger">{children}</div>,
+	SheetContent: ({ children }: any) => <div data-testid="sheet-content">{children}</div>,
+}));
+
 const emptyAggregate = {
 	totalRequests: 0,
 	totalBytes: null,
@@ -77,7 +93,6 @@ describe('SiteHeader Component', () => {
 		onStopDebugging: vi.fn(),
 		metrics: { session: emptyAggregate, currentPage: emptyAggregate },
 		sessionMarker: emptyMarker,
-		liveInsightsTabId: null,
 	};
 
 	test('renderiza corretamente', () => {
@@ -140,7 +155,6 @@ describe('SiteHeader Component', () => {
 				onStopDebugging={vi.fn()}
 				metrics={{ session: emptyAggregate, currentPage: emptyAggregate }}
 				sessionMarker={emptyMarker}
-				liveInsightsTabId={null}
 			/>,
 		);
 		const tabButton = screen.getByRole('button', { name: /Tab/i });
@@ -160,7 +174,6 @@ describe('SiteHeader Component', () => {
 				onStopDebugging={vi.fn()}
 				metrics={{ session: emptyAggregate, currentPage: emptyAggregate }}
 				sessionMarker={emptyMarker}
-				liveInsightsTabId={null}
 			/>,
 		);
 
