@@ -6,17 +6,27 @@ vi.mock('@/lib/session/recordingPreference', () => ({
 	setRecordingDisabled: vi.fn(async () => undefined),
 }));
 
+const useRecordingMock = vi.fn();
+
 vi.mock('@/hooks/useRecording', () => ({
-	useRecording: () => ({
-		status: { active: false, sizeBytes: 0, durationMs: 0 },
-		startRecording: vi.fn(),
-		stopRecording: vi.fn(),
-	}),
+	useRecording: (tabId: number | null) => useRecordingMock(tabId),
 }));
 
 vi.mock('@/hooks/useSessions', () => ({
 	useSessions: () => ({ sessions: [] }),
 }));
+
+const inactiveStatus = {
+	status: { active: false, sizeBytes: 0, durationMs: 0 },
+	startRecording: vi.fn(),
+	stopRecording: vi.fn(),
+	refresh: vi.fn(),
+};
+
+beforeEach(() => {
+	useRecordingMock.mockReset();
+	useRecordingMock.mockReturnValue(inactiveStatus);
+});
 
 describe('RecordingToggle', () => {
 	test('switch reflete recordingDisabled invertido (UI mostra Gravação ON)', async () => {
@@ -62,5 +72,65 @@ describe('RecordingToggle', () => {
 				active: false,
 			});
 		});
+	});
+
+	test('exibe metricas quando status.active && interceptionActive', async () => {
+		useRecordingMock.mockReturnValue({
+			status: {
+				active: true,
+				sessionId: 'sess_x',
+				sizeBytes: 25 * 1024 * 1024, // 25 MB
+				durationMs: 5 * 60 * 1000, // 5 min
+			},
+			startRecording: vi.fn(),
+			stopRecording: vi.fn(),
+			refresh: vi.fn(),
+		});
+		const mod = await import('@/lib/session/recordingPreference');
+		(
+			mod.getRecordingDisabled as unknown as { mockResolvedValueOnce: (v: boolean) => void }
+		).mockResolvedValueOnce(false);
+
+		render(<RecordingToggle tabId={1} interceptionActive={true} />);
+
+		expect(await screen.findByText(/25\.0 MB/)).toBeInTheDocument();
+		expect(screen.getByText(/5\.0m/)).toBeInTheDocument();
+		// Não está acima de 80% — sem warning.
+		expect(screen.queryByText(/próximo do limite/i)).not.toBeInTheDocument();
+	});
+
+	test('exibe warning "próximo do limite" quando size >= 80%', async () => {
+		useRecordingMock.mockReturnValue({
+			status: {
+				active: true,
+				sessionId: 'sess_x',
+				sizeBytes: 45 * 1024 * 1024, // 45 MB / 50 = 90%
+				durationMs: 1 * 60 * 1000,
+			},
+			startRecording: vi.fn(),
+			stopRecording: vi.fn(),
+			refresh: vi.fn(),
+		});
+		const mod = await import('@/lib/session/recordingPreference');
+		(
+			mod.getRecordingDisabled as unknown as { mockResolvedValueOnce: (v: boolean) => void }
+		).mockResolvedValueOnce(false);
+
+		render(<RecordingToggle tabId={1} interceptionActive={true} />);
+
+		expect(await screen.findByText(/próximo do limite/i)).toBeInTheDocument();
+	});
+
+	test('NAO exibe metricas quando status.active === false', async () => {
+		// Default mock retorna inactiveStatus (active: false).
+		const mod = await import('@/lib/session/recordingPreference');
+		(
+			mod.getRecordingDisabled as unknown as { mockResolvedValueOnce: (v: boolean) => void }
+		).mockResolvedValueOnce(false);
+
+		render(<RecordingToggle tabId={1} interceptionActive={false} />);
+
+		expect(screen.queryByText(/MB/)).not.toBeInTheDocument();
+		expect(screen.queryByText(/próximo do limite/i)).not.toBeInTheDocument();
 	});
 });
