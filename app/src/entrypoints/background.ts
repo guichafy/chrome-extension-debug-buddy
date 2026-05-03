@@ -28,12 +28,16 @@ import type {
 	ConsoleArgPreview,
 	ConsoleLevel,
 	ConsoleStackFrame,
+	EnvironmentFingerprint,
 	PageDetection,
+	Recommendation,
 	RedactionConfig,
 	RrwebEvent,
 	Session,
 	SessionEvent,
+	StoreKind,
 } from '@/lib/session/types';
+import type { ProbeStateChangePayload } from '@/probe/protocol';
 import type {
 	AppliedType,
 	InterceptedResponse,
@@ -419,6 +423,78 @@ function invalidateTopFrameUrl(tabId: number): void {
 
 const recommendationEngine = new RecommendationEngine(RECOMMENDATION_REGISTRY);
 
+// Cache de Live Insights por tab. Necessário porque o `SheetContent` (Radix) só
+// monta seus filhos quando o drawer abre — broadcasts emitidos antes ficariam
+// perdidos. Esse cache funciona como snapshot hidratável (espelha o que a UI
+// receberia se estivesse aberta desde o `startDebugging`).
+interface LiveStateEntry {
+	storeKind: StoreKind;
+	current: unknown;
+	recentChanges: number;
+	lastChangeAt: number;
+}
+
+interface LiveDetectionEntry {
+	url: string;
+	timestamp: number;
+	fingerprint: EnvironmentFingerprint;
+}
+
+interface LiveSnapshot {
+	detection: LiveDetectionEntry | null;
+	state: Record<string, LiveStateEntry>;
+	recommendations: Recommendation[];
+}
+
+const LIVE_RECOMMENDATIONS_CAP = 50;
+const liveSnapshotByTab = new Map<number, LiveSnapshot>();
+
+function getOrInitLiveSnapshot(tabId: number): LiveSnapshot {
+	let snap = liveSnapshotByTab.get(tabId);
+	if (!snap) {
+		snap = { detection: null, state: {}, recommendations: [] };
+		liveSnapshotByTab.set(tabId, snap);
+	}
+	return snap;
+}
+
+function updateLiveDetection(tabId: number, entry: LiveDetectionEntry): void {
+	const snap = getOrInitLiveSnapshot(tabId);
+	snap.detection = entry;
+}
+
+function applyLiveStateChange(tabId: number, payload: ProbeStateChangePayload): void {
+	const snap = getOrInitLiveSnapshot(tabId);
+	const prev = snap.state[payload.storeId];
+	snap.state[payload.storeId] = {
+		storeKind: payload.storeKind,
+		current: payload.next,
+		recentChanges: (prev?.recentChanges ?? 0) + 1,
+		lastChangeAt: payload.timestamp,
+	};
+}
+
+function pushLiveRecommendation(tabId: number, rec: Recommendation): void {
+	const snap = getOrInitLiveSnapshot(tabId);
+	snap.recommendations.unshift(rec); // newest first
+	if (snap.recommendations.length > LIVE_RECOMMENDATIONS_CAP) {
+		snap.recommendations.length = LIVE_RECOMMENDATIONS_CAP;
+	}
+}
+
+function clearLiveSnapshot(tabId: number): void {
+	liveSnapshotByTab.delete(tabId);
+}
+
+function resetLiveSnapshotForNavigation(tabId: number): void {
+	// Top-frame navigation: state e recommendations não fazem mais sentido (nova
+	// fronteira de página). Detection será sobrescrito pelo próximo pageDetected.
+	const snap = liveSnapshotByTab.get(tabId);
+	if (!snap) return;
+	snap.state = {};
+	snap.recommendations = [];
+}
+
 function buildNetworkRuleEvent(
 	requestId: string | undefined,
 	r: InterceptedResponse,
@@ -708,6 +784,7 @@ chrome.action.onClicked.addListener(() => {
 // Quando uma aba é fechada, verificar se é a aba do interceptor ou a aba alvo.
 chrome.tabs.onRemoved.addListener((tabId) => {
 	topFrameUrlCache.delete(tabId);
+	clearLiveSnapshot(tabId);
 
 	if (tabId === interceptorTabId) {
 		console.log('Aba do interceptor fechada, parando debugging');
@@ -763,6 +840,7 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
 	if (details.frameId !== 0) return; // só top frame — ignora iframes
 	invalidateTopFrameUrl(details.tabId);
 	recommendationEngine.reset();
+	resetLiveSnapshotForNavigation(details.tabId);
 	const session = await recorder.getActiveByTab(details.tabId);
 
 	// Bug 4: probe deve emitir detection a cada navegação enquanto a tab está
@@ -1195,7 +1273,14 @@ chrome.runtime.onMessage.addListener(
 				// Broadcast incondicional: o painel Live Insights consome o fingerprint
 				// em qualquer modo (com ou sem gravação ativa). A persistência em
 				// sessão (bloco abaixo) é independente e só ocorre quando há sessão.
+				// Também alimenta o cache `liveSnapshotByTab` pra hidratar a UI quando
+				// o usuário abrir o drawer depois (Sheet só monta children no open).
 				if (isDebugging && attachedTabId === tabId && message.payload) {
+					updateLiveDetection(tabId, {
+						url: message.payload.url,
+						timestamp: message.payload.timestamp,
+						fingerprint: message.payload.fingerprint,
+					});
 					broadcastToUI('liveDetection', { tabId, payload: message.payload });
 				}
 
@@ -1243,6 +1328,26 @@ chrome.runtime.onMessage.addListener(
 				}
 			})();
 			return true;
+		}
+
+		if (message.action === 'getLiveSnapshot') {
+			// Hidratação síncrona do drawer Live Insights. SheetContent (Radix) só
+			// monta os filhos quando abre, então broadcasts emitidos antes do
+			// usuário clicar no botão Activity são perdidos. Esse handler entrega
+			// o estado acumulado pelo cache `liveSnapshotByTab` para a UI plotar
+			// no mount do `LiveInsightsPanel` antes de registrar o listener.
+			const tabId = message.tabId;
+			if (typeof tabId !== 'number') {
+				sendResponse({ ok: false, error: 'tabId obrigatório' });
+				return false;
+			}
+			const snapshot = liveSnapshotByTab.get(tabId) ?? {
+				detection: null,
+				state: {},
+				recommendations: [],
+			};
+			sendResponse({ ok: true, liveSnapshot: snapshot });
+			return false;
 		}
 
 		if (message.action === 'getRecordingStatus') {
@@ -1362,6 +1467,7 @@ chrome.runtime.onMessage.addListener(
 			// perder state changes em corrida.
 			const senderTabId = sender?.tab?.id;
 			if (typeof senderTabId === 'number' && message.statePayload) {
+				applyLiveStateChange(senderTabId, message.statePayload);
 				broadcastToUI('liveStateChange', {
 					tabId: senderTabId,
 					statePayload: message.statePayload,
@@ -2459,6 +2565,7 @@ async function handleRequestPaused(params: any): Promise<void> {
 				const ctx = { topFrameUrl: await getTopFrameUrl(tabId) };
 				const hits = recommendationEngine.pushResponse(ruleEv, ctx);
 				for (const hit of hits) {
+					pushLiveRecommendation(tabId, hit);
 					broadcastToUI('liveRecommendation', { tabId, recommendation: hit });
 					const session = await recorder.getActiveByTab(tabId);
 					if (session) {

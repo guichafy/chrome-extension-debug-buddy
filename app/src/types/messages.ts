@@ -12,6 +12,7 @@ import type {
 	Recommendation,
 	RrwebEvent,
 	Session,
+	StoreKind,
 } from '@/lib/session/types';
 
 export type MessageAction =
@@ -67,7 +68,9 @@ export type MessageAction =
 	| 'setPrivacyConfig'
 	| 'purgeOldSessions'
 	// Bug 3 — live toggle gravacao durante interceptacao
-	| 'setRecordingLive';
+	| 'setRecordingLive'
+	// Phase M — hidratação do drawer Live Insights ao abrir
+	| 'getLiveSnapshot';
 
 export interface Message {
 	action: MessageAction;
@@ -151,4 +154,13 @@ export interface MessageResponse {
 	// Phase 6 — privacyConfig + autoPurge
 	privacyConfig?: import('@/lib/session/types').RedactionConfig;
 	purgedCount?: number;
+	// Phase M — snapshot Live Insights pra hidratar UI ao mount
+	liveSnapshot?: {
+		detection: { url: string; timestamp: number; fingerprint: EnvironmentFingerprint } | null;
+		state: Record<
+			string,
+			{ storeKind: StoreKind; current: unknown; recentChanges: number; lastChangeAt: number }
+		>;
+		recommendations: Recommendation[];
+	};
 }
