@@ -35,27 +35,3 @@ describe('NetworkEvent.client (Phase 5)', () => {
 	});
 });
 
-describe('StateChangeEvent.storeKind (Phase 5)', () => {
-	it('aceita storeKind angular-signal e ngrx', () => {
-		const a: SessionEvent = {
-			type: 'state',
-			timestamp: 1,
-			phaseId: 'p',
-			storeId: 'sig:1',
-			storeKind: 'angular-signal',
-			diffCompressed: 'xxx',
-			sequenceNum: 1,
-		};
-		const b: SessionEvent = {
-			type: 'state',
-			timestamp: 1,
-			phaseId: 'p',
-			storeId: 'ngrx:1',
-			storeKind: 'ngrx',
-			diffCompressed: 'yyy',
-			sequenceNum: 1,
-		};
-		if (a.type === 'state') expect(a.storeKind).toBe('angular-signal');
-		if (b.type === 'state') expect(b.storeKind).toBe('ngrx');
-	});
-});

@@ -27,14 +27,6 @@ export const DEFAULT_REDACTION_CONFIG: RedactionConfig = {
 		'\\b(?:\\d[ -]?){13,19}\\b',
 		'(?:password|senha|token|secret|api[_-]?key)\\s*[:=]\\s*\\S+',
 	],
-	stateBlacklistPaths: [
-		'auth.*.token',
-		'auth.token',
-		'user.password',
-		'user.email',
-		'session.cookie',
-	],
-	stateWhitelistPaths: [],
 	rrwebMaskAllInputs: false,
 	rrwebMaskTextSelector:
 		'[autocomplete^="cc-"], [name*="card" i], [name*="cvv" i], [name*="password" i], .dbb-mask, [data-dbb-mask]',

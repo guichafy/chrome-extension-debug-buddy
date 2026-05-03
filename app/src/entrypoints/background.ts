@@ -22,7 +22,6 @@ import { getPrivacyConfig, setPrivacyConfig } from '@/lib/session/privacy/config
 import { redactConsoleArgs } from '@/lib/session/privacy/consoleRedactor';
 import { redactHeaders } from '@/lib/session/privacy/headerRedactor';
 import { truncatePath } from '@/lib/session/privacy/pathTruncator';
-import { redactState } from '@/lib/session/privacy/stateRedactor';
 import { shouldIgnoreUrl } from '@/lib/session/privacy/urlGate';
 import type {
 	ConsoleArgPreview,
@@ -35,9 +34,7 @@ import type {
 	RrwebEvent,
 	Session,
 	SessionEvent,
-	StoreKind,
 } from '@/lib/session/types';
-import type { ProbeStateChangePayload } from '@/probe/protocol';
 import type {
 	AppliedType,
 	InterceptedResponse,
@@ -427,13 +424,6 @@ const recommendationEngine = new RecommendationEngine(RECOMMENDATION_REGISTRY);
 // monta seus filhos quando o drawer abre — broadcasts emitidos antes ficariam
 // perdidos. Esse cache funciona como snapshot hidratável (espelha o que a UI
 // receberia se estivesse aberta desde o `startDebugging`).
-interface LiveStateEntry {
-	storeKind: StoreKind;
-	current: unknown;
-	recentChanges: number;
-	lastChangeAt: number;
-}
-
 interface LiveDetectionEntry {
 	url: string;
 	timestamp: number;
@@ -442,7 +432,6 @@ interface LiveDetectionEntry {
 
 interface LiveSnapshot {
 	detection: LiveDetectionEntry | null;
-	state: Record<string, LiveStateEntry>;
 	recommendations: Recommendation[];
 }
 
@@ -452,7 +441,7 @@ const liveSnapshotByTab = new Map<number, LiveSnapshot>();
 function getOrInitLiveSnapshot(tabId: number): LiveSnapshot {
 	let snap = liveSnapshotByTab.get(tabId);
 	if (!snap) {
-		snap = { detection: null, state: {}, recommendations: [] };
+		snap = { detection: null, recommendations: [] };
 		liveSnapshotByTab.set(tabId, snap);
 	}
 	return snap;
@@ -461,17 +450,6 @@ function getOrInitLiveSnapshot(tabId: number): LiveSnapshot {
 function updateLiveDetection(tabId: number, entry: LiveDetectionEntry): void {
 	const snap = getOrInitLiveSnapshot(tabId);
 	snap.detection = entry;
-}
-
-function applyLiveStateChange(tabId: number, payload: ProbeStateChangePayload): void {
-	const snap = getOrInitLiveSnapshot(tabId);
-	const prev = snap.state[payload.storeId];
-	snap.state[payload.storeId] = {
-		storeKind: payload.storeKind,
-		current: payload.next,
-		recentChanges: (prev?.recentChanges ?? 0) + 1,
-		lastChangeAt: payload.timestamp,
-	};
 }
 
 function pushLiveRecommendation(tabId: number, rec: Recommendation): void {
@@ -487,11 +465,10 @@ function clearLiveSnapshot(tabId: number): void {
 }
 
 function resetLiveSnapshotForNavigation(tabId: number): void {
-	// Top-frame navigation: state e recommendations não fazem mais sentido (nova
+	// Top-frame navigation: recommendations não fazem mais sentido (nova
 	// fronteira de página). Detection será sobrescrito pelo próximo pageDetected.
 	const snap = liveSnapshotByTab.get(tabId);
 	if (!snap) return;
-	snap.state = {};
 	snap.recommendations = [];
 }
 
@@ -1343,7 +1320,6 @@ chrome.runtime.onMessage.addListener(
 			}
 			const snapshot = liveSnapshotByTab.get(tabId) ?? {
 				detection: null,
-				state: {},
 				recommendations: [],
 			};
 			sendResponse({ ok: true, liveSnapshot: snapshot });
@@ -1451,56 +1427,6 @@ chrome.runtime.onMessage.addListener(
 						return;
 					}
 					await recorder.addRrwebEvents(sid, events);
-					sendResponse({ ok: true });
-				} catch (err) {
-					sendResponse({ ok: false, error: String(err) });
-				}
-			})();
-			return true;
-		}
-
-		if (message.action === 'stateChange') {
-			// Phase C: broadcast incondicional para a UI passiva (sem sessão).
-			// LiveInsightsPanel consome via `liveStateChange`; quando há gravação,
-			// a UI também recebe (não duplica — passivo é só visível sem sessão).
-			// Broadcast acontece ANTES da validação async de sessão pra não
-			// perder state changes em corrida.
-			const senderTabId = sender?.tab?.id;
-			if (typeof senderTabId === 'number' && message.statePayload) {
-				applyLiveStateChange(senderTabId, message.statePayload);
-				broadcastToUI('liveStateChange', {
-					tabId: senderTabId,
-					statePayload: message.statePayload,
-				});
-			}
-			(async () => {
-				try {
-					const tabId = sender?.tab?.id;
-					if (typeof tabId !== 'number') {
-						sendResponse({ ok: false, error: 'stateChange sem tabId no sender' });
-						return;
-					}
-					const session = await sessionStore.findActiveByTab(tabId);
-					if (!session) {
-						// Sem sessão — modo passivo não persiste state changes (spec: state
-						// só com gravação ON). Broadcast `liveStateChange` acima já alimentou
-						// a UI passiva.
-						sendResponse({ ok: false, error: 'Sem sessão ativa para a tab remetente' });
-						return;
-					}
-					const rawPayload = message.statePayload;
-					if (!rawPayload) {
-						sendResponse({ ok: false, error: 'stateChange sem statePayload' });
-						return;
-					}
-					const payload = livePrivacyConfig
-						? {
-								...rawPayload,
-								prev: redactState(rawPayload.prev, livePrivacyConfig),
-								next: redactState(rawPayload.next, livePrivacyConfig),
-							}
-						: rawPayload;
-					await recorder.addStateChange(session.id, payload);
 					sendResponse({ ok: true });
 				} catch (err) {
 					sendResponse({ ok: false, error: String(err) });

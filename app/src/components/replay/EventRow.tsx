@@ -11,7 +11,6 @@ const TYPE_BADGE: Record<string, string> = {
 	route: 'border-purple-500/40 bg-purple-500/10 text-purple-200',
 	error: 'border-red-500/40 bg-red-500/10 text-red-200',
 	detection: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200',
-	state: 'border-amber-500/40 bg-amber-500/10 text-amber-200',
 };
 
 // Console levels têm sub-paleta (error vermelho, warn âmbar, info azul, log/debug cinza).
@@ -120,15 +119,6 @@ function EventBadge({ event }: { event: SessionEvent }) {
 					phase
 				</Badge>
 			);
-		case 'state':
-			return (
-				<Badge
-					variant="outline"
-					className={cn('flex-shrink-0 px-1.5 py-0 font-mono text-[10px]', TYPE_BADGE.state)}
-				>
-					{event.storeKind}
-				</Badge>
-			);
 	}
 }
 
@@ -179,11 +169,5 @@ function EventContent({ event }: { event: SessionEvent }) {
 		}
 		case 'detection':
 			return <span className="text-muted-foreground">{event.phaseId}</span>;
-		case 'state':
-			return (
-				<span className="text-muted-foreground">
-					<span className="font-mono">{event.storeId}</span> · seq #{event.sequenceNum}
-				</span>
-			);
 	}
 }

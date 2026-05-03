@@ -14,9 +14,10 @@ export function sameSet<T>(a: T[], b: T[], key: (item: T) => string): boolean {
 	return true;
 }
 
-// `treatment` entra na chave canônica (dataFetching/stateManagers): duas detections
-// da mesma lib mas com treatments diferentes representam environments distintos.
-// Hoje treatment é estático por detector, mas mantemos por defesa em profundidade.
+// `treatment` entra na chave canônica (dataFetching): duas detections da mesma
+// lib mas com treatments diferentes representam environments distintos. Hoje
+// treatment é estático por detector, mas mantemos por defesa em profundidade.
+// state detection removida em Live Insights v3.
 export function fingerprintsEqual(
 	a: EnvironmentFingerprint,
 	b: EnvironmentFingerprint,
@@ -36,21 +37,6 @@ export function fingerprintsEqual(
 			a.dataFetching,
 			b.dataFetching,
 			(d) => `${d.name}:${d.version ?? ''}:${d.treatment}`,
-		)
-	) {
-		return false;
-	}
-	// Sentinel `hasStores`: a contagem absoluta de stores varia conforme a app
-	// vai inicializando módulos (carregamento progressivo abre 1, depois 5).
-	// Tratar cada incremento como fase nova fragmentaria a sessão sem ganho real.
-	// Distinguimos apenas dois mundos por state manager: existe pelo menos 1 store
-	// (`has`) ou nenhum (`none`). Transição `none → has` continua sendo fase nova,
-	// pois ali o ambiente realmente passou a ter estado observável.
-	if (
-		!sameSet(
-			a.stateManagers,
-			b.stateManagers,
-			(s) => `${s.name}:${s.storesDetected > 0 ? 'has' : 'none'}:${s.treatment}`,
 		)
 	) {
 		return false;

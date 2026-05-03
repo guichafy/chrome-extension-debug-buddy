@@ -15,12 +15,6 @@ export interface DataFetchingDetection {
 	treatment: LibTreatment;
 }
 
-export interface StateManagerDetection {
-	name: string;
-	storesDetected: number;
-	treatment: LibTreatment;
-}
-
 export interface LibraryDetection {
 	name: 'jquery';
 	version?: string;
@@ -32,7 +26,6 @@ export interface EnvironmentFingerprint {
 	libraries: LibraryDetection[];
 	httpClients: HttpClientDetection[];
 	dataFetching: DataFetchingDetection[];
-	stateManagers: StateManagerDetection[];
 	detectedAt: number;
 	isProductionBuild: boolean;
 }
@@ -51,24 +44,6 @@ export interface PageDetection {
 	triggerType: PageDetectionTrigger;
 }
 
-export type StoreKind = 'redux' | 'zustand' | 'angular-signal' | 'ngrx';
-
-export interface StateSnapshot {
-	storeId: string;
-	storeKind: StoreKind;
-	data: unknown;
-	timestamp: number;
-}
-
-export interface StateKeyframe {
-	storeId: string;
-	storeKind: StoreKind;
-	timestamp: number;
-	phaseId: string;
-	/** lz-string compressToBase64 de JSON.stringify(state) */
-	snapshotCompressed: string;
-}
-
 export interface DetectionPhase {
 	id: string;
 	startTimestamp: number;
@@ -82,9 +57,6 @@ export interface DetectionPhase {
 	 * Campo opcional para preservar compat com sessões importadas antigas.
 	 */
 	kind?: 'bootstrap' | 'detected';
-	/** Map storeId → primeiro snapshot capturado dele dentro da fase. */
-	stateBaseline?: Record<string, StateSnapshot>;
-	stateKeyframes?: StateKeyframe[];
 }
 
 export type ConsoleSource = 'app' | 'browser' | 'security';
@@ -179,15 +151,6 @@ export type SessionEvent =
 			phaseId: string;
 			message: string;
 			stackTrace?: { frames: ConsoleStackFrame[] };
-	  }
-	| {
-			type: 'state';
-			timestamp: number;
-			phaseId: string;
-			storeId: string;
-			storeKind: StoreKind;
-			diffCompressed: string;
-			sequenceNum: number;
 	  };
 
 export interface SessionMetadata {
@@ -229,9 +192,6 @@ export interface RedactionConfig {
 	// Console
 	consoleRegex: string[]; // aplicado em ConsoleArgPreview.description
 	consoleEnabled: boolean; // permite desligar p/ localhost
-	// State
-	stateBlacklistPaths: string[]; // glob simples — ex: 'auth.*.token'
-	stateWhitelistPaths: string[]; // se preenchido, SÓ esses paths são preservados
 	// rrweb
 	rrwebMaskAllInputs: boolean; // default false — só password
 	rrwebMaskTextSelector: string; // default '.dbb-mask, [data-dbb-mask]'

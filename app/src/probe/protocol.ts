@@ -2,14 +2,6 @@ import type { EnvironmentFingerprint, PageDetectionTrigger } from '@/lib/session
 
 export const PROBE_NAMESPACE = 'debug-buddy-probe';
 
-export interface ProbeStateChangePayload {
-	storeId: string;
-	storeKind: 'redux' | 'zustand' | 'angular-signal' | 'ngrx';
-	timestamp: number;
-	prev: unknown;
-	next: unknown;
-}
-
 export type ProbeMessage =
 	| {
 			ns: typeof PROBE_NAMESPACE;
@@ -26,11 +18,6 @@ export type ProbeMessage =
 				triggerType: PageDetectionTrigger;
 				fingerprint: EnvironmentFingerprint;
 			};
-	  }
-	| {
-			ns: typeof PROBE_NAMESPACE;
-			type: 'probe:state-change';
-			payload: ProbeStateChangePayload;
 	  }
 	| {
 			ns: typeof PROBE_NAMESPACE;

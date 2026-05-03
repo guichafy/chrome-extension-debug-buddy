@@ -8,7 +8,6 @@ const fp = (overrides: Partial<EnvironmentFingerprint> = {}): EnvironmentFingerp
 	libraries: [],
 	httpClients: [{ name: 'fetch', confidence: 'high' }],
 	dataFetching: [],
-	stateManagers: [],
 	detectedAt: 0,
 	isProductionBuild: false,
 	...overrides,

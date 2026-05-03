@@ -5,21 +5,13 @@ import { EventRow } from '@/components/replay/EventRow';
 import { PhaseList } from '@/components/replay/PhaseList';
 import { ReplayRequestsTab } from '@/components/replay/ReplayRequestsTab';
 import { RrwebPlayer } from '@/components/replay/RrwebPlayer';
-import { StateInspector } from '@/components/replay/StateInspector';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useReplayPlayhead } from '@/hooks/useReplayPlayhead';
 import { sessionStore } from '@/lib/session/storage';
 import type { RrwebEvent, Session, SessionEvent } from '@/lib/session/types';
 
-const FILTERS: SessionEvent['type'][] = [
-	'network',
-	'console',
-	'route',
-	'error',
-	'detection',
-	'state',
-];
+const FILTERS: SessionEvent['type'][] = ['network', 'console', 'route', 'error', 'detection'];
 
 function originOfUrl(rawUrl: string): string {
 	try {
@@ -39,7 +31,6 @@ export function ReplayPage() {
 		route: true,
 		error: true,
 		detection: false,
-		state: false,
 	});
 	const playhead = useReplayPlayhead();
 
@@ -87,14 +78,6 @@ export function ReplayPage() {
 	const visibleEvents = session.events.filter(
 		(e) => enabled[e.type] && e.timestamp <= cutoffTimestamp,
 	);
-	const activePhase = (() => {
-		const phases = session.detectionPhases;
-		for (let i = phases.length - 1; i >= 0; i--) {
-			if (phases[i].startTimestamp <= cutoffTimestamp) return phases[i];
-		}
-		return phases[0] ?? null;
-	})();
-
 	const importedOrigin = originOfUrl(session.metadata.initialUrl);
 	const showOriginBanner =
 		session.origin === 'imported' &&
@@ -169,7 +152,6 @@ export function ReplayPage() {
 									</span>
 								)}
 							</TabsTrigger>
-							<TabsTrigger value="state">Estado</TabsTrigger>
 						</TabsList>
 
 						<TabsContent
@@ -213,14 +195,6 @@ export function ReplayPage() {
 
 						<TabsContent value="recommendations" className="mt-0 flex-1 overflow-hidden">
 							<RecommendationsTab items={session.recommendations ?? []} />
-						</TabsContent>
-
-						<TabsContent value="state" className="mt-0 flex-1 overflow-auto">
-							<StateInspector
-								phase={activePhase}
-								events={session.events}
-								playheadTimestamp={cutoffTimestamp}
-							/>
 						</TabsContent>
 					</Tabs>
 				</div>

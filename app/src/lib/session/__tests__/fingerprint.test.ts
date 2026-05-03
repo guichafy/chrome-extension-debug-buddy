@@ -11,7 +11,6 @@ const fp = (overrides: Partial<EnvironmentFingerprint> = {}): EnvironmentFingerp
 	libraries: [],
 	httpClients: [{ name: 'fetch', confidence: 'high' }],
 	dataFetching: [],
-	stateManagers: [],
 	detectedAt: 0,
 	isProductionBuild: false,
 	...overrides,
@@ -128,70 +127,12 @@ describe('groupConsecutiveDetections', () => {
 	});
 });
 
-const base: EnvironmentFingerprint = {
-	framework: { name: 'react', version: '18.2.0' },
-	libraries: [],
-	httpClients: [],
-	dataFetching: [],
-	stateManagers: [],
-	detectedAt: 0,
-	isProductionBuild: false,
-};
-
-describe('fingerprintsEqual — storesDetected sentinel', () => {
-	it('considera 1 store e 5 stores equivalentes (sentinel hasStores)', () => {
-		const a: EnvironmentFingerprint = {
-			...base,
-			stateManagers: [{ name: 'redux', storesDetected: 1, treatment: 'tracked' }],
-		};
-		const b: EnvironmentFingerprint = {
-			...base,
-			stateManagers: [{ name: 'redux', storesDetected: 5, treatment: 'tracked' }],
-		};
-		expect(fingerprintsEqual(a, b)).toBe(true);
-	});
-
-	it('considera 0 stores e 1 store equivalentes (carregamento progressivo)', () => {
-		const a: EnvironmentFingerprint = {
-			...base,
-			stateManagers: [{ name: 'redux', storesDetected: 0, treatment: 'tracked' }],
-		};
-		const b: EnvironmentFingerprint = {
-			...base,
-			stateManagers: [{ name: 'redux', storesDetected: 1, treatment: 'tracked' }],
-		};
-		expect(fingerprintsEqual(a, b)).toBe(false);
-	});
-
-	it('considera ambiente sem state manager diferente de ambiente com Redux', () => {
-		const a: EnvironmentFingerprint = { ...base, stateManagers: [] };
-		const b: EnvironmentFingerprint = {
-			...base,
-			stateManagers: [{ name: 'redux', storesDetected: 1, treatment: 'tracked' }],
-		};
-		expect(fingerprintsEqual(a, b)).toBe(false);
-	});
-
-	it('considera Zustand e Redux diferentes mesmo com mesma quantidade de stores', () => {
-		const a: EnvironmentFingerprint = {
-			...base,
-			stateManagers: [{ name: 'redux', storesDetected: 1, treatment: 'tracked' }],
-		};
-		const b: EnvironmentFingerprint = {
-			...base,
-			stateManagers: [{ name: 'zustand', storesDetected: 1, treatment: 'tracked' }],
-		};
-		expect(fingerprintsEqual(a, b)).toBe(false);
-	});
-});
-
 describe('fingerprintsEqual — Phase 5 Angular libs', () => {
 	const baseFp = {
 		framework: { name: 'angular' as const, version: '17' },
 		libraries: [],
 		httpClients: [],
 		dataFetching: [],
-		stateManagers: [],
 		detectedAt: 1,
 		isProductionBuild: false,
 	};
@@ -208,17 +149,6 @@ describe('fingerprintsEqual — Phase 5 Angular libs', () => {
 		};
 		expect(fingerprintsEqual(before, after)).toBe(false);
 	});
-
-	it('fingerprintsEqual=true para dois snapshots com angular-signal tracked', () => {
-		const a = {
-			...baseFp,
-			stateManagers: [
-				{ name: 'angular-signal', storesDetected: 0, treatment: 'tracked' as const },
-			],
-		};
-		const b = { ...a, detectedAt: 999 };
-		expect(fingerprintsEqual(a, b)).toBe(true);
-	});
 });
 
 test('libraries diferentes resultam em fingerprints distintos', () => {
@@ -227,7 +157,6 @@ test('libraries diferentes resultam em fingerprints distintos', () => {
 		libraries: [],
 		httpClients: [],
 		dataFetching: [],
-		stateManagers: [],
 		detectedAt: 1,
 		isProductionBuild: false,
 	};
@@ -245,7 +174,6 @@ test('libraries iguais (ordem irrelevante) resultam em fingerprints iguais', () 
 		libraries: [lib1],
 		httpClients: [],
 		dataFetching: [],
-		stateManagers: [],
 		detectedAt: 1,
 		isProductionBuild: false,
 	};

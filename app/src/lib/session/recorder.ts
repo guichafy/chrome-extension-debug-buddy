@@ -4,7 +4,6 @@ import { fingerprintsEqual, newPhaseId } from './fingerprint';
 import { getPrivacyConfig, toRedactionApplied } from './privacy/config';
 import { applyBodyPolicy } from './sessionNetworkAdapter';
 import { estimateEventBytes, estimateRrwebBytes } from './sizeEstimate';
-import { compressDiff, compressSnapshot, computeDiff } from './state/diff';
 import { sessionStore } from './storage';
 import type {
 	DetectionPhase,
@@ -14,8 +13,6 @@ import type {
 	Session,
 	SessionEvent,
 	SessionMetadata,
-	StateKeyframe,
-	StoreKind,
 } from './types';
 
 interface StartArgs extends SessionMetadata {
@@ -53,49 +50,12 @@ interface SessionRuntime {
 }
 const runtime = new Map<string, SessionRuntime>();
 
-// Phase 4 — limites de keyframe de state.
-const DEFAULT_STATE_KEYFRAME_EVERY_N_DIFFS = 10;
-const DEFAULT_STATE_KEYFRAME_EVERY_T_MS = 30_000;
-
-let stateKeyframeEveryN = DEFAULT_STATE_KEYFRAME_EVERY_N_DIFFS;
-let stateKeyframeEveryT = DEFAULT_STATE_KEYFRAME_EVERY_T_MS;
-
-interface StoreRuntime {
-	currentState: unknown;
-	diffsSinceKeyframe: number;
-	lastKeyframeAt: number;
-	sequenceNum: number;
-}
-
-interface SessionStateRuntime {
-	stores: Map<string, StoreRuntime>; // key: phaseId+storeId
-}
-
-const stateRuntime = new Map<string, SessionStateRuntime>();
-
-function stateRuntimeFor(sessionId: string): SessionStateRuntime {
-	let r = stateRuntime.get(sessionId);
-	if (!r) {
-		r = { stores: new Map() };
-		stateRuntime.set(sessionId, r);
-	}
-	return r;
-}
-
-export interface StateChangePayload {
-	storeId: string;
-	storeKind: StoreKind;
-	timestamp: number;
-	prev: unknown;
-	next: unknown;
-}
-
 /**
  * Cadeia de promises por sessionId para serializar mutations.
  *
  * Necessário porque `chrome.runtime.onMessage` callbacks rodam concorrentes em
- * service workers MV3 — `addPage`/`addEvent`/`addRrwebEvents` (e na Phase 4 o
- * `addStateChange`) fazem `get → mutate → put` async. Sem ordenação, o último
+ * service workers MV3 — `addPage`/`addEvent`/`addRrwebEvents` fazem
+ * `get → mutate → put` async. Sem ordenação, o último
  * `put` sobrescreve writes intermediários (last-write-wins).
  *
  * `serializeBySessionId` enfileira `fn` no `.then()` da promise anterior dessa
@@ -253,7 +213,6 @@ export const recorder = {
 				libraries: [],
 				httpClients: [],
 				dataFetching: [],
-				stateManagers: [],
 				detectedAt: startedAt,
 				isProductionBuild: false,
 			},
@@ -306,7 +265,6 @@ export const recorder = {
 				console.warn('[session] stopSession: falha ao ler privacyConfig:', err);
 			}
 			runtime.delete(id);
-			stateRuntime.delete(id);
 			// Put síncrono final é a última oportunidade de persistir — cache descartado
 			// depois pra próximos reads sempre lerem do IDB (evita stale).
 			await sessionStore.put(s);
@@ -457,103 +415,6 @@ export const recorder = {
 		});
 	},
 
-	addStateChange(sessionId: string, payload: StateChangePayload): Promise<void> {
-		return serializeBySessionId(sessionId, async () => {
-			const s = await getCachedOrLoad(sessionId);
-			if (!s) throw new Error(`Session ${sessionId} não encontrada`);
-			if (s.endedAt !== null) throw new Error(`Session ${sessionId} já encerrada`);
-			const phase = s.detectionPhases[s.detectionPhases.length - 1];
-			if (!phase) {
-				throw new Error(
-					`Session ${sessionId}: state-change recebido antes da primeira DetectionPhase`,
-				);
-			}
-
-			const r = getOrInitRuntime(sessionId, s);
-			const sr = stateRuntimeFor(sessionId);
-			const runtimeKey = `${phase.id}:${payload.storeId}`;
-			let storeR = sr.stores.get(runtimeKey);
-
-			// Baseline: primeira mudança observada do storeId nesta fase.
-			let isFirstObservation = false;
-			if (!storeR) {
-				if (!phase.stateBaseline) phase.stateBaseline = {};
-				phase.stateBaseline[payload.storeId] = {
-					storeId: payload.storeId,
-					storeKind: payload.storeKind,
-					data: payload.prev,
-					timestamp: payload.timestamp,
-				};
-				storeR = {
-					currentState: payload.prev,
-					diffsSinceKeyframe: 0,
-					lastKeyframeAt: payload.timestamp,
-					sequenceNum: 0,
-				};
-				sr.stores.set(runtimeKey, storeR);
-				isFirstObservation = true;
-			}
-
-			const ops = computeDiff(storeR.currentState, payload.next);
-			if (ops.length === 0) {
-				// Sem mudança real — não fabricamos evento. Persistimos só se foi a
-				// primeira observação (pra registrar baseline).
-				if (isFirstObservation) scheduleFlush(sessionId);
-				return;
-			}
-
-			const diffCompressed = compressDiff(ops);
-			storeR.sequenceNum++;
-			const ev: SessionEvent = {
-				type: 'state',
-				timestamp: payload.timestamp,
-				phaseId: phase.id,
-				storeId: payload.storeId,
-				storeKind: payload.storeKind,
-				diffCompressed,
-				sequenceNum: storeR.sequenceNum,
-			};
-			s.events.push(ev);
-			r.bytes += estimateEventBytes(ev);
-
-			storeR.currentState = payload.next;
-			storeR.diffsSinceKeyframe++;
-
-			// Keyframe a cada N diffs OU T ms.
-			const elapsedSinceKeyframe = payload.timestamp - storeR.lastKeyframeAt;
-			if (
-				storeR.diffsSinceKeyframe >= stateKeyframeEveryN ||
-				elapsedSinceKeyframe >= stateKeyframeEveryT
-			) {
-				if (!phase.stateKeyframes) phase.stateKeyframes = [];
-				const keyframe: StateKeyframe = {
-					storeId: payload.storeId,
-					storeKind: payload.storeKind,
-					timestamp: payload.timestamp,
-					phaseId: phase.id,
-					snapshotCompressed: compressSnapshot(payload.next),
-				};
-				phase.stateKeyframes.push(keyframe);
-				r.bytes += keyframe.snapshotCompressed.length;
-				storeR.diffsSinceKeyframe = 0;
-				storeR.lastKeyframeAt = payload.timestamp;
-			}
-
-			// Hard limit
-			if (r.bytes >= sizeLimitBytes) {
-				await autoStop(s, 'size', r);
-				return;
-			}
-			const duration = Date.now() - r.startedAt;
-			if (duration >= durationLimitMs) {
-				await autoStop(s, 'time', r);
-				return;
-			}
-
-			scheduleFlush(sessionId);
-		});
-	},
-
 	addRecommendation(sessionId: string, rec: Recommendation): Promise<void> {
 		return serializeBySessionId(sessionId, async () => {
 			const s = await getCachedOrLoad(sessionId);
@@ -602,22 +463,8 @@ export const recorder = {
 		durationLimitMs = DEFAULT_DURATION_LIMIT_MS;
 		runtime.clear();
 		mutationChain.clear();
-		stateRuntime.clear();
 		sessionCache.clear();
 		for (const t of pendingFlushes.values()) clearTimeout(t);
 		pendingFlushes.clear();
-		stateKeyframeEveryN = DEFAULT_STATE_KEYFRAME_EVERY_N_DIFFS;
-		stateKeyframeEveryT = DEFAULT_STATE_KEYFRAME_EVERY_T_MS;
-	},
-
-	_setStateLimitsForTests(limits: { everyNDiffs: number; everyTMs: number }): void {
-		stateKeyframeEveryN = limits.everyNDiffs;
-		stateKeyframeEveryT = limits.everyTMs;
-	},
-
-	_resetStateLimitsForTests(): void {
-		stateKeyframeEveryN = DEFAULT_STATE_KEYFRAME_EVERY_N_DIFFS;
-		stateKeyframeEveryT = DEFAULT_STATE_KEYFRAME_EVERY_T_MS;
-		stateRuntime.clear();
 	},
 };

@@ -2,13 +2,8 @@ import { detectDataFetching } from './detectors/dataFetching';
 import { detectFramework } from './detectors/framework';
 import { detectHttpClients } from './detectors/httpClients';
 import { detectLibraries } from './detectors/libraries';
-import { detectStateManagers } from './detectors/stateManagers';
 import { isProbeMessage, PROBE_NAMESPACE, type ProbeMessage } from './protocol';
 import { installAngularHttpTap } from './state/angularHttpTap';
-import { installAngularSignalTap } from './state/angularSignalTap';
-import { installNgRxTap } from './state/ngrxTap';
-import { installReduxTap } from './state/reduxTap';
-import { installZustandTap } from './state/zustandTap';
 import type { EnvironmentFingerprint, PageDetectionTrigger } from '@/lib/session/types';
 
 let active = false;
@@ -30,7 +25,6 @@ function buildFingerprint(): EnvironmentFingerprint {
 		libraries: detectLibraries(),
 		httpClients: detectHttpClients(),
 		dataFetching: detectDataFetching(),
-		stateManagers: detectStateManagers(),
 		detectedAt: Date.now(),
 		isProductionBuild: isProductionBuild(),
 	};
@@ -79,14 +73,9 @@ window.addEventListener('message', (e: MessageEvent) => {
 			patchHistoryForSpaRouting();
 			historyPatched = true;
 		}
-		// Taps são incondicionais: state capture funciona com ou sem gravação.
-		// UI consome via liveStateChange (passivo) ou via recorder.addStateChange
-		// (gravação). Wrappers são idempotentes.
-		installReduxTap();
-		installZustandTap();
+		// angularHttpTap continua: detecção/tracking de HttpClient via XHR hook.
+		// state taps removidos em Live Insights v3.
 		installAngularHttpTap();
-		installAngularSignalTap();
-		installNgRxTap();
 		emitDetection(e.data.reason);
 	} else if (e.data.type === 'probe:idle') {
 		active = false;

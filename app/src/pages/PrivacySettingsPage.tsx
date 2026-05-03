@@ -154,32 +154,6 @@ export function PrivacySettingsPage() {
 			</section>
 
 			<section className="flex flex-col gap-3 rounded border p-4">
-				<h2 className="font-medium text-sm">State (stores)</h2>
-				<div className="flex flex-col gap-2">
-					<Label htmlFor="stateBlacklist" className="text-xs">
-						Paths a remover (glob — ex: <code>auth.*.token</code>)
-					</Label>
-					<Textarea
-						id="stateBlacklist"
-						rows={3}
-						value={listToText(draft.stateBlacklistPaths)}
-						onChange={(e) => update('stateBlacklistPaths', textToList(e.target.value))}
-					/>
-				</div>
-				<div className="flex flex-col gap-2">
-					<Label htmlFor="stateWhitelist" className="text-xs">
-						Paths whitelist (se preenchido, apenas estes são mantidos)
-					</Label>
-					<Textarea
-						id="stateWhitelist"
-						rows={2}
-						value={listToText(draft.stateWhitelistPaths)}
-						onChange={(e) => update('stateWhitelistPaths', textToList(e.target.value))}
-					/>
-				</div>
-			</section>
-
-			<section className="flex flex-col gap-3 rounded border p-4">
 				<h2 className="font-medium text-sm">rrweb (DOM/inputs)</h2>
 				<div className="flex items-center justify-between">
 					<Label htmlFor="maskAllInputs">Mascarar todos os inputs (não só password)</Label>

@@ -15,7 +15,7 @@ interface MockChrome {
 
 let messageListeners: Array<(msg: unknown) => void> = [];
 let sendMessageImpl: (msg: unknown) => Promise<unknown> = () =>
-	Promise.resolve({ ok: true, liveSnapshot: { detection: null, state: {}, recommendations: [] } });
+	Promise.resolve({ ok: true, liveSnapshot: { detection: null, recommendations: [] } });
 
 function installChromeMock(): void {
 	messageListeners = [];
@@ -51,7 +51,6 @@ const baseDetectionPayload = {
 			{ name: 'xhr' as const, confidence: 'high' as const },
 		],
 		dataFetching: [],
-		stateManagers: [],
 		detectedAt: 1,
 		isProductionBuild: false,
 	},
@@ -76,7 +75,7 @@ beforeEach(() => {
 	sendMessageImpl = () =>
 		Promise.resolve({
 			ok: true,
-			liveSnapshot: { detection: null, state: {}, recommendations: [] },
+			liveSnapshot: { detection: null, recommendations: [] },
 		});
 });
 
@@ -88,7 +87,6 @@ describe('LiveInsightsPanel', () => {
 	test('mostra estado vazio antes de qualquer detecção', async () => {
 		render(<LiveInsightsPanel tabId={1} isInterceptionActive={true} />);
 		expect(await screen.findByText(/Aguardando primeira detecção do probe…/)).toBeInTheDocument();
-		expect(screen.getByText(/Nenhum store de estado detectado/)).toBeInTheDocument();
 		expect(screen.getByText(/Nenhuma recomendação até agora/)).toBeInTheDocument();
 	});
 
@@ -187,7 +185,6 @@ describe('LiveInsightsPanel', () => {
 						timestamp: 1,
 						fingerprint: baseDetectionPayload.fingerprint,
 					},
-					state: {},
 					recommendations: [rec],
 				},
 			});

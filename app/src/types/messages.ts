@@ -5,14 +5,12 @@
 import type { InterceptedResponse, ResponseModifications } from './intercepted';
 import type { MockConfig } from './legacy';
 import type { SessionMarker } from './sessionMarker';
-import type { ProbeStateChangePayload } from '@/probe/protocol';
 import type {
 	EnvironmentFingerprint,
 	PageDetectionTrigger,
 	Recommendation,
 	RrwebEvent,
 	Session,
-	StoreKind,
 } from '@/lib/session/types';
 
 export type MessageAction =
@@ -56,11 +54,6 @@ export type MessageAction =
 	// pageDetected chega sem session ativa). Permite UI mostrar framework
 	// + libs detectados na página atual durante linting de runtime.
 	| 'liveDetection'
-	// Session Replay — Phase 4 (state change capture)
-	| 'stateChange'
-	// Phase C — broadcast incondicional de state change (UI passiva consome
-	// mesmo sem sessão de gravação).
-	| 'liveStateChange'
 	// Session Replay — Phase 5 (Angular HttpClient tag)
 	| 'angularHttpTag'
 	// Session Replay — Phase 6 (privacyConfig + autoPurge)
@@ -111,8 +104,6 @@ export interface Message {
 	maskAllInputs?: boolean;
 	// Recommendation (Phase E)
 	recommendation?: Recommendation;
-	// State change (Phase 4)
-	statePayload?: ProbeStateChangePayload;
 	// Angular HttpClient tag (Phase 5)
 	angularHttpTag?: {
 		url: string;
@@ -126,7 +117,6 @@ export interface Message {
 	active?: boolean;
 	// probeStartDetection metadata. Background envia probe via bridge:
 	// `reason` casa com PageDetectionTrigger (initial/navigation/pushstate/...).
-	// State taps são instalados pelo probe incondicionalmente — ver Phase C.
 	reason?: PageDetectionTrigger;
 }
 
@@ -157,10 +147,6 @@ export interface MessageResponse {
 	// Phase M — snapshot Live Insights pra hidratar UI ao mount
 	liveSnapshot?: {
 		detection: { url: string; timestamp: number; fingerprint: EnvironmentFingerprint } | null;
-		state: Record<
-			string,
-			{ storeKind: StoreKind; current: unknown; recentChanges: number; lastChangeAt: number }
-		>;
 		recommendations: Recommendation[];
 	};
 }

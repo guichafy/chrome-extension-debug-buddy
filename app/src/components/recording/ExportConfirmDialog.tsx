@@ -92,14 +92,6 @@ export function ExportConfirmDialog({ open, onOpenChange, onConfirm }: Props) {
 								</strong>
 							</li>
 							<li>
-								Estado:{' '}
-								<strong>
-									{config.stateWhitelistPaths.length > 0
-										? `whitelist (${config.stateWhitelistPaths.length} paths permitidos)`
-										: `blacklist (${config.stateBlacklistPaths.length} paths redigidos)`}
-								</strong>
-							</li>
-							<li>
 								rrweb:{' '}
 								<strong>
 									{config.rrwebMaskAllInputs ? 'todos os inputs mascarados' : 'só password/cc/cvv'}
