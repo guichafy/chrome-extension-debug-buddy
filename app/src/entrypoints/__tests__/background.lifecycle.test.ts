@@ -41,6 +41,12 @@ describe('lifecycle binding (background)', () => {
 		await sessionStore.clear();
 		(chrome.storage.local as unknown as { _data: Record<string, unknown> })._data = {};
 		installChromeStubs();
+		// `broadcastRecordingState` chama `chrome.runtime.sendMessage(...).catch(...)`,
+		// então o mock precisa devolver um thenable — `vi.fn()` puro retorna undefined
+		// e quebra o `.catch`. Cada teste sobrescreve para um Promise resolvido.
+		(chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+			async () => ({}),
+		);
 		// Reset module cache para que cada teste re-importe background com state limpo.
 		vi.resetModules();
 	});
@@ -51,6 +57,24 @@ describe('lifecycle binding (background)', () => {
 		const session = await sessionStore.findActiveByTab(123);
 		expect(session).not.toBeNull();
 		expect(session!.endedAt).toBeNull();
+	});
+
+	test('startDebugging broadcasta recordingStateChanged via runtime.sendMessage (sidepanel reach)', async () => {
+		const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+		sendMessageMock.mockClear();
+		const { _testStartDebugging } = await import('../background');
+		await _testStartDebugging(321);
+		const calls = sendMessageMock.mock.calls.map((c) => c[0] as Record<string, unknown>);
+		const recordingBroadcast = calls.find(
+			(c) => c?.action === 'recordingStateChanged' && c?.active === true,
+		);
+		expect(recordingBroadcast).toBeDefined();
+		expect(recordingBroadcast).toMatchObject({
+			action: 'recordingStateChanged',
+			tabId: 321,
+			active: true,
+		});
+		expect(typeof (recordingBroadcast as { sessionId?: unknown }).sessionId).toBe('string');
 	});
 
 	test('startDebugging NAO inicia gravacao quando recordingDisabled=true', async () => {

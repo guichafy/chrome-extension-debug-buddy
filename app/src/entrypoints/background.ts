@@ -446,6 +446,19 @@ function broadcastTargetTabState(
 	});
 }
 
+// Igual a `broadcastTargetTabState`: alcança options + sidepanel via
+// runtime.sendMessage além de tabs.sendMessage(interceptorTabId).
+function broadcastRecordingState(payload: {
+	tabId: number;
+	active: boolean;
+	sessionId?: string;
+}): void {
+	broadcastToUI('recordingStateChanged', payload);
+	chrome.runtime.sendMessage({ action: 'recordingStateChanged', ...payload }).catch(() => {
+		// Sem listener ativo — o polling de 1s do useRecording cobre.
+	});
+}
+
 function persistTargetTabInfo(): void {
 	chrome.storage.local.set({
 		targetTabInfo: {
@@ -1649,11 +1662,7 @@ async function tryAutoStartRecording(tabId: number): Promise<void> {
 			err,
 		);
 	}
-	broadcastToUI('recordingStateChanged', {
-		tabId,
-		active: true,
-		sessionId,
-	});
+	broadcastRecordingState({ tabId, active: true, sessionId });
 }
 
 // Start debugging
@@ -1835,7 +1844,7 @@ async function stopDebugging(): Promise<boolean> {
 					// Tab pode ter fechado.
 				}
 				await recorder.stopSession(activeSession.id);
-				broadcastToUI('recordingStateChanged', {
+				broadcastRecordingState({
 					tabId: attachedTabId,
 					active: false,
 					sessionId: activeSession.id,
