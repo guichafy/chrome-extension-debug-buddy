@@ -504,25 +504,22 @@ async function patchRequest(
 	}
 	broadcastToUI('requestUpdated', { requestId, updates });
 
-	// Atualiza durationMs no NetworkEvent da sessão quando duration chega assíncrono.
-	if (updates.duration !== undefined && attachedTabId !== null) {
+	// Espelhar updates relevantes no snapshot da sessão ativa. Necessário porque
+	// approve/modify de breakpoint chega DEPOIS do emitNetworkEventForSession —
+	// sem este espelhamento, o Replay viewer mostraria forever-pending com body
+	// original. Cobre também duration assíncrono (NetworkTimingTracker callback).
+	// Roda detached do main flow (não bloqueia a resposta UI), e é idempotente.
+	if (attachedTabId !== null) {
 		const tabId = attachedTabId;
-		recorder.getActiveByTab(tabId).then(async (session) => {
-			if (!session) return;
-			const ev = session.events.find((e) => e.type === 'network' && e.requestId === requestId);
-			if (ev && ev.type === 'network') {
-				// Mutação in-place de session.events e put() detached do main flow.
-				// Aceita race com outras chamadas concorrentes de addEvent (last-write-wins).
-				// Single-tab + low event rate torna observável conflict raro. Se virar dor,
-				// adicionar versionamento otimista no Session ou serializar via fila no recorder.
-				ev.durationMs = updates.duration;
-				try {
-					await sessionStore.put(session);
-				} catch (err) {
-					console.warn('[session] patchRequest: falha ao persistir durationMs:', err);
-				}
+		(async () => {
+			try {
+				const session = await recorder.getActiveByTab(tabId);
+				if (!session) return;
+				await recorder.patchNetworkEventRequest(session.id, requestId, updates);
+			} catch (err) {
+				console.warn('[session] patchNetworkEventRequest falhou:', err);
 			}
-		});
+		})();
 	}
 }
 

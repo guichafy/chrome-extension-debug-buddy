@@ -1,3 +1,4 @@
+import type { InterceptedResponse } from '@/types/intercepted';
 import { AntipatternEngine } from './antipattern/engine';
 import { tryCoalesceConsole } from './coalesce';
 import { fingerprintsEqual, newPhaseId } from './fingerprint';
@@ -309,6 +310,38 @@ export const recorder = {
 			}
 
 			await sessionStore.put(s);
+		});
+	},
+
+	/**
+	 * Atualiza o snapshot `request: InterceptedResponse` de um evento network
+	 * já persistido — necessário porque approve/modify de breakpoint roda DEPOIS
+	 * que o evento foi emitido para a sessão. Sem isso, o Replay viewer mostra
+	 * o estado pré-aprovação (isWaiting=true, body original).
+	 *
+	 * Encontra evento por requestId. Idempotente — se nenhum evento casar (ex:
+	 * patch chegou após session encerrada e nova começou), no-op silencioso.
+	 */
+	patchNetworkEventRequest(
+		sessionId: string,
+		requestId: string,
+		updates: Partial<InterceptedResponse>,
+	): Promise<void> {
+		return serializeBySessionId(sessionId, async () => {
+			const s = await sessionStore.get(sessionId);
+			if (!s) return; // sessão removida — no-op
+			let mutated = false;
+			for (const ev of s.events) {
+				if (ev.type !== 'network') continue;
+				if (ev.requestId !== requestId) continue;
+				if (!ev.request) continue;
+				ev.request = { ...ev.request, ...updates };
+				// Espelhar campos top-level que dependem de updates
+				if (updates.duration !== undefined) ev.durationMs = updates.duration;
+				if (updates.status !== undefined) ev.status = updates.status;
+				mutated = true;
+			}
+			if (mutated) await sessionStore.put(s);
 		});
 	},
 
