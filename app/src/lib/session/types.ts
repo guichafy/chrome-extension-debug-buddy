@@ -66,6 +66,13 @@ export interface DetectionPhase {
 	endTimestamp: number;
 	fingerprint: EnvironmentFingerprint;
 	pages: PageDetection[];
+	/**
+	 * 'bootstrap' = fase sintética criada por startSession antes da primeira
+	 * pageDetected real chegar. Substituída in-place ao receber a primeira
+	 * detection. 'detected' (default) = fase criada via probe normal.
+	 * Campo opcional para preservar compat com sessões importadas antigas.
+	 */
+	kind?: 'bootstrap' | 'detected';
 	/** Map storeId → primeiro snapshot capturado dele dentro da fase. */
 	stateBaseline?: Record<string, StateSnapshot>;
 	stateKeyframes?: StateKeyframe[];
