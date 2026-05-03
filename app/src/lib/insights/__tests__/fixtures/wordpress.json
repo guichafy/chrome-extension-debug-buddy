@@ -1,0 +1,9 @@
+{
+	"signals": [
+		{ "kind": "meta", "name": "generator", "value": "WordPress 6.4.2" },
+		{ "kind": "scriptSrc", "value": "https://example.com/wp-content/plugins/jetpack/jet.js" },
+		{ "kind": "scriptSrc", "value": "https://example.com/wp-includes/js/wp-emoji.js" },
+		{ "kind": "header", "name": "x-pingback", "value": "https://example.com/xmlrpc.php" }
+	],
+	"expectedHits": ["WordPress", "PHP"]
+}
