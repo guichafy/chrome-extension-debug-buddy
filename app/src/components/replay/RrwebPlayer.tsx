@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 // rrweb-player é alpha — types do default export já vêm tipados em alpha.20,
 // mas o construtor exige `props.events` como `eventWithTime[]` enquanto a sessão
 // armazena `RrwebEvent[]` (formato opaco). Cast controlado abaixo.
@@ -21,7 +21,9 @@ export interface RrwebPlayerHandle {
 interface Props {
 	events: RrwebEvent[];
 	autoPlay?: boolean;
+	/** Quando omitido, calcula a partir do container observado. */
 	width?: number;
+	/** Quando omitido, calcula como width * 9/16 (aspect padrão). */
 	height?: number;
 	onTimeUpdate?: (currentMs: number) => void;
 }
@@ -33,7 +35,13 @@ interface RrwebPlayerInstance {
 	pause: () => void;
 	addEventListener: (event: string, handler: (payload: unknown) => void) => void;
 	$destroy?: () => void;
+	triggerResize?: () => void;
 }
+
+const ASPECT_RATIO = 16 / 9;
+// Threshold em px — mudanças menores que isto são ignoradas para evitar
+// re-mount do player a cada pixel de resize do container.
+const RESIZE_THRESHOLD_PX = 16;
 
 /**
  * Wrapper React de rrweb-player. Decisões de isolamento (Phase 2 Task 9):
@@ -51,13 +59,54 @@ interface RrwebPlayerInstance {
  * - **Shadow DOM nativo**: replayer-wrapper já cria uma boundary. Se uma app
  *   debugada tiver CSS agressivo que vaze (improvável), Phase 2.x adiciona
  *   Shadow Root ao host.
+ *
+ * Dimensões: quando `width`/`height` não são passadas, mede o container via
+ * ResizeObserver e calcula altura preservando aspect 16:9. Re-monta o player
+ * apenas quando a mudança ultrapassa `RESIZE_THRESHOLD_PX` (evita reset de
+ * currentTime em micro-resizes). Em side panel estreito (~400px) ou viewport
+ * curto, o player respeita a largura disponível em vez de fazer overflow.
  */
 export const RrwebPlayer = forwardRef<RrwebPlayerHandle, Props>(function RrwebPlayer(
-	{ events, autoPlay = false, width = 1024, height = 576, onTimeUpdate },
+	{ events, autoPlay = false, width: propsWidth, height: propsHeight, onTimeUpdate },
 	ref,
 ) {
 	const hostRef = useRef<HTMLDivElement | null>(null);
 	const playerRef = useRef<RrwebPlayerInstance | null>(null);
+	// State observado — null até a primeira medida do ResizeObserver.
+	const [observedSize, setObservedSize] = useState<{ w: number; h: number } | null>(null);
+	const lastAppliedSize = useRef<{ w: number; h: number } | null>(null);
+
+	// ResizeObserver para medir o container quando dimensões não vêm via props.
+	// Side effect: se ambas props vierem explícitas, skip (sem observador).
+	useEffect(() => {
+		if (propsWidth !== undefined && propsHeight !== undefined) return;
+		if (!hostRef.current) return;
+		const el = hostRef.current;
+		const apply = (): void => {
+			const w = Math.max(1, el.clientWidth);
+			const h = propsHeight ?? Math.round(w / ASPECT_RATIO);
+			setObservedSize((prev) => {
+				if (
+					prev &&
+					Math.abs(prev.w - w) < RESIZE_THRESHOLD_PX &&
+					Math.abs(prev.h - h) < RESIZE_THRESHOLD_PX
+				) {
+					return prev; // sem mudança significativa — evita re-render
+				}
+				return { w, h };
+			});
+		};
+		apply();
+		const ro = new ResizeObserver(apply);
+		ro.observe(el);
+		return () => {
+			ro.disconnect();
+		};
+	}, [propsWidth, propsHeight]);
+
+	// Dimensões finais usadas no player — props quando explícitas, senão observadas.
+	const effectiveWidth = propsWidth ?? observedSize?.w;
+	const effectiveHeight = propsHeight ?? observedSize?.h;
 
 	useEffect(() => {
 		if (!hostRef.current) return;
@@ -66,6 +115,31 @@ export const RrwebPlayer = forwardRef<RrwebPlayerHandle, Props>(function RrwebPl
 			// Sem isso: render fallback no caller via length check; aqui só skip.
 			return;
 		}
+		if (effectiveWidth === undefined || effectiveHeight === undefined) {
+			// Aguardando primeira medida do ResizeObserver — re-roda quando size chegar.
+			return;
+		}
+
+		// Curto-circuito: player já existe e tamanho mudou abaixo do threshold.
+		// Evita re-mount em cada pixel de resize.
+		if (playerRef.current && lastAppliedSize.current) {
+			const dw = Math.abs(lastAppliedSize.current.w - effectiveWidth);
+			const dh = Math.abs(lastAppliedSize.current.h - effectiveHeight);
+			if (dw < RESIZE_THRESHOLD_PX && dh < RESIZE_THRESHOLD_PX) return;
+		}
+
+		// Re-mount: dimensões mudaram acima do threshold (ou primeiro mount).
+		// Destruir antes de recriar para liberar listeners e iframe internos.
+		if (playerRef.current) {
+			try {
+				playerRef.current.$destroy?.();
+			} catch {
+				// rrweb-player pode lançar em $destroy se já destruído — ignore.
+			}
+			playerRef.current = null;
+			if (hostRef.current) hostRef.current.innerHTML = '';
+		}
+
 		// `events` da sessão é `RrwebEvent[]` (forma opaca); o player espera
 		// `eventWithTime[]` do @rrweb/types. Cast via unknown — runtime compatível.
 		type PlayerCtorOptions = ConstructorParameters<typeof RrwebPlayerLib>[0];
@@ -74,13 +148,14 @@ export const RrwebPlayer = forwardRef<RrwebPlayerHandle, Props>(function RrwebPl
 			props: {
 				events: events as unknown as PlayerCtorOptions['props']['events'],
 				autoPlay,
-				width,
-				height,
+				width: effectiveWidth,
+				height: effectiveHeight,
 				showController: true,
 			},
 		} satisfies PlayerCtorOptions;
 		const player = new RrwebPlayerLib(options) as unknown as RrwebPlayerInstance;
 		playerRef.current = player;
+		lastAppliedSize.current = { w: effectiveWidth, h: effectiveHeight };
 
 		if (onTimeUpdate) {
 			player.addEventListener('ui-update-current-time', (payload: unknown) => {
@@ -98,7 +173,7 @@ export const RrwebPlayer = forwardRef<RrwebPlayerHandle, Props>(function RrwebPl
 				if (hostRef.current) hostRef.current.innerHTML = '';
 			}
 		};
-	}, [events, autoPlay, width, height, onTimeUpdate]);
+	}, [events, autoPlay, effectiveWidth, effectiveHeight, onTimeUpdate]);
 
 	useImperativeHandle(
 		ref,
@@ -111,5 +186,5 @@ export const RrwebPlayer = forwardRef<RrwebPlayerHandle, Props>(function RrwebPl
 		[],
 	);
 
-	return <div ref={hostRef} className="rrweb-player-host" />;
+	return <div ref={hostRef} className="rrweb-player-host h-full w-full" />;
 });

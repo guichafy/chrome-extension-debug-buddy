@@ -33,6 +33,18 @@ if (typeof Element !== 'undefined') {
 	}
 }
 
+// Polyfill ResizeObserver para componentes que usam medição reativa do DOM
+// (RrwebPlayer responsivo, etc). jsdom não implementa nativo. Stub silencioso —
+// não dispara callbacks (testes que dependem de medição passam dimensions
+// explícitas via props).
+if (typeof globalThis.ResizeObserver === 'undefined') {
+	(globalThis as any).ResizeObserver = class {
+		observe(): void {}
+		unobserve(): void {}
+		disconnect(): void {}
+	};
+}
+
 // Polyfills para TextEncoder/TextDecoder
 if (typeof globalThis.TextEncoder === 'undefined') {
 	(globalThis as any).TextEncoder = TextEncoder;
