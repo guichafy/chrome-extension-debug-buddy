@@ -533,12 +533,41 @@ async function patchRequest(
 	}
 }
 
+// Coalesce timing updates (duration + networkTiming chegam quase juntos via
+// callbacks separados). Um único patchRequest ao final reduz pela metade os
+// IDB writes do requests store + os espelhamentos em session.
+const TIMING_FLUSH_DEBOUNCE_MS = 50;
+const pendingTimingPatches = new Map<string, Partial<InterceptedResponse>>();
+const pendingTimingTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function scheduleTimingFlush(requestId: string): void {
+	const existing = pendingTimingTimers.get(requestId);
+	if (existing) clearTimeout(existing);
+	const timer = setTimeout(() => {
+		const updates = pendingTimingPatches.get(requestId);
+		pendingTimingPatches.delete(requestId);
+		pendingTimingTimers.delete(requestId);
+		if (updates && Object.keys(updates).length > 0) {
+			void patchRequest(requestId, updates);
+		}
+	}, TIMING_FLUSH_DEBOUNCE_MS);
+	pendingTimingTimers.set(requestId, timer);
+}
+
 const timingTracker = new NetworkTimingTracker(
 	(fetchRequestId, duration) => {
-		patchRequest(fetchRequestId, { duration, durationSource: 'network' });
+		const prev = pendingTimingPatches.get(fetchRequestId) ?? {};
+		pendingTimingPatches.set(fetchRequestId, {
+			...prev,
+			duration,
+			durationSource: 'network',
+		});
+		scheduleTimingFlush(fetchRequestId);
 	},
 	(fetchRequestId, networkTiming) => {
-		patchRequest(fetchRequestId, { networkTiming });
+		const prev = pendingTimingPatches.get(fetchRequestId) ?? {};
+		pendingTimingPatches.set(fetchRequestId, { ...prev, networkTiming });
+		scheduleTimingFlush(fetchRequestId);
 	},
 );
 
@@ -1947,6 +1976,11 @@ async function stopDebugging(): Promise<boolean> {
 		isDebugging = false;
 		attachedTabId = null;
 		pendingResponses = {};
+		// Cancela timers pendentes — qualquer patchRequest após detach cairia em
+		// allRequests undefined.
+		for (const t of pendingTimingTimers.values()) clearTimeout(t);
+		pendingTimingTimers.clear();
+		pendingTimingPatches.clear();
 		timingTracker.reset();
 		allRequests = {};
 		if (previousAttachedTabId !== null) {
