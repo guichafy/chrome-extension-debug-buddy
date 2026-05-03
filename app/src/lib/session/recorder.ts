@@ -3,6 +3,7 @@ import { AntipatternEngine } from './antipattern/engine';
 import { tryCoalesceConsole } from './coalesce';
 import { fingerprintsEqual, newPhaseId } from './fingerprint';
 import { getPrivacyConfig, toRedactionApplied } from './privacy/config';
+import { applyBodyPolicy } from './sessionNetworkAdapter';
 import { estimateEventBytes, estimateRrwebBytes } from './sizeEstimate';
 import { compressDiff, compressSnapshot, computeDiff } from './state/diff';
 import { sessionStore } from './storage';
@@ -420,13 +421,12 @@ export const recorder = {
 				if (ev.type !== 'network') continue;
 				if (ev.requestId !== requestId) continue;
 				if (!ev.request) continue;
-				// Strip body fields do patch antes de espelhar no snapshot. Body completo é
-				// usado apenas em Command Center live; Replay não lê body em nenhum lugar.
-				const slimUpdates = { ...updates };
-				delete slimUpdates.body;
-				delete slimUpdates.response;
-				delete slimUpdates.request;
-				ev.request = { ...ev.request, ...slimUpdates };
+				// Aplica policy de body no merge: bodies textuais pequenos sobrevivem
+				// (drawer de Replay renderiza), grandes/binários são descartados com
+				// bodyUnavailableReason. Sem strip cego — Phase 7 introduziu inspeção
+				// completa no replay.
+				const merged = applyBodyPolicy({ ...ev.request, ...updates });
+				ev.request = merged;
 				// Espelhar campos top-level que dependem de updates
 				if (updates.duration !== undefined) ev.durationMs = updates.duration;
 				if (updates.status !== undefined) ev.status = updates.status;

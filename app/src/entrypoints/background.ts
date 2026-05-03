@@ -11,7 +11,7 @@ import { arrayBufferToBase64, base64ToArrayBuffer } from '@/lib/session/binaryTr
 import { serializeSession } from '@/lib/session/exporter';
 import { parseDbsession } from '@/lib/session/importer';
 import { getRecordingDisabled, setRecordingDisabled } from '@/lib/session/recordingPreference';
-import { stripBodyFields } from '@/lib/session/sessionNetworkAdapter';
+import { applyBodyPolicy } from '@/lib/session/sessionNetworkAdapter';
 import { resolveCallsite } from '@/lib/session/sourceMap';
 import { sessionStore } from '@/lib/session/storage';
 import { purgeOldSessions } from '@/lib/session/privacy/autoPurge';
@@ -342,10 +342,11 @@ async function emitNetworkEventForSession(
 		url: request.url,
 		status: request.status,
 		durationMs: request.duration,
-		// Snapshot SLIM (sem body) — Replay table só usa metadata. Body completo
-		// inflaria a sessão até crash em ~120 requests pesadas. Ver stripBodyFields
-		// para detalhe. applyPrivacyToInterceptedResponse já rodou em persistRequest.
-		request: stripBodyFields(request),
+		// Snapshot com body policy: bodies textuais ≤ 64KB são preservados pra
+		// inspeção no drawer do Replay; binários e excedentes vão como
+		// bodyUnavailableReason explicando por que. Ver applyBodyPolicy.
+		// applyPrivacyToInterceptedResponse já rodou em persistRequest.
+		request: applyBodyPolicy(request),
 	};
 
 	if (session) {

@@ -3,6 +3,7 @@ import { LucideIcon } from '@/components/ui/lucide-icon';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { BodyViewer } from '@/components/command-center/BodyViewer';
 import { formatDuration } from '@/components/requests/duration';
 import type { InterceptedResponse } from '@/types/intercepted';
 
@@ -16,14 +17,16 @@ interface Props {
 // replay. Diferente do RequestInspector do Command Center: não oferece criar
 // regra, abrir Rules Lab, nem ações de breakpoint — replay é histórico.
 //
-// Sessões guardam só metadados slim (sessionNetworkAdapter.stripBodyFields),
-// então body/postData não estão disponíveis aqui — exibimos aviso explícito ao
-// invés de fingir vazio (regra do projeto: no fallbacks).
+// Sessões persistem bodies textuais ≤ 64KB via `applyBodyPolicy`. Bodies
+// binários ou maiores ficam com `bodyUnavailableReason` explicando por que;
+// drawer mostra a explicação ao invés de fingir vazio (no-fallbacks).
 export function ReplayRequestDetailsSheet({ request, open, onOpenChange }: Props) {
 	if (!request) return null;
 
 	const responseHeaders = request.response?.headers ?? request.headers ?? {};
 	const requestHeaders = request.request?.headers ?? {};
+	const requestBody = request.request?.postData;
+	const responseBody = request.response?.body ?? request.body;
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
@@ -81,7 +84,14 @@ export function ReplayRequestDetailsSheet({ request, open, onOpenChange }: Props
 									emptyMessage="Sem request headers capturados nesta sessão."
 								/>
 							</section>
-							<BodyUnavailableNote reason="Replays guardam apenas metadados — bodies de request não são persistidos." />
+							<section>
+								<h3 className="mb-1 font-medium text-sm">Body</h3>
+								{requestBody !== undefined ? (
+									<BodyViewer body={requestBody} label="Body" expandedHeight={false} />
+								) : (
+									<BodyUnavailableNote reason="Sem body de request capturado para esta sessão." />
+								)}
+							</section>
 						</TabsContent>
 
 						<TabsContent value="response" className="space-y-3">
@@ -92,12 +102,16 @@ export function ReplayRequestDetailsSheet({ request, open, onOpenChange }: Props
 									emptyMessage="Sem response headers capturados nesta sessão."
 								/>
 							</section>
-							<BodyUnavailableNote
-								reason={
-									request.bodyUnavailableReason ??
-									'Replays guardam apenas metadados — bodies de response não são persistidos.'
-								}
-							/>
+							<section>
+								<h3 className="mb-1 font-medium text-sm">Body</h3>
+								<BodyViewer
+									body={responseBody}
+									mimeType={request.mimeType}
+									bodyUnavailableReason={request.bodyUnavailableReason}
+									label="Body"
+									expandedHeight
+								/>
+							</section>
 						</TabsContent>
 					</ScrollArea>
 				</Tabs>
