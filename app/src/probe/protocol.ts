@@ -15,11 +15,6 @@ export type ProbeMessage =
 			ns: typeof PROBE_NAMESPACE;
 			type: 'probe:start-detection';
 			reason: PageDetectionTrigger;
-			// Em modo passivo (Interceptação ON sem Gravação), pulamos a instalação
-			// de state taps porque eles wrappam funções da app (overhead constante)
-			// sem destino — modo passivo não persiste state changes (spec §4).
-			// Quando recording inicia depois, taps são instalados naquele momento.
-			withStateTaps: boolean;
 	  }
 	| { ns: typeof PROBE_NAMESPACE; type: 'probe:idle' }
 	| {

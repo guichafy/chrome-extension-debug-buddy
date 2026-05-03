@@ -3,11 +3,9 @@ import { PROBE_NAMESPACE } from '../protocol';
 import { _resetReduxTapForTests } from '../state/reduxTap';
 import { _resetZustandTapForTests } from '../state/zustandTap';
 
-// Regressão Bug 4: probe deve emitir detection mas NÃO instalar state taps
-// quando ativado em modo passivo (withStateTaps=false). State taps wrappam
-// APIs da app — overhead constante por toda a sessão. Em passivo, sem
-// persistência, esse custo seria puro desperdício e violaria a meta de
-// "linter de runtime sem overhead".
+// Phase C: state taps são instalados incondicionalmente em probe:start-detection.
+// Não há mais flag `withStateTaps` no protocolo — UI passiva consome via
+// `liveStateChange` broadcast (independente de gravação ativa).
 //
 // Importação dinâmica do probe/main para garantir que `window.addEventListener`
 // já foi registrado antes do dispatch.
@@ -15,7 +13,7 @@ async function loadProbeMain(): Promise<void> {
 	await import('../main');
 }
 
-function dispatchStartDetection(withStateTaps: boolean): void {
+function dispatchStartDetection(): void {
 	// dispatchEvent é síncrono; postMessage no jsdom às vezes não roda no
 	// mesmo turn. Usamos MessageEvent direto + source=window pra passar pelo
 	// guard `if (e.source !== window) return;` em probe/main.
@@ -26,7 +24,6 @@ function dispatchStartDetection(withStateTaps: boolean): void {
 			ns: PROBE_NAMESPACE,
 			type: 'probe:start-detection',
 			reason: 'initial',
-			withStateTaps,
 		},
 	});
 	window.dispatchEvent(event);
@@ -39,19 +36,10 @@ beforeEach(() => {
 	(window as unknown as Record<string, unknown>).__REDUX_DEVTOOLS_EXTENSION__ = undefined;
 });
 
-describe('probe passive detection (Bug 4)', () => {
-	test('withStateTaps=false NÃO instala redux tap', async () => {
+describe('probe start-detection (Phase C)', () => {
+	test('probe:start-detection instala redux tap incondicionalmente', async () => {
 		await loadProbeMain();
-		dispatchStartDetection(false);
-		const after = (window as unknown as Record<string, unknown>).__REDUX_DEVTOOLS_EXTENSION__;
-		// installReduxTap sobrescreveria essa global; não tendo sido chamado,
-		// a property continua o valor sentinel que setamos no beforeEach.
-		expect(after).toBeUndefined();
-	});
-
-	test('withStateTaps=true INSTALA redux tap (cria wrapper em __REDUX_DEVTOOLS_EXTENSION__)', async () => {
-		await loadProbeMain();
-		dispatchStartDetection(true);
+		dispatchStartDetection();
 		const after = (window as unknown as Record<string, unknown>).__REDUX_DEVTOOLS_EXTENSION__;
 		expect(typeof after).toBe('function');
 	});

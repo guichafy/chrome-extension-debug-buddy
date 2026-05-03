@@ -79,23 +79,14 @@ window.addEventListener('message', (e: MessageEvent) => {
 			patchHistoryForSpaRouting();
 			historyPatched = true;
 		}
-		// State taps só rodam quando há sessão de gravação ativa. Em modo passivo
-		// (withStateTaps=false), não wrappamos as APIs da app — overhead nulo.
-		// Idempotentes: chamada futura com withStateTaps=true após start de
-		// gravação instala os wrappers.
-		if (e.data.withStateTaps) {
-			installReduxTap();
-			installZustandTap();
-			// Angular HttpClient tap: instala wrapper em XMLHttpRequest.prototype quando
-			// contexto Angular é detectado. Retorna null em apps não-Angular.
-			installAngularHttpTap();
-			// Angular Signals tap: wrappa `.set()`/`.update()` em signals expostos via
-			// `ng.getComponent()`. Retorna null em apps não-Angular.
-			installAngularSignalTap();
-			// NgRx tap: wrappa `Store.dispatch` quando `__STORE__` global é encontrado.
-			// Retorna null em apps sem Store NgRx exposto.
-			installNgRxTap();
-		}
+		// Taps são incondicionais: state capture funciona com ou sem gravação.
+		// UI consome via liveStateChange (passivo) ou via recorder.addStateChange
+		// (gravação). Wrappers são idempotentes.
+		installReduxTap();
+		installZustandTap();
+		installAngularHttpTap();
+		installAngularSignalTap();
+		installNgRxTap();
 		emitDetection(e.data.reason);
 	} else if (e.data.type === 'probe:idle') {
 		active = false;
