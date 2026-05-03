@@ -35,6 +35,16 @@ export function PhaseList({ phases }: Props) {
 							))}
 						</div>
 					)}
+					{p.fingerprint.libraries.length > 0 && (
+						<div className="mt-1 flex flex-wrap gap-1">
+							{p.fingerprint.libraries.map((lib) => (
+								<span key={lib.name} className="rounded bg-slate-100 px-1 text-[10px]">
+									{lib.name}
+									{lib.version ? ` ${lib.version}` : ''}
+								</span>
+							))}
+						</div>
+					)}
 				</div>
 			))}
 		</div>
