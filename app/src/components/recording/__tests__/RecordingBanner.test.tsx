@@ -42,7 +42,12 @@ describe('RecordingBanner', () => {
 		await waitFor(() => expect(screen.getByText(/próximo do limite/i)).toBeInTheDocument());
 	});
 
-	it('clique no banner para a gravação', async () => {
+	it('clique no banner dispara stopDebugging (lifecycle binding)', async () => {
+		// Bug 1: gravação acompanha interceptação. Parar a gravação sozinha
+		// enquanto o debugger continua atachado é exatamente o caso ruim
+		// invertido. O banner agora delega ao stopDebugging, que dispara o
+		// auto-stop coordenado (Runtime/Log.disable + rrweb_stop +
+		// recorder.stopSession + detach) no background.
 		sendMessageMock.mockImplementation((msg: { action: string }) => {
 			if (msg.action === 'getRecordingStatus') {
 				return Promise.resolve({
@@ -53,7 +58,7 @@ describe('RecordingBanner', () => {
 					durationMs: 1000,
 				});
 			}
-			if (msg.action === 'stopRecording') {
+			if (msg.action === 'stopDebugging') {
 				return Promise.resolve({ ok: true });
 			}
 			return Promise.resolve({ ok: false });
@@ -63,7 +68,9 @@ describe('RecordingBanner', () => {
 		fireEvent.click(screen.getByRole('button', { name: /Gravando — clique para parar/i }));
 		await waitFor(() => {
 			const calls = sendMessageMock.mock.calls.map((c) => c[0]);
-			expect(calls.some((c: { action: string }) => c.action === 'stopRecording')).toBe(true);
+			expect(calls.some((c: { action: string }) => c.action === 'stopDebugging')).toBe(true);
+			// Não deve chamar stopRecording diretamente — bypassaria o lifecycle.
+			expect(calls.some((c: { action: string }) => c.action === 'stopRecording')).toBe(false);
 		});
 	});
 });

@@ -14,8 +14,16 @@ interface Props {
 }
 
 export function RecordingBanner({ tabId }: Props) {
-	const { status, stopRecording } = useRecording(tabId);
+	// Continuamos lendo `status` via useRecording (polling de tamanho/duração
+	// em curso) — mas o "Parar" agora dispara stopDebugging para respeitar o
+	// lifecycle binding (Bug 1): gravação acompanha interceptação. Parar só a
+	// gravação enquanto o debugger continua atachado é o caso ruim invertido.
+	const { status } = useRecording(tabId);
 	if (!status.active) return null;
+
+	const stopAll = (): void => {
+		void chrome.runtime.sendMessage({ action: 'stopDebugging' });
+	};
 
 	const sizeMB = status.sizeBytes / (1024 * 1024);
 	const durationMin = status.durationMs / 60000;
@@ -26,7 +34,7 @@ export function RecordingBanner({ tabId }: Props) {
 	return (
 		<button
 			type="button"
-			onClick={() => void stopRecording()}
+			onClick={stopAll}
 			className="fixed inset-x-0 top-0 z-50 flex w-full items-center justify-center gap-3 bg-red-600 px-4 py-2 text-white shadow-lg hover:bg-red-700"
 			aria-label="Gravando — clique para parar"
 		>
