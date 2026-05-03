@@ -240,6 +240,21 @@ export const recorder = {
 			if (!s) throw new Error(`Session ${sessionId} não encontrada`);
 			if (s.endedAt !== null) throw new Error(`Session ${sessionId} já encerrada`);
 			const last = s.detectionPhases[s.detectionPhases.length - 1];
+
+			// Promoção da bootstrap phase: a primeira detection real preenche o
+			// fingerprint/pages e marca kind='detected'. Mantemos o phase.id para
+			// preservar o vínculo com eventos já indexados (eventos pré-detection
+			// que entraram via currentPhaseId apontam para `bootstrap-${sessionId}`).
+			if (last && last.kind === 'bootstrap') {
+				last.kind = 'detected';
+				last.fingerprint = detection.fingerprint;
+				last.pages.push(detection);
+				last.endTimestamp = detection.timestamp;
+				s.events.push(makeDetectionEvent(detection.timestamp, last.id));
+				await sessionStore.put(s);
+				return;
+			}
+
 			// Mutação in-place segura: serializeBySessionId garante que apenas uma
 			// mutation por sessão roda por vez (get → mutate → put atômico do ponto
 			// de vista do recorder).
@@ -248,6 +263,7 @@ export const recorder = {
 				last.endTimestamp = detection.timestamp;
 			} else {
 				const phase = makePhase(detection);
+				phase.kind = 'detected';
 				s.detectionPhases.push(phase);
 				s.events.push(makeDetectionEvent(detection.timestamp, phase.id));
 			}

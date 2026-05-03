@@ -42,7 +42,13 @@ describe('recorder', () => {
 		expect(got?.tabId).toBe(7);
 		expect(got?.endedAt).toBeNull();
 		expect(got?.origin).toBe('recorded');
-		expect(got?.detectionPhases).toEqual([]);
+		// startSession agora cria uma DetectionPhase bootstrap sincronamente
+		// (Bug 2 fix). A fase será promovida in-place quando a primeira
+		// pageDetected real chegar via addPage.
+		expect(got?.detectionPhases).toHaveLength(1);
+		expect(got?.detectionPhases[0].kind).toBe('bootstrap');
+		expect(got?.detectionPhases[0].id).toBe(`bootstrap-${id}`);
+		expect(got?.detectionPhases[0].pages).toEqual([]);
 	});
 
 	it('startSession recusa se já existe session ativa pra tab', async () => {

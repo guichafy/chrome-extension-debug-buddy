@@ -99,7 +99,11 @@ describe('recorder.addStateChange', () => {
 		expect((s?.detectionPhases[0].stateKeyframes ?? []).length).toBeGreaterThanOrEqual(1);
 	});
 
-	it('rejeita state-change sem fase ativa', async () => {
+	it('aceita state-change na bootstrap phase antes da primeira pageDetected', async () => {
+		// Após Bug 2 (bootstrap phase), startSession já cria uma fase sintética
+		// kind='bootstrap'. State-changes capturados antes da primeira detection
+		// real ficam vinculados a ela (mesmo phase.id após promoção via addPage),
+		// preservando os eventos pré-detection.
 		const id = await recorder.startSession({
 			tabId: 2,
 			initialUrl: 'https://y/',
@@ -107,15 +111,17 @@ describe('recorder.addStateChange', () => {
 			viewportSize: { w: 1, h: 1 },
 			canvasCaptureEnabled: false,
 		});
-		await expect(
-			recorder.addStateChange(id, {
-				storeId: 'redux:1',
-				storeKind: 'redux',
-				timestamp: Date.now(),
-				prev: {},
-				next: { a: 1 },
-			}),
-		).rejects.toThrow(/antes da primeira DetectionPhase/);
+		await recorder.addStateChange(id, {
+			storeId: 'redux:1',
+			storeKind: 'redux',
+			timestamp: Date.now(),
+			prev: {},
+			next: { a: 1 },
+		});
+		const got = await sessionStore.get(id);
+		const stateEvents = got?.events.filter((e) => e.type === 'state') ?? [];
+		expect(stateEvents).toHaveLength(1);
+		expect(stateEvents[0].phaseId).toBe(`bootstrap-${id}`);
 	});
 
 	it('múltiplos stores na mesma fase têm baselines independentes', async () => {
