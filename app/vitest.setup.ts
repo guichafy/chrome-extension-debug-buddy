@@ -42,6 +42,11 @@ if (typeof globalThis.TextDecoder === 'undefined') {
 	(globalThis as any).TextDecoder = TextDecoder;
 }
 
+// Storage backing — mock de chrome.storage.local que persiste entre get/set
+// dentro do mesmo teste. Testes podem resetar via:
+//   (chrome.storage.local as unknown as { _data: Record<string, unknown> })._data = {};
+const storageData: Record<string, unknown> = {};
+
 // Mock para o objeto chrome
 (globalThis as any).chrome = {
 	runtime: {
@@ -59,8 +64,41 @@ if (typeof globalThis.TextDecoder === 'undefined') {
 	},
 	storage: {
 		local: {
-			get: vi.fn(),
-			set: vi.fn(),
+			_data: storageData,
+			get: vi.fn(async (keys?: string | string[] | Record<string, unknown> | null) => {
+				const data = (chrome.storage.local as unknown as { _data: Record<string, unknown> })
+					._data;
+				if (keys === null || keys === undefined) {
+					return { ...data };
+				}
+				if (typeof keys === 'string') {
+					return keys in data ? { [keys]: data[keys] } : {};
+				}
+				if (Array.isArray(keys)) {
+					const out: Record<string, unknown> = {};
+					for (const k of keys) {
+						if (k in data) out[k] = data[k];
+					}
+					return out;
+				}
+				// keys é objeto { chave: default } — retorna default quando ausente.
+				const out: Record<string, unknown> = {};
+				for (const k of Object.keys(keys)) {
+					out[k] = k in data ? data[k] : (keys as Record<string, unknown>)[k];
+				}
+				return out;
+			}),
+			set: vi.fn(async (items: Record<string, unknown>) => {
+				const data = (chrome.storage.local as unknown as { _data: Record<string, unknown> })
+					._data;
+				Object.assign(data, items);
+			}),
+			remove: vi.fn(async (keys: string | string[]) => {
+				const data = (chrome.storage.local as unknown as { _data: Record<string, unknown> })
+					._data;
+				const arr = typeof keys === 'string' ? [keys] : keys;
+				for (const k of arr) delete data[k];
+			}),
 		},
 		onChanged: {
 			addListener: vi.fn(),
