@@ -481,12 +481,19 @@ async function persistRequest(requestId: string, request: InterceptedResponse): 
 	// In-place, idempotente — repetir é seguro porque [REDACTED] não casa as regex.
 	applyPrivacyToInterceptedResponse(request);
 	allRequests[requestId] = request;
+	// IMPORTANTE: broadcast ANTES do await IDB. UI precisa de reatividade
+	// instantânea — sessions store (que cresce com cada request) cria
+	// contenção na conexão IDB compartilhada e atrasa o saveRequest. Sem
+	// este reorder, requests aparecem em lote no Command Center.
+	// Trade-off: extensão recarregada entre broadcast e save = request fica
+	// só em memória (allRequests[id]) e não em IDB. Aceitável — recarga
+	// durante debug é raro e o dado em memória já é mostrado ao usuário.
+	broadcastToUI('newRequest', { requestId, request });
 	try {
 		await indexedDBService.saveRequest(requestId, request);
 	} catch (err) {
 		console.error(`Erro ao salvar requisição ${requestId} no IndexedDB:`, err);
 	}
-	broadcastToUI('newRequest', { requestId, request });
 }
 
 async function patchRequest(
@@ -497,12 +504,14 @@ async function patchRequest(
 	if (!existing) return;
 	const merged = { ...existing, ...updates };
 	allRequests[requestId] = merged;
+	// Mesmo padrão de persistRequest: broadcast ANTES do await IDB pra
+	// preservar reatividade no Command Center sob contenção do sessions store.
+	broadcastToUI('requestUpdated', { requestId, updates });
 	try {
 		await indexedDBService.saveRequest(requestId, merged);
 	} catch (err) {
 		console.error(`Erro ao atualizar requisição ${requestId} no IndexedDB:`, err);
 	}
-	broadcastToUI('requestUpdated', { requestId, updates });
 
 	// Espelhar updates relevantes no snapshot da sessão ativa. Necessário porque
 	// approve/modify de breakpoint chega DEPOIS do emitNetworkEventForSession —
@@ -2582,3 +2591,5 @@ chrome.debugger.onDetach.addListener((debuggeeId: chrome.debugger.Debuggee, reas
 // --- helpers de teste (não usar em produção) ---
 export const _testStartDebugging = startDebugging;
 export const _testStopDebugging = stopDebugging;
+export const _testPersistRequest = persistRequest;
+export const _testPatchRequest = patchRequest;

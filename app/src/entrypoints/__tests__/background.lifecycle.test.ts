@@ -1,6 +1,7 @@
 import { recorder } from '@/lib/session/recorder';
 import { setRecordingDisabled } from '@/lib/session/recordingPreference';
 import { _resetForTests, sessionStore } from '@/lib/session/storage';
+import type { InterceptedResponse } from '@/types/intercepted';
 
 // Stubs de APIs do chrome que o background.ts toca em side-effect (ao importar).
 // Precisam ser instalados ANTES do dynamic import — caso contrário o módulo
@@ -26,9 +27,24 @@ function installChromeStubs() {
 	(chrome.tabs as unknown as { onUpdated: unknown }).onUpdated = noopListener;
 	(chrome.runtime as unknown as { onInstalled: unknown }).onInstalled = noopListener;
 	(chrome.runtime as unknown as { onStartup: unknown }).onStartup = noopListener;
+	(chrome.runtime as unknown as { getURL: unknown }).getURL = vi.fn(
+		(p: string) => `chrome-extension://test/${p}`,
+	);
+	// `action.onClicked` ganha listener próprio (não compartilhado) para que
+	// testes possam capturar o handler registrado sem coletar listeners de
+	// outros eventos (debugger.onDetach, tabs.onRemoved, etc).
+	const actionListener = { addListener: vi.fn(), removeListener: vi.fn() };
 	(chrome as unknown as { action: unknown }).action = {
-		onClicked: noopListener,
+		onClicked: actionListener,
 	};
+	// chrome.tabs.create é usado pelo handler de action.onClicked para abrir a
+	// janela do interceptor. Stub que invoca callback sincronamente — testes
+	// podem usar isso para setar interceptorTabId.
+	(chrome.tabs as unknown as { create: unknown }).create = vi.fn(
+		(_opts: unknown, cb?: (tab: { id: number }) => void) => {
+			if (cb) cb({ id: 4242 });
+		},
+	);
 	(chrome as unknown as { webNavigation: unknown }).webNavigation = {
 		onCommitted: noopListener,
 	};
@@ -114,5 +130,127 @@ describe('lifecycle binding (background)', () => {
 		// findActiveByTab retorna null porque endedAt foi setado.
 		const session = await sessionStore.findActiveByTab(200);
 		expect(session).toBeNull();
+	});
+});
+
+describe('persistRequest / patchRequest broadcast ordering', () => {
+	beforeEach(async () => {
+		recorder._resetLimitsForTests();
+		_resetForTests();
+		await sessionStore.clear();
+		(chrome.storage.local as unknown as { _data: Record<string, unknown> })._data = {};
+		installChromeStubs();
+		(chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+			async () => ({}),
+		);
+		vi.resetModules();
+	});
+
+	function makeRequest(): InterceptedResponse {
+		return {
+			url: 'https://example.com/api',
+			method: 'GET',
+			status: 200,
+			statusText: 'OK',
+			headers: {},
+			type: 'xhr',
+			timestamp: Date.now(),
+		};
+	}
+
+	// Dispara o handler de chrome.action.onClicked (registrado durante o
+	// import do background) para popular interceptorTabId — necessário para
+	// que broadcastToUI realmente chame chrome.tabs.sendMessage.
+	function primeInterceptorTab(): void {
+		const addListenerMock = chrome.action.onClicked.addListener as unknown as ReturnType<
+			typeof vi.fn
+		>;
+		const calls = addListenerMock.mock.calls;
+		const handler = calls.length > 0 ? (calls[calls.length - 1][0] as () => void) : undefined;
+		if (!handler) throw new Error('chrome.action.onClicked listener não registrado');
+		handler();
+	}
+
+	test('persistRequest broadcasta newRequest ANTES de aguardar saveRequest', async () => {
+		const { _testPersistRequest } = await import('../background');
+		// Importa a MESMA instância de indexedDBService que background.ts usa
+		// (após vi.resetModules() o registry é fresh — não dá pra usar o import
+		// estático no topo do arquivo).
+		const { indexedDBService } = await import('@/lib/indexedDB');
+		primeInterceptorTab();
+
+		// Promise pendente — saveRequest fica travada até resolveSave().
+		let resolveSave: (v: boolean) => void = () => {};
+		const savePending = new Promise<boolean>((resolve) => {
+			resolveSave = resolve;
+		});
+		const saveSpy = vi.spyOn(indexedDBService, 'saveRequest').mockImplementation(() => savePending);
+
+		// chrome.tabs.sendMessage é o caminho real de broadcastToUI.
+		const sendMessageSpy = chrome.tabs.sendMessage as unknown as ReturnType<typeof vi.fn>;
+		sendMessageSpy.mockClear();
+
+		const promise = _testPersistRequest('req-broadcast-first', makeRequest());
+
+		// Antes de qualquer microtask resolver, broadcast já deve ter sido chamado.
+		// saveRequest também — mas a promise dele ainda não resolveu.
+		await Promise.resolve();
+		expect(sendMessageSpy).toHaveBeenCalledTimes(1);
+		const broadcastCall = sendMessageSpy.mock.calls[0];
+		expect(broadcastCall[1]).toMatchObject({
+			action: 'newRequest',
+			requestId: 'req-broadcast-first',
+		});
+		expect(saveSpy).toHaveBeenCalledTimes(1);
+
+		// Verificação central: broadcast foi invocado ANTES de saveRequest.
+		const broadcastOrder = sendMessageSpy.mock.invocationCallOrder[0];
+		const saveOrder = saveSpy.mock.invocationCallOrder[0];
+		expect(broadcastOrder).toBeLessThan(saveOrder);
+
+		resolveSave(true);
+		await promise;
+		saveSpy.mockRestore();
+	});
+
+	test('patchRequest broadcasta requestUpdated ANTES de aguardar saveRequest', async () => {
+		const { _testPersistRequest, _testPatchRequest } = await import('../background');
+		const { indexedDBService } = await import('@/lib/indexedDB');
+		primeInterceptorTab();
+
+		// Pré-popula allRequests via persistRequest com save resolvendo imediato.
+		const initialSaveSpy = vi.spyOn(indexedDBService, 'saveRequest').mockResolvedValue(true);
+		await _testPersistRequest('req-patch', makeRequest());
+		initialSaveSpy.mockRestore();
+
+		const sendMessageSpy = chrome.tabs.sendMessage as unknown as ReturnType<typeof vi.fn>;
+		sendMessageSpy.mockClear();
+
+		// Agora trava saveRequest pra observar ordem do patch.
+		let resolveSave: (v: boolean) => void = () => {};
+		const savePending = new Promise<boolean>((resolve) => {
+			resolveSave = resolve;
+		});
+		const saveSpy = vi.spyOn(indexedDBService, 'saveRequest').mockImplementation(() => savePending);
+
+		const promise = _testPatchRequest('req-patch', { duration: 123 });
+
+		await Promise.resolve();
+		expect(sendMessageSpy).toHaveBeenCalled();
+		const broadcastCall = sendMessageSpy.mock.calls[0];
+		expect(broadcastCall[1]).toMatchObject({
+			action: 'requestUpdated',
+			requestId: 'req-patch',
+			updates: { duration: 123 },
+		});
+		expect(saveSpy).toHaveBeenCalledTimes(1);
+
+		const broadcastOrder = sendMessageSpy.mock.invocationCallOrder[0];
+		const saveOrder = saveSpy.mock.invocationCallOrder[0];
+		expect(broadcastOrder).toBeLessThan(saveOrder);
+
+		resolveSave(true);
+		await promise;
+		saveSpy.mockRestore();
 	});
 });
