@@ -6,7 +6,15 @@ const sendMessageMock = vi.fn();
 
 beforeEach(() => {
 	sendMessageMock.mockReset();
-	window.chrome = { runtime: { sendMessage: sendMessageMock } } as unknown as typeof chrome;
+	window.chrome = {
+		runtime: {
+			sendMessage: sendMessageMock,
+			onMessage: {
+				addListener: vi.fn(),
+				removeListener: vi.fn(),
+			},
+		},
+	} as unknown as typeof chrome;
 });
 
 describe('RecordingBanner', () => {

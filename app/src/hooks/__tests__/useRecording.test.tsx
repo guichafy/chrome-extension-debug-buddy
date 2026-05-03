@@ -15,6 +15,10 @@ beforeEach(() => {
 	window.chrome = {
 		runtime: {
 			sendMessage: sendMessageMock,
+			onMessage: {
+				addListener: vi.fn(),
+				removeListener: vi.fn(),
+			},
 		},
 	} as unknown as typeof chrome;
 });
@@ -94,5 +98,44 @@ describe('useRecording', () => {
 		const { result } = renderHook(() => useRecording(null));
 		expect(result.current.status.active).toBe(false);
 		expect(sendMessageMock).not.toHaveBeenCalled();
+	});
+
+	it('refresh ao receber recordingStateChanged via runtime.onMessage', async () => {
+		const listeners: Array<(msg: unknown) => void> = [];
+		window.chrome = {
+			runtime: {
+				sendMessage: sendMessageMock,
+				onMessage: {
+					addListener: (cb: unknown) => {
+						listeners.push(cb as (msg: unknown) => void);
+					},
+					removeListener: vi.fn(),
+				},
+			},
+		} as unknown as typeof chrome;
+
+		sendMessageMock.mockResolvedValueOnce({
+			ok: true,
+			active: false,
+			sizeBytes: 0,
+			durationMs: 0,
+		});
+
+		const { result } = renderHook(() => useRecording(7));
+		await waitFor(() => expect(result.current.status.active).toBe(false));
+
+		// Simula broadcast do background
+		sendMessageMock.mockResolvedValueOnce({
+			ok: true,
+			active: true,
+			sessionId: 'sess_x',
+			sizeBytes: 100,
+			durationMs: 50,
+		});
+		listeners.forEach((cb) =>
+			cb({ action: 'recordingStateChanged', tabId: 7, active: true, sessionId: 'sess_x' }),
+		);
+
+		await waitFor(() => expect(result.current.status.active).toBe(true));
 	});
 });

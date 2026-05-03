@@ -78,5 +78,23 @@ export function useRecording(tabId: number | null): {
 		return res ?? { ok: false, error: 'Sem resposta' };
 	}, [status.sessionId, refresh]);
 
+	// Broadcast-driven refresh: background broadcasta `recordingStateChanged`
+	// quando recording inicia/para via lifecycle binding (Bug 1+3). Listener
+	// chama refresh imediato — UI reage sem esperar o próximo tick do polling
+	// de 1s. Polling segue como rede de segurança para tamanho/duração.
+	useEffect(() => {
+		if (tabId === null) return;
+		const handler = (msg: unknown): void => {
+			const m = msg as { action?: string; tabId?: number };
+			if (m?.action !== 'recordingStateChanged') return;
+			if (m.tabId !== undefined && m.tabId !== tabId) return;
+			void refresh();
+		};
+		chrome.runtime.onMessage.addListener(handler);
+		return () => {
+			chrome.runtime.onMessage.removeListener(handler);
+		};
+	}, [tabId, refresh]);
+
 	return { status, startRecording, stopRecording, refresh };
 }
