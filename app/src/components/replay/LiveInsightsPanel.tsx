@@ -7,11 +7,16 @@ import {
 	RULE_CATEGORIES,
 	type RecommendationCategory,
 } from '@/lib/session/recommendations/categories';
-import type { EnvironmentFingerprint, Recommendation, StoreKind } from '@/lib/session/types';
+import type {
+	EnvironmentFingerprint,
+	Recommendation,
+	RecommendationRuleId,
+	StoreKind,
+} from '@/lib/session/types';
 import type { Message } from '@/types/messages';
 import type { LiveStateSnapshot } from './StateInspector';
 import { StateInspector } from './StateInspector';
-import { RecommendationRow } from './RecommendationRow';
+import { RECOMMENDATION_ROW_TOKENS, RecommendationRow } from './RecommendationRow';
 
 const MAX_RECOMMENDATIONS = 50;
 
@@ -370,14 +375,58 @@ function RecommendationsSection({ items }: { items: Recommendation[] }) {
 						<summary className="cursor-pointer select-none px-3 py-2 font-medium text-muted-foreground text-xs uppercase tracking-wider hover:bg-muted/40">
 							{CATEGORY_LABEL[cat]} ({grouped[cat].length})
 						</summary>
-						<div>
-							{grouped[cat].map((r) => (
-								<RecommendationRow key={r.id} item={r} />
-							))}
-						</div>
+						<RuleGroups items={grouped[cat]} />
 					</details>
 				),
 			)}
 		</div>
+	);
+}
+
+function RuleGroups({ items }: { items: Recommendation[] }) {
+	const byRule = new Map<RecommendationRuleId, Recommendation[]>();
+	for (const r of items) {
+		const arr = byRule.get(r.ruleId) ?? [];
+		arr.push(r);
+		byRule.set(r.ruleId, arr);
+	}
+
+	return (
+		<div>
+			{[...byRule.entries()].map(([ruleId, instances]) => (
+				<RuleGroup key={ruleId} ruleId={ruleId} instances={instances} />
+			))}
+		</div>
+	);
+}
+
+function RuleGroup({
+	ruleId,
+	instances,
+}: {
+	ruleId: RecommendationRuleId;
+	instances: Recommendation[];
+}) {
+	const severity = instances[0].severity;
+	// First class in the SEVERITY_CLASSES string is the border-l-* token.
+	const borderClass = RECOMMENDATION_ROW_TOKENS.classes[severity].split(' ')[0];
+	const labelClass = RECOMMENDATION_ROW_TOKENS.labelClasses[severity];
+	const label = RECOMMENDATION_ROW_TOKENS.label[severity];
+
+	return (
+		<details className="border-t first:border-t-0">
+			<summary
+				className={`flex cursor-pointer select-none items-center gap-2 border-l-2 px-4 py-1.5 text-xs hover:bg-muted/40 ${borderClass}`}
+			>
+				<span className={`font-semibold text-[10px] ${labelClass}`}>{label}</span>
+				<span className="font-medium">{ruleId}</span>
+				<span className="ml-auto text-muted-foreground">({instances.length})</span>
+			</summary>
+			<div>
+				{instances.map((r) => (
+					<RecommendationRow key={r.id} item={r} compact />
+				))}
+			</div>
+		</details>
 	);
 }
