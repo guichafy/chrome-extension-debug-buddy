@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 import {
 	fingerprintsEqual,
 	sameSet,
@@ -219,4 +219,40 @@ describe('fingerprintsEqual — Phase 5 Angular libs', () => {
 		const b = { ...a, detectedAt: 999 };
 		expect(fingerprintsEqual(a, b)).toBe(true);
 	});
+});
+
+test('libraries diferentes resultam em fingerprints distintos', () => {
+	const a: EnvironmentFingerprint = {
+		framework: { name: 'react', version: '18.2.0' },
+		libraries: [],
+		httpClients: [],
+		dataFetching: [],
+		stateManagers: [],
+		detectedAt: 1,
+		isProductionBuild: false,
+	};
+	const b: EnvironmentFingerprint = {
+		...a,
+		libraries: [{ name: 'jquery', version: '3.7.0', confidence: 'high' }],
+	};
+	expect(fingerprintsEqual(a, b)).toBe(false);
+});
+
+test('libraries iguais (ordem irrelevante) resultam em fingerprints iguais', () => {
+	const lib1 = { name: 'jquery' as const, version: '3.7.0', confidence: 'high' as const };
+	const a: EnvironmentFingerprint = {
+		framework: { name: 'react' },
+		libraries: [lib1],
+		httpClients: [],
+		dataFetching: [],
+		stateManagers: [],
+		detectedAt: 1,
+		isProductionBuild: false,
+	};
+	const b: EnvironmentFingerprint = {
+		...a,
+		libraries: [{ ...lib1 }],
+		detectedAt: 999,
+	};
+	expect(fingerprintsEqual(a, b)).toBe(true);
 });

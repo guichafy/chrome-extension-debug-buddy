@@ -23,6 +23,11 @@ export function fingerprintsEqual(
 ): boolean {
 	if (a.framework.name !== b.framework.name) return false;
 	if (a.framework.version !== b.framework.version) return false;
+	if (
+		!sameSet(a.libraries, b.libraries, (l) => `${l.name}:${l.version ?? ''}:${l.confidence}`)
+	) {
+		return false;
+	}
 	if (!sameSet(a.httpClients, b.httpClients, (c) => `${c.name}:${c.confidence}`)) {
 		return false;
 	}
