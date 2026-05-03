@@ -70,4 +70,25 @@ describe('lifecycle binding (background)', () => {
 		const after = await sessionStore.findActiveByTab(125);
 		expect(after).toBeNull(); // findActiveByTab retorna null pra sessões com endedAt setado
 	});
+
+	test('auto-start faz rollback da sessao se Runtime.enable falha', async () => {
+		// Substitui o sendCommand stub padrão por um que falha em Runtime.enable.
+		// Ordem real em startDebugging: Network.enable, Page.enable, Fetch.enable,
+		// e (em tryAutoStartRecording) Runtime.enable, Log.enable. Como Page.enable
+		// está num try/catch interno, a falha em Runtime.enable não compromete os
+		// enable anteriores — somente abate o auto-start.
+		const sendCommand = chrome.debugger.sendCommand as unknown as ReturnType<typeof vi.fn>;
+		sendCommand.mockImplementation(async (_target: unknown, cmd: string) => {
+			if (cmd === 'Runtime.enable') {
+				throw new Error('Debugger detached');
+			}
+			return {};
+		});
+		const { _testStartDebugging } = await import('../background');
+		await _testStartDebugging(200);
+		// Sessão foi criada por startSession e depois encerrada via rollback —
+		// findActiveByTab retorna null porque endedAt foi setado.
+		const session = await sessionStore.findActiveByTab(200);
+		expect(session).toBeNull();
+	});
 });

@@ -1588,6 +1588,74 @@ async function applyResponseModifications(
 	}
 }
 
+// Auto-start de gravação acoplado à interceptação (Bug 1).
+//
+// Encapsulado em função própria para permitir `return` cedo em caso de falha
+// parcial sem afetar o fluxo de `startDebugging` (que precisa retornar `true`
+// mesmo quando a gravação não inicia). O `return` aqui sai apenas desta
+// função, mantendo a interceptação ativa.
+//
+// No-fallback: se `Runtime.enable` ou `Log.enable` falham depois de
+// `startSession` ter sucesso, fazemos rollback da sessão (stopSession) para
+// não vazar uma sessão "fake-ativa" para a UI — sessão sem console/exceptions
+// é silenciosamente quebrada e violaria a regra de no-fallbacks.
+async function tryAutoStartRecording(tabId: number): Promise<void> {
+	const recordingDisabled = await getRecordingDisabled();
+	if (recordingDisabled) return;
+	const tab = await chrome.tabs.get(tabId);
+	const sessionId = await recorder.startSession({
+		tabId,
+		initialUrl: tab.url ?? '',
+		userAgent: navigator.userAgent,
+		viewportSize: { w: tab.width ?? 0, h: tab.height ?? 0 },
+		// TODO(session): captura de canvas é decisão por-sessão e hoje
+		// não há UI para isso após a remoção do dialog. Follow-up: trazer
+		// opt-in via menu/settings se houver demanda.
+		canvasCaptureEnabled: false,
+	});
+	// Habilita Runtime/Log para captura de console/exceptions. Falha aqui
+	// significa debugger desanexado entre attach e enable — sessão recém-criada
+	// não capturaria console nenhum, então fazemos rollback antes de seguir.
+	try {
+		await chrome.debugger.sendCommand({ tabId }, 'Runtime.enable');
+		await chrome.debugger.sendCommand({ tabId }, 'Log.enable');
+	} catch (enableErr) {
+		console.warn('[session] Runtime/Log.enable falhou apos startSession; rollback:', enableErr);
+		try {
+			await recorder.stopSession(sessionId);
+		} catch (rollbackErr) {
+			console.warn('[session] rollback de stopSession falhou:', rollbackErr);
+		}
+		// Sai sem broadcast — UI nao vai mostrar "Gravando" indevidamente.
+		return;
+	}
+	// Sinaliza probe + rrweb. Falhas aqui são fatais para a gravação
+	// mas não para a interceptação — log e seguir.
+	try {
+		await chrome.tabs.sendMessage(tabId, {
+			action: 'probeStartDetection',
+			reason: 'initial',
+		});
+		await chrome.tabs.sendMessage(tabId, {
+			action: '__rrweb_start',
+			sessionId,
+			recordCanvas: false,
+			maskTextSelector: livePrivacyConfig?.rrwebMaskTextSelector,
+			maskAllInputs: livePrivacyConfig?.rrwebMaskAllInputs,
+		});
+	} catch (err) {
+		console.warn(
+			'[session] gravação iniciada mas probe/rrweb falhou (provavelmente content script não injetado):',
+			err,
+		);
+	}
+	broadcastToUI('recordingStateChanged', {
+		tabId,
+		active: true,
+		sessionId,
+	});
+}
+
 // Start debugging
 async function startDebugging(specificTabId: number | null = null): Promise<boolean> {
 	// If already debugging, stop first
@@ -1694,55 +1762,7 @@ async function startDebugging(specificTabId: number | null = null): Promise<bool
 		// gravação não puder começar (ex.: storage corrompido, content script
 		// ausente para probe/rrweb).
 		try {
-			const recordingDisabled = await getRecordingDisabled();
-			if (!recordingDisabled) {
-				const tab = await chrome.tabs.get(tabId);
-				const sessionId = await recorder.startSession({
-					tabId,
-					initialUrl: tab.url ?? '',
-					userAgent: navigator.userAgent,
-					viewportSize: { w: tab.width ?? 0, h: tab.height ?? 0 },
-					// TODO(session): captura de canvas é decisão por-sessão e hoje
-					// não há UI para isso após a remoção do dialog. Follow-up: trazer
-					// opt-in via menu/settings se houver demanda.
-					canvasCaptureEnabled: false,
-				});
-				// Habilita Runtime/Log para captura de console/exceptions.
-				try {
-					await chrome.debugger.sendCommand({ tabId }, 'Runtime.enable');
-					await chrome.debugger.sendCommand({ tabId }, 'Log.enable');
-				} catch (err) {
-					console.warn(
-						'[session] Runtime/Log.enable falhou — captura de console pode ficar reduzida:',
-						err,
-					);
-				}
-				// Sinaliza probe + rrweb. Falhas aqui são fatais para a gravação
-				// mas não para a interceptação — log e seguir.
-				try {
-					await chrome.tabs.sendMessage(tabId, {
-						action: 'probeStartDetection',
-						reason: 'initial',
-					});
-					await chrome.tabs.sendMessage(tabId, {
-						action: '__rrweb_start',
-						sessionId,
-						recordCanvas: false,
-						maskTextSelector: livePrivacyConfig?.rrwebMaskTextSelector,
-						maskAllInputs: livePrivacyConfig?.rrwebMaskAllInputs,
-					});
-				} catch (err) {
-					console.warn(
-						'[session] gravação iniciada mas probe/rrweb falhou (provavelmente content script não injetado):',
-						err,
-					);
-				}
-				broadcastToUI('recordingStateChanged', {
-					tabId,
-					active: true,
-					sessionId,
-				});
-			}
+			await tryAutoStartRecording(tabId);
 		} catch (err) {
 			// Não-fatal: interceptação continua mesmo se gravação falha (ex.: aba
 			// sem permissão de probe). Erro é logado para depuração.
