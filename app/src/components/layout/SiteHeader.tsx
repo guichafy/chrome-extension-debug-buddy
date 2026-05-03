@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { LucideIcon, type LucideIconName } from '@/components/ui/lucide-icon';
 import { Separator } from '@/components/ui/separator';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { MetricsAggregate } from '@/lib/networkMetrics';
@@ -8,6 +10,7 @@ import type { PillsDetailProp } from './NetworkMetricsBar';
 import { NetworkMetricsBar } from './NetworkMetricsBar';
 import type { SessionMarker } from '@/types/sessionMarker';
 import { RecordingToggle } from '@/components/recording/RecordingToggle';
+import { LiveInsightsPanel } from '@/components/replay/LiveInsightsPanel';
 
 interface SiteHeaderProps {
 	targetTab: {
@@ -24,6 +27,7 @@ interface SiteHeaderProps {
 	sessionMarker: SessionMarker;
 	sessionDetails?: PillsDetailProp;
 	currentPageDetails?: PillsDetailProp;
+	liveInsightsTabId: number | null;
 }
 
 type TabButtonState = 'empty' | 'available' | 'closed';
@@ -44,9 +48,11 @@ export function SiteHeader({
 	sessionMarker,
 	sessionDetails,
 	currentPageDetails,
+	liveInsightsTabId,
 }: SiteHeaderProps) {
 	const hasCurrentPage = sessionMarker.currentPageNavigatedAt != null;
 	const tabState = resolveTabButtonState(targetTab);
+	const [liveInsightsCount, setLiveInsightsCount] = useState(0);
 
 	const tabButtonIcon: LucideIconName = tabState === 'closed' ? 'alert-triangle' : 'tab';
 	const tabButtonLabel =
@@ -84,6 +90,23 @@ export function SiteHeader({
 
 				<div className="flex items-center gap-2">
 					<RecordingToggle tabId={targetTab.id} interceptionActive={isDebugging} />
+					{liveInsightsTabId !== null && (
+						<Sheet>
+							<SheetTrigger asChild>
+								<Button variant="ghost" size="icon" aria-label="Live Insights" className="relative">
+									<LucideIcon name="activity" className="size-4" />
+									{liveInsightsCount > 0 && (
+										<span className="-top-0.5 -right-0.5 absolute flex h-4 min-w-4 items-center justify-center rounded-full bg-info px-1 font-medium text-[10px] text-info-foreground">
+											{liveInsightsCount}
+										</span>
+									)}
+								</Button>
+							</SheetTrigger>
+							<SheetContent side="right" className="w-[400px] p-0 sm:w-[440px] sm:max-w-none">
+								<LiveInsightsPanel tabId={liveInsightsTabId} onCountChange={setLiveInsightsCount} />
+							</SheetContent>
+						</Sheet>
+					)}
 					<Separator
 						orientation="vertical"
 						className="hidden data-[orientation=vertical]:h-6 md:block"

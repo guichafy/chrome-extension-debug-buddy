@@ -70,14 +70,16 @@ function reducer(s: PanelState, a: PanelAction): PanelState {
 
 interface Props {
 	tabId: number | null;
+	onCountChange?: (count: number) => void;
 }
 
-// Painel passivo (Interceptação ON + Gravação OFF). Três seções colapsáveis:
+// Live Insights — três seções colapsáveis renderizadas dentro de um Sheet:
 //   1. Framework & Libraries — fingerprint mais recente do probe.
 //   2. Estado ao vivo — `StateInspector` em modo `liveSnapshot`.
 //   3. Recomendações — lista (max 50) das últimas regras disparadas.
 // Reseta tudo quando `tabId` muda; navegação SPA limpa apenas o estado.
-export function LiveInsightsPanel({ tabId }: Props) {
+// `onCountChange` notifica o pai (SiteHeader) para atualizar o badge do trigger.
+export function LiveInsightsPanel({ tabId, onCountChange }: Props) {
 	const [state, dispatch] = useReducer(reducer, INITIAL);
 	const [open, setOpen] = useState({ framework: true, state: true, recommendations: true });
 
@@ -111,14 +113,15 @@ export function LiveInsightsPanel({ tabId }: Props) {
 		return () => chrome.runtime.onMessage.removeListener(onMessage);
 	}, [tabId]);
 
+	useEffect(() => {
+		onCountChange?.(state.recommendations.length);
+	}, [state.recommendations.length, onCountChange]);
+
 	if (tabId == null) return null;
 
 	return (
-		<aside
-			className="fixed right-3 bottom-3 max-h-[70vh] w-[360px] overflow-auto rounded border bg-background shadow-lg"
-			aria-label="Live Insights"
-		>
-			<header className="sticky top-0 flex items-center justify-between border-b bg-background px-3 py-2">
+		<div className="flex h-full flex-col overflow-auto" aria-label="Live Insights">
+			<header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background px-4 py-3">
 				<h2 className="font-semibold text-sm">Live Insights</h2>
 				<button
 					type="button"
@@ -152,7 +155,7 @@ export function LiveInsightsPanel({ tabId }: Props) {
 			>
 				<RecommendationsSection items={state.recommendations} />
 			</Section>
-		</aside>
+		</div>
 	);
 }
 

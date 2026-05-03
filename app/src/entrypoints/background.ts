@@ -381,9 +381,17 @@ async function loadSessionMarker(): Promise<void> {
 // e não bloqueiam regras subsequentes.
 
 function broadcastToUI(action: string, payload: Record<string, unknown>): void {
-	if (interceptorTabId === null) return;
-	chrome.tabs.sendMessage(interceptorTabId, { action, ...payload }).catch(() => {
-		// UI fechada ou navegando — sem problema; o IndexedDB já tem o dado.
+	// Side panel (sidepanel.html) e popup não são "tabs" — chrome.tabs.sendMessage
+	// só alcança a página de opções carregada como aba normal. Para cobrir todas
+	// as extension pages abertas, complementamos com chrome.runtime.sendMessage,
+	// que entrega para todas as views da extensão (options + sidepanel + popup).
+	if (interceptorTabId !== null) {
+		chrome.tabs.sendMessage(interceptorTabId, { action, ...payload }).catch(() => {
+			// UI fechada ou navegando — sem problema; o IndexedDB permanece como fonte de verdade.
+		});
+	}
+	chrome.runtime.sendMessage({ action, ...payload }).catch(() => {
+		// Sem listener ativo (todas as UIs fechadas) — sem problema.
 	});
 }
 
@@ -435,9 +443,9 @@ function buildNetworkRuleEvent(
 }
 
 // Eventos de ciclo de vida da aba alvo precisam alcançar tanto a página de
-// opções quanto o side panel. `broadcastToUI` só atinge o `interceptorTabId`,
-// então também emitimos via `chrome.runtime.sendMessage` para que qualquer
-// extension page aberta (options + sidepanel) receba o update.
+// opções quanto o side panel. `broadcastToUI` agora cobre os dois caminhos
+// (tabs.sendMessage para o interceptor + runtime.sendMessage para sidepanel/popup),
+// então este helper só padroniza o payload.
 function broadcastTargetTabState(
 	action: 'targetTabSelected' | 'targetTabUpdated' | 'targetTabClosed',
 ): void {
@@ -447,23 +455,16 @@ function broadcastTargetTabState(
 		tabUrl: targetTabUrl,
 	};
 	broadcastToUI(action, payload);
-	chrome.runtime.sendMessage({ action, ...payload }).catch(() => {
-		// Sem listener ativo (todas as UIs fechadas) — o storage permanece como
-		// fonte de verdade e o próximo mount lerá `targetTabInfo`.
-	});
 }
 
-// Igual a `broadcastTargetTabState`: alcança options + sidepanel via
-// runtime.sendMessage além de tabs.sendMessage(interceptorTabId).
+// `broadcastToUI` já entrega para options + sidepanel; este helper só
+// centraliza o nome da action para os call sites de gravação.
 function broadcastRecordingState(payload: {
 	tabId: number;
 	active: boolean;
 	sessionId?: string;
 }): void {
 	broadcastToUI('recordingStateChanged', payload);
-	chrome.runtime.sendMessage({ action: 'recordingStateChanged', ...payload }).catch(() => {
-		// Sem listener ativo — o polling de 1s do useRecording cobre.
-	});
 }
 
 function persistTargetTabInfo(): void {
@@ -1190,15 +1191,16 @@ chrome.runtime.onMessage.addListener(
 					sendResponse({ ok: false, reason: 'no tab id in sender' });
 					return;
 				}
+
+				// Broadcast incondicional: o painel Live Insights consome o fingerprint
+				// em qualquer modo (com ou sem gravação ativa). A persistência em
+				// sessão (bloco abaixo) é independente e só ocorre quando há sessão.
+				if (isDebugging && attachedTabId === tabId && message.payload) {
+					broadcastToUI('liveDetection', { tabId, payload: message.payload });
+				}
+
 				const session = await recorder.getActiveByTab(tabId);
 				if (!session) {
-					// Bug 4: modo passivo (interceptação ON, sem gravação). Não há sessão
-					// pra persistir, mas podemos exibir o fingerprint detectado ao vivo
-					// no painel lateral (linter de runtime). UI só mostra quando essa tab
-					// é a target de interceptação.
-					if (isDebugging && attachedTabId === tabId && message.payload) {
-						broadcastToUI('liveDetection', { tabId, payload: message.payload });
-					}
 					sendResponse({ ok: false, reason: 'no active session for tab' });
 					return;
 				}

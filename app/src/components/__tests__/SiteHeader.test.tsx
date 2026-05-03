@@ -77,6 +77,7 @@ describe('SiteHeader Component', () => {
 		onStopDebugging: vi.fn(),
 		metrics: { session: emptyAggregate, currentPage: emptyAggregate },
 		sessionMarker: emptyMarker,
+		liveInsightsTabId: null,
 	};
 
 	test('renderiza corretamente', () => {
@@ -139,6 +140,7 @@ describe('SiteHeader Component', () => {
 				onStopDebugging={vi.fn()}
 				metrics={{ session: emptyAggregate, currentPage: emptyAggregate }}
 				sessionMarker={emptyMarker}
+				liveInsightsTabId={null}
 			/>,
 		);
 		const tabButton = screen.getByRole('button', { name: /Tab/i });
@@ -158,6 +160,7 @@ describe('SiteHeader Component', () => {
 				onStopDebugging={vi.fn()}
 				metrics={{ session: emptyAggregate, currentPage: emptyAggregate }}
 				sessionMarker={emptyMarker}
+				liveInsightsTabId={null}
 			/>,
 		);
 

@@ -15,8 +15,6 @@ import { useNetworkMetrics } from '../hooks/useNetworkMetrics';
 import { PendingActionDock } from '@/components/command-center/PendingActionDock';
 import { usePendingHotkeys } from '@/components/command-center/usePendingHotkeys';
 import type { AppOutletContext } from '@/types/outletContext';
-import { LiveInsightsPanel } from '@/components/replay/LiveInsightsPanel';
-import { useRecording } from '../hooks/useRecording';
 
 const RouteFallback: React.FC = () => (
 	<div className="flex flex-col gap-3 p-6">
@@ -44,13 +42,12 @@ const Layout: React.FC = () => {
 	const sessionMarker = useSessionMarker();
 	const metrics = useNetworkMetrics(allRequestsState.allRequests, sessionMarker);
 
-	// Modo passivo: interceptação ON + gravação OFF. Nesse caso, queremos
-	// exibir as recommendations recebidas via runtime.onMessage para a tab
-	// alvo. Quando a gravação está ativa, elas são exibidas pelo painel da
-	// sessão (RecommendationsTab dentro do replay) — não duplicar aqui.
+	// Live Insights está disponível em qualquer modo (com ou sem gravação)
+	// enquanto há tab alvo sob interceptação. O painel é aberto via Sheet
+	// pelo botão no SiteHeader; quando a gravação está ativa, o replay tem
+	// sua própria RecommendationsTab — os dois canais coexistem.
 	const targetTabId = targetTab?.id ?? null;
-	const recording = useRecording(targetTabId);
-	const passiveTabId = isDebugging && !recording.status.active && targetTabId ? targetTabId : null;
+	const liveInsightsTabId = isDebugging && targetTabId ? targetTabId : null;
 
 	const [selectTabDialogOpen, setSelectTabDialogOpen] = useState(false);
 
@@ -237,6 +234,7 @@ const Layout: React.FC = () => {
 					sessionMarker={sessionMarker}
 					sessionDetails={metrics.sessionDetails}
 					currentPageDetails={metrics.currentPageDetails}
+					liveInsightsTabId={liveInsightsTabId}
 				/>
 				<div className="main-content-container flex-1 min-h-0 min-w-0 overflow-hidden">
 					<Suspense fallback={<RouteFallback />}>
@@ -254,7 +252,6 @@ const Layout: React.FC = () => {
 					onIgnoreAll={handleIgnoreAll}
 					onViewPending={onViewPending}
 				/>
-				<LiveInsightsPanel tabId={passiveTabId} />
 			</SidebarInset>
 		</SidebarProvider>
 	);
