@@ -1,0 +1,50 @@
+{
+	"OneTrust": {
+		"cats": [
+			67
+		],
+		"cookies": {
+			"OptanonConsent": ""
+		},
+		"description": "OneTrust is a cloud-based data privacy management compliance platform.",
+		"dns": {
+			"TXT": [
+				"onetrust-domain-verification="
+			]
+		},
+		"icon": "OneTrust.svg",
+		"scriptSrc": [
+			"cdn\\.cookielaw\\.org",
+			"optanon\\.blob\\.core\\.windows\\.net",
+			"otSDKStub\\.js",
+			"cdn\\.cookielaw\\.org",
+			"optanon\\.blob\\.core\\.windows\\.net"
+		],
+		"website": "https://www.onetrust.com"
+	},
+	"Optimizely": {
+		"cats": [
+			74,
+			76
+		],
+		"cookies": {
+			"optimizelyEndUserId": ""
+		},
+		"description": "Optimizely is an experimentation platform that helps developers build and run A/B tests on websites.",
+		"icon": "Optimizely.svg",
+		"js": {
+			"optimizely": "",
+			"optimizelyClient.clientVersion": "([\\d\\.]+)\\;version:\\1",
+			"optimizelySdk": ""
+		},
+		"pricing": [
+			"poa",
+			"high"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"optimizely\\.com.*\\.js"
+		],
+		"website": "https://www.optimizely.com"
+	}
+}

@@ -1,0 +1,121 @@
+{
+	"WordPress": {
+		"cats": [
+			1,
+			11
+		],
+		"cpe": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+		"description": "WordPress is a free and open-source content management system written in PHP and paired with a MySQL or MariaDB database. Features include a plugin architecture and a template system.",
+		"dom": [
+			"div[class*='wp-block-group'] > div[class*='wp-block-']",
+			"link[rel=stylesheet][href*='/wp-content/']",
+			"link[rel=stylesheet][href*='/wp-includes/']",
+			"link[href*='.wp.com']"
+		],
+		"headers": {
+			"X-Pingback": "/xmlrpc\\.php$",
+			"link": "rel=\"https://api\\.w\\.org/\""
+		},
+		"html": [
+			"<link rel=[\"']stylesheet[\"'] [^>]+/wp-(?:content|includes)/",
+			"<link[^>]+s\\d+\\.wp\\.com"
+		],
+		"icon": "WordPress.svg",
+		"implies": [
+			"PHP",
+			"MySQL"
+		],
+		"js": {
+			"wp.ajax": "",
+			"wp.receiveEmbedMessage": "",
+			"wp_username": "",
+			"wpb_prepare_tab_content": ""
+		},
+		"meta": {
+			"generator": "^WordPress(?: ([\\d.]+))?\\;version:\\1",
+			"shareaholic:wp_version": ""
+		},
+		"oss": true,
+		"pricing": [
+			"low",
+			"recurring",
+			"freemium"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"/wp-(?:content|includes)/",
+			"wp-embed\\.min\\.js",
+			"wp-static\\.assets\\.sh/"
+		],
+		"scripts": [
+			"/wp-content"
+		],
+		"website": "https://wordpress.org"
+	},
+	"Wix": {
+		"cats": [
+			1,
+			11
+		],
+		"cookies": {
+			"Domain": "\\.wix\\.com"
+		},
+		"description": "Wix provides cloud-based web development services, allowing users to create HTML5 websites and mobile sites.",
+		"headers": {
+			"X-Wix-Renderer-Server": "",
+			"X-Wix-Request-Id": "",
+			"X-Wix-Server-Artifact-Id": ""
+		},
+		"icon": "Wix.svg",
+		"implies": [
+			"React"
+		],
+		"js": {
+			"wixBiSession": "",
+			"wixPerformanceMeasurements": ""
+		},
+		"meta": {
+			"generator": "Wix\\.com Website Builder"
+		},
+		"pricing": [
+			"low",
+			"recurring"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"static\\.parastorage\\.com"
+		],
+		"website": "https://www.wix.com"
+	},
+	"WooCommerce": {
+		"cats": [
+			6,
+			87
+		],
+		"cookies": {
+			"woocommerce_recently_viewed": ""
+		},
+		"cpe": "cpe:2.3:a:woocommerce:woocommerce:*:*:*:*:*:wordpress:*:*",
+		"description": "WooCommerce is an open-source ecommerce plugin for WordPress.",
+		"dom": [
+			".woocommerce, .woocommerce-no-js, link[rel*='woocommerce']"
+		],
+		"icon": "WooCommerce.svg",
+		"js": {
+			"wc_add_to_cart_params": "",
+			"woocommerce_params": ""
+		},
+		"meta": {
+			"generator": "WooCommerce ([\\d.]+)\\;version:\\1"
+		},
+		"oss": true,
+		"requires": [
+			"WordPress"
+		],
+		"scriptSrc": [
+			"woocommerce",
+			"/woocommerce(?:\\.min)?\\.js(?:\\?ver=([0-9.]+))?\\;version:\\1"
+		],
+		"website": "https://woocommerce.com"
+	}
+}

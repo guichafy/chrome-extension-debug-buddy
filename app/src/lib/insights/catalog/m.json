@@ -1,0 +1,169 @@
+{
+	"Moment.js": {
+		"cats": [
+			59
+		],
+		"cpe": "cpe:2.3:a:momentjs:moment:*:*:*:*:*:*:*:*",
+		"description": "Moment.js is a free and open-source JavaScript library that removes the need to use the native JavaScript Date object directly.",
+		"icon": "Moment.js.svg",
+		"js": {
+			"moment": "",
+			"moment.version": "^(.+)$\\;version:\\1"
+		},
+		"scriptSrc": [
+			"moment(?:\\.min)?\\.js"
+		],
+		"website": "https://momentjs.com"
+	},
+	"MobX": {
+		"cats": [
+			59
+		],
+		"icon": "MobX.svg",
+		"js": {
+			"__mobxGlobal": "",
+			"__mobxGlobals": "",
+			"__mobxInstanceCount": ""
+		},
+		"scriptSrc": [
+			"(?:/([\\d\\.]+))?/mobx(?:\\.[a-z]+){0,2}\\.js(?:$|\\?)\\;version:\\1"
+		],
+		"website": "https://mobx.js.org"
+	},
+	"Mixpanel": {
+		"cats": [
+			10
+		],
+		"description": "Mixpanel provides a business analytics service. It tracks user interactions with web and mobile applications and provides tools for targeted communication with them. Its toolset contains in-app A/B tests and user survey forms.",
+		"dns": {
+			"TXT": [
+				"mixpanel-domain-verify"
+			]
+		},
+		"dom": [
+			"meta[http-equiv='Content-Security-Policy'][content*='api.mixpanel.com']"
+		],
+		"icon": "Mixpanel.svg",
+		"js": {
+			"mixpanel": ""
+		},
+		"scriptSrc": [
+			"cdn\\.mxpnl\\.com/libs/mixpanel\\-([0-9.]+)\\.min\\.js\\;version:\\1",
+			"api\\.mixpanel\\.com/track"
+		],
+		"scripts": [
+			"VITE_MIXPANEL_KEY"
+		],
+		"website": "https://mixpanel.com"
+	},
+	"mParticle": {
+		"cats": [
+			97
+		],
+		"description": "mParticle is a mobile-focused event tracking and data ingestion tool.",
+		"icon": "mParticle.svg",
+		"js": {
+			"mParticle": "",
+			"mParticle.config.snippetVersion": "(.+)\\;version:\\1"
+		},
+		"pricing": [
+			"poa"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"\\.mparticle\\.com/"
+		],
+		"website": "https://www.mparticle.com"
+	},
+	"Magento": {
+		"cats": [
+			6
+		],
+		"cookies": {
+			"X-Magento-Vary": "",
+			"frontend": "\\;confidence:50",
+			"mage-cache-storage": "",
+			"mage-cache-storage-section-invalidation": "",
+			"mage-translation-file-version": "",
+			"mage-translation-storage": ""
+		},
+		"cpe": "cpe:2.3:a:magento:magento:*:*:*:*:*:*:*:*",
+		"description": "Magento is an open-source ecommerce platform written in PHP.",
+		"dom": {
+			"script[data-requiremodule*='mage/'], script[data-requiremodule*='Magento_'], html[data-image-optimizing-origin]": {
+				"exists": "\\;version:2"
+			},
+			"script[type='text/x-magento-init']": {
+				"exists": ""
+			}
+		},
+		"icon": "Magento.svg",
+		"implies": [
+			"PHP",
+			"MySQL"
+		],
+		"js": {
+			"Mage": "",
+			"VarienForm": ""
+		},
+		"oss": true,
+		"probe": {
+			"/magento_version": "magento"
+		},
+		"scriptSrc": [
+			"js/mage",
+			"skin/frontend/(?:default|(enterprise))\\;version:\\1?1 (Enterprise):1 (Community)",
+			"skin/frontend/\\;confidence:50\\;version:\\1",
+			"static/_requirejs\\;confidence:50\\;version:2"
+		],
+		"website": "https://magento.com"
+	},
+	"Material UI": {
+		"cats": [
+			66
+		],
+		"css": [
+			"\\.MuiPaper-root",
+			"\\.Mui-disabled"
+		],
+		"description": "Material UI is a simple and customisable component library to build faster, beautiful, and more accessible React applications.",
+		"dom": [
+			"style[data-meta='MuiPaper'], div.MuiBox-root, div.MuiPaper-root, style[data-meta='MuiButton'], input.MuiInputBase-input, div.MuiContainer-root, .MuiButton-root"
+		],
+		"icon": "MUI.svg",
+		"implies": [
+			"React"
+		],
+		"oss": true,
+		"pricing": [
+			"freemium",
+			"payg"
+		],
+		"saas": true,
+		"scripts": [
+			"https://mui\\.com"
+		],
+		"website": "https://mui.com"
+	},
+	"Marketo": {
+		"cats": [
+			32
+		],
+		"cookies": {
+			"_mkto_trk": ""
+		},
+		"description": "Marketo develops and sells marketing automation software for account-based marketing and other marketing services and products including SEO and content creation.",
+		"icon": "Marketo.svg",
+		"js": {
+			"Munchkin": ""
+		},
+		"pricing": [
+			"poa"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"munchkin\\.marketo\\.\\w+/(?:([\\d.]+)/)?munchkin\\.js\\;version:\\1"
+		],
+		"website": "https://www.marketo.com"
+	}
+}

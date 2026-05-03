@@ -1,0 +1,66 @@
+{
+	"Ember.js": {
+		"cats": [
+			12
+		],
+		"cpe": "cpe:2.3:a:emberjs:ember.js:*:*:*:*:*:*:*:*",
+		"description": "Ember.js is a comprehensive JavaScript framework that simplifies the development of modern web applications by providing a powerful CLI, a built-in router, and a fast rendering engine.",
+		"icon": "Ember.js.svg",
+		"js": {
+			"Ember": "",
+			"Ember.VERSION": "^(.+)$\\;version:\\1",
+			"EmberENV": ""
+		},
+		"scripts": [
+			"@overview\\s+Ember -[\\s\\S]+@version\\s+(.+)\\;version:\\1"
+		],
+		"website": "https://emberjs.com"
+	},
+	"Express": {
+		"cats": [
+			18,
+			22
+		],
+		"cookies": {
+			"connect\\.sid": ""
+		},
+		"cpe": "cpe:2.3:a:expressjs:express:*:*:*:*:*:*:*:*",
+		"description": "Express is a web application framework for Node.js, released as free and open-source software under the MIT License. It is designed for building web applications and APIs.",
+		"headers": {
+			"X-Powered-By": "^Express(?:$|,)"
+		},
+		"icon": "Express.svg",
+		"implies": [
+			"Node.js"
+		],
+		"website": "https://expressjs.com"
+	},
+	"Eleventy": {
+		"cats": [
+			57
+		],
+		"description": "Eleventy (11ty) a simpler static site generator.",
+		"icon": "Eleventy.svg",
+		"meta": {
+			"generator": "^Eleventy\\sv([\\d\\.]+)$\\;version:\\1"
+		},
+		"oss": true,
+		"website": "https://www.11ty.dev"
+	},
+	"Elasticsearch": {
+		"cats": [
+			29
+		],
+		"cpe": "cpe:2.3:a:elastic:elasticsearch:*:*:*:*:*:*:*:*",
+		"description": "Elasticsearch is a search engine based on the Lucene library. It provides a distributed, multitenant-capable full-text search engine with an HTTP web interface and schema-free JSON documents.",
+		"dom": [
+			"div#topsearchelastic_widget"
+		],
+		"icon": "Elasticsearch.svg",
+		"pricing": [
+			"mid",
+			"recurring"
+		],
+		"website": "https://www.elastic.co"
+	}
+}

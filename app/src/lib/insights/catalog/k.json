@@ -1,0 +1,13 @@
+{
+	"KeyCDN": {
+		"cats": [
+			31
+		],
+		"description": "KeyCDN is a content delivery network (CDN).",
+		"headers": {
+			"Server": "^keycdn-engine$"
+		},
+		"icon": "KeyCDN.svg",
+		"website": "https://www.keycdn.com"
+	}
+}

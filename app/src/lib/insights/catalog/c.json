@@ -1,0 +1,118 @@
+{
+	"Caddy": {
+		"cats": [
+			22
+		],
+		"cpe": "cpe:2.3:a:caddyserver:caddy:*:*:*:*:*:*:*:*",
+		"description": "Caddy is a Go-based web server known for its simplicity and automatic HTTPS features.",
+		"headers": {
+			"Server": "Caddy"
+		},
+		"icon": "caddy.svg",
+		"implies": [
+			"Go"
+		],
+		"oss": true,
+		"website": "https://caddyserver.com"
+	},
+	"Cloudflare": {
+		"cats": [
+			31
+		],
+		"cookies": {
+			"__cfduid": ""
+		},
+		"cpe": "cpe:2.3:a:cloudflare:cloudflare:*:*:*:*:*:*:*:*",
+		"description": "Cloudflare is a web-infrastructure and website-security company, providing content-delivery-network services, DDoS mitigation, Internet security, and distributed domain-name-server services.",
+		"dns": {
+			"NS": [
+				"\\.cloudflare\\.com"
+			],
+			"SOA": [
+				"\\.cloudflare\\.com"
+			]
+		},
+		"dom": [
+			"img[src*='//cdn.cloudflare']"
+		],
+		"headers": {
+			"Server": "^cloudflare$",
+			"cf-cache-status": "",
+			"cf-ray": ""
+		},
+		"icon": "CloudFlare.svg",
+		"js": {
+			"CloudFlare": ""
+		},
+		"meta": {
+			"image": "//cdn\\.cloudflare"
+		},
+		"website": "https://www.cloudflare.com"
+	},
+	"Cookiebot": {
+		"cats": [
+			67
+		],
+		"description": "Cookiebot is a cloud-driven solution that automatically controls cookies and trackers, enabling full GDPR/ePrivacy and CCPA compliance for websites.",
+		"icon": "Cookiebot.svg",
+		"js": {
+			"Cookiebot.version": "^(.+)$\\;version:\\1"
+		},
+		"scriptSrc": [
+			"consent\\.cookiebot\\.com"
+		],
+		"website": "https://www.cookiebot.com"
+	},
+	"Chakra UI": {
+		"cats": [
+			66
+		],
+		"description": "Chakra UI is a simple, modular and accessible component library that gives you the building blocks you need to build your React applications.",
+		"dom": [
+			"html[style*='chakra-ui-color-mode'], body.chakra-ui-dark, body.chakra-ui-light, div.chakra-portal, div.chakra-container"
+		],
+		"icon": "Chakra UI.svg",
+		"implies": [
+			"React"
+		],
+		"oss": true,
+		"scriptSrc": [
+			"\\.chakra-ui\\."
+		],
+		"website": "https://chakra-ui.com"
+	},
+	"Clerk": {
+		"cats": [
+			69
+		],
+		"description": "Clerk is a user management platform.",
+		"icon": "Clerk.svg",
+		"js": {
+			"Clerk.authenticateWithMetamask": "",
+			"Clerk.openSignIn": "",
+			"Clerk.version": "([\\d\\.]+)\\;version:\\1"
+		},
+		"pricing": [
+			"mid",
+			"recurring"
+		],
+		"saas": true,
+		"website": "https://clerk.dev"
+	},
+	"Cloudflare Turnstile": {
+		"cats": [
+			16
+		],
+		"description": "Turnstile is Cloudflare's smart CAPTCHA alternative.",
+		"icon": "CloudFlare.svg",
+		"js": {
+			"turnstile": ""
+		},
+		"pricing": [
+			"freemium",
+			"poa"
+		],
+		"saas": true,
+		"website": "https://www.cloudflare.com/products/turnstile"
+	}
+}

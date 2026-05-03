@@ -1,0 +1,133 @@
+{
+	"Fathom": {
+		"cats": [
+			10
+		],
+		"description": "Fathom is easy-yet-powerful website analytics that protects digital privacy.",
+		"icon": "Fathom.svg",
+		"js": {
+			"fathom.blockTrackingForMe": ""
+		},
+		"pricing": [
+			"low",
+			"recurring"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"cdn\\.usefathom\\.com/"
+		],
+		"website": "https://usefathom.com"
+	},
+	"FullStory": {
+		"cats": [
+			10
+		],
+		"description": "FullStory is a web-based digital intelligence system that helps optimize the client experience.",
+		"icon": "FullStory.svg",
+		"js": {
+			"FS.clearUserCookie": ""
+		},
+		"pricing": [
+			"freemium",
+			"mid",
+			"recurring"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"\\.fullstory\\.com/"
+		],
+		"website": "https://www.fullstory.com"
+	},
+	"Fastly": {
+		"cats": [
+			31
+		],
+		"cpe": "cpe:2.3:a:fastly:fastly:*:*:*:*:*:*:*:*",
+		"description": "Fastly is a cloud computing services provider. Fastly's cloud platform provides a content delivery network, Internet security services, load balancing, and video & streaming services.",
+		"headers": {
+			"Fastly-Debug-Digest": "",
+			"Vary": "Fastly-SSL",
+			"X-Fastly-Request-ID": "",
+			"server": "Fastly",
+			"x-fastly-origin": "",
+			"x-fastly-request-id": "",
+			"x-via-fastly": ""
+		},
+		"icon": "Fastly.svg",
+		"pricing": [
+			"payg"
+		],
+		"website": "https://www.fastly.com",
+		"xhr": [
+			"\\.fastly\\.net"
+		]
+	},
+	"Fly.io": {
+		"cats": [
+			62
+		],
+		"cookies": {
+			"_fly": ""
+		},
+		"description": "Fly is a platform for running full stack apps and databases.",
+		"headers": {
+			"fly-request-id": "",
+			"server": "^Fly/[\\w]+\\s\\(.*\\)$",
+			"via": "^.*\\sfly\\.io$"
+		},
+		"icon": "Fly.io.svg",
+		"pricing": [
+			"freemium",
+			"payg"
+		],
+		"website": "https://fly.io"
+	},
+	"FastAPI": {
+		"cats": [
+			18
+		],
+		"description": "FastAPI is a web framework for building APIs with Python, utilizing standard Python type hints.",
+		"dom": [
+			"link[href*='fastapi.tiangolo.com'][rel='shortcut icon']"
+		],
+		"icon": "FastAPI.svg",
+		"implies": [
+			"Python"
+		],
+		"website": "https://fastapi.tiangolo.com"
+	},
+	"Firebase": {
+		"cats": [
+			34,
+			47
+		],
+		"cpe": "cpe:2.3:a:google:firebase_cloud_messaging:*:*:*:*:*:*:*:*",
+		"description": "Firebase is a Google-backed application development software that enables developers to develop iOS, Android and Web apps.",
+		"dom": [
+			"iframe[src*='.firebaseapp.com/']"
+		],
+		"headers": {
+			"vary": "x-fh-requested-host"
+		},
+		"icon": "Firebase.svg",
+		"js": {
+			"firebase.SDK_VERSION": "([\\d.]+)$\\;version:\\1"
+		},
+		"pricing": [
+			"freemium",
+			"payg"
+		],
+		"scriptSrc": [
+			"/(?:([\\d.]+)/)?firebase(?:\\.min)?\\.js\\;version:\\1",
+			"/firebasejs/([\\d.]+)/firebase\\;version:\\1"
+		],
+		"scripts": [
+			"\\.gstatic\\.com/firebasejs/([\\d\\.]+)/\\;version:\\1",
+			"firebase(?:Config|io\\.com)"
+		],
+		"website": "https://firebase.google.com",
+		"xhr": [
+			"fire(?:base|store)\\.googleapis\\.com|\\.firebaseio\\.com"
+		]
+	}
+}

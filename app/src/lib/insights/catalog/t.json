@@ -1,0 +1,75 @@
+{
+	"Tealium": {
+		"cats": [
+			42,
+			97
+		],
+		"description": "Tealium provides a sales enterprise tag management system and marketing software.",
+		"icon": "Tealium.svg",
+		"js": {
+			"TEALIUMENABLED": "",
+			"TealiumUtils": "",
+			"__tealium_twc_switch": ""
+		},
+		"pricing": [
+			"mid",
+			"recurring"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"^(?:https?:)?//tags\\.tiqcdn\\.com/",
+			"/tealium/utag\\.js$"
+		],
+		"scripts": [
+			"tealium_js_path"
+		],
+		"website": "https://tealium.com"
+	},
+	"TrustArc": {
+		"cats": [
+			67
+		],
+		"description": "TrustArc provides software and services to help corporations update their privacy management processes so they comply with government laws and best practices.",
+		"icon": "TrustArc.svg",
+		"scriptSrc": [
+			"consent\\.trustarc\\.com"
+		],
+		"website": "https://trustarc.com"
+	},
+	"Tailwind CSS": {
+		"cats": [
+			66
+		],
+		"css": [
+			"--tw-(?:rotate|translate|space-x|text-opacity|border-opacity|bg-opacity|scale|ring|blur|shadow|brightness|contrast|grayscale|invert|sepia)"
+		],
+		"description": "Tailwind is a utility-first CSS framework for rapidly building custom user interfaces.",
+		"dom": {
+			"link[rel='stylesheet'][href*='.css']": {
+				"attributes": {
+					"href": "assets.*index\\.v(\\d+\\.\\d+\\.\\d+)\\.css\\;version:\\1"
+				}
+			},
+			"link[rel='stylesheet'][href*='tailwind']": {
+				"attributes": {
+					"href": "tailwindcss[@|/](?:\\^)?([\\d.]+)(?:/[a-z]+)?/(?:tailwind|base|components|utilities)(?:\\.min)?\\.css\\;version:\\1"
+				}
+			},
+			"style": {
+				"text": "/\\/\\*! tailwindcss v([\\d.]+) \\| MIT License \\| https:\\/\\/tailwindcss\\.com\\*\\/\\;version:\\1"
+			}
+		},
+		"icon": "tailwindcss.svg",
+		"js": {
+			"hexToTailwindColorVar": "",
+			"tailwind": ""
+		},
+		"meta": {
+			"application-name": "^Tailwind CSS$"
+		},
+		"scriptSrc": [
+			"\\.tailwindcss(?:tailwind-config-cdn)?\\.(?:com|js)|/npm/@tailwindcss/browser"
+		],
+		"website": "https://tailwindcss.com/"
+	}
+}

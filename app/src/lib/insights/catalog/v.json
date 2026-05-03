@@ -1,0 +1,102 @@
+{
+	"Vue.js": {
+		"cats": [
+			12
+		],
+		"css": [
+			"\\.vue-notification-group"
+		],
+		"description": "Vue.js is an open-source model–view–viewmodel JavaScript framework for building user interfaces and single-page applications.",
+		"dom": [
+			".vue-app",
+			"link[href*='docsify/themes/vue.css']",
+			"meta[data-vue-meta]",
+			"div[class*='vue-scroll-picker-group'] > div[class*='vue-scroll-picker']",
+			"div[class*='Vue-Toastification__container']"
+		],
+		"html": [
+			"<(?!svg)[^>]+\\sdata-v(?:ue)?-"
+		],
+		"icon": "vue.svg",
+		"js": {
+			"Vue": "",
+			"Vue.version": "^(.+)$\\;version:\\1",
+			"VueRoot": "",
+			"__VUE_HOT_MAP__": "",
+			"__VUE__": "",
+			"vueDLL": ""
+		},
+		"scriptSrc": [
+			"vue[.-]([\\d.]*\\d)[^/]*\\.js\\;version:\\1",
+			"(?:/([\\d.]+))?/vue(?:\\.min)?\\.js\\;version:\\1"
+		],
+		"website": "https://vuejs.org"
+	},
+	"Vercel": {
+		"cats": [
+			62
+		],
+		"description": "Vercel is a cloud platform for static frontends and serverless functions.",
+		"dns": {
+			"SOA": [
+				"\\.vercel-dns\\.com"
+			]
+		},
+		"headers": {
+			"server": "^now|Vercel$",
+			"x-now-trace": "",
+			"x-vercel-cache": "",
+			"x-vercel-id": ""
+		},
+		"icon": "vercel.svg",
+		"pricing": [
+			"freemium",
+			"low",
+			"recurring",
+			"poa"
+		],
+		"website": "https://vercel.com"
+	},
+	"VWO": {
+		"cats": [
+			10,
+			74
+		],
+		"description": "VWO is a website testing and conversion optimisation platform.",
+		"icon": "VWO.svg",
+		"js": {
+			"VWO": "",
+			"__vwo": "",
+			"_vwo_code": "",
+			"_vwo_settings_timer": ""
+		},
+		"pricing": [
+			"mid",
+			"recurring"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"dev\\.visualwebsiteoptimizer\\.com/",
+			"/visual-website-optimizer/([\\d\\.])\\;version:\\1"
+		],
+		"website": "https://vwo.com"
+	},
+	"Vite": {
+		"cats": [
+			19
+		],
+		"description": "Vite is a rapid development tool for modern web projects.",
+		"dom": [
+			"script#vite-legacy-polyfill",
+			"script#vite-legacy-entry",
+			"link[href*='vite.svg'][rel='icon']",
+			"script[id^='vite-plugin-']"
+		],
+		"icon": "vite.svg",
+		"js": {
+			"__vite_is_modern_browser": ""
+		},
+		"oss": true,
+		"website": "https://vitejs.dev"
+	}
+}

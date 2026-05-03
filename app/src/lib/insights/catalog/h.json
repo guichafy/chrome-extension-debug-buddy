@@ -1,0 +1,143 @@
+{
+	"Heap": {
+		"cats": [
+			10
+		],
+		"description": "Heap is an analytics platform.",
+		"icon": "Heap.svg",
+		"js": {
+			"heap.version.heapJsVersion": "([\\d.]+)\\;version:\\1"
+		},
+		"pricing": [
+			"freemium",
+			"high"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"cdn\\.heapanalytics\\.com",
+			"heap-\\d+\\.js"
+		],
+		"website": "https://heap.io"
+	},
+	"Hotjar": {
+		"cats": [
+			10
+		],
+		"description": "Hotjar is a suite of analytic tools to assist in the gathering of qualitative data, providing feedback through tools such as heatmaps, session recordings, and surveys.",
+		"icon": "Hotjar.svg",
+		"js": {
+			"HotLeadfactory": "",
+			"HotleadController": "",
+			"hj.apiUrlBase": ""
+		},
+		"pricing": [
+			"freemium",
+			"low",
+			"recurring"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"//static\\.hotjar\\.com/"
+		],
+		"website": "https://www.hotjar.com"
+	},
+	"Heroku": {
+		"cats": [
+			62
+		],
+		"description": "Heroku is a cloud platform as a service (PaaS) supporting several programming languages.",
+		"dns": {
+			"TXT": [
+				"heroku-domain-verification"
+			]
+		},
+		"headers": {
+			"Via": "[\\d.-]+ vegur$"
+		},
+		"icon": "heroku.svg",
+		"url": [
+			"\\.herokuapp\\.com"
+		],
+		"website": "https://www.heroku.com/"
+	},
+	"HubSpot": {
+		"cats": [
+			32
+		],
+		"description": "HubSpot is a marketing and sales software that helps companies attract visitors, convert leads, and close customers.",
+		"dns": {
+			"TXT": [
+				"hubspotemail\\.net",
+				"hubspot-developer-verification",
+				"hubspot-domain-verification"
+			]
+		},
+		"html": [
+			"<!-- Start of Async HubSpot"
+		],
+		"icon": "HubSpot.svg",
+		"js": {
+			"_hsq": "",
+			"hubspot": ""
+		},
+		"pricing": [
+			"recurring",
+			"high"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"\\.hs-scripts\\.com/"
+		],
+		"website": "https://www.hubspot.com"
+	},
+	"hCaptcha": {
+		"cats": [
+			16
+		],
+		"css": [
+			"#cf-hcaptcha-container"
+		],
+		"description": "hCaptcha is an anti-bot solution that protects user privacy and rewards websites.",
+		"dom": [
+			"link[href*='hcaptcha.com']"
+		],
+		"headers": {
+			"content-security-policy": "(?:\\.|//)hcaptcha\\.com"
+		},
+		"icon": "hCaptcha.svg",
+		"js": {
+			"hcaptcha.getRespKey": "",
+			"hcaptchaOnLoad": "",
+			"hcaptcha_sitekey": ""
+		},
+		"pricing": [
+			"freemium",
+			"poa"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"hcaptcha\\.com/([\\d]+?)/api\\.js\\;version:\\1"
+		],
+		"website": "https://www.hcaptcha.com"
+	},
+	"Hugo": {
+		"cats": [
+			57
+		],
+		"description": "Hugo is an open-source static site generator written in Go.",
+		"dom": {
+			"a[href*='hugo.']": {
+				"attributes": {
+					"href": "(?:go)?hugo(?:\\..+)?\\.(?:com|io)\\;confidence:0"
+				},
+				"text": "Hugo\\;confidence:99"
+			}
+		},
+		"icon": "Hugo.svg",
+		"meta": {
+			"generator": "Hugo ([\\d.]+)?\\;version:\\1"
+		},
+		"oss": true,
+		"website": "https://gohugo.io"
+	}
+}

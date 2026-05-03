@@ -1,0 +1,252 @@
+{
+	"1": {
+		"groups": [
+			3
+		],
+		"name": "CMS",
+		"priority": 1
+	},
+	"4": {
+		"groups": [
+			3
+		],
+		"name": "Documentation",
+		"priority": 2
+	},
+	"6": {
+		"groups": [
+			1
+		],
+		"name": "Ecommerce",
+		"priority": 1
+	},
+	"10": {
+		"groups": [
+			8
+		],
+		"name": "Analytics",
+		"priority": 9
+	},
+	"11": {
+		"groups": [
+			3
+		],
+		"name": "Blogs",
+		"priority": 1
+	},
+	"12": {
+		"groups": [
+			9
+		],
+		"name": "JavaScript frameworks",
+		"priority": 8
+	},
+	"13": {
+		"groups": [
+			3,
+			18
+		],
+		"name": "Issue trackers",
+		"priority": 2
+	},
+	"16": {
+		"groups": [
+			11
+		],
+		"name": "Security",
+		"priority": 9
+	},
+	"18": {
+		"groups": [
+			9
+		],
+		"name": "Web frameworks",
+		"priority": 7
+	},
+	"19": {
+		"groups": [
+			6
+		],
+		"name": "Miscellaneous",
+		"priority": 10
+	},
+	"22": {
+		"groups": [
+			7
+		],
+		"name": "Web servers",
+		"priority": 8
+	},
+	"27": {
+		"groups": [
+			9
+		],
+		"name": "Programming languages",
+		"priority": 5
+	},
+	"29": {
+		"groups": [
+			3
+		],
+		"name": "Search engines",
+		"priority": 4
+	},
+	"31": {
+		"groups": [
+			7
+		],
+		"name": "CDN",
+		"priority": 9
+	},
+	"32": {
+		"groups": [
+			2
+		],
+		"name": "Marketing automation",
+		"priority": 9
+	},
+	"34": {
+		"groups": [
+			7
+		],
+		"name": "Databases",
+		"priority": 5
+	},
+	"35": {
+		"groups": [
+			17
+		],
+		"name": "Maps",
+		"priority": 6
+	},
+	"41": {
+		"groups": [
+			1
+		],
+		"name": "Payment processors",
+		"priority": 8
+	},
+	"42": {
+		"groups": [
+			8
+		],
+		"name": "Tag managers",
+		"priority": 9
+	},
+	"47": {
+		"groups": [
+			9
+		],
+		"name": "Development",
+		"priority": 2
+	},
+	"52": {
+		"groups": [
+			4,
+			16
+		],
+		"name": "Live chat",
+		"priority": 9
+	},
+	"53": {
+		"groups": [
+			2,
+			16
+		],
+		"name": "CRM",
+		"priority": 5
+	},
+	"57": {
+		"groups": [
+			9
+		],
+		"name": "Static site generator",
+		"priority": 1
+	},
+	"59": {
+		"groups": [
+			9
+		],
+		"name": "JavaScript libraries",
+		"priority": 9
+	},
+	"62": {
+		"groups": [
+			7
+		],
+		"name": "PaaS",
+		"priority": 8
+	},
+	"64": {
+		"groups": [
+			7
+		],
+		"name": "Reverse proxies",
+		"priority": 7
+	},
+	"66": {
+		"groups": [
+			9
+		],
+		"name": "UI frameworks",
+		"priority": 7
+	},
+	"67": {
+		"groups": [
+			13
+		],
+		"name": "Cookie compliance",
+		"priority": 9
+	},
+	"69": {
+		"groups": [
+			11
+		],
+		"name": "Authentication",
+		"priority": 6
+	},
+	"74": {
+		"groups": [
+			8
+		],
+		"name": "A/B Testing",
+		"priority": 9
+	},
+	"75": {
+		"groups": [
+			4,
+			2
+		],
+		"name": "Email",
+		"priority": 9
+	},
+	"76": {
+		"groups": [
+			2
+		],
+		"name": "Personalisation",
+		"priority": 9
+	},
+	"78": {
+		"groups": [
+			2
+		],
+		"name": "RUM",
+		"priority": 9
+	},
+	"87": {
+		"groups": [
+			15
+		],
+		"name": "WordPress plugins",
+		"priority": 8
+	},
+	"97": {
+		"groups": [
+			2,
+			8
+		],
+		"name": "Customer data platform",
+		"priority": 9
+	}
+}
