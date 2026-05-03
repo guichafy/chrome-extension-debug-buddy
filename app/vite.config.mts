@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import path from 'path';
+import { inlineContentScripts } from './vite-plugins/inlineContentScripts';
 import { rrwebPlayerRawResolver } from './vite-plugins/rrwebPlayerRawResolver';
 
 const REACT_DEVTOOLS_URL = 'http://localhost:8097';
@@ -105,6 +106,9 @@ export default defineConfig(({ mode }) => {
 					{ src: 'images', dest: '.' },
 				],
 			}),
+			// Após Vite/Rollup terminar, re-bundle content scripts com esbuild IIFE
+			// para inlinar imports (manifest V3 content_scripts não suporta ESM).
+			inlineContentScripts(path.resolve(__dirname, 'dist')),
 		],
 	};
 });
