@@ -7,7 +7,6 @@ import type { MockConfig } from './legacy';
 import type { SessionMarker } from './sessionMarker';
 import type { ProbeStateChangePayload } from '@/probe/protocol';
 import type {
-	AntipatternHit,
 	EnvironmentFingerprint,
 	PageDetectionTrigger,
 	Recommendation,
@@ -50,8 +49,6 @@ export type MessageAction =
 	| 'recordingStateChanged'
 	// Session Replay — Phase 2 (rrweb)
 	| 'rrwebBatch'
-	// Session Replay — Phase 3 (antipatterns ao vivo)
-	| 'liveAntipatternHit'
 	// Session Replay — Phase E (recommendations ao vivo)
 	| 'liveRecommendation'
 	// Bug 4 — fingerprint detectado em modo passivo (broadcast quando
@@ -109,8 +106,6 @@ export interface Message {
 	// rrweb mascaramento (Phase 6 — Task 10)
 	maskTextSelector?: string;
 	maskAllInputs?: boolean;
-	// Antipattern (Phase 3)
-	antipatternHit?: AntipatternHit;
 	// Recommendation (Phase E)
 	recommendation?: Recommendation;
 	// State change (Phase 4)
@@ -153,8 +148,6 @@ export interface MessageResponse {
 	// chrome.runtime.sendMessage não preserva ArrayBuffer no transporte, então
 	// codificamos no background e decodamos na UI antes do new Blob().
 	data?: string;
-	// Antipattern (Phase 3)
-	antipatternHits?: AntipatternHit[];
 	// Phase 6 — privacyConfig + autoPurge
 	privacyConfig?: import('@/lib/session/types').RedactionConfig;
 	purgedCount?: number;

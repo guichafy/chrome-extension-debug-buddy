@@ -208,15 +208,6 @@ export interface RrwebEvent {
 	timestamp: number;
 }
 
-export type AntipatternSeverity = 'info' | 'warn' | 'error';
-
-export type AntipatternId =
-	| 'dup-req-burst'
-	| 'retry-storm'
-	| 'effect-fetch-loop'
-	| 'waterfall'
-	| 'auth-refresh-storm';
-
 export interface RawCallsite {
 	file: string;
 	line: number;
@@ -226,21 +217,6 @@ export interface RawCallsite {
 export interface ResolvedCallsite {
 	raw: RawCallsite;
 	resolved?: RawCallsite;
-}
-
-export interface AntipatternHit {
-	patternId: AntipatternId;
-	severity: AntipatternSeverity;
-	startTimestamp: number;
-	endTimestamp: number;
-	phaseId: string;
-	evidenceEventIds: string[];
-	context: {
-		component?: string;
-		callsite?: ResolvedCallsite;
-		summary: string;
-	};
-	suggestion?: string;
 }
 
 export interface RedactionConfig {
@@ -308,7 +284,6 @@ export interface Session {
 	detectionPhases: DetectionPhase[];
 	events: SessionEvent[];
 	rrwebEvents?: RrwebEvent[];
-	antipatternHits?: AntipatternHit[];
 	recommendations?: Recommendation[];
 	telemetry?: SessionTelemetry;
 	redactionApplied?: RedactionConfig; // NOVO em Phase 6 — opcional

@@ -1,5 +1,4 @@
 import type { InterceptedResponse } from '@/types/intercepted';
-import { AntipatternEngine } from './antipattern/engine';
 import { tryCoalesceConsole } from './coalesce';
 import { fingerprintsEqual, newPhaseId } from './fingerprint';
 import { getPrivacyConfig, toRedactionApplied } from './privacy/config';
@@ -8,7 +7,6 @@ import { estimateEventBytes, estimateRrwebBytes } from './sizeEstimate';
 import { compressDiff, compressSnapshot, computeDiff } from './state/diff';
 import { sessionStore } from './storage';
 import type {
-	AntipatternHit,
 	DetectionPhase,
 	PageDetection,
 	Recommendation,
@@ -91,12 +89,6 @@ export interface StateChangePayload {
 	prev: unknown;
 	next: unknown;
 }
-
-// Engines de antipatterns: um por sessão gravada, um por tab passiva (modo ao
-// vivo sem session). Mantidos em memória — descartados em stopSession /
-// stopDebugging / tab.onRemoved.
-const sessionEngines = new Map<string, AntipatternEngine>();
-const tabEngines = new Map<number, AntipatternEngine>();
 
 /**
  * Cadeia de promises por sessionId para serializar mutations.
@@ -313,7 +305,6 @@ export const recorder = {
 			} catch (err) {
 				console.warn('[session] stopSession: falha ao ler privacyConfig:', err);
 			}
-			sessionEngines.delete(id);
 			runtime.delete(id);
 			stateRuntime.delete(id);
 			// Put síncrono final é a última oportunidade de persistir — cache descartado
@@ -574,48 +565,7 @@ export const recorder = {
 		});
 	},
 
-	addAntipatternHit(sessionId: string, hit: AntipatternHit): Promise<void> {
-		return serializeBySessionId(sessionId, async () => {
-			const s = await getCachedOrLoad(sessionId);
-			if (!s) throw new Error(`Session ${sessionId} não encontrada`);
-			if (s.endedAt !== null) throw new Error(`Session ${sessionId} já encerrada`);
-			if (!s.antipatternHits) s.antipatternHits = [];
-			const dedupKey = `${hit.patternId}|${hit.startTimestamp}|${hit.endTimestamp}|${hit.context.summary}`;
-			const exists = s.antipatternHits.some(
-				(h) =>
-					`${h.patternId}|${h.startTimestamp}|${h.endTimestamp}|${h.context.summary}` === dedupKey,
-			);
-			if (exists) return;
-			s.antipatternHits.push(hit);
-			scheduleFlush(sessionId);
-		});
-	},
-
-	pushNetworkForAntipatterns(sessionId: string, ev: SessionEvent): AntipatternHit[] {
-		let eng = sessionEngines.get(sessionId);
-		if (!eng) {
-			eng = new AntipatternEngine();
-			sessionEngines.set(sessionId, eng);
-		}
-		return eng.pushEvent(ev);
-	},
-
-	getOrCreatePassiveEngineForTab(tabId: number): AntipatternEngine {
-		let eng = tabEngines.get(tabId);
-		if (!eng) {
-			eng = new AntipatternEngine();
-			tabEngines.set(tabId, eng);
-		}
-		return eng;
-	},
-
-	clearPassiveEngineForTab(tabId: number): void {
-		tabEngines.delete(tabId);
-	},
-
 	_resetEnginesForTests(): void {
-		sessionEngines.clear();
-		tabEngines.clear();
 		sessionCache.clear();
 		for (const t of pendingFlushes.values()) clearTimeout(t);
 		pendingFlushes.clear();
@@ -652,8 +602,6 @@ export const recorder = {
 		durationLimitMs = DEFAULT_DURATION_LIMIT_MS;
 		runtime.clear();
 		mutationChain.clear();
-		sessionEngines.clear();
-		tabEngines.clear();
 		stateRuntime.clear();
 		sessionCache.clear();
 		for (const t of pendingFlushes.values()) clearTimeout(t);

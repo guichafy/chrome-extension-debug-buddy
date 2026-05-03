@@ -15,7 +15,6 @@ import { serializeSession } from '@/lib/session/exporter';
 import { parseDbsession } from '@/lib/session/importer';
 import { getRecordingDisabled, setRecordingDisabled } from '@/lib/session/recordingPreference';
 import { applyBodyPolicy } from '@/lib/session/sessionNetworkAdapter';
-import { resolveCallsite } from '@/lib/session/sourceMap';
 import { sessionStore } from '@/lib/session/storage';
 import { purgeOldSessions } from '@/lib/session/privacy/autoPurge';
 import { redactBody } from '@/lib/session/privacy/bodyRedactor';
@@ -26,7 +25,6 @@ import { truncatePath } from '@/lib/session/privacy/pathTruncator';
 import { redactState } from '@/lib/session/privacy/stateRedactor';
 import { shouldIgnoreUrl } from '@/lib/session/privacy/urlGate';
 import type {
-	AntipatternHit,
 	ConsoleArgPreview,
 	ConsoleLevel,
 	ConsoleStackFrame,
@@ -275,26 +273,6 @@ async function handleLogEntry(
 
 // --- Session Replay — network event helper ---
 
-// Resolve callsite via source map quando o detector populou hit.context.callsite
-// com o raw frame. Falha silenciosamente (mantém o raw) — é informativo, não
-// bloqueante. NÃO inventa valores: se resolveCallsite lança, o callsite original
-// já está intacto na hit (sem fallback).
-async function tryResolveHitCallsite(hit: AntipatternHit): Promise<void> {
-	if (!hit.context.callsite?.raw) return;
-	try {
-		hit.context.callsite = await resolveCallsite(hit.context.callsite.raw);
-	} catch (err) {
-		console.warn('[antipattern] resolveCallsite falhou:', err);
-	}
-	// Pós-resolução: trunca paths absolutos com username (Phase 6).
-	if (livePrivacyConfig?.truncateUserPaths && hit.context.callsite) {
-		hit.context.callsite.raw.file = truncatePath(hit.context.callsite.raw.file);
-		if (hit.context.callsite.resolved) {
-			hit.context.callsite.resolved.file = truncatePath(hit.context.callsite.resolved.file);
-		}
-	}
-}
-
 // Aplica redação em headers (resposta + requisição) e body de um InterceptedResponse.
 // Muta in-place para minimizar custo — a InterceptedResponse já é construída neste
 // frame (não há leitor concorrente). Chamado antes de persistRequest e
@@ -358,35 +336,6 @@ async function emitNetworkEventForSession(
 		} catch (err) {
 			console.warn('[session] addEvent network falhou:', err);
 		}
-	}
-
-	// Antipattern engine — gravado vs passivo. Esta é uma HOT path; nenhum erro
-	// aqui pode quebrar a interceptação. Tudo é envolvido em try/catch defensivo.
-	try {
-		if (session) {
-			const hits = recorder.pushNetworkForAntipatterns(session.id, event);
-			for (const hit of hits) {
-				await tryResolveHitCallsite(hit);
-				try {
-					await recorder.addAntipatternHit(session.id, hit);
-				} catch (err) {
-					console.warn('[antipattern] addAntipatternHit falhou:', err);
-				}
-				broadcastToUI('liveAntipatternHit', { tabId, antipatternHit: hit });
-			}
-		} else {
-			// Modo passivo: roda engine só se interceptação está ativa nesta tab.
-			if (isDebugging && attachedTabId === tabId) {
-				const eng = recorder.getOrCreatePassiveEngineForTab(tabId);
-				const hits = eng.pushEvent(event);
-				for (const hit of hits) {
-					await tryResolveHitCallsite(hit);
-					broadcastToUI('liveAntipatternHit', { tabId, antipatternHit: hit });
-				}
-			}
-		}
-	} catch (err) {
-		console.warn('[antipattern] engine pipeline error:', err);
 	}
 }
 
@@ -757,9 +706,6 @@ chrome.action.onClicked.addListener(() => {
 
 // Quando uma aba é fechada, verificar se é a aba do interceptor ou a aba alvo.
 chrome.tabs.onRemoved.addListener((tabId) => {
-	// Engines passivas são por-tab; ao fechar a tab, libera memória mesmo se a
-	// tab fechada não era a target — é no-op se nunca houve engine pra ela.
-	recorder.clearPassiveEngineForTab(tabId);
 	topFrameUrlCache.delete(tabId);
 
 	if (tabId === interceptorTabId) {
@@ -2005,7 +1951,7 @@ async function startDebugging(specificTabId: number | null = null): Promise<bool
 		}
 
 		// Modo passivo (Bug 4): se gravação NÃO auto-iniciou, ainda queremos
-		// rodar smart detection per-URL para alimentar Live Antipatterns com
+		// rodar smart detection per-URL para alimentar Live Insights com
 		// contexto de fase e mostrar framework/libs ao usuário em tempo real.
 		// Taps são instalados pelo probe incondicionalmente — ver C1.
 		if (!recordingStarted) {
@@ -2112,7 +2058,6 @@ async function stopDebugging(): Promise<boolean> {
 		// Reset global state. `timingTracker.reset()` antes de zerar `allRequests`
 		// fecha a janela em que callbacks pendentes (onDurationReady/onMetricsReady)
 		// poderiam chamar `patchRequest` e cair em `allRequests[id] === undefined`.
-		const previousAttachedTabId = attachedTabId;
 		isDebugging = false;
 		attachedTabId = null;
 		pendingResponses = {};
@@ -2123,9 +2068,6 @@ async function stopDebugging(): Promise<boolean> {
 		pendingTimingPatches.clear();
 		timingTracker.reset();
 		allRequests = {};
-		if (previousAttachedTabId !== null) {
-			recorder.clearPassiveEngineForTab(previousAttachedTabId);
-		}
 
 		console.log('Debugging stopped successfully');
 		return true;

@@ -45,9 +45,9 @@ const Layout: React.FC = () => {
 	const metrics = useNetworkMetrics(allRequestsState.allRequests, sessionMarker);
 
 	// Modo passivo: interceptação ON + gravação OFF. Nesse caso, queremos
-	// exibir os hits de antipattern recebidos via runtime.onMessage para a tab
-	// alvo. Quando a gravação está ativa, os hits são exibidos pelo painel da
-	// sessão (AntipatternsTab dentro do replay) — não duplicar aqui.
+	// exibir as recommendations recebidas via runtime.onMessage para a tab
+	// alvo. Quando a gravação está ativa, elas são exibidas pelo painel da
+	// sessão (RecommendationsTab dentro do replay) — não duplicar aqui.
 	const targetTabId = targetTab?.id ?? null;
 	const recording = useRecording(targetTabId);
 	const passiveTabId = isDebugging && !recording.status.active && targetTabId ? targetTabId : null;

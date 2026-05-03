@@ -39,6 +39,22 @@ export function buildViewerHtml(sessionJson: string): string {
 	.phase { border: 1px solid #e5e7eb; border-radius: 4px; padding: 8px; font-size: 11px; margin-bottom: 8px; }
 	.banner { background: #fef3c7; color: #92400e; padding: 6px 12px; font-size: 12px; border-radius: 4px; margin-bottom: 12px; }
 	.fallback { display: flex; align-items: center; justify-content: center; height: 100%; color: #6b7280; font-size: 13px; padding: 24px; text-align: center; }
+	.recs { border: 1px solid #e5e7eb; border-radius: 4px; padding: 8px; font-size: 11px; margin-top: 8px; max-height: 240px; overflow: auto; }
+	.recs h2 { font-size: 12px; margin: 0 0 6px 0; color: #374151; }
+	.rec { border-bottom: 1px solid #f3f4f6; padding: 4px 0; }
+	.rec summary { cursor: pointer; display: flex; gap: 6px; align-items: baseline; font-family: ui-monospace, monospace; }
+	.rec .sev { font-weight: 600; padding: 1px 4px; border-radius: 3px; font-size: 10px; }
+	.rec-info .sev { background: #dbeafe; color: #1e40af; }
+	.rec-warn .sev { background: #fef3c7; color: #92400e; }
+	.rec-error .sev { background: #fee2e2; color: #991b1b; }
+	.rec .rule { color: #4b5563; font-size: 11px; }
+	.rec .host { color: #6b7280; font-size: 10px; margin-left: auto; }
+	.rec p { margin: 4px 0; color: #1f2937; }
+	.rec .summary { font-style: italic; }
+	.rec .suggestion { color: #047857; }
+	.rec table.evidence { font-size: 10px; border-collapse: collapse; margin: 2px 0; }
+	.rec table.evidence th { text-align: left; color: #6b7280; padding-right: 8px; vertical-align: top; font-weight: 500; }
+	.rec table.evidence td { color: #1f2937; }
 ${rrwebPlayerCss}
 </style>
 </head>
@@ -53,6 +69,7 @@ ${rrwebPlayerCss}
 	<div class="right">
 		<div class="timeline" id="timeline"></div>
 		<aside id="phases"></aside>
+		<section class="recs" id="recs"></section>
 	</div>
 </main>
 <script>
@@ -131,6 +148,32 @@ const phases = document.getElementById('phases');
 	div.innerHTML = '<strong>Fase ' + (i + 1) + ' — ' + escape(fw.name || '') + (fw.version ? ' v' + escape(fw.version) : '') + '</strong><br>' + (p.pages || []).length + ' URL(s)';
 	phases.appendChild(div);
 });
+
+// Recomendações — Phase E. Lista detectada pelo RecommendationEngine durante a
+// gravação. Formato é um <details> por hit com severity/ruleId/host na summary.
+const recsHost = document.getElementById('recs');
+const recs = SESSION.recommendations || [];
+if (recs.length === 0) {
+	recsHost.innerHTML = '<h2>Recomendações</h2><p style="color:#6b7280;font-size:11px;margin:0;">Nenhuma recomendação registrada nesta sessão.</p>';
+} else {
+	const items = recs.map(function (r) {
+		const evRows = Object.entries(r.evidence || {}).map(function (entry) {
+			return '<tr><th>' + escape(entry[0]) + '</th><td>' + escape(entry[1]) + '</td></tr>';
+		}).join('');
+		const suggestion = r.suggestion ? '<p class="suggestion">' + escape(r.suggestion) + '</p>' : '';
+		return '<details class="rec rec-' + escape(r.severity) + '">'
+			+ '<summary>'
+				+ '<span class="sev">' + escape(String(r.severity).toUpperCase()) + '</span>'
+				+ '<span class="rule">' + escape(r.ruleId) + '</span>'
+				+ '<span class="host">' + escape(r.host) + '</span>'
+			+ '</summary>'
+			+ '<p class="summary">' + escape(r.summary) + '</p>'
+			+ '<table class="evidence">' + evRows + '</table>'
+			+ suggestion
+		+ '</details>';
+	}).join('');
+	recsHost.innerHTML = '<h2>Recomendações (' + recs.length + ')</h2>' + items;
+}
 </script>
 </body>
 </html>`;
