@@ -339,6 +339,11 @@ async function emitNetworkEventForSession(
 		method: request.method,
 		url: request.url,
 		status: request.status,
+		durationMs: request.duration,
+		// Snapshot completo permite o Replay reusar columns ricas do Command Center.
+		// applyPrivacyToInterceptedResponse já foi chamado em persistRequest antes
+		// disso (mesmo caller flow), então o request aqui já está redacted.
+		request,
 	};
 
 	if (session) {
