@@ -10,9 +10,9 @@ export function detectLibraries(): LibraryDetection[] {
 	const jq = w.jQuery;
 	if (
 		typeof jq === 'function' &&
-		typeof (jq as { fn?: { jquery?: unknown } }).fn?.jquery === 'string'
+		typeof (jq as unknown as { fn?: { jquery?: unknown } }).fn?.jquery === 'string'
 	) {
-		const version = (jq as { fn: { jquery: string } }).fn.jquery;
+		const version = (jq as unknown as { fn: { jquery: string } }).fn.jquery;
 		out.push({ name: 'jquery', version, confidence: 'high' });
 		return out;
 	}
@@ -20,9 +20,9 @@ export function detectLibraries(): LibraryDetection[] {
 	const $ = w.$;
 	if (
 		typeof $ === 'function' &&
-		typeof ($ as { fn?: { jquery?: unknown } }).fn?.jquery === 'string'
+		typeof ($ as unknown as { fn?: { jquery?: unknown } }).fn?.jquery === 'string'
 	) {
-		const version = ($ as { fn: { jquery: string } }).fn.jquery;
+		const version = ($ as unknown as { fn: { jquery: string } }).fn.jquery;
 		out.push({ name: 'jquery', version, confidence: 'high' });
 	}
 

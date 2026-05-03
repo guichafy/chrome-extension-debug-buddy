@@ -1,6 +1,7 @@
 import { detectDataFetching } from './detectors/dataFetching';
 import { detectFramework } from './detectors/framework';
 import { detectHttpClients } from './detectors/httpClients';
+import { detectLibraries } from './detectors/libraries';
 import { detectStateManagers } from './detectors/stateManagers';
 import { isProbeMessage, PROBE_NAMESPACE, type ProbeMessage } from './protocol';
 import { installAngularHttpTap } from './state/angularHttpTap';
@@ -26,7 +27,7 @@ function isProductionBuild(): boolean {
 function buildFingerprint(): EnvironmentFingerprint {
 	return {
 		framework: detectFramework(),
-		libraries: [],
+		libraries: detectLibraries(),
 		httpClients: detectHttpClients(),
 		dataFetching: detectDataFetching(),
 		stateManagers: detectStateManagers(),
