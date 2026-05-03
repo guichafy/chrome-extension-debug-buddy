@@ -44,7 +44,12 @@ export function RecordingToggle({ tabId, interceptionActive }: Props) {
 		};
 	}, []);
 
-	const switchDisabled = tabId === null || !interceptionActive || disabled === null;
+	// Switch reflete preferência global (recordingDisabled em storage). Continua
+	// editável mesmo sem interceptação ativa para o usuário pré-configurar
+	// "gravação OFF por default" antes de clicar em Iniciar Interceptação.
+	// Quando há interceptação rodando, onToggle abaixo aplica live via
+	// setRecordingLive; sem interceptação, apenas persiste a preferência.
+	const switchDisabled = disabled === null;
 	// UI mostra ligado quando storage=false. Loading (null) também mostra ligado
 	// para não enganar o usuário durante o carregamento inicial — controle vira
 	// editável ao terminar o load.

@@ -133,4 +133,39 @@ describe('RecordingToggle', () => {
 		expect(screen.queryByText(/MB/)).not.toBeInTheDocument();
 		expect(screen.queryByText(/próximo do limite/i)).not.toBeInTheDocument();
 	});
+
+	// Regressão Bug 1: switch deve ficar EDITÁVEL mesmo quando interceptação está
+	// OFF, para o usuário pré-configurar "gravação OFF por default" antes do
+	// Iniciar Interceptação.
+	test('switch fica editavel quando interceptionActive=false (pre-config)', async () => {
+		const mod = await import('@/lib/session/recordingPreference');
+		(
+			mod.getRecordingDisabled as unknown as { mockResolvedValueOnce: (v: boolean) => void }
+		).mockResolvedValueOnce(false);
+		render(<RecordingToggle tabId={null} interceptionActive={false} />);
+		const sw = await screen.findByLabelText('Gravação');
+		expect(sw).not.toBeDisabled();
+		fireEvent.click(sw);
+		await waitFor(() => {
+			expect(mod.setRecordingDisabled).toHaveBeenCalledWith(true);
+		});
+	});
+
+	test('toggle sem interceptacao NAO envia setRecordingLive', async () => {
+		const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+		sendMessageMock.mockClear();
+		const mod = await import('@/lib/session/recordingPreference');
+		(
+			mod.getRecordingDisabled as unknown as { mockResolvedValueOnce: (v: boolean) => void }
+		).mockResolvedValueOnce(false);
+		render(<RecordingToggle tabId={null} interceptionActive={false} />);
+		const sw = await screen.findByLabelText('Gravação');
+		fireEvent.click(sw);
+		await waitFor(() => {
+			expect(mod.setRecordingDisabled).toHaveBeenCalledWith(true);
+		});
+		expect(sendMessageMock).not.toHaveBeenCalledWith(
+			expect.objectContaining({ action: 'setRecordingLive' }),
+		);
+	});
 });
