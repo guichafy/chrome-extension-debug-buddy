@@ -39,6 +39,19 @@ export function RecordingToggle({ tabId, interceptionActive }: Props) {
 		const newDisabled = !next;
 		setDisabled(newDisabled);
 		await setRecordingDisabled(newDisabled);
+		// Live toggle: se já há interceptação rodando, aplicar a mudança imediatamente
+		// na sessão ativa em vez de esperar o próximo start.
+		if (interceptionActive && tabId !== null) {
+			try {
+				await chrome.runtime.sendMessage({
+					action: 'setRecordingLive',
+					tabId,
+					active: next,
+				});
+			} catch (err) {
+				console.warn('[recording] setRecordingLive falhou:', err);
+			}
+		}
 	};
 
 	return (

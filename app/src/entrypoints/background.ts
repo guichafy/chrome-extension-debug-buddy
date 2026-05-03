@@ -9,7 +9,7 @@ import { NetworkTimingTracker } from '@/lib/networkTiming';
 import { recorder } from '@/lib/session/recorder';
 import { serializeSession } from '@/lib/session/exporter';
 import { parseDbsession } from '@/lib/session/importer';
-import { getRecordingDisabled } from '@/lib/session/recordingPreference';
+import { getRecordingDisabled, setRecordingDisabled } from '@/lib/session/recordingPreference';
 import { stripBodyFields } from '@/lib/session/sessionNetworkAdapter';
 import { resolveCallsite } from '@/lib/session/sourceMap';
 import { sessionStore } from '@/lib/session/storage';
@@ -1369,6 +1369,73 @@ chrome.runtime.onMessage.addListener(
 					const cfg = await getPrivacyConfig();
 					const purgedCount = await purgeOldSessions(cfg.autoPurgeRetentionDays);
 					sendResponse({ ok: true, purgedCount });
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === 'setRecordingLive') {
+			(async () => {
+				try {
+					if (typeof message.tabId !== 'number') {
+						sendResponse({ ok: false, error: 'tabId ausente' });
+						return;
+					}
+					const targetTabId = message.tabId;
+					if (message.active === true) {
+						// Liga gravação live: inicia sessão se interceptação rodando
+						// e ainda não há sessão pra essa tab.
+						const existing = await recorder.getActiveByTab(targetTabId);
+						if (existing) {
+							sendResponse({ ok: true, sessionId: existing.id });
+							return;
+						}
+						if (!isDebugging || attachedTabId !== targetTabId) {
+							sendResponse({
+								ok: false,
+								error: 'Interceptação não está ativa nesta tab',
+							});
+							return;
+						}
+						// Reusa fluxo de auto-start: chama tryAutoStartRecording. Mas essa
+						// função respeita recordingDisabled — antes de chamar, garante flag=false.
+						await setRecordingDisabled(false);
+						await tryAutoStartRecording(targetTabId);
+						const created = await recorder.getActiveByTab(targetTabId);
+						sendResponse({ ok: true, sessionId: created?.id });
+					} else {
+						// Desliga: stopa sessão ativa (se houver). NÃO detacha debugger.
+						const existing = await recorder.getActiveByTab(targetTabId);
+						if (!existing) {
+							sendResponse({ ok: true });
+							return;
+						}
+						try {
+							await chrome.debugger.sendCommand({ tabId: targetTabId }, 'Runtime.disable');
+							await chrome.debugger.sendCommand({ tabId: targetTabId }, 'Log.disable');
+						} catch {
+							// Debugger pode ter sido detached por outro caminho — ignorar.
+						}
+						try {
+							await chrome.tabs.sendMessage(targetTabId, { action: '__rrweb_stop' });
+						} catch {
+							// Tab pode ter fechado.
+						}
+						try {
+							await chrome.tabs.sendMessage(targetTabId, { action: 'probeIdle' });
+						} catch {
+							// Tab pode ter fechado.
+						}
+						await recorder.stopSession(existing.id);
+						broadcastRecordingState({
+							tabId: targetTabId,
+							active: false,
+							sessionId: existing.id,
+						});
+						sendResponse({ ok: true });
+					}
 				} catch (err) {
 					sendResponse({ ok: false, error: String(err) });
 				}

@@ -58,7 +58,9 @@ export type MessageAction =
 	// Session Replay — Phase 6 (privacyConfig + autoPurge)
 	| 'getPrivacyConfig'
 	| 'setPrivacyConfig'
-	| 'purgeOldSessions';
+	| 'purgeOldSessions'
+	// Bug 3 — live toggle gravacao durante interceptacao
+	| 'setRecordingLive';
 
 export interface Message {
 	action: MessageAction;
@@ -107,6 +109,8 @@ export interface Message {
 	};
 	// Phase 6 — privacyConfig
 	config?: import('@/lib/session/types').RedactionConfig;
+	// Bug 3 — live toggle gravacao durante interceptacao
+	active?: boolean;
 }
 
 export interface MessageResponse {

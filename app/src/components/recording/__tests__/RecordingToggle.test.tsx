@@ -41,4 +41,26 @@ describe('RecordingToggle', () => {
 			expect(mod.setRecordingDisabled).toHaveBeenCalledWith(true);
 		});
 	});
+
+	test('toggle off durante interception envia setRecordingLive', async () => {
+		const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+		sendMessageMock.mockClear();
+		sendMessageMock.mockResolvedValueOnce({ ok: true });
+		const mod = await import('@/lib/session/recordingPreference');
+		(
+			mod.getRecordingDisabled as unknown as { mockResolvedValueOnce: (v: boolean) => void }
+		).mockResolvedValueOnce(false);
+
+		render(<RecordingToggle tabId={5} interceptionActive={true} />);
+		const sw = await screen.findByLabelText('Gravação');
+		fireEvent.click(sw);
+
+		await waitFor(() => {
+			expect(sendMessageMock).toHaveBeenCalledWith({
+				action: 'setRecordingLive',
+				tabId: 5,
+				active: false,
+			});
+		});
+	});
 });
