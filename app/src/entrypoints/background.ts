@@ -7,7 +7,7 @@ import {
 } from '@/lib/legacyMigration';
 import { NetworkTimingTracker } from '@/lib/networkTiming';
 import { recorder } from '@/lib/session/recorder';
-import { arrayBufferToBase64 } from '@/lib/session/binaryTransport';
+import { arrayBufferToBase64, base64ToArrayBuffer } from '@/lib/session/binaryTransport';
 import { serializeSession } from '@/lib/session/exporter';
 import { parseDbsession } from '@/lib/session/importer';
 import { getRecordingDisabled, setRecordingDisabled } from '@/lib/session/recordingPreference';
@@ -1304,7 +1304,17 @@ chrome.runtime.onMessage.addListener(
 		if (message.action === 'importSession') {
 			(async () => {
 				try {
-					const session = await parseDbsession(message.data as ArrayBuffer);
+					if (typeof message.data !== 'string') {
+						// Sem fallback: transporte deve carregar base64. Mensagem mal-formada
+						// indica chamador antigo ou bug — falha visível pra UI.
+						sendResponse({
+							ok: false,
+							error: 'importSession: data ausente ou nao e string base64',
+						});
+						return;
+					}
+					const buf = base64ToArrayBuffer(message.data);
+					const session = await parseDbsession(buf);
 					await sessionStore.put(session);
 					sendResponse({ ok: true, sessionId: session.id });
 				} catch (err) {

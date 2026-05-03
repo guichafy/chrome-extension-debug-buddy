@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 import { describe, expect, it } from 'vitest';
+import { arrayBufferToBase64, base64ToArrayBuffer } from '../binaryTransport';
 import { serializeSession } from '../exporter';
 import { parseDbsession } from '../importer';
 import type { Session } from '../types';
@@ -74,5 +75,31 @@ describe('parseDbsession', () => {
 		expect((imported as unknown as { rrwebEvents: unknown[] }).rrwebEvents).toEqual([
 			{ foo: 'bar' },
 		]);
+	});
+
+	// Regressão Bug bd-al6: ImportButton encoda buf como base64 antes do
+	// chrome.runtime.sendMessage; handler no background decoda. Esse round-trip
+	// completo (export -> base64 -> base64 reverso -> parseDbsession) precisa
+	// preservar os bytes do zip para o JSZip.loadAsync conseguir abrir.
+	it('round-trip completo serialize -> base64 -> base64 reverso -> parse mantem session', async () => {
+		const original = baseSession({
+			id: 'sess_transport',
+			startedAt: 42_000,
+			metadata: {
+				initialUrl: 'https://transport.example/page',
+				userAgent: 'transport-ua',
+				viewportSize: { w: 1024, h: 768 },
+				canvasCaptureEnabled: false,
+			},
+		});
+		const buf = await serializeSession(original);
+		const b64 = arrayBufferToBase64(buf);
+		const decoded = base64ToArrayBuffer(b64);
+		const imported = await parseDbsession(decoded);
+		expect(imported.id).toMatch(/^imported_sess_transport_/);
+		expect(imported.origin).toBe('imported');
+		expect(imported.startedAt).toBe(42_000);
+		expect(imported.metadata.initialUrl).toBe('https://transport.example/page');
+		expect(imported.metadata.userAgent).toBe('transport-ua');
 	});
 });

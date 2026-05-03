@@ -91,8 +91,11 @@ export interface Message {
 		triggerType: PageDetectionTrigger;
 		fingerprint: EnvironmentFingerprint;
 	};
-	// exportSession / importSession (Phase 1d)
-	data?: ArrayBuffer;
+	// exportSession / importSession (Phase 1d) — string base64 do .dbsession.
+	// chrome.runtime.sendMessage não preserva ArrayBuffer no transporte (vira
+	// {} via JSON serializacao), entao encodamos na origem e decodamos no
+	// destino (UI->background pra import, background->UI pra export).
+	data?: string;
 	filename?: string;
 	// rrweb (Phase 2)
 	rrwebEvents?: RrwebEvent[];

@@ -1,6 +1,7 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { arrayBufferToBase64 } from '@/lib/session/binaryTransport';
 import { parseDbsession } from '@/lib/session/importer';
 import { ImportOriginWarningDialog } from './ImportOriginWarningDialog';
 
@@ -32,9 +33,13 @@ export function ImportButton({ onImported }: Props) {
 	} | null>(null);
 
 	const persist = async (buf: ArrayBuffer, filename: string) => {
+		// chrome.runtime.sendMessage descarta ArrayBuffer no transporte (vira {}),
+		// quebrando JSZip.loadAsync no background. Encodamos como base64 — handler
+		// no background decoda antes do parseDbsession.
+		const data = arrayBufferToBase64(buf);
 		const res = await chrome.runtime.sendMessage({
 			action: 'importSession',
-			data: buf,
+			data,
 			filename,
 		});
 		if (!res?.ok || !res.sessionId) {
