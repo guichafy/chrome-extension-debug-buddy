@@ -93,4 +93,26 @@ describe('ReplayPage', () => {
 			expect(screen.getByText(/Nenhum evento até o ponto atual/i)).toBeInTheDocument();
 		});
 	});
+
+	it('expoe aba Requisicoes', async () => {
+		await sessionStore.put(
+			baseSession({
+				id: 'sess_requests_tab',
+				events: [
+					{
+						type: 'network',
+						timestamp: 1_100,
+						phaseId: 'p',
+						requestId: 'r1',
+						method: 'GET',
+						url: 'https://api/users',
+						status: 200,
+						durationMs: 30,
+					},
+				],
+			}),
+		);
+		renderAt('sess_requests_tab');
+		expect(await screen.findByText(/Requisições/)).toBeInTheDocument();
+	});
 });

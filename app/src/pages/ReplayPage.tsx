@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { AntipatternsTab } from '@/components/replay/AntipatternsTab';
 import { EventRow } from '@/components/replay/EventRow';
 import { PhaseList } from '@/components/replay/PhaseList';
+import { ReplayRequestsTab } from '@/components/replay/ReplayRequestsTab';
 import { RrwebPlayer } from '@/components/replay/RrwebPlayer';
 import { StateInspector } from '@/components/replay/StateInspector';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -145,6 +146,16 @@ export function ReplayPage() {
 					<Tabs defaultValue="timeline" className="flex h-full flex-col gap-3 overflow-hidden">
 						<TabsList className="self-start">
 							<TabsTrigger value="timeline">Timeline</TabsTrigger>
+							<TabsTrigger value="requests">
+								Requisições
+								{(() => {
+									const count = session.events.filter(
+										(e) => e.type === 'network' && e.timestamp <= cutoffTimestamp,
+									).length;
+									if (count === 0) return null;
+									return <span className="ml-2 rounded bg-muted px-1.5 text-[10px]">{count}</span>;
+								})()}
+							</TabsTrigger>
 							<TabsTrigger value="antipatterns">
 								Antipatterns
 								{(session.antipatternHits?.length ?? 0) > 0 && (
@@ -189,6 +200,10 @@ export function ReplayPage() {
 							<aside className="max-h-48 overflow-auto">
 								<PhaseList phases={session.detectionPhases} />
 							</aside>
+						</TabsContent>
+
+						<TabsContent value="requests" className="mt-0 flex-1 overflow-auto">
+							<ReplayRequestsTab events={session.events} cutoffTimestamp={cutoffTimestamp} />
 						</TabsContent>
 
 						<TabsContent value="antipatterns" className="mt-0 flex-1 overflow-hidden">
