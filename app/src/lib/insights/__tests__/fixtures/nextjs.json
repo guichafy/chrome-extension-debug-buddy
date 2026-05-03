@@ -1,0 +1,7 @@
+{
+	"signals": [
+		{ "kind": "js", "name": "__NEXT_DATA__", "value": "{\"props\":{}}" },
+		{ "kind": "header", "name": "x-powered-by", "value": "Next.js 14.0.4" }
+	],
+	"expectedHits": ["Next.js", "React"]
+}

@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { COMPILED_CATALOG } from '../catalog';
 import { Scorer } from '../scorer';
 import type { Signal } from '../types';
+import nextjsFixture from './fixtures/nextjs.json';
 import shopifyFixture from './fixtures/shopify.json';
 import wordpressFixture from './fixtures/wordpress.json';
 
@@ -29,6 +30,15 @@ describe('fixtures — Shopify', () => {
 	test('detects Shopify from CDN scriptSrc + headers', () => {
 		const detected = runFixture(shopifyFixture as Fixture);
 		for (const expected of (shopifyFixture as Fixture).expectedHits) {
+			expect(detected).toContain(expected);
+		}
+	});
+});
+
+describe('fixtures — Next.js', () => {
+	test('detects Next.js and implies React', () => {
+		const detected = runFixture(nextjsFixture as Fixture);
+		for (const expected of (nextjsFixture as Fixture).expectedHits) {
 			expect(detected).toContain(expected);
 		}
 	});
