@@ -11,6 +11,7 @@ function makePhase(): DetectionPhase {
 		endTimestamp: 1000,
 		fingerprint: {
 			framework: { name: 'react' },
+			libraries: [],
 			httpClients: [],
 			dataFetching: [],
 			stateManagers: [],
@@ -81,6 +82,7 @@ describe('StateInspector — Phase 5 storeKinds', () => {
 			endTimestamp: 1000,
 			fingerprint: {
 				framework: { name: 'angular' as const, version: '17' },
+				libraries: [],
 				httpClients: [],
 				dataFetching: [],
 				stateManagers: [],

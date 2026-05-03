@@ -6,6 +6,7 @@ import type { PageDetection } from '../types';
 
 const fp = {
 	framework: { name: 'angular' as const, version: '17' },
+	libraries: [],
 	httpClients: [],
 	dataFetching: [],
 	stateManagers: [

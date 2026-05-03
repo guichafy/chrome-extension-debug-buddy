@@ -26,6 +26,7 @@ function isProductionBuild(): boolean {
 function buildFingerprint(): EnvironmentFingerprint {
 	return {
 		framework: detectFramework(),
+		libraries: [],
 		httpClients: detectHttpClients(),
 		dataFetching: detectDataFetching(),
 		stateManagers: detectStateManagers(),

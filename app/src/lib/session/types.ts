@@ -21,8 +21,15 @@ export interface StateManagerDetection {
 	treatment: LibTreatment;
 }
 
+export interface LibraryDetection {
+	name: 'jquery';
+	version?: string;
+	confidence: 'high' | 'medium' | 'low';
+}
+
 export interface EnvironmentFingerprint {
 	framework: { name: FrameworkName; version?: string };
+	libraries: LibraryDetection[];
 	httpClients: HttpClientDetection[];
 	dataFetching: DataFetchingDetection[];
 	stateManagers: StateManagerDetection[];
@@ -261,6 +268,34 @@ export interface RedactionConfig {
 	autoPurgeRetentionDays: number; // default 30
 }
 
+export type RecommendationSeverity = 'info' | 'warn' | 'error';
+
+export type RecommendationRuleId =
+	| 'compression-missing'
+	| 'cache-missing'
+	| 'mixed-content'
+	| 'csp-missing'
+	| 'hsts-missing'
+	| 'nosniff-missing'
+	| 'large-payload'
+	| 'image-not-optimized'
+	| 'cookie-insecure'
+	| 'cors-open';
+
+export interface Recommendation {
+	id: string;
+	ruleId: RecommendationRuleId;
+	severity: RecommendationSeverity;
+	timestamp: number;
+	phaseId?: string;
+	requestId?: string;
+	url: string;
+	host: string;
+	summary: string;
+	evidence: Record<string, string>;
+	suggestion?: string;
+}
+
 export interface Session {
 	id: string;
 	schemaVersion: 1;
@@ -274,6 +309,7 @@ export interface Session {
 	events: SessionEvent[];
 	rrwebEvents?: RrwebEvent[];
 	antipatternHits?: AntipatternHit[];
+	recommendations?: Recommendation[];
 	telemetry?: SessionTelemetry;
 	redactionApplied?: RedactionConfig; // NOVO em Phase 6 — opcional
 }

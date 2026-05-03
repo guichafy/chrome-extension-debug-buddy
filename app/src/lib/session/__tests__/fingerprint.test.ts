@@ -8,6 +8,7 @@ import type { EnvironmentFingerprint, PageDetection } from '../types';
 
 const fp = (overrides: Partial<EnvironmentFingerprint> = {}): EnvironmentFingerprint => ({
 	framework: { name: 'react', version: '18.2.0' },
+	libraries: [],
 	httpClients: [{ name: 'fetch', confidence: 'high' }],
 	dataFetching: [],
 	stateManagers: [],
@@ -129,6 +130,7 @@ describe('groupConsecutiveDetections', () => {
 
 const base: EnvironmentFingerprint = {
 	framework: { name: 'react', version: '18.2.0' },
+	libraries: [],
 	httpClients: [],
 	dataFetching: [],
 	stateManagers: [],
@@ -186,6 +188,7 @@ describe('fingerprintsEqual — storesDetected sentinel', () => {
 describe('fingerprintsEqual — Phase 5 Angular libs', () => {
 	const baseFp = {
 		framework: { name: 'angular' as const, version: '17' },
+		libraries: [],
 		httpClients: [],
 		dataFetching: [],
 		stateManagers: [],

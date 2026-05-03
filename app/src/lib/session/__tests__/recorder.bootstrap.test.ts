@@ -44,6 +44,7 @@ describe('recorder bootstrap phase', () => {
 			timestamp: t,
 			fingerprint: {
 				framework: { name: 'react', version: '18.0' },
+				libraries: [],
 				httpClients: [],
 				dataFetching: [],
 				stateManagers: [],
@@ -81,6 +82,7 @@ describe('recorder bootstrap phase', () => {
 		const t1 = Date.now() + 100;
 		const fp1 = {
 			framework: { name: 'react' as const, version: '18.0' },
+			libraries: [],
 			httpClients: [],
 			dataFetching: [],
 			stateManagers: [],
@@ -99,6 +101,7 @@ describe('recorder bootstrap phase', () => {
 			timestamp: t2,
 			fingerprint: {
 				framework: { name: 'angular', version: '17' },
+				libraries: [],
 				httpClients: [],
 				dataFetching: [],
 				stateManagers: [],
@@ -144,6 +147,7 @@ describe('recorder bootstrap phase', () => {
 			timestamp: t2,
 			fingerprint: {
 				framework: { name: 'vanilla' },
+				libraries: [],
 				httpClients: [],
 				dataFetching: [],
 				stateManagers: [],

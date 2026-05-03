@@ -6,6 +6,7 @@ import type { PageDetection } from '../types';
 
 const fp = {
 	framework: { name: 'react' as const, version: '18' },
+	libraries: [],
 	httpClients: [],
 	dataFetching: [],
 	stateManagers: [{ name: 'redux', storesDetected: 1, treatment: 'tracked' as const }],

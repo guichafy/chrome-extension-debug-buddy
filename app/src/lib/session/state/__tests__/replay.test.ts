@@ -10,6 +10,7 @@ function makePhase(): DetectionPhase {
 		endTimestamp: 1000,
 		fingerprint: {
 			framework: { name: 'react' },
+			libraries: [],
 			httpClients: [],
 			dataFetching: [],
 			stateManagers: [],

@@ -5,6 +5,7 @@ import type { EnvironmentFingerprint, PageDetection } from '../types';
 
 const fp = (overrides: Partial<EnvironmentFingerprint> = {}): EnvironmentFingerprint => ({
 	framework: { name: 'react', version: '18.2.0' },
+	libraries: [],
 	httpClients: [{ name: 'fetch', confidence: 'high' }],
 	dataFetching: [],
 	stateManagers: [],

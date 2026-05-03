@@ -257,6 +257,7 @@ export const recorder = {
 			// quando a probe envia o pageDetected.
 			fingerprint: {
 				framework: { name: 'vanilla' },
+				libraries: [],
 				httpClients: [],
 				dataFetching: [],
 				stateManagers: [],
