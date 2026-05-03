@@ -193,6 +193,17 @@ function getOrInitRuntime(sessionId: string, session: Session): SessionRuntime {
 	return r;
 }
 
+// Procura sessão ativa para `tabId` priorizando cache in-memory antes do IDB.
+// Eventos in-flight podem estar mutados no cache mas ainda não flushed (debounce
+// de 200ms) — `sessionStore.findActiveByTab` leria stale. Compartilhado entre
+// `startSession` (defesa contra dupla-criação) e `getActiveByTab` (read path).
+function findCachedActiveByTab(tabId: number): Session | null {
+	for (const session of sessionCache.values()) {
+		if (session.tabId === tabId && session.endedAt === null) return session;
+	}
+	return null;
+}
+
 async function autoStop(
 	session: Session,
 	reason: 'size' | 'time',
@@ -208,14 +219,24 @@ async function autoStop(
 	};
 	// Hard limit hit é a última oportunidade de persistir — força flush sincrono
 	// e descarta cache pra que próximos reads não vejam estado pós-encerramento.
+	// `session` é o mesmo objeto referenciado pelo cache (getCachedOrLoad retorna
+	// a mesma referência), então flushAndForget já persiste todas as mutações
+	// acima. Não precisamos de put redundante.
 	await flushAndForget(session.id);
-	await sessionStore.put(session);
 	sessionCache.delete(session.id);
 	runtime.delete(session.id);
 }
 
 export const recorder = {
 	async startSession(args: StartArgs): Promise<string> {
+		// Defesa em profundidade: também checa cache in-memory antes do IDB.
+		// Cobre janela em que sessão recém-criada ainda não foi flushed mas já
+		// existe (raro, gated por click do usuário, mas evita race em paths
+		// programáticos como auto-start ao iniciar interceptação).
+		const cached = findCachedActiveByTab(args.tabId);
+		if (cached) {
+			throw new Error(`Já existe session ativa para tab ${args.tabId} (${cached.id})`);
+		}
 		const existing = await sessionStore.findActiveByTab(args.tabId);
 		if (existing) {
 			throw new Error(`Já existe session ativa para tab ${args.tabId} (${existing.id})`);
@@ -592,11 +613,10 @@ export const recorder = {
 	},
 
 	async getActiveByTab(tabId: number): Promise<Session | null> {
-		// Prioriza cache se houver match — eventos in-flight podem ter sido escritos
-		// no cache mas ainda não flushed pro IDB. findActiveByTab leria stale.
-		for (const session of sessionCache.values()) {
-			if (session.tabId === tabId && session.endedAt === null) return session;
-		}
+		// Prioriza cache (live reference, não snapshot — consumers não devem mutar).
+		// Cache cobre janela 200ms entre mutate e flush; IDB é fallback pós-restart.
+		const cached = findCachedActiveByTab(tabId);
+		if (cached) return cached;
 		return sessionStore.findActiveByTab(tabId);
 	},
 
