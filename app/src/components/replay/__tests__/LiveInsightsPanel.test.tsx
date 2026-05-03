@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { Recommendation } from '@/lib/session/types';
 import { LiveInsightsPanel } from '../LiveInsightsPanel';
@@ -90,6 +91,8 @@ describe('LiveInsightsPanel', () => {
 		render(<LiveInsightsPanel tabId={1} isInterceptionActive={true} />);
 		expect(await screen.findByText(/Aguardando primeira detecção do probe…/)).toBeInTheDocument();
 		expect(screen.getByText(/Nenhuma recomendação até agora/)).toBeInTheDocument();
+		// Sem hosts, picker não é renderizado.
+		expect(screen.queryByTestId('live-insights-host-picker')).not.toBeInTheDocument();
 	});
 
 	test('mostra banner quando interceptação está desligada', () => {
@@ -143,7 +146,7 @@ describe('LiveInsightsPanel', () => {
 		expect(screen.getByText(/angular-http \(medium\)/)).toBeInTheDocument();
 	});
 
-	test('agrupa recomendações em Segurança / Performance com counters', async () => {
+	test('agrupa recomendações em Segurança / Performance com counters (host único)', async () => {
 		render(<LiveInsightsPanel tabId={1} isInterceptionActive={true} />);
 		await waitFor(() => expect(messageListeners.length).toBeGreaterThan(0));
 
@@ -223,8 +226,6 @@ describe('LiveInsightsPanel', () => {
 		render(<LiveInsightsPanel tabId={1} isInterceptionActive={true} />);
 		await waitFor(() => expect(messageListeners.length).toBeGreaterThan(0));
 
-		// Duas instâncias da mesma rule no mesmo host devem agrupar; a terceira
-		// (rule diferente) gera um segundo sub-grupo.
 		deliverMessage({
 			action: 'liveRecommendation',
 			tabId: 1,
@@ -273,13 +274,12 @@ describe('LiveInsightsPanel', () => {
 		});
 
 		const ruleLabel = await screen.findByText('csp-missing');
-		// Sub-grupo (<details>) deve estar collapsed por default — sem atributo `open`.
 		const detailsEl = ruleLabel.closest('details');
 		expect(detailsEl).not.toBeNull();
 		expect(detailsEl?.hasAttribute('open')).toBe(false);
 	});
 
-	test('agrupa insights por host (DNS): cada host vira uma seção colapsável', async () => {
+	test('picker aparece quando há ao menos 1 host e foca no mais recente', async () => {
 		render(<LiveInsightsPanel tabId={1} isInterceptionActive={true} />);
 		await waitFor(() => expect(messageListeners.length).toBeGreaterThan(0));
 
@@ -301,19 +301,24 @@ describe('LiveInsightsPanel', () => {
 			},
 		});
 
-		await waitFor(() =>
-			expect(screen.getByTestId('live-insights-host-toggle-a.com')).toBeInTheDocument(),
-		);
-		// b.com foi a última detecção: aparece no topo (mais recente primeiro).
-		const sections = document.querySelectorAll('section[data-host]');
-		expect(sections[0].getAttribute('data-host')).toBe('b.com');
-		expect(sections[1].getAttribute('data-host')).toBe('a.com');
+		// b.com foi a última detection: select inicia nele.
+		const trigger = await screen.findByTestId('live-insights-host-picker');
+		expect(trigger).toHaveTextContent('b.com');
+		expect(trigger).toHaveTextContent('angular 17.0.0');
+		// URL detalhada do host selecionado aparece no corpo.
+		expect(screen.getByText('https://b.com/page')).toBeInTheDocument();
+		// URL do host não selecionado NÃO está no DOM (foco em um host de cada vez).
+		expect(screen.queryByText('https://a.com/page')).not.toBeInTheDocument();
+		// Subtítulo do header reflete totais.
+		expect(screen.getByText(/2 hosts/)).toBeInTheDocument();
 	});
 
-	test('recomendações vão pra seção do host correto', async () => {
+	test('trocar de host via picker re-renderiza apenas o conteúdo do novo host', async () => {
+		const user = userEvent.setup();
 		render(<LiveInsightsPanel tabId={1} isInterceptionActive={true} />);
 		await waitFor(() => expect(messageListeners.length).toBeGreaterThan(0));
 
+		// Setup: 2 hosts com recomendações distintas. b.com é o mais recente.
 		deliverMessage({
 			action: 'liveDetection',
 			tabId: 1,
@@ -335,40 +340,23 @@ describe('LiveInsightsPanel', () => {
 			recommendation: makeRec({ ruleId: 'compression-missing', severity: 'warn', host: 'b.com' }),
 		});
 
-		await waitFor(() => expect(screen.getByText(/2 hosts/)).toBeInTheDocument());
-		expect(screen.getByText(/2 recomendações/)).toBeInTheDocument();
+		// Default: b.com selecionado → vê Performance (compression).
+		await waitFor(() => expect(screen.getByText(/Performance \(1\)/)).toBeInTheDocument());
+		expect(screen.queryByText(/Segurança \(/)).not.toBeInTheDocument();
 
-		// Cada host só renderiza suas próprias categorias.
-		const aSection = document.querySelector('section[data-host="a.com"]') as HTMLElement | null;
-		expect(aSection).not.toBeNull();
-		expect(within(aSection as HTMLElement).getByText(/Segurança \(1\)/)).toBeInTheDocument();
-		expect(within(aSection as HTMLElement).queryByText(/Performance/)).not.toBeInTheDocument();
+		// Abre o picker e seleciona a.com.
+		const trigger = screen.getByTestId('live-insights-host-picker');
+		await user.click(trigger);
+		const aOption = await screen.findByTestId('live-insights-host-option-a.com');
+		await user.click(aOption);
 
-		const bSection = document.querySelector('section[data-host="b.com"]') as HTMLElement | null;
-		expect(bSection).not.toBeNull();
-		expect(within(bSection as HTMLElement).getByText(/Performance \(1\)/)).toBeInTheDocument();
+		await waitFor(() => expect(screen.getByText(/Segurança \(1\)/)).toBeInTheDocument());
+		expect(screen.queryByText(/Performance \(/)).not.toBeInTheDocument();
+		expect(screen.getByText('https://a.com/page')).toBeInTheDocument();
+		expect(screen.queryByText('https://b.com/page')).not.toBeInTheDocument();
 	});
 
-	test('host fica colapsável: clique fecha o conteúdo do host', async () => {
-		render(<LiveInsightsPanel tabId={1} isInterceptionActive={true} />);
-		await waitFor(() => expect(messageListeners.length).toBeGreaterThan(0));
-
-		deliverMessage({
-			action: 'liveDetection',
-			tabId: 1,
-			payload: baseDetectionPayload,
-		});
-
-		const toggle = await screen.findByTestId('live-insights-host-toggle-example.com');
-		expect(screen.getByRole('heading', { level: 4, name: /^Framework$/ })).toBeInTheDocument();
-
-		fireEvent.click(toggle);
-		expect(
-			screen.queryByRole('heading', { level: 4, name: /^Framework$/ }),
-		).not.toBeInTheDocument();
-	});
-
-	test('host com recomendações mas sem detection ainda aparece na lista', async () => {
+	test('host com recomendações mas sem detection ainda aparece no picker', async () => {
 		render(<LiveInsightsPanel tabId={1} isInterceptionActive={true} />);
 		await waitFor(() => expect(messageListeners.length).toBeGreaterThan(0));
 
@@ -378,11 +366,29 @@ describe('LiveInsightsPanel', () => {
 			recommendation: makeRec({ ruleId: 'csp-missing', severity: 'error', host: 'cdn.com' }),
 		});
 
+		const trigger = await screen.findByTestId('live-insights-host-picker');
+		expect(trigger).toHaveTextContent('cdn.com');
+		expect(screen.getByText(/Sem detecção do probe para este host/)).toBeInTheDocument();
+		expect(screen.getByText(/Segurança \(1\)/)).toBeInTheDocument();
+	});
+
+	test('limpar reseta seleção e volta para empty state', async () => {
+		const user = userEvent.setup();
+		render(<LiveInsightsPanel tabId={1} isInterceptionActive={true} />);
+		await waitFor(() => expect(messageListeners.length).toBeGreaterThan(0));
+
+		deliverMessage({
+			action: 'liveDetection',
+			tabId: 1,
+			payload: baseDetectionPayload,
+		});
 		await waitFor(() =>
-			expect(screen.getByTestId('live-insights-host-toggle-cdn.com')).toBeInTheDocument(),
+			expect(screen.getByTestId('live-insights-host-picker')).toBeInTheDocument(),
 		);
-		const section = document.querySelector('section[data-host="cdn.com"]') as HTMLElement | null;
-		expect(section).not.toBeNull();
-		expect(within(section as HTMLElement).getByText(/Sem detecção do probe/)).toBeInTheDocument();
+
+		await user.click(screen.getByRole('button', { name: 'limpar' }));
+
+		expect(screen.queryByTestId('live-insights-host-picker')).not.toBeInTheDocument();
+		expect(screen.getByText(/Aguardando primeira detecção do probe…/)).toBeInTheDocument();
 	});
 });

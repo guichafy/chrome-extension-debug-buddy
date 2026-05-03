@@ -1,6 +1,13 @@
 import { type ReactNode, useEffect, useMemo, useReducer, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select';
+import {
 	CATEGORY_LABEL,
 	CATEGORY_ORDER,
 	RULE_CATEGORIES,
@@ -62,7 +69,6 @@ function reducer(s: PanelState, a: PanelAction): PanelState {
 	switch (a.type) {
 		case 'detection': {
 			const next = new Map(s.detectionsByHost);
-			// Bump host pra "mais recente" deletando + re-inserindo no fim.
 			if (next.has(a.payload.host)) next.delete(a.payload.host);
 			next.set(a.payload.host, a.payload.entry);
 			return { ...s, detectionsByHost: next };
@@ -75,9 +81,9 @@ function reducer(s: PanelState, a: PanelAction): PanelState {
 		case 'clear':
 			return { detectionsByHost: new Map(), recommendations: [] };
 		case 'hydrate': {
-			// Snapshot vem mais-recente-primeiro; reinserir invertido pra que
-			// Map.entries() (ascendente) coincida com a ordem do backend.
 			const next = new Map<string, LiveDetectionEntry>();
+			// Snapshot vem mais-recente-primeiro; reinserir invertido pra que a
+			// ordem do Map (ascendente) reflita a do backend.
 			for (let i = a.snapshot.detections.length - 1; i >= 0; i--) {
 				const d = a.snapshot.detections[i];
 				next.set(d.host, { url: d.url, timestamp: d.timestamp, fingerprint: d.fingerprint });
@@ -96,24 +102,23 @@ interface Props {
 	onCountChange?: (count: number) => void;
 }
 
-// Live Insights — drawer agrupa todos os insights da sessão de interceptação atual
-// por host (DNS). Para cada host:
-//   1. Framework & Libraries — fingerprint mais recente daquele host
-//   2. Recomendações daquele host — agrupadas por categoria (segurança/performance)
-//      e sub-agrupadas por ruleId
-// Hosts são ordenados por última atividade (mais recente primeiro). Reseta tudo
-// quando `tabId` muda. `onCountChange` notifica o pai (SiteHeader) com o total
-// de recomendações para alimentar o badge.
+// Live Insights — drawer focado em UM host por vez. Picker (shadcn Select) no
+// topo lista todos os hosts visitados na sessão de interceptação atual; o
+// conteúdo abaixo mostra Framework + Libraries + recomendações apenas do host
+// selecionado (default = host mais recente). Trocar pra single-host evita o
+// muro de seções empilhadas que poluía a UI quando havia 3+ hosts.
 //
 // Hidratação: `SheetContent` (Radix) só monta seus filhos quando o drawer abre,
-// então broadcasts emitidos antes ficariam perdidos no void. No mount pedimos
+// então broadcasts emitidos antes ficariam perdidos. No mount pedimos
 // `getLiveSnapshot` ao background e dispatchamos `hydrate` antes de registrar
 // o listener — garantindo que o painel reflita o estado acumulado da sessão.
 export function LiveInsightsPanel({ tabId, isInterceptionActive, onCountChange }: Props) {
 	const [state, dispatch] = useReducer(reducer, INITIAL);
+	const [selectedHost, setSelectedHost] = useState<string | null>(null);
 
 	useEffect(() => {
 		dispatch({ type: 'clear' });
+		setSelectedHost(null);
 		if (tabId == null) return;
 
 		let cancelled = false;
@@ -161,8 +166,9 @@ export function LiveInsightsPanel({ tabId, isInterceptionActive, onCountChange }
 		onCountChange?.(state.recommendations.length);
 	}, [state.recommendations.length, onCountChange]);
 
-	// Agrupa recomendações por host para renderização. Memoizado pra evitar
-	// O(n) a cada re-render quando outras props mudam.
+	// Recomendações por host: alimenta tanto o badge de cada opção do select
+	// quanto o conteúdo do host selecionado. Memoizado pra recomputar só quando
+	// a lista de recomendações realmente muda.
 	const recsByHost = useMemo(() => {
 		const map = new Map<string, Recommendation[]>();
 		for (const r of state.recommendations) {
@@ -173,10 +179,8 @@ export function LiveInsightsPanel({ tabId, isInterceptionActive, onCountChange }
 		return map;
 	}, [state.recommendations]);
 
-	// Lista de hosts a renderizar: união de hosts com detection + hosts com
-	// recomendações. Ordem mais-recente-primeiro = ordem reversa da inserção
-	// no Map.detectionsByHost; hosts órfãos (só recomendações, sem detection)
-	// vão pro final.
+	// Hosts em ordem mais-recente-primeiro: detection-hosts (Map reverso) +
+	// hosts órfãos que só têm recomendações (sem detection ainda).
 	const hostList = useMemo(() => {
 		const ordered: string[] = [];
 		const seen = new Set<string>();
@@ -196,30 +200,63 @@ export function LiveInsightsPanel({ tabId, isInterceptionActive, onCountChange }
 		return ordered;
 	}, [state.detectionsByHost, recsByHost]);
 
+	// Auto-seleção: ao popular hostList pela primeira vez ou se o host selecionado
+	// "sair" da lista (clear), pular pro mais recente. Não trocamos automaticamente
+	// quando uma nova detection chega: ficaria jarring trocar a tela pra um host
+	// que o usuário não pediu.
+	useEffect(() => {
+		if (hostList.length === 0) {
+			if (selectedHost !== null) setSelectedHost(null);
+			return;
+		}
+		if (selectedHost === null || !hostList.includes(selectedHost)) {
+			setSelectedHost(hostList[0]);
+		}
+	}, [hostList, selectedHost]);
+
 	if (tabId == null) return null;
 
 	const totalRecommendations = state.recommendations.length;
 	const totalHosts = hostList.length;
+	const activeDetection = selectedHost ? (state.detectionsByHost.get(selectedHost) ?? null) : null;
+	const activeRecommendations = selectedHost ? (recsByHost.get(selectedHost) ?? []) : [];
 
 	return (
-		<div className="flex h-full flex-col overflow-auto" aria-label="Live Insights">
-			<header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background px-4 py-3">
-				<div className="flex flex-col">
-					<h2 className="font-semibold text-sm">Live Insights</h2>
-					{totalHosts > 0 && (
-						<span className="text-[11px] text-muted-foreground">
-							{totalHosts} {totalHosts === 1 ? 'host' : 'hosts'} · {totalRecommendations}{' '}
-							{totalRecommendations === 1 ? 'recomendação' : 'recomendações'}
-						</span>
-					)}
+		<div className="flex h-full flex-col" aria-label="Live Insights">
+			<header className="sticky top-0 z-10 border-b bg-background">
+				<div className="flex items-center justify-between px-4 py-3">
+					<div className="flex flex-col">
+						<h2 className="font-semibold text-sm">Live Insights</h2>
+						{totalHosts > 0 && (
+							<span className="text-[11px] text-muted-foreground">
+								{totalHosts} {totalHosts === 1 ? 'host' : 'hosts'} · {totalRecommendations}{' '}
+								{totalRecommendations === 1 ? 'recomendação' : 'recomendações'}
+							</span>
+						)}
+					</div>
+					<button
+						type="button"
+						className="text-muted-foreground text-xs hover:underline"
+						onClick={() => {
+							dispatch({ type: 'clear' });
+							setSelectedHost(null);
+						}}
+					>
+						limpar
+					</button>
 				</div>
-				<button
-					type="button"
-					className="text-muted-foreground text-xs hover:underline"
-					onClick={() => dispatch({ type: 'clear' })}
-				>
-					limpar
-				</button>
+
+				{totalHosts > 0 && (
+					<div className="px-3 pb-3">
+						<HostPicker
+							hosts={hostList}
+							detectionsByHost={state.detectionsByHost}
+							recsByHost={recsByHost}
+							value={selectedHost ?? hostList[0]}
+							onChange={setSelectedHost}
+						/>
+					</div>
+				)}
 			</header>
 
 			{!isInterceptionActive && (
@@ -231,16 +268,110 @@ export function LiveInsightsPanel({ tabId, isInterceptionActive, onCountChange }
 			{totalHosts === 0 ? (
 				<EmptyState />
 			) : (
-				hostList.map((host) => (
-					<HostSection
-						key={host}
-						host={host}
-						detection={state.detectionsByHost.get(host) ?? null}
-						recommendations={recsByHost.get(host) ?? []}
-					/>
-				))
+				<div
+					key={selectedHost ?? 'none'}
+					className="flex-1 overflow-auto animate-in fade-in-0 duration-150"
+				>
+					<HostFramework detection={activeDetection} />
+					<HostRecommendations items={activeRecommendations} />
+				</div>
 			)}
 		</div>
+	);
+}
+
+function HostPicker({
+	hosts,
+	detectionsByHost,
+	recsByHost,
+	value,
+	onChange,
+}: {
+	hosts: string[];
+	detectionsByHost: Map<string, LiveDetectionEntry>;
+	recsByHost: Map<string, Recommendation[]>;
+	value: string;
+	onChange: (host: string) => void;
+}) {
+	const selectedDetection = detectionsByHost.get(value) ?? null;
+	const selectedRecs = recsByHost.get(value)?.length ?? 0;
+	const frameworkLabel = selectedDetection
+		? `${selectedDetection.fingerprint.framework.name}${
+				selectedDetection.fingerprint.framework.version
+					? ` ${selectedDetection.fingerprint.framework.version}`
+					: ''
+			}`
+		: null;
+
+	return (
+		<Select value={value} onValueChange={onChange}>
+			<SelectTrigger
+				data-testid="live-insights-host-picker"
+				className="h-auto min-h-[44px] w-full px-3 py-2 text-left"
+			>
+				<SelectValue>
+					<div className="flex min-w-0 flex-col gap-0.5">
+						<div className="flex min-w-0 items-center gap-2">
+							<span className="truncate font-mono font-medium text-sm" title={value}>
+								{value}
+							</span>
+							{frameworkLabel && (
+								<Badge variant="default" className="shrink-0 text-[10px]">
+									{frameworkLabel}
+								</Badge>
+							)}
+						</div>
+						{selectedRecs > 0 && (
+							<span className="text-[10px] text-muted-foreground">
+								{selectedRecs} {selectedRecs === 1 ? 'recomendação' : 'recomendações'} neste host
+							</span>
+						)}
+					</div>
+				</SelectValue>
+			</SelectTrigger>
+			<SelectContent className="max-h-[60vh]">
+				{hosts.map((host, idx) => {
+					const det = detectionsByHost.get(host) ?? null;
+					const recs = recsByHost.get(host)?.length ?? 0;
+					const fw = det
+						? `${det.fingerprint.framework.name}${det.fingerprint.framework.version ? ` ${det.fingerprint.framework.version}` : ''}`
+						: null;
+					return (
+						<SelectItem
+							key={host}
+							value={host}
+							data-testid={`live-insights-host-option-${host}`}
+							className="py-2"
+						>
+							<div className="flex min-w-0 flex-col gap-0.5">
+								<div className="flex min-w-0 items-center gap-2">
+									<span className="truncate font-mono font-medium text-xs" title={host}>
+										{host}
+									</span>
+									{idx === 0 && (
+										<span
+											className="size-1.5 shrink-0 rounded-full bg-info"
+											aria-label="host mais recente"
+										/>
+									)}
+								</div>
+								<div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+									{fw ? <span>{fw}</span> : <span className="italic">sem detecção</span>}
+									{recs > 0 && (
+										<>
+											<span aria-hidden>·</span>
+											<span>
+												{recs} {recs === 1 ? 'rec' : 'recs'}
+											</span>
+										</>
+									)}
+								</div>
+							</div>
+						</SelectItem>
+					);
+				})}
+			</SelectContent>
+		</Select>
 	);
 }
 
@@ -252,66 +383,6 @@ function EmptyState() {
 				Nenhuma recomendação até agora. Carregue recursos da página para acionar regras.
 			</p>
 		</div>
-	);
-}
-
-function HostSection({
-	host,
-	detection,
-	recommendations,
-}: {
-	host: string;
-	detection: LiveDetectionEntry | null;
-	recommendations: Recommendation[];
-}) {
-	// Sessões iniciam expandidas: usuário abriu o drawer pra ver tudo. Pode
-	// recolher manualmente para focar em um host específico.
-	const [open, setOpen] = useState(true);
-
-	const recCount = recommendations.length;
-	const frameworkLabel = detection
-		? `${detection.fingerprint.framework.name}${
-				detection.fingerprint.framework.version ? ` ${detection.fingerprint.framework.version}` : ''
-			}`
-		: null;
-
-	return (
-		<section className="border-t" data-host={host}>
-			<button
-				type="button"
-				onClick={() => setOpen((o) => !o)}
-				data-testid={`live-insights-host-toggle-${host}`}
-				className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-muted/40"
-			>
-				<div className="flex min-w-0 items-center gap-2">
-					<span aria-hidden className="text-muted-foreground text-xs">
-						{open ? '▾' : '▸'}
-					</span>
-					<span className="truncate font-mono font-medium text-sm" title={host}>
-						{host}
-					</span>
-				</div>
-				<div className="flex items-center gap-2">
-					{frameworkLabel && (
-						<Badge variant="default" className="text-[10px]">
-							{frameworkLabel}
-						</Badge>
-					)}
-					{recCount > 0 && (
-						<Badge variant="secondary" className="text-[10px]">
-							{recCount} {recCount === 1 ? 'rec' : 'recs'}
-						</Badge>
-					)}
-				</div>
-			</button>
-
-			{open && (
-				<div className="border-t">
-					<HostFramework detection={detection} />
-					<HostRecommendations items={recommendations} />
-				</div>
-			)}
-		</section>
 	);
 }
 
@@ -335,8 +406,9 @@ function SubSection({
 function HostFramework({ detection }: { detection: LiveDetectionEntry | null }) {
 	if (!detection) {
 		return (
-			<p className="px-3 py-2 text-muted-foreground text-xs">
-				Sem detecção do probe para este host.
+			<p className="border-b px-3 py-2 text-muted-foreground text-xs">
+				Sem detecção do probe para este host. Recomendações abaixo são derivadas de respostas HTTP
+				capturadas.
 			</p>
 		);
 	}
@@ -344,7 +416,7 @@ function HostFramework({ detection }: { detection: LiveDetectionEntry | null }) 
 	const interestingHttp = fp.httpClients.filter((c) => c.name !== 'fetch' && c.name !== 'xhr');
 
 	return (
-		<div className="space-y-3 border-b px-3 py-2">
+		<div className="space-y-3 border-b px-3 py-3">
 			<SubSection label="URL">
 				<p className="break-all font-mono text-[11px] text-muted-foreground" title={detection.url}>
 					{detection.url}
