@@ -53,6 +53,7 @@ describe('recorder.addStateChange', () => {
 			prev: { a: 1 },
 			next: { a: 2 },
 		});
+		await recorder._flushForTests(id);
 		const s = await sessionStore.get(id);
 		expect(s).toBeTruthy();
 		const phase = s?.detectionPhases[0];
@@ -73,6 +74,7 @@ describe('recorder.addStateChange', () => {
 				next: { a: i },
 			});
 		}
+		await recorder._flushForTests(id);
 		const s = await sessionStore.get(id);
 		expect((s?.detectionPhases[0].stateKeyframes ?? []).length).toBeGreaterThanOrEqual(1);
 	});
@@ -95,6 +97,7 @@ describe('recorder.addStateChange', () => {
 			prev: { a: 1 },
 			next: { a: 2 },
 		});
+		await recorder._flushForTests(id);
 		const s = await sessionStore.get(id);
 		expect((s?.detectionPhases[0].stateKeyframes ?? []).length).toBeGreaterThanOrEqual(1);
 	});
@@ -118,6 +121,7 @@ describe('recorder.addStateChange', () => {
 			prev: {},
 			next: { a: 1 },
 		});
+		await recorder._flushForTests(id);
 		const got = await sessionStore.get(id);
 		const stateEvents = got?.events.filter((e) => e.type === 'state') ?? [];
 		expect(stateEvents).toHaveLength(1);
@@ -140,6 +144,7 @@ describe('recorder.addStateChange', () => {
 			prev: { x: 'init' },
 			next: { x: 'next' },
 		});
+		await recorder._flushForTests(id);
 		const s = await sessionStore.get(id);
 		expect(Object.keys(s?.detectionPhases[0].stateBaseline ?? {})).toEqual(
 			expect.arrayContaining(['redux:1', 'zustand:1']),

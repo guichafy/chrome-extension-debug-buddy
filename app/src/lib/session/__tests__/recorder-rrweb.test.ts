@@ -31,6 +31,7 @@ describe('recorder.addRrwebEvents', () => {
 	it('append eventos a session.rrwebEvents (cria array se ausente)', async () => {
 		const id = await recorder.startSession({ tabId: 1, ...META });
 		await recorder.addRrwebEvents(id, [ev(2, 1), ev(3, 2)]);
+		await recorder._flushForTests(id);
 		const s = await sessionStore.get(id);
 		expect(s?.rrwebEvents?.length).toBe(2);
 		expect(s?.rrwebEvents?.[0].type).toBe(2);
@@ -40,6 +41,7 @@ describe('recorder.addRrwebEvents', () => {
 		const id = await recorder.startSession({ tabId: 1, ...META });
 		await recorder.addRrwebEvents(id, [ev(2, 1)]);
 		await recorder.addRrwebEvents(id, [ev(3, 2), ev(3, 3)]);
+		await recorder._flushForTests(id);
 		const s = await sessionStore.get(id);
 		expect(s?.rrwebEvents?.length).toBe(3);
 	});

@@ -129,6 +129,56 @@ function serializeBySessionId<T>(sessionId: string, fn: () => Promise<T>): Promi
 	return next;
 }
 
+/**
+ * Cache in-memory por sessionId pra evitar `sessionStore.get` em cada add*.
+ * Sessões grandes (eventos acumulados) custam ~500KB de JSON.parse por get.
+ * Cache é populado no primeiro get e mantido até `stopSession` ou flush final.
+ *
+ * Combinado com `pendingFlushes` (debounce dos puts), reduz write amplification
+ * de O(N²) (cada event reescreve sessão crescendo) pra O(N) amortizado.
+ */
+const sessionCache = new Map<string, Session>();
+
+const FLUSH_DEBOUNCE_MS = 200;
+const pendingFlushes = new Map<string, ReturnType<typeof setTimeout>>();
+
+function scheduleFlush(sessionId: string): void {
+	const existing = pendingFlushes.get(sessionId);
+	if (existing) clearTimeout(existing);
+	const timer = setTimeout(() => {
+		void flushSession(sessionId);
+	}, FLUSH_DEBOUNCE_MS);
+	pendingFlushes.set(sessionId, timer);
+}
+
+async function flushSession(sessionId: string): Promise<void> {
+	pendingFlushes.delete(sessionId);
+	const cached = sessionCache.get(sessionId);
+	if (!cached) return;
+	try {
+		await sessionStore.put(cached);
+	} catch (err) {
+		console.error('[session] flush put falhou:', err);
+	}
+}
+
+async function flushAndForget(sessionId: string): Promise<void> {
+	const existing = pendingFlushes.get(sessionId);
+	if (existing) {
+		clearTimeout(existing);
+		pendingFlushes.delete(sessionId);
+	}
+	await flushSession(sessionId);
+}
+
+async function getCachedOrLoad(sessionId: string): Promise<Session | null> {
+	const cached = sessionCache.get(sessionId);
+	if (cached) return cached;
+	const fresh = await sessionStore.get(sessionId);
+	if (fresh) sessionCache.set(sessionId, fresh);
+	return fresh;
+}
+
 function getOrInitRuntime(sessionId: string, session: Session): SessionRuntime {
 	let r = runtime.get(sessionId);
 	if (!r) {
@@ -156,7 +206,11 @@ async function autoStop(
 		endedDurationMs: session.endedAt - r.startedAt,
 		navigationCount: r.navigationCount,
 	};
+	// Hard limit hit é a última oportunidade de persistir — força flush sincrono
+	// e descarta cache pra que próximos reads não vejam estado pós-encerramento.
+	await flushAndForget(session.id);
 	await sessionStore.put(session);
+	sessionCache.delete(session.id);
 	runtime.delete(session.id);
 }
 
@@ -207,12 +261,19 @@ export const recorder = {
 			events: [],
 		};
 		await sessionStore.put(session);
+		sessionCache.set(session.id, session);
 		return session.id;
 	},
 
 	stopSession(id: string): Promise<void> {
 		return serializeBySessionId(id, async () => {
-			const s = await sessionStore.get(id);
+			// Cancela qualquer flush pendente — vamos consolidar em put síncrono final.
+			const pendingTimer = pendingFlushes.get(id);
+			if (pendingTimer) {
+				clearTimeout(pendingTimer);
+				pendingFlushes.delete(id);
+			}
+			const s = await getCachedOrLoad(id);
 			if (!s) throw new Error(`Session ${id} não encontrada`);
 			// Idempotente por design: background pode chamar stopSession em tab close
 			// sem precisar saber se a sessão já foi encerrada antes (ex: usuário ja
@@ -231,13 +292,16 @@ export const recorder = {
 			sessionEngines.delete(id);
 			runtime.delete(id);
 			stateRuntime.delete(id);
+			// Put síncrono final é a última oportunidade de persistir — cache descartado
+			// depois pra próximos reads sempre lerem do IDB (evita stale).
 			await sessionStore.put(s);
+			sessionCache.delete(id);
 		});
 	},
 
 	addPage(sessionId: string, detection: PageDetection): Promise<void> {
 		return serializeBySessionId(sessionId, async () => {
-			const s = await sessionStore.get(sessionId);
+			const s = await getCachedOrLoad(sessionId);
 			if (!s) throw new Error(`Session ${sessionId} não encontrada`);
 			if (s.endedAt !== null) throw new Error(`Session ${sessionId} já encerrada`);
 			const last = s.detectionPhases[s.detectionPhases.length - 1];
@@ -252,7 +316,7 @@ export const recorder = {
 				last.pages.push(detection);
 				last.endTimestamp = detection.timestamp;
 				s.events.push(makeDetectionEvent(detection.timestamp, last.id));
-				await sessionStore.put(s);
+				scheduleFlush(sessionId);
 				return;
 			}
 
@@ -268,13 +332,13 @@ export const recorder = {
 				s.detectionPhases.push(phase);
 				s.events.push(makeDetectionEvent(detection.timestamp, phase.id));
 			}
-			await sessionStore.put(s);
+			scheduleFlush(sessionId);
 		});
 	},
 
 	addEvent(sessionId: string, event: SessionEvent): Promise<void> {
 		return serializeBySessionId(sessionId, async () => {
-			const s = await sessionStore.get(sessionId);
+			const s = await getCachedOrLoad(sessionId);
 			if (!s) throw new Error(`Session ${sessionId} não encontrada`);
 			if (s.endedAt !== null) throw new Error(`Session ${sessionId} já encerrada`);
 
@@ -288,7 +352,7 @@ export const recorder = {
 					if (result.coalesced) {
 						s.events[s.events.length - 1] = result.event;
 						// Não cresce bytes (coalesce só atualiza count na entrada existente)
-						await sessionStore.put(s);
+						scheduleFlush(sessionId);
 						return;
 					}
 				}
@@ -309,7 +373,7 @@ export const recorder = {
 				return;
 			}
 
-			await sessionStore.put(s);
+			scheduleFlush(sessionId);
 		});
 	},
 
@@ -328,7 +392,7 @@ export const recorder = {
 		updates: Partial<InterceptedResponse>,
 	): Promise<void> {
 		return serializeBySessionId(sessionId, async () => {
-			const s = await sessionStore.get(sessionId);
+			const s = await getCachedOrLoad(sessionId);
 			if (!s) return; // sessão removida — no-op
 			let mutated = false;
 			for (const ev of s.events) {
@@ -347,14 +411,14 @@ export const recorder = {
 				if (updates.status !== undefined) ev.status = updates.status;
 				mutated = true;
 			}
-			if (mutated) await sessionStore.put(s);
+			if (mutated) scheduleFlush(sessionId);
 		});
 	},
 
 	addRrwebEvents(sessionId: string, events: RrwebEvent[]): Promise<void> {
 		if (events.length === 0) return Promise.resolve();
 		return serializeBySessionId(sessionId, async () => {
-			const s = await sessionStore.get(sessionId);
+			const s = await getCachedOrLoad(sessionId);
 			if (!s) throw new Error(`Session ${sessionId} não encontrada`);
 			if (s.endedAt !== null) throw new Error(`Session ${sessionId} já encerrada`);
 
@@ -375,13 +439,13 @@ export const recorder = {
 				return;
 			}
 
-			await sessionStore.put(s);
+			scheduleFlush(sessionId);
 		});
 	},
 
 	addStateChange(sessionId: string, payload: StateChangePayload): Promise<void> {
 		return serializeBySessionId(sessionId, async () => {
-			const s = await sessionStore.get(sessionId);
+			const s = await getCachedOrLoad(sessionId);
 			if (!s) throw new Error(`Session ${sessionId} não encontrada`);
 			if (s.endedAt !== null) throw new Error(`Session ${sessionId} já encerrada`);
 			const phase = s.detectionPhases[s.detectionPhases.length - 1];
@@ -420,7 +484,7 @@ export const recorder = {
 			if (ops.length === 0) {
 				// Sem mudança real — não fabricamos evento. Persistimos só se foi a
 				// primeira observação (pra registrar baseline).
-				if (isFirstObservation) await sessionStore.put(s);
+				if (isFirstObservation) scheduleFlush(sessionId);
 				return;
 			}
 
@@ -472,13 +536,13 @@ export const recorder = {
 				return;
 			}
 
-			await sessionStore.put(s);
+			scheduleFlush(sessionId);
 		});
 	},
 
 	addAntipatternHit(sessionId: string, hit: AntipatternHit): Promise<void> {
 		return serializeBySessionId(sessionId, async () => {
-			const s = await sessionStore.get(sessionId);
+			const s = await getCachedOrLoad(sessionId);
 			if (!s) throw new Error(`Session ${sessionId} não encontrada`);
 			if (s.endedAt !== null) throw new Error(`Session ${sessionId} já encerrada`);
 			if (!s.antipatternHits) s.antipatternHits = [];
@@ -489,7 +553,7 @@ export const recorder = {
 			);
 			if (exists) return;
 			s.antipatternHits.push(hit);
-			await sessionStore.put(s);
+			scheduleFlush(sessionId);
 		});
 	},
 
@@ -518,9 +582,21 @@ export const recorder = {
 	_resetEnginesForTests(): void {
 		sessionEngines.clear();
 		tabEngines.clear();
+		sessionCache.clear();
+		for (const t of pendingFlushes.values()) clearTimeout(t);
+		pendingFlushes.clear();
+	},
+
+	async _flushForTests(sessionId: string): Promise<void> {
+		await flushAndForget(sessionId);
 	},
 
 	async getActiveByTab(tabId: number): Promise<Session | null> {
+		// Prioriza cache se houver match — eventos in-flight podem ter sido escritos
+		// no cache mas ainda não flushed pro IDB. findActiveByTab leria stale.
+		for (const session of sessionCache.values()) {
+			if (session.tabId === tabId && session.endedAt === null) return session;
+		}
 		return sessionStore.findActiveByTab(tabId);
 	},
 
@@ -546,6 +622,9 @@ export const recorder = {
 		sessionEngines.clear();
 		tabEngines.clear();
 		stateRuntime.clear();
+		sessionCache.clear();
+		for (const t of pendingFlushes.values()) clearTimeout(t);
+		pendingFlushes.clear();
 		stateKeyframeEveryN = DEFAULT_STATE_KEYFRAME_EVERY_N_DIFFS;
 		stateKeyframeEveryT = DEFAULT_STATE_KEYFRAME_EVERY_T_MS;
 	},

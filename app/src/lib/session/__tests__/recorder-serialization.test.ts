@@ -61,6 +61,7 @@ describe('recorder — serialização de mutations concorrentes (bd 2qa)', () =>
 			recorder.addEvent(id, networkEv(13, 'https://a/6')),
 		]);
 
+		await recorder._flushForTests(id);
 		const s = await sessionStore.get(id);
 		expect(s).not.toBeNull();
 		// 6 network events e 1+2+1+3+1 = 8 rrweb events.
@@ -79,6 +80,7 @@ describe('recorder — serialização de mutations concorrentes (bd 2qa)', () =>
 			recorder.addEvent(id, consoleEv(3, 'rendered')),
 		]);
 
+		await recorder._flushForTests(id);
 		const s = await sessionStore.get(id);
 		const consoles = (s?.events ?? []).filter((e) => e.type === 'console');
 		expect(consoles).toHaveLength(1);
@@ -96,6 +98,7 @@ describe('recorder — serialização de mutations concorrentes (bd 2qa)', () =>
 		await expect(failing).rejects.toThrow(/não encontrada/);
 
 		await recorder.addEvent(id, networkEv(2, 'https://b/1'));
+		await recorder._flushForTests(id);
 		const s = await sessionStore.get(id);
 		expect(s?.events.filter((e) => e.type === 'network').length).toBe(1);
 	});

@@ -80,6 +80,7 @@ describe('recorder', () => {
 		});
 		await recorder.addPage(id, page('https://x/a', 10, fp()));
 		await recorder.addPage(id, page('https://x/b', 20, fp()));
+		await recorder._flushForTests(id);
 		const got = await sessionStore.get(id);
 		expect(got?.detectionPhases).toHaveLength(1);
 		expect(got?.detectionPhases[0].pages).toHaveLength(2);
@@ -96,6 +97,7 @@ describe('recorder', () => {
 		});
 		await recorder.addPage(id, page('https://x/', 10, fp()));
 		await recorder.addPage(id, page('https://y/', 20, fp({ framework: { name: 'angular' } })));
+		await recorder._flushForTests(id);
 		const got = await sessionStore.get(id);
 		expect(got?.detectionPhases).toHaveLength(2);
 		expect(got?.detectionPhases[1].fingerprint.framework.name).toBe('angular');
@@ -111,6 +113,7 @@ describe('recorder', () => {
 		});
 		await recorder.addPage(id, page('https://x/', 10, fp()));
 		await recorder.addPage(id, page('https://y/', 20, fp({ framework: { name: 'angular' } })));
+		await recorder._flushForTests(id);
 		const got = await sessionStore.get(id);
 		const detectionEvents = got?.events.filter((e) => e.type === 'detection') ?? [];
 		expect(detectionEvents).toHaveLength(2);
@@ -159,6 +162,7 @@ describe('recorder', () => {
 			canvasCaptureEnabled: false,
 		});
 		await recorder.addPage(id, page('https://x/', 10, fp()));
+		await recorder._flushForTests(id);
 		const phaseId = (await sessionStore.get(id))!.detectionPhases[0].id;
 		await recorder.addEvent(id, {
 			type: 'network',
@@ -169,6 +173,7 @@ describe('recorder', () => {
 			url: 'https://api/x',
 			status: 200,
 		});
+		await recorder._flushForTests(id);
 		const got = await sessionStore.get(id);
 		const networkEvents = got!.events.filter((e) => e.type === 'network');
 		expect(networkEvents).toHaveLength(1);
@@ -183,6 +188,7 @@ describe('recorder', () => {
 			canvasCaptureEnabled: false,
 		});
 		await recorder.addPage(id, page('https://x/', 10, fp()));
+		await recorder._flushForTests(id);
 		const phaseId = (await sessionStore.get(id))!.detectionPhases[0].id;
 		const baseConsole = {
 			type: 'console' as const,
@@ -193,6 +199,7 @@ describe('recorder', () => {
 		};
 		await recorder.addEvent(id, { ...baseConsole, timestamp: 11 });
 		await recorder.addEvent(id, { ...baseConsole, timestamp: 12 });
+		await recorder._flushForTests(id);
 		const got = await sessionStore.get(id);
 		const consoleEvents = got!.events.filter((e) => e.type === 'console');
 		expect(consoleEvents).toHaveLength(1);
@@ -210,6 +217,7 @@ describe('recorder', () => {
 			canvasCaptureEnabled: false,
 		});
 		await recorder.addPage(id, page('https://x/', 10, fp()));
+		await recorder._flushForTests(id);
 		const phaseId = (await sessionStore.get(id))!.detectionPhases[0].id;
 		recorder._setLimitsForTests({ sizeBytes: 500, durationMs: 60_000 });
 		try {
@@ -241,6 +249,7 @@ describe('recorder', () => {
 			canvasCaptureEnabled: false,
 		});
 		await recorder.addPage(id, page('https://x/', 10, fp()));
+		await recorder._flushForTests(id);
 		const phaseId = (await sessionStore.get(id))!.detectionPhases[0].id;
 		recorder._setLimitsForTests({ sizeBytes: 50_000_000, durationMs: 1 });
 		await new Promise((r) => setTimeout(r, 10));
@@ -270,6 +279,7 @@ describe('recorder', () => {
 			canvasCaptureEnabled: false,
 		});
 		await recorder.addPage(id, page('https://x/', 10, fp()));
+		await recorder._flushForTests(id);
 		const phaseId = (await sessionStore.get(id))!.detectionPhases[0].id;
 		await recorder.addEvent(id, {
 			type: 'network',

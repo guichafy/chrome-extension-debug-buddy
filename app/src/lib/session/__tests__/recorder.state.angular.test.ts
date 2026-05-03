@@ -55,6 +55,7 @@ describe('recorder.addStateChange — Phase 5 (angular-signal e ngrx)', () => {
 			prev: { value: 0 },
 			next: { value: 1 },
 		});
+		await recorder._flushForTests(id);
 		const s = await sessionStore.get(id);
 		expect(s?.detectionPhases[0].stateBaseline?.['sig:1']?.storeKind).toBe('angular-signal');
 		const stateEvents = (s?.events ?? []).filter((e) => e.type === 'state');
@@ -73,6 +74,7 @@ describe('recorder.addStateChange — Phase 5 (angular-signal e ngrx)', () => {
 			prev: { count: 0 },
 			next: { count: 1 },
 		});
+		await recorder._flushForTests(id);
 		const s = await sessionStore.get(id);
 		const ev = (s?.events ?? []).find((e) => e.type === 'state');
 		if (!ev || ev.type !== 'state') throw new Error('evento state ausente');

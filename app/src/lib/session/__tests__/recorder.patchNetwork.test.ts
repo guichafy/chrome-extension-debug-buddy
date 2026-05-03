@@ -52,6 +52,7 @@ test('patchNetworkEventRequest atualiza event.request e durationMs (strip body)'
 		duration: 42,
 	});
 
+	await recorder._flushForTests(id);
 	const s = await sessionStore.get(id);
 	const ev = s?.events.find((e) => e.type === 'network' && e.requestId === 'req-1');
 	expect(ev).toBeDefined();

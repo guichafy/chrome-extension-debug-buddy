@@ -42,6 +42,7 @@ describe('recorder.addAntipatternHit', () => {
 	it('persiste hit em session.antipatternHits', async () => {
 		const id = await makeSession();
 		await recorder.addAntipatternHit(id, fakeHit());
+		await recorder._flushForTests(id);
 		const s = await sessionStore.get(id);
 		expect(s?.antipatternHits).toHaveLength(1);
 		expect(s?.antipatternHits?.[0].patternId).toBe('dup-req-burst');
@@ -51,6 +52,7 @@ describe('recorder.addAntipatternHit', () => {
 		const id = await makeSession();
 		await recorder.addAntipatternHit(id, fakeHit());
 		await recorder.addAntipatternHit(id, fakeHit());
+		await recorder._flushForTests(id);
 		const s = await sessionStore.get(id);
 		expect(s?.antipatternHits).toHaveLength(1);
 	});

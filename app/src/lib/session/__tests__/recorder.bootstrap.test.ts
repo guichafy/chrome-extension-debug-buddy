@@ -52,6 +52,7 @@ describe('recorder bootstrap phase', () => {
 			},
 			triggerType: 'initial',
 		});
+		await recorder._flushForTests(id);
 		const s = await sessionStore.get(id);
 		// biome-ignore lint/style/noNonNullAssertion: teste — sessão recém-criada
 		expect(s!.detectionPhases).toHaveLength(1);
@@ -106,6 +107,7 @@ describe('recorder bootstrap phase', () => {
 			},
 			triggerType: 'navigation',
 		});
+		await recorder._flushForTests(id);
 		const s = await sessionStore.get(id);
 		// biome-ignore lint/style/noNonNullAssertion: teste — sessão recém-criada
 		expect(s!.detectionPhases).toHaveLength(2);
@@ -151,6 +153,7 @@ describe('recorder bootstrap phase', () => {
 			triggerType: 'initial',
 		});
 
+		await recorder._flushForTests(id);
 		const s = await sessionStore.get(id);
 		// biome-ignore lint/style/noNonNullAssertion: teste — sessão recém-criada
 		const consoleEvents = s!.events.filter((e) => e.type === 'console');
