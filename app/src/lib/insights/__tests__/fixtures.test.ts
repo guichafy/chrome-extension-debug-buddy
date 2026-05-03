@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { COMPILED_CATALOG } from '../catalog';
 import { Scorer } from '../scorer';
 import type { Signal } from '../types';
+import shopifyFixture from './fixtures/shopify.json';
 import wordpressFixture from './fixtures/wordpress.json';
 
 interface Fixture {
@@ -19,6 +20,15 @@ describe('fixtures — WordPress', () => {
 	test('detects WordPress and implies PHP', () => {
 		const detected = runFixture(wordpressFixture as Fixture);
 		for (const expected of (wordpressFixture as Fixture).expectedHits) {
+			expect(detected).toContain(expected);
+		}
+	});
+});
+
+describe('fixtures — Shopify', () => {
+	test('detects Shopify from CDN scriptSrc + headers', () => {
+		const detected = runFixture(shopifyFixture as Fixture);
+		for (const expected of (shopifyFixture as Fixture).expectedHits) {
 			expect(detected).toContain(expected);
 		}
 	});
