@@ -1,6 +1,12 @@
-import { useEffect, useReducer, useState } from 'react';
+import { type ReactNode, useEffect, useReducer, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import type { ProbeStateChangePayload } from '@/probe/protocol';
+import {
+	CATEGORY_LABEL,
+	CATEGORY_ORDER,
+	RULE_CATEGORIES,
+	type RecommendationCategory,
+} from '@/lib/session/recommendations/categories';
 import type { EnvironmentFingerprint, Recommendation, StoreKind } from '@/lib/session/types';
 import type { Message } from '@/types/messages';
 import type { LiveStateSnapshot } from './StateInspector';
@@ -237,6 +243,23 @@ function Section({
 	);
 }
 
+function SubSection({
+	label,
+	children,
+}: {
+	label: string;
+	children: ReactNode;
+}) {
+	return (
+		<div>
+			<h4 className="mb-1 font-medium text-[10px] text-muted-foreground uppercase tracking-wider">
+				{label}
+			</h4>
+			<div className="flex flex-wrap items-center gap-1.5">{children}</div>
+		</div>
+	);
+}
+
 function FrameworkSection({ detection }: { detection: LiveDetection | null }) {
 	if (!detection) {
 		return (
@@ -246,47 +269,77 @@ function FrameworkSection({ detection }: { detection: LiveDetection | null }) {
 		);
 	}
 	const fp = detection.fingerprint;
+	const interestingHttp = fp.httpClients.filter((c) => c.name !== 'fetch' && c.name !== 'xhr');
+
 	return (
-		<div className="space-y-1.5 px-3 py-2">
-			<div className="flex flex-wrap items-center gap-1.5">
+		<div className="space-y-3 px-3 py-2">
+			<SubSection label="URL">
+				<p className="break-all font-mono text-[11px] text-muted-foreground" title={detection.url}>
+					{detection.url}
+				</p>
+			</SubSection>
+
+			<SubSection label="Framework">
 				<Badge variant="default" className="text-xs">
 					{fp.framework.name}
 					{fp.framework.version ? ` ${fp.framework.version}` : ''}
 				</Badge>
-				{fp.libraries.map((l) => (
-					<Badge key={`lib-${l.name}`} variant="secondary" className="text-xs">
-						{l.name}
-						{l.version ? ` ${l.version}` : ''}
-						{l.confidence !== 'high' ? ` (${l.confidence})` : ''}
-					</Badge>
-				))}
-				{fp.httpClients.map((c) => (
-					<Badge key={`http-${c.name}`} variant="secondary" className="text-xs">
-						{c.name}
-						{c.confidence !== 'high' ? ` (${c.confidence})` : ''}
-					</Badge>
-				))}
-				{fp.dataFetching.map((d) => (
-					<Badge
-						key={`data-${d.name}`}
-						variant={d.treatment === 'tracked' ? 'secondary' : 'outline'}
-						className="text-xs"
-					>
-						{d.name}
-						{d.version ? ` ${d.version}` : ''}
-						{d.treatment === 'detection-only' ? ' · detect-only' : ''}
-					</Badge>
-				))}
-				{fp.stateManagers.map((s) => (
-					<Badge key={`state-${s.name}`} variant="secondary" className="text-xs">
-						{s.name}
-						{s.storesDetected > 0 ? ` ×${s.storesDetected}` : ''}
-					</Badge>
-				))}
-			</div>
-			<p className="break-all font-mono text-[11px] text-muted-foreground" title={detection.url}>
-				{detection.url}
-			</p>
+			</SubSection>
+
+			{fp.libraries.length > 0 && (
+				<SubSection label="Libraries">
+					{fp.libraries.map((l) => (
+						<Badge key={`lib-${l.name}`} variant="secondary" className="text-xs">
+							{l.name}
+							{l.version ? ` ${l.version}` : ''}
+							{l.confidence !== 'high' ? ` (${l.confidence})` : ''}
+						</Badge>
+					))}
+				</SubSection>
+			)}
+
+			{interestingHttp.length > 0 && (
+				<SubSection label="HTTP Clients">
+					{interestingHttp.map((c) => (
+						<Badge key={`http-${c.name}`} variant="secondary" className="text-xs">
+							{c.name}
+							{c.confidence !== 'high' ? ` (${c.confidence})` : ''}
+						</Badge>
+					))}
+				</SubSection>
+			)}
+
+			{fp.dataFetching.length > 0 && (
+				<SubSection label="Data Fetching">
+					{fp.dataFetching.map((d) => (
+						<Badge
+							key={`data-${d.name}`}
+							variant={d.treatment === 'tracked' ? 'secondary' : 'outline'}
+							className="text-xs"
+							title={
+								d.treatment === 'detection-only'
+									? 'Detectada nesta versão; sem agrupamento de operations / cache inspector dedicado.'
+									: undefined
+							}
+						>
+							{d.name}
+							{d.version ? ` ${d.version}` : ''}
+							{d.treatment === 'detection-only' ? ' · detect-only' : ''}
+						</Badge>
+					))}
+				</SubSection>
+			)}
+
+			{fp.stateManagers.length > 0 && (
+				<SubSection label="State">
+					{fp.stateManagers.map((s) => (
+						<Badge key={`state-${s.name}`} variant="secondary" className="text-xs">
+							{s.name}
+							{s.storesDetected > 0 ? ` ×${s.storesDetected}` : ''}
+						</Badge>
+					))}
+				</SubSection>
+			)}
 		</div>
 	);
 }
@@ -299,11 +352,32 @@ function RecommendationsSection({ items }: { items: Recommendation[] }) {
 			</p>
 		);
 	}
+
+	const grouped: Record<RecommendationCategory, Recommendation[]> = {
+		security: [],
+		performance: [],
+	};
+	for (const r of items) {
+		const cat = RULE_CATEGORIES[r.ruleId];
+		if (cat) grouped[cat].push(r);
+	}
+
 	return (
 		<div>
-			{items.map((r) => (
-				<RecommendationRow key={r.id} item={r} />
-			))}
+			{CATEGORY_ORDER.map((cat) =>
+				grouped[cat].length === 0 ? null : (
+					<details key={cat} open className="border-b last:border-b-0">
+						<summary className="cursor-pointer select-none px-3 py-2 font-medium text-muted-foreground text-xs uppercase tracking-wider hover:bg-muted/40">
+							{CATEGORY_LABEL[cat]} ({grouped[cat].length})
+						</summary>
+						<div>
+							{grouped[cat].map((r) => (
+								<RecommendationRow key={r.id} item={r} />
+							))}
+						</div>
+					</details>
+				),
+			)}
 		</div>
 	);
 }
