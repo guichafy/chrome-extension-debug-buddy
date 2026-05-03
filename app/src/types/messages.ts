@@ -45,6 +45,8 @@ export type MessageAction =
 	| 'getActiveSession'
 	| 'exportSession'
 	| 'importSession'
+	// Session Replay — Bug 1 (lifecycle binding)
+	| 'recordingStateChanged'
 	// Session Replay — Phase 2 (rrweb)
 	| 'rrwebBatch'
 	// Session Replay — Phase 3 (antipatterns ao vivo)

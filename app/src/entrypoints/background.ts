@@ -9,6 +9,7 @@ import { NetworkTimingTracker } from '@/lib/networkTiming';
 import { recorder } from '@/lib/session/recorder';
 import { serializeSession } from '@/lib/session/exporter';
 import { parseDbsession } from '@/lib/session/importer';
+import { getRecordingDisabled } from '@/lib/session/recordingPreference';
 import { resolveCallsite } from '@/lib/session/sourceMap';
 import { sessionStore } from '@/lib/session/storage';
 import { purgeOldSessions } from '@/lib/session/privacy/autoPurge';
@@ -1685,6 +1686,69 @@ async function startDebugging(specificTabId: number | null = null): Promise<bool
 		pendingResponses = {};
 		timingTracker.reset();
 
+		// --- Acoplamento gravação ↔ interceptação (Bug 1) ---
+		// Default: ao iniciar interceptação, iniciamos uma sessão de gravação.
+		// Usuário pode desligar via switch "Gravação" da SiteHeader, que persiste
+		// `recordingDisabled=true` em chrome.storage.local.
+		// Falhas aqui são logadas e ignoradas — a interceptação continua mesmo se
+		// gravação não puder começar (ex.: storage corrompido, content script
+		// ausente para probe/rrweb).
+		try {
+			const recordingDisabled = await getRecordingDisabled();
+			if (!recordingDisabled) {
+				const tab = await chrome.tabs.get(tabId);
+				const sessionId = await recorder.startSession({
+					tabId,
+					initialUrl: tab.url ?? '',
+					userAgent: navigator.userAgent,
+					viewportSize: { w: tab.width ?? 0, h: tab.height ?? 0 },
+					// TODO(session): captura de canvas é decisão por-sessão e hoje
+					// não há UI para isso após a remoção do dialog. Follow-up: trazer
+					// opt-in via menu/settings se houver demanda.
+					canvasCaptureEnabled: false,
+				});
+				// Habilita Runtime/Log para captura de console/exceptions.
+				try {
+					await chrome.debugger.sendCommand({ tabId }, 'Runtime.enable');
+					await chrome.debugger.sendCommand({ tabId }, 'Log.enable');
+				} catch (err) {
+					console.warn(
+						'[session] Runtime/Log.enable falhou — captura de console pode ficar reduzida:',
+						err,
+					);
+				}
+				// Sinaliza probe + rrweb. Falhas aqui são fatais para a gravação
+				// mas não para a interceptação — log e seguir.
+				try {
+					await chrome.tabs.sendMessage(tabId, {
+						action: 'probeStartDetection',
+						reason: 'initial',
+					});
+					await chrome.tabs.sendMessage(tabId, {
+						action: '__rrweb_start',
+						sessionId,
+						recordCanvas: false,
+						maskTextSelector: livePrivacyConfig?.rrwebMaskTextSelector,
+						maskAllInputs: livePrivacyConfig?.rrwebMaskAllInputs,
+					});
+				} catch (err) {
+					console.warn(
+						'[session] gravação iniciada mas probe/rrweb falhou (provavelmente content script não injetado):',
+						err,
+					);
+				}
+				broadcastToUI('recordingStateChanged', {
+					tabId,
+					active: true,
+					sessionId,
+				});
+			}
+		} catch (err) {
+			// Não-fatal: interceptação continua mesmo se gravação falha (ex.: aba
+			// sem permissão de probe). Erro é logado para depuração.
+			console.warn('[session] auto-start de gravação falhou:', err);
+		}
+
 		console.log('Debugging started successfully');
 		return true;
 	} catch (error) {
@@ -1726,6 +1790,40 @@ async function stopDebugging(): Promise<boolean> {
 		// Disable network tracking
 		await chrome.debugger.sendCommand({ tabId: attachedTabId }, 'Network.disable');
 		console.log('Network tracking disabled');
+
+		// --- Acoplamento gravação ↔ interceptação (Bug 1) ---
+		// Encerra qualquer sessão ativa associada à tab antes de detacharmos.
+		// stopSession é idempotente; se a sessão já foi parada (usuário clicou
+		// "Parar Gravação" sozinho — fluxo legado), o segundo call no-op.
+		try {
+			const activeSession = await recorder.getActiveByTab(attachedTabId);
+			if (activeSession) {
+				try {
+					await chrome.debugger.sendCommand({ tabId: attachedTabId }, 'Runtime.disable');
+					await chrome.debugger.sendCommand({ tabId: attachedTabId }, 'Log.disable');
+				} catch {
+					// Debugger pode ter sido detached por outro caminho — ignorar.
+				}
+				try {
+					await chrome.tabs.sendMessage(attachedTabId, { action: '__rrweb_stop' });
+				} catch {
+					// Tab pode ter fechado.
+				}
+				try {
+					await chrome.tabs.sendMessage(attachedTabId, { action: 'probeIdle' });
+				} catch {
+					// Tab pode ter fechado.
+				}
+				await recorder.stopSession(activeSession.id);
+				broadcastToUI('recordingStateChanged', {
+					tabId: attachedTabId,
+					active: false,
+					sessionId: activeSession.id,
+				});
+			}
+		} catch (err) {
+			console.warn('[session] auto-stop de gravação falhou:', err);
+		}
 
 		// Detach debugger
 		await chrome.debugger.detach({ tabId: attachedTabId });
@@ -2449,3 +2547,7 @@ chrome.debugger.onDetach.addListener((debuggeeId: chrome.debugger.Debuggee, reas
 		attachedTabId = null;
 	}
 });
+
+// --- helpers de teste (não usar em produção) ---
+export const _testStartDebugging = startDebugging;
+export const _testStopDebugging = stopDebugging;
