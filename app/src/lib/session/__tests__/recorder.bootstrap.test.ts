@@ -114,4 +114,52 @@ describe('recorder bootstrap phase', () => {
 		// biome-ignore lint/style/noNonNullAssertion: teste — sessão recém-criada
 		expect(s!.detectionPhases[1].kind).toBe('detected');
 	});
+
+	test('console event antes da primeira pageDetected fica na bootstrap phase', async () => {
+		const id = await recorder.startSession({
+			tabId: 4,
+			initialUrl: 'https://example.com/',
+			userAgent: 'test',
+			viewportSize: { w: 800, h: 600 },
+			canvasCaptureEnabled: false,
+		});
+		const t1 = Date.now() + 50;
+		// Simula console event capturado pelo background.ts antes de a probe
+		// enviar pageDetected. Em background.ts isso seria handleConsoleAPI →
+		// recorder.addEvent. Aqui chamamos addEvent direto.
+		await recorder.addEvent(id, {
+			type: 'console',
+			timestamp: t1,
+			phaseId: `bootstrap-${id}`,
+			source: 'app',
+			level: 'log',
+			args: [{ type: 'string', description: 'pre-detection log' }],
+		});
+
+		const t2 = t1 + 100;
+		await recorder.addPage(id, {
+			url: 'https://example.com/',
+			timestamp: t2,
+			fingerprint: {
+				framework: { name: 'vanilla' },
+				httpClients: [],
+				dataFetching: [],
+				stateManagers: [],
+				detectedAt: t2,
+				isProductionBuild: false,
+			},
+			triggerType: 'initial',
+		});
+
+		const s = await sessionStore.get(id);
+		// biome-ignore lint/style/noNonNullAssertion: teste — sessão recém-criada
+		const consoleEvents = s!.events.filter((e) => e.type === 'console');
+		expect(consoleEvents).toHaveLength(1);
+		expect(consoleEvents[0].phaseId).toBe(`bootstrap-${id}`);
+		// A phase é a mesma após promoção
+		// biome-ignore lint/style/noNonNullAssertion: teste — sessão recém-criada
+		expect(s!.detectionPhases[0].id).toBe(`bootstrap-${id}`);
+		// biome-ignore lint/style/noNonNullAssertion: teste — sessão recém-criada
+		expect(s!.detectionPhases[0].kind).toBe('detected');
+	});
 });
