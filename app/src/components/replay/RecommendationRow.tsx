@@ -1,16 +1,25 @@
 import { useState } from 'react';
 import type { Recommendation, RecommendationSeverity } from '@/lib/session/types';
 
+// Paleta dedicada — não usa --color-warning global (que está em hue 19,
+// rosa-avermelhado, conflita com --color-destructive em hue 22). Tailwind v4
+// inclui paleta red/amber/sky por default.
 const SEVERITY_CLASSES: Record<RecommendationSeverity, string> = {
-	error: 'border-l-destructive bg-destructive/5',
-	warn: 'border-l-warning bg-warning/5',
-	info: 'border-l-info bg-info/5',
+	error: 'border-l-red-500 bg-red-50 dark:bg-red-950/30',
+	warn: 'border-l-amber-500 bg-amber-50 dark:bg-amber-950/30',
+	info: 'border-l-sky-500 bg-sky-50 dark:bg-sky-950/30',
+};
+
+const SEVERITY_LABEL_CLASSES: Record<RecommendationSeverity, string> = {
+	error: 'text-red-700 dark:text-red-400',
+	warn: 'text-amber-700 dark:text-amber-400',
+	info: 'text-sky-700 dark:text-sky-400',
 };
 
 const SEVERITY_LABEL: Record<RecommendationSeverity, string> = {
-	error: 'erro',
-	warn: 'aviso',
-	info: 'info',
+	error: 'ERRO',
+	warn: 'AVISO',
+	info: 'INFO',
 };
 
 export function RecommendationRow({ item }: { item: Recommendation }) {
@@ -19,10 +28,12 @@ export function RecommendationRow({ item }: { item: Recommendation }) {
 		<button
 			type="button"
 			onClick={() => setOpen((o) => !o)}
-			className={`flex w-full flex-col items-start gap-1 border-l-2 border-b px-3 py-2 text-left text-xs hover:bg-muted/40 ${SEVERITY_CLASSES[item.severity]} animate-in fade-in-0 slide-in-from-right-1 duration-200`}
+			className={`flex w-full flex-col items-start gap-1 border-b border-l-2 px-3 py-2 text-left text-xs hover:bg-muted/40 ${SEVERITY_CLASSES[item.severity]} animate-in fade-in-0 slide-in-from-right-1 duration-200`}
 		>
 			<div className="flex w-full items-center gap-2">
-				<span className="font-medium uppercase text-[10px]">{SEVERITY_LABEL[item.severity]}</span>
+				<span className={`font-semibold text-[10px] ${SEVERITY_LABEL_CLASSES[item.severity]}`}>
+					{SEVERITY_LABEL[item.severity]}
+				</span>
 				<span className="font-medium">{item.ruleId}</span>
 				<span className="ml-auto font-mono text-muted-foreground" title={item.url}>
 					{item.host}
