@@ -1777,14 +1777,25 @@ async function tryAutoStartRecording(tabId: number): Promise<boolean> {
 		// Sai sem broadcast — UI nao vai mostrar "Gravando" indevidamente.
 		return false;
 	}
-	// Sinaliza probe + rrweb. Falhas aqui são fatais para a gravação
-	// mas não para a interceptação — log e seguir.
+	// Sinaliza probe e rrweb separadamente — antes uma falha em probe abortava
+	// rrweb e ainda retornava true, deixando a sessão sem detection sem trigger
+	// do fallback passivo em startDebugging (review issue #1).
+	let probeStarted = false;
 	try {
 		await chrome.tabs.sendMessage(tabId, {
 			action: 'probeStartDetection',
 			reason: 'initial',
 			withStateTaps: true,
 		});
+		probeStarted = true;
+	} catch (err) {
+		console.warn(
+			'[session] probeStartDetection falhou em recording start (content script provavelmente nao injetado):',
+			err,
+		);
+	}
+	let rrwebStarted = false;
+	try {
 		await chrome.tabs.sendMessage(tabId, {
 			action: '__rrweb_start',
 			sessionId,
@@ -1792,11 +1803,21 @@ async function tryAutoStartRecording(tabId: number): Promise<boolean> {
 			maskTextSelector: livePrivacyConfig?.rrwebMaskTextSelector,
 			maskAllInputs: livePrivacyConfig?.rrwebMaskAllInputs,
 		});
+		rrwebStarted = true;
 	} catch (err) {
-		console.warn(
-			'[session] gravação iniciada mas probe/rrweb falhou (provavelmente content script não injetado):',
-			err,
-		);
+		console.warn('[session] __rrweb_start falhou em recording start:', err);
+	}
+	// Se NADA iniciou (provavelmente content scripts ausentes), rollback da
+	// sessão para nao travar UI em "Gravando" sem captura — e devolver false
+	// faz startDebugging cair no fallback passivo (probeStartDetection sem
+	// state taps), ainda dando ao usuário Live Insights via webNavigation.
+	if (!probeStarted && !rrwebStarted) {
+		try {
+			await recorder.stopSession(sessionId);
+		} catch (rollbackErr) {
+			console.warn('[session] rollback de stopSession falhou:', rollbackErr);
+		}
+		return false;
 	}
 	broadcastRecordingState({ tabId, active: true, sessionId });
 	return true;
