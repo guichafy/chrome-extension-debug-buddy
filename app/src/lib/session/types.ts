@@ -1,3 +1,5 @@
+import type { InterceptedResponse } from '@/types/intercepted';
+
 export type FrameworkName = 'react' | 'angular' | 'vanilla';
 
 export type LibTreatment = 'tracked' | 'detection-only';
@@ -138,6 +140,14 @@ export type SessionEvent =
 			bodyRef?: string;
 			callsite?: RawCallsite;
 			client?: string;
+			/**
+			 * Snapshot completo da InterceptedResponse capturada pelo background.
+			 * Permite que o Replay reuse o `RequestTimeline` do Command Center
+			 * (DataTable + FilterBar + columns) com paridade visual total.
+			 * Opcional para preservar compat com sessões gravadas antes desta
+			 * extensão (Fase 7 do plano de bugfixes).
+			 */
+			request?: InterceptedResponse;
 	  }
 	| {
 			type: 'console';
