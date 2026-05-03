@@ -67,6 +67,25 @@ function detectAngular(): FrameworkResult | null {
 		return { name: 'angular', version };
 	}
 	if (hasNgApis) return { name: 'angular' };
+
+	// Heurística de prod build (sem ng-version, sem window.ng): presença de
+	// elementos sintéticos do template Angular (app-root/router-outlet) ou
+	// atributos _ngcontent/_nghost em qualquer elemento renderizado.
+	// Sem `version` por design — confidence implicitamente mais baixo.
+	const hasAppRoot = document.querySelector('app-root, [ng-app], router-outlet');
+	if (hasAppRoot) return { name: 'angular' };
+
+	const allEls = document.querySelectorAll('*');
+	const cap = Math.min(allEls.length, 200);
+	for (let i = 0; i < cap; i++) {
+		const el = allEls[i];
+		for (const attr of el.attributes) {
+			if (attr.name.startsWith('_ngcontent-') || attr.name.startsWith('_nghost-')) {
+				return { name: 'angular' };
+			}
+		}
+	}
+
 	return null;
 }
 

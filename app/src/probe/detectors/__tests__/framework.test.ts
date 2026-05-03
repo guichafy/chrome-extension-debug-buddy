@@ -92,4 +92,23 @@ describe('detectFramework', () => {
 	it('retorna vanilla quando nada é detectado', () => {
 		expect(detectFramework()).toEqual({ name: 'vanilla' });
 	});
+
+	it('detectAngular detecta via app-root sem ng-version (prod build)', () => {
+		document.body.innerHTML = '<app-root></app-root>';
+		const result = detectFramework();
+		expect(result.name).toBe('angular');
+		expect(result.version).toBeUndefined();
+	});
+
+	it('detectAngular detecta via _ngcontent attribute', () => {
+		document.body.innerHTML = '<div _ngcontent-abc="" class="app">x</div>';
+		const result = detectFramework();
+		expect(result.name).toBe('angular');
+	});
+
+	it('detectAngular não confunde div sem markers (vanilla)', () => {
+		document.body.innerHTML = '<div class="app">x</div>';
+		const result = detectFramework();
+		expect(result.name).toBe('vanilla');
+	});
 });
