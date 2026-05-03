@@ -12,7 +12,7 @@ afterEach(async () => {
 	await sessionStore.clear();
 });
 
-test('patchNetworkEventRequest atualiza event.request e durationMs', async () => {
+test('patchNetworkEventRequest atualiza event.request e durationMs (strip body)', async () => {
 	recorder._resetLimitsForTests();
 	await sessionStore.clear();
 	const id = await recorder.startSession({
@@ -31,7 +31,7 @@ test('patchNetworkEventRequest atualiza event.request e durationMs', async () =>
 		type: 'xhr',
 		timestamp: 100,
 		isWaiting: true,
-		body: 'original',
+		// nenhum body — Replay não usa body, e ev.request agora é slim por design.
 	};
 	await recorder.addEvent(id, {
 		type: 'network',
@@ -58,7 +58,8 @@ test('patchNetworkEventRequest atualiza event.request e durationMs', async () =>
 	if (ev?.type !== 'network') throw new Error('type guard');
 	expect(ev.request?.isWaiting).toBe(false);
 	expect(ev.request?.status).toBe(200);
-	expect(ev.request?.body).toBe('aprovado');
+	// body é stripado — Replay não usa body, e a sessão não pode crescer a cada patch.
+	expect(ev.request?.body).toBeUndefined();
 	expect(ev.request?.editedAtRuntime).toBe(true);
 	expect(ev.request?.duration).toBe(42);
 	// top-level espelhado

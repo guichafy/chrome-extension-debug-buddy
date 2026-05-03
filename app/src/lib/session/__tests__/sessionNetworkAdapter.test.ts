@@ -1,5 +1,5 @@
 import type { InterceptedResponse } from '@/types/intercepted';
-import { sessionEventsToRequestsRecord } from '../sessionNetworkAdapter';
+import { sessionEventsToRequestsRecord, stripBodyFields } from '../sessionNetworkAdapter';
 import type { SessionEvent } from '../types';
 
 describe('sessionEventsToRequestsRecord', () => {
@@ -70,5 +70,54 @@ describe('sessionEventsToRequestsRecord', () => {
 		];
 		const out = sessionEventsToRequestsRecord(events, Number.MAX_SAFE_INTEGER);
 		expect(Object.keys(out)).toEqual([]);
+	});
+});
+
+describe('stripBodyFields', () => {
+	test('remove body, response.body, request.postData', () => {
+		const full: InterceptedResponse = {
+			url: 'https://x',
+			method: 'GET',
+			status: 200,
+			statusText: 'OK',
+			headers: { 'content-type': 'application/json' },
+			type: 'xhr',
+			timestamp: 100,
+			body: 'large body content '.repeat(1000),
+			response: {
+				headers: { 'content-type': 'application/json' },
+				body: 'response body '.repeat(1000),
+			},
+			request: {
+				headers: { authorization: 'Bearer x' },
+				postData: 'request body '.repeat(1000),
+			},
+			mimeType: 'application/json',
+			duration: 42,
+		};
+		const slim = stripBodyFields(full);
+		expect(slim.body).toBeUndefined();
+		expect(slim.response).toBeUndefined();
+		expect(slim.request).toBeUndefined();
+		// Metadata preservados:
+		expect(slim.url).toBe('https://x');
+		expect(slim.status).toBe(200);
+		expect(slim.mimeType).toBe('application/json');
+		expect(slim.duration).toBe(42);
+		expect(slim.headers['content-type']).toBe('application/json');
+	});
+
+	test('idempotente em request slim', () => {
+		const slim: InterceptedResponse = {
+			url: 'https://x',
+			method: 'GET',
+			status: 200,
+			statusText: 'OK',
+			headers: {},
+			type: 'xhr',
+			timestamp: 100,
+		};
+		const again = stripBodyFields(slim);
+		expect(again).toEqual(slim);
 	});
 });

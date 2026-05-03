@@ -10,6 +10,7 @@ import { recorder } from '@/lib/session/recorder';
 import { serializeSession } from '@/lib/session/exporter';
 import { parseDbsession } from '@/lib/session/importer';
 import { getRecordingDisabled } from '@/lib/session/recordingPreference';
+import { stripBodyFields } from '@/lib/session/sessionNetworkAdapter';
 import { resolveCallsite } from '@/lib/session/sourceMap';
 import { sessionStore } from '@/lib/session/storage';
 import { purgeOldSessions } from '@/lib/session/privacy/autoPurge';
@@ -340,10 +341,10 @@ async function emitNetworkEventForSession(
 		url: request.url,
 		status: request.status,
 		durationMs: request.duration,
-		// Snapshot completo permite o Replay reusar columns ricas do Command Center.
-		// applyPrivacyToInterceptedResponse já foi chamado em persistRequest antes
-		// disso (mesmo caller flow), então o request aqui já está redacted.
-		request,
+		// Snapshot SLIM (sem body) — Replay table só usa metadata. Body completo
+		// inflaria a sessão até crash em ~120 requests pesadas. Ver stripBodyFields
+		// para detalhe. applyPrivacyToInterceptedResponse já rodou em persistRequest.
+		request: stripBodyFields(request),
 	};
 
 	if (session) {

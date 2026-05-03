@@ -335,7 +335,13 @@ export const recorder = {
 				if (ev.type !== 'network') continue;
 				if (ev.requestId !== requestId) continue;
 				if (!ev.request) continue;
-				ev.request = { ...ev.request, ...updates };
+				// Strip body fields do patch antes de espelhar no snapshot. Body completo é
+				// usado apenas em Command Center live; Replay não lê body em nenhum lugar.
+				const slimUpdates = { ...updates };
+				delete slimUpdates.body;
+				delete slimUpdates.response;
+				delete slimUpdates.request;
+				ev.request = { ...ev.request, ...slimUpdates };
 				// Espelhar campos top-level que dependem de updates
 				if (updates.duration !== undefined) ev.durationMs = updates.duration;
 				if (updates.status !== undefined) ev.status = updates.status;
