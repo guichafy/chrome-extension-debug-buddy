@@ -10,6 +10,7 @@ import type {
 	AntipatternHit,
 	EnvironmentFingerprint,
 	PageDetectionTrigger,
+	Recommendation,
 	RrwebEvent,
 	Session,
 } from '@/lib/session/types';
@@ -51,6 +52,8 @@ export type MessageAction =
 	| 'rrwebBatch'
 	// Session Replay — Phase 3 (antipatterns ao vivo)
 	| 'liveAntipatternHit'
+	// Session Replay — Phase E (recommendations ao vivo)
+	| 'liveRecommendation'
 	// Bug 4 — fingerprint detectado em modo passivo (broadcast quando
 	// pageDetected chega sem session ativa). Permite UI mostrar framework
 	// + libs detectados na página atual durante linting de runtime.
@@ -108,6 +111,8 @@ export interface Message {
 	maskAllInputs?: boolean;
 	// Antipattern (Phase 3)
 	antipatternHit?: AntipatternHit;
+	// Recommendation (Phase E)
+	recommendation?: Recommendation;
 	// State change (Phase 4)
 	statePayload?: ProbeStateChangePayload;
 	// Angular HttpClient tag (Phase 5)

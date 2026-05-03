@@ -7,6 +7,9 @@ import {
 } from '@/lib/legacyMigration';
 import { NetworkTimingTracker } from '@/lib/networkTiming';
 import { recorder } from '@/lib/session/recorder';
+import { RecommendationEngine } from '@/lib/session/recommendations/engine';
+import { REGISTRY as RECOMMENDATION_REGISTRY } from '@/lib/session/recommendations/registry';
+import type { NetworkRuleEvent } from '@/lib/session/recommendations/types';
 import { arrayBufferToBase64, base64ToArrayBuffer } from '@/lib/session/binaryTransport';
 import { serializeSession } from '@/lib/session/exporter';
 import { parseDbsession } from '@/lib/session/importer';
@@ -457,6 +460,31 @@ function invalidateTopFrameUrl(tabId: number): void {
 	topFrameUrlCache.delete(tabId);
 }
 
+const recommendationEngine = new RecommendationEngine(RECOMMENDATION_REGISTRY);
+
+function buildNetworkRuleEvent(
+	requestId: string | undefined,
+	r: InterceptedResponse,
+): NetworkRuleEvent {
+	const responseHeaders: Record<string, string> = {};
+	for (const [k, v] of Object.entries(r.response?.headers ?? r.headers ?? {})) {
+		responseHeaders[k.toLowerCase()] = v;
+	}
+	const requestHeaders: Record<string, string> = {};
+	for (const [k, v] of Object.entries(r.request?.headers ?? {})) {
+		requestHeaders[k.toLowerCase()] = v;
+	}
+	return {
+		requestId,
+		method: r.method ?? 'GET',
+		url: r.url,
+		status: r.status,
+		requestHeaders,
+		responseHeaders,
+		mimeType: r.mimeType,
+	};
+}
+
 // Eventos de ciclo de vida da aba alvo precisam alcançar tanto a página de
 // opções quanto o side panel. `broadcastToUI` só atinge o `interceptorTabId`,
 // então também emitimos via `chrome.runtime.sendMessage` para que qualquer
@@ -787,6 +815,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 chrome.webNavigation.onCommitted.addListener(async (details) => {
 	if (details.frameId !== 0) return; // só top frame — ignora iframes
 	invalidateTopFrameUrl(details.tabId);
+	recommendationEngine.reset();
 	const session = await recorder.getActiveByTab(details.tabId);
 
 	// Bug 4: probe deve emitir detection a cada navegação enquanto a tab está
@@ -1957,6 +1986,7 @@ async function startDebugging(specificTabId: number | null = null): Promise<bool
 		attachedTabId = tabId;
 		pendingResponses = {};
 		timingTracker.reset();
+		recommendationEngine.reset();
 
 		// --- Acoplamento gravação ↔ interceptação (Bug 1) ---
 		// Default: ao iniciar interceptação, iniciamos uma sessão de gravação.
@@ -2472,6 +2502,28 @@ async function handleRequestPaused(params: any): Promise<void> {
 			emitNetworkEventForSession(attachedTabId, requestId, toPersist).catch((err) => {
 				console.warn('[session] emitNetworkEventForSession (pass-through) falhou:', err);
 			});
+		}
+
+		// Recommendations engine — só roda no pass-through (resposta real do
+		// servidor). Mocks/transforms são pulados pra evitar recomendar sobre
+		// payload sintético. Hits são broadcast como liveRecommendation e
+		// persistidos quando há sessão ativa.
+		if (attachedTabId !== null) {
+			const tabId = attachedTabId;
+			try {
+				const ruleEv = buildNetworkRuleEvent(networkId ?? requestId, toPersist);
+				const ctx = { topFrameUrl: await getTopFrameUrl(tabId) };
+				const hits = recommendationEngine.pushResponse(ruleEv, ctx);
+				for (const hit of hits) {
+					broadcastToUI('liveRecommendation', { tabId, recommendation: hit });
+					const session = await recorder.getActiveByTab(tabId);
+					if (session) {
+						await recorder.addRecommendation(session.id, hit);
+					}
+				}
+			} catch (err) {
+				console.warn('[recommendations] pushResponse falhou:', err);
+			}
 		}
 	}
 }
