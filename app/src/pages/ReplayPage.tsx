@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { AntipatternsTab } from '@/components/replay/AntipatternsTab';
+import { RecommendationsTab } from '@/components/replay/RecommendationsTab';
 import { EventRow } from '@/components/replay/EventRow';
 import { PhaseList } from '@/components/replay/PhaseList';
 import { ReplayRequestsTab } from '@/components/replay/ReplayRequestsTab';
@@ -161,11 +161,11 @@ export function ReplayPage() {
 									return <span className="ml-2 rounded bg-muted px-1.5 text-[10px]">{count}</span>;
 								})()}
 							</TabsTrigger>
-							<TabsTrigger value="antipatterns">
-								Antipatterns
-								{(session.antipatternHits?.length ?? 0) > 0 && (
+							<TabsTrigger value="recommendations">
+								Recomendações
+								{(session.recommendations?.length ?? 0) > 0 && (
 									<span className="ml-2 rounded bg-muted px-1.5 text-[10px]">
-										{session.antipatternHits?.length}
+										{session.recommendations?.length}
 									</span>
 								)}
 							</TabsTrigger>
@@ -211,8 +211,8 @@ export function ReplayPage() {
 							<ReplayRequestsTab events={session.events} cutoffTimestamp={cutoffTimestamp} />
 						</TabsContent>
 
-						<TabsContent value="antipatterns" className="mt-0 flex-1 overflow-hidden">
-							<AntipatternsTab hits={session.antipatternHits ?? []} startedAt={session.startedAt} />
+						<TabsContent value="recommendations" className="mt-0 flex-1 overflow-hidden">
+							<RecommendationsTab items={session.recommendations ?? []} />
 						</TabsContent>
 
 						<TabsContent value="state" className="mt-0 flex-1 overflow-auto">
