@@ -165,10 +165,34 @@ export const recorder = {
 		if (existing) {
 			throw new Error(`Já existe session ativa para tab ${args.tabId} (${existing.id})`);
 		}
+		const id = newSessionId();
+		const startedAt = Date.now();
+		// Bootstrap DetectionPhase: garante que `currentPhaseId(session)` nunca
+		// lança e que eventos (console/error/network) capturados antes do primeiro
+		// `pageDetected` real são preservados. addPage substitui esta fase in-place
+		// na primeira detection real (kind === 'bootstrap' branch).
+		const bootstrap: DetectionPhase = {
+			id: `bootstrap-${id}`,
+			startTimestamp: startedAt,
+			endTimestamp: startedAt,
+			// Fingerprint vazio temporário — será sobrescrito pela primeira
+			// detection real. Não é fallback porque é substituído sincronamente
+			// quando a probe envia o pageDetected.
+			fingerprint: {
+				framework: { name: 'vanilla' },
+				httpClients: [],
+				dataFetching: [],
+				stateManagers: [],
+				detectedAt: startedAt,
+				isProductionBuild: false,
+			},
+			pages: [],
+			kind: 'bootstrap',
+		};
 		const session: Session = {
-			id: newSessionId(),
+			id,
 			schemaVersion: 1,
-			startedAt: Date.now(),
+			startedAt,
 			endedAt: null,
 			origin: 'recorded',
 			tabId: args.tabId,
@@ -178,7 +202,7 @@ export const recorder = {
 				viewportSize: args.viewportSize,
 				canvasCaptureEnabled: args.canvasCaptureEnabled,
 			},
-			detectionPhases: [],
+			detectionPhases: [bootstrap],
 			events: [],
 		};
 		await sessionStore.put(session);
