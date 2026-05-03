@@ -118,11 +118,10 @@ export interface Message {
 	config?: import('@/lib/session/types').RedactionConfig;
 	// Bug 3 — live toggle gravacao durante interceptacao
 	active?: boolean;
-	// Bug 4 — probeStartDetection metadata. Background envia probe via bridge:
-	// `reason` casa com PageDetectionTrigger (initial/navigation/pushstate/...);
-	// `withStateTaps` controla instalação de wrappers (false em modo passivo).
+	// probeStartDetection metadata. Background envia probe via bridge:
+	// `reason` casa com PageDetectionTrigger (initial/navigation/pushstate/...).
+	// State taps são instalados pelo probe incondicionalmente — ver Phase C.
 	reason?: PageDetectionTrigger;
-	withStateTaps?: boolean;
 }
 
 export interface MessageResponse {

@@ -766,15 +766,14 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
 	const session = await recorder.getActiveByTab(details.tabId);
 
 	// Bug 4: probe deve emitir detection a cada navegação enquanto a tab está
-	// sendo interceptada, mesmo sem session de gravação (modo passivo). Em
-	// passivo, withStateTaps=false (sem wrappers em redux/zustand/etc).
+	// sendo interceptada, mesmo sem session de gravação (modo passivo).
+	// Taps são instalados pelo probe incondicionalmente — ver C1.
 	const interceptingThisTab = isDebugging && attachedTabId === details.tabId;
 	if (interceptingThisTab) {
 		try {
 			await chrome.tabs.sendMessage(details.tabId, {
 				action: 'probeStartDetection',
 				reason: 'navigation',
-				withStateTaps: !!session,
 			});
 		} catch (err) {
 			const msg = String(err);
@@ -1125,13 +1124,13 @@ chrome.runtime.onMessage.addListener(
 					await chrome.debugger.sendCommand({ tabId: message.tabId }, 'Runtime.enable');
 					await chrome.debugger.sendCommand({ tabId: message.tabId }, 'Log.enable');
 
-					// Sinaliza o probe daquela tab pra começar a emitir detections + state
-					// taps (recording=true). Se sendMessage falhar (probe não injetado),
-					// propaga erro via sendResponse.
+					// Sinaliza o probe daquela tab pra começar a emitir detections.
+					// Taps são instalados pelo probe incondicionalmente — ver C1.
+					// Se sendMessage falhar (probe não injetado), propaga erro via
+					// sendResponse.
 					await chrome.tabs.sendMessage(message.tabId, {
 						action: 'probeStartDetection',
 						reason: 'initial',
-						withStateTaps: true,
 					});
 
 					// Inicia rrweb no content script ISOLATED da tab alvo. Falha aqui propaga
@@ -1783,10 +1782,10 @@ async function tryAutoStartRecording(tabId: number): Promise<boolean> {
 	// do fallback passivo em startDebugging (review issue #1).
 	let probeStarted = false;
 	try {
+		// Taps são instalados pelo probe incondicionalmente — ver C1.
 		await chrome.tabs.sendMessage(tabId, {
 			action: 'probeStartDetection',
 			reason: 'initial',
-			withStateTaps: true,
 		});
 		probeStarted = true;
 	} catch (err) {
@@ -1941,14 +1940,12 @@ async function startDebugging(specificTabId: number | null = null): Promise<bool
 		// Modo passivo (Bug 4): se gravação NÃO auto-iniciou, ainda queremos
 		// rodar smart detection per-URL para alimentar Live Antipatterns com
 		// contexto de fase e mostrar framework/libs ao usuário em tempo real.
-		// withStateTaps=false evita instalar wrappers em redux/zustand/etc — em
-		// passivo não persistimos state, então wrappers seriam puro overhead.
+		// Taps são instalados pelo probe incondicionalmente — ver C1.
 		if (!recordingStarted) {
 			try {
 				await chrome.tabs.sendMessage(tabId, {
 					action: 'probeStartDetection',
 					reason: 'initial',
-					withStateTaps: false,
 				});
 			} catch (err) {
 				const msg = String(err);
