@@ -66,6 +66,35 @@ import { mergeHits } from '@/lib/insights/mergeHits';
 import { Scorer } from '@/lib/insights/scorer';
 import type { CompiledTech, TechHit } from '@/lib/insights/types';
 
+// --- Dispatcher helpers ---
+
+/**
+ * Wrap pra handlers async do `chrome.runtime.onMessage`. O Chrome exige
+ * `return true` síncrono pra manter o port aberto enquanto a promise resolve;
+ * encapsular esse pattern + try/catch padronizado economiza ~85 linhas no
+ * dispatcher e evita esquecimentos.
+ *
+ * Retorna sempre `true` ao chamador (sinaliza resposta async). Em rejeição,
+ * envia `{ ok: false, error: String(err) }` — o sender decide se renderiza.
+ */
+export function runAsyncHandler<T>(
+	fn: (
+		message: import('@/types/messages').Message,
+		sender: chrome.runtime.MessageSender,
+	) => Promise<T>,
+): (
+	message: import('@/types/messages').Message,
+	sender: chrome.runtime.MessageSender,
+	sendResponse: (response: unknown) => void,
+) => true {
+	return (message, sender, sendResponse) => {
+		fn(message, sender)
+			.then((result) => sendResponse(result))
+			.catch((err) => sendResponse({ ok: false, error: String(err) }));
+		return true;
+	};
+}
+
 // Global variables
 let isDebugging = false;
 let attachedTabId: number | null = null;
