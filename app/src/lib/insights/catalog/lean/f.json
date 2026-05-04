@@ -1,0 +1,91 @@
+{
+	"Fathom": {
+		"cats": [
+			10
+		],
+		"js": {
+			"fathom.blockTrackingForMe": ""
+		},
+		"scriptSrc": [
+			"cdn\\.usefathom\\.com/"
+		]
+	},
+	"FullStory": {
+		"cats": [
+			10
+		],
+		"js": {
+			"FS.clearUserCookie": ""
+		},
+		"scriptSrc": [
+			"\\.fullstory\\.com/"
+		]
+	},
+	"Fastly": {
+		"cats": [
+			31
+		],
+		"headers": {
+			"Fastly-Debug-Digest": "",
+			"Vary": "Fastly-SSL",
+			"X-Fastly-Request-ID": "",
+			"server": "Fastly",
+			"x-fastly-origin": "",
+			"x-fastly-request-id": "",
+			"x-via-fastly": ""
+		},
+		"xhr": [
+			"\\.fastly\\.net"
+		]
+	},
+	"Fly.io": {
+		"cats": [
+			62
+		],
+		"cookies": {
+			"_fly": ""
+		},
+		"headers": {
+			"fly-request-id": "",
+			"server": "^Fly/[\\w]+\\s\\(.*\\)$",
+			"via": "^.*\\sfly\\.io$"
+		}
+	},
+	"FastAPI": {
+		"cats": [
+			18
+		],
+		"dom": [
+			"link[href*='fastapi.tiangolo.com'][rel='shortcut icon']"
+		],
+		"implies": [
+			"Python"
+		]
+	},
+	"Firebase": {
+		"cats": [
+			34,
+			47
+		],
+		"dom": [
+			"iframe[src*='.firebaseapp.com/']"
+		],
+		"js": {
+			"firebase.SDK_VERSION": "([\\d.]+)$\\;version:\\1"
+		},
+		"headers": {
+			"vary": "x-fh-requested-host"
+		},
+		"scriptSrc": [
+			"/(?:([\\d.]+)/)?firebase(?:\\.min)?\\.js\\;version:\\1",
+			"/firebasejs/([\\d.]+)/firebase\\;version:\\1"
+		],
+		"scripts": [
+			"\\.gstatic\\.com/firebasejs/([\\d\\.]+)/\\;version:\\1",
+			"firebase(?:Config|io\\.com)"
+		],
+		"xhr": [
+			"fire(?:base|store)\\.googleapis\\.com|\\.firebaseio\\.com"
+		]
+	}
+}

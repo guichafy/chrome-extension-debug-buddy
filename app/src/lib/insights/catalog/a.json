@@ -1,0 +1,337 @@
+{
+	"Angular": {
+		"cats": [
+			12
+		],
+		"cpe": "cpe:2.3:a:angularjs:angular:*:*:*:*:*:*:*:*",
+		"description": "Angular is a TypeScript-based open-source web application framework led by the Angular Team at Google.",
+		"dom": {
+			"[ng-version]": {
+				"attributes": {
+					"ng-version": "^([\\d\\.]+)\\;version:\\1"
+				}
+			}
+		},
+		"excludes": [
+			"AngularDart",
+			"AngularJS"
+		],
+		"icon": "Angular.svg",
+		"implies": [
+			"TypeScript"
+		],
+		"js": {
+			"getAllAngularRootElements": "",
+			"getAngularTestability": "",
+			"ng.coreTokens": "",
+			"ng.probe": ""
+		},
+		"oss": true,
+		"website": "https://angular.io"
+	},
+	"Astro": {
+		"cats": [
+			57,
+			12
+		],
+		"description": "Astro is a new JavaScript-based static site builder.",
+		"dom": {
+			"[class^='astro-']": {
+				"attributes": {
+					"class": "astro-[\\d\\w]{8,}"
+				}
+			},
+			"astro-root": {
+				"attributes": {
+					"uid": ""
+				}
+			},
+			"link[href*='/_astro/']": {
+				"attributes": {
+					"href": "/_astro/(?:[\\W\\w]+)(?:-|\\.)[\\d\\w]+\\.css"
+				}
+			},
+			"link[href*='/_astro/'][href$='.css']": {
+				"exists": ""
+			}
+		},
+		"icon": "Astro.svg",
+		"js": {
+			"Astro": ""
+		},
+		"meta": {
+			"generator": "^Astro(?:\\sv([\\d\\.]+))?$\\;version:\\1"
+		},
+		"oss": true,
+		"website": "https://astro.build"
+	},
+	"Apollo": {
+		"cats": [
+			59
+		],
+		"description": "Apollo is a fully-featured caching GraphQL client with integrations for React, Angular, and more.",
+		"dom": [
+			"script#__APOLLO_STATE__"
+		],
+		"headers": {
+			"Access-Control-Allow-Headers": "^x-apollo-tracing"
+		},
+		"icon": "Apollo.svg",
+		"implies": [
+			"GraphQL",
+			"TypeScript\\;confidence:50"
+		],
+		"js": {
+			"__APOLLO_CLIENT__": "",
+			"__APOLLO_CLIENT__.version": "^(.+)$\\;version:\\1",
+			"__NEXT_DATA__.props.pageProps.__APOLLO_STATE__": ""
+		},
+		"website": "https://www.apollographql.com"
+	},
+	"Amplitude": {
+		"cats": [
+			10
+		],
+		"description": "Amplitude is a web and mobile analytics solution with cross-platform user journey tracking, user behavior analysis and segmentation capabilities.",
+		"icon": "Amplitude.svg",
+		"js": {
+			"AMPLITUDE_KEY": "",
+			"__AMPLITUDE__": "",
+			"amplitudeClient": ""
+		},
+		"pricing": [
+			"freemium",
+			"poa",
+			"recurring"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"cdn\\.(?:segment.+)?amplitude(?:\\.com|-plugins)"
+		],
+		"website": "https://amplitude.com",
+		"xhr": [
+			"\\.amplitude\\.com"
+		]
+	},
+	"Apache HTTP Server": {
+		"cats": [
+			22
+		],
+		"cpe": "cpe:2.3:a:apache:http_server:*:*:*:*:*:*:*:*",
+		"description": "Apache is a free and open-source cross-platform web server software.",
+		"headers": {
+			"Server": "(?:Apache(?:$|/([\\d.]+)|[^/-])|(?:^|\\b)HTTPD)\\;version:\\1"
+		},
+		"icon": "Apache.svg",
+		"oss": true,
+		"website": "https://httpd.apache.org/"
+	},
+	"Amazon CloudFront": {
+		"cats": [
+			31
+		],
+		"description": "Amazon CloudFront is a fast content delivery network (CDN) service that securely delivers data, videos, applications, and APIs to customers globally with low latency, high transfer speeds.",
+		"dns": {
+			"CNAME": [
+				"^[a-z0-9]+\\.cloudfront.net\\.?$"
+			]
+		},
+		"headers": {
+			"Via": "\\(CloudFront\\)$",
+			"X-Amz-Cf-Id": ""
+		},
+		"icon": "Amazon Cloudfront.svg",
+		"implies": [
+			"Amazon Web Services"
+		],
+		"saas": true,
+		"website": "https://aws.amazon.com/cloudfront/"
+	},
+	"Akamai": {
+		"cats": [
+			31
+		],
+		"description": "Akamai is global content delivery network (CDN) services provider for media and software delivery, and cloud security solutions.",
+		"headers": {
+			"X-Akamai-Transformed": "",
+			"X-EdgeConnect-MidMile-RTT": "",
+			"X-EdgeConnect-Origin-MEX-Latency": ""
+		},
+		"icon": "Akamai.svg",
+		"pricing": [
+			"poa"
+		],
+		"saas": true,
+		"website": "https://akamai.com"
+	},
+	"AB Tasty": {
+		"cats": [
+			74
+		],
+		"description": "AB Tasty is a customer experience optimisation company. AB Tasty offers AI-driven experimentation, personalisation, and product optimisation platforms for user testing.",
+		"icon": "AB Tasty.svg",
+		"js": {
+			"ABTasty": "",
+			"_abtasty": "",
+			"loadABTasty": ""
+		},
+		"pricing": [
+			"poa"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"try\\.abtasty\\.com"
+		],
+		"website": "https://www.abtasty.com"
+	},
+	"Adobe Target": {
+		"cats": [
+			74,
+			76
+		],
+		"description": "Adobe Target is an A/B testing, multi-variate testing, personalisation, and optimisation application",
+		"icon": "Adobe.svg",
+		"js": {
+			"adobe.target": "",
+			"adobe.target.VERSION": "^(.+)$\\;version:\\1"
+		},
+		"pricing": [
+			"poa"
+		],
+		"saas": true,
+		"website": "https://www.adobe.com/marketing/target.html"
+	},
+	"Ant Design": {
+		"cats": [
+			66
+		],
+		"description": "Ant Design is a UI library that can be used with data flow solutions and application frameworks in any React ecosystem.",
+		"dom": {
+			"div[class*='ant-collapse']": {
+				"attributes": {
+					"class": "ant-collapse"
+				}
+			},
+			"link[href*='antd']": {
+				"attributes": {
+					"href": "antd(?:@|/)?([\\d\\.]+)?(?:.+|)?\\.css\\;version:\\1"
+				}
+			}
+		},
+		"html": [
+			"<[^>]*class=\"ant-(?:btn|col|row|layout|breadcrumb|menu|pagination|steps|select|cascader|checkbox|calendar|form|input-number|input|mention|rate|radio|slider|switch|tree-select|time-picker|transfer|upload|avatar|badge|card|carousel|collapse|list|popover|tooltip|table|tabs|tag|timeline|tree|alert|modal|message|notification|progress|popconfirm|spin|anchor|back-top|divider|drawer)",
+			"<i class=\"anticon anticon-"
+		],
+		"icon": "Ant Design.svg",
+		"js": {
+			"__ANTD_STYLE_CACHE_MANAGER_FOR_SSR__": "",
+			"antd.version": "^([\\d\\.]+)$\\;version:\\1"
+		},
+		"oss": true,
+		"website": "https://ant.design"
+	},
+	"Auth0": {
+		"cats": [
+			69
+		],
+		"cpe": "cpe:2.3:a:auth0:auth0.js:*:*:*:*:*:node.js:*:*",
+		"description": "Auth0 provides authentication and authorisation as a service.",
+		"dom": [
+			"link[href*='cdn.auth0.com']"
+		],
+		"headers": {
+			"x-auth0-requestid": ""
+		},
+		"icon": "Auth0.svg",
+		"pricing": [
+			"freemium",
+			"payg",
+			"recurring"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"/auth0(?:-js)?/([\\d.]+)/auth0(?:.min)?\\.js\\;version:\\1",
+			"/auth0-js@([\\d.]+)/([a-z]+)/auth0\\.min\\.js\\;version:\\1"
+		],
+		"website": "https://auth0.github.io/auth0.js/index.html"
+	},
+	"Amazon Cognito": {
+		"cats": [
+			69
+		],
+		"description": "Amazon Cognito lets you add user sign-up, sign-in, and access control to your web and mobile apps. Amazon Cognito supports sign-in with social identity providers, such as Apple, Facebook, Google, and Amazon, and enterprise identity providers via SAML 2.0 and OpenID Connect.",
+		"icon": "Amazon Cognito.svg",
+		"implies": [
+			"Amazon Web Services"
+		],
+		"pricing": [
+			"payg"
+		],
+		"website": "https://aws.amazon.com/cognito/",
+		"xhr": [
+			"cognito-idp\\..+\\.amazonaws\\.com"
+		]
+	},
+	"ActiveCampaign": {
+		"cats": [
+			32,
+			75
+		],
+		"description": "ActiveCampaign is email and marketing automation software.",
+		"icon": "ActiveCampaign.svg",
+		"js": {
+			"acEnableTracking": ""
+		},
+		"pricing": [
+			"low",
+			"recurring",
+			"poa"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"plugins/activecampaign-subscription-forms/site_tracking\\.js",
+			"\\.activehosted\\.com",
+			"\\.app-us1\\.com",
+			"\\.ac-page\\.com"
+		],
+		"url": [
+			"\\.activehosted\\.com",
+			"\\.ac-page\\.com"
+		],
+		"website": "https://www.activecampaign.com"
+	},
+	"Algolia": {
+		"cats": [
+			29
+		],
+		"cookies": {
+			"_ALGOLIA": "",
+			"didomiVendorsConsent": "\\balgolia\\b"
+		},
+		"description": "Algolia offers a hosted web search product delivering real-time results.",
+		"headers": {
+			"Content-Security-Policy": "\\.algolia"
+		},
+		"icon": "Algolia.svg",
+		"js": {
+			"ALGOLIA_INSIGHTS_SRC": "",
+			"AlgoliaSearch": "",
+			"__GLOBAL__.algolia": "",
+			"__NEXT_DATA__.props.pageProps.appSettings.ALGOLIA_APP_ID": "",
+			"__algolia": "",
+			"__algolia.algoliasearch.version": "^(.+)$\\;version:\\1",
+			"_didomi_vendors_consent": "\\balgolia\\b",
+			"algoliasearch.version": "^(.+)$\\;version:\\1",
+			"didomiState.didomiVendorsConsent": "\\balgolia\\b"
+		},
+		"pricing": [
+			"freemium",
+			"payg"
+		],
+		"saas": true,
+		"scripts": [
+			"algoliasearch"
+		],
+		"website": "https://www.algolia.com"
+	}
+}

@@ -1,0 +1,35 @@
+{
+	"Zendesk": {
+		"cats": [
+			4,
+			13,
+			52
+		],
+		"cookies": {
+			"_help_center_session": "",
+			"_zendesk_cookie": "",
+			"_zendesk_shared_session": ""
+		},
+		"description": "Zendesk is a cloud-based help desk management solution offering customizable tools to build customer service portal, knowledge base and online communities.",
+		"dns": {
+			"TXT": [
+				"mail\\.zendesk\\.com"
+			]
+		},
+		"headers": {
+			"x-zendesk-user-id": ""
+		},
+		"icon": "Zendesk.svg",
+		"js": {
+			"Zendesk": ""
+		},
+		"pricing": [
+			"low"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"static\\.zdassets\\.com"
+		],
+		"website": "https://zendesk.com"
+	}
+}

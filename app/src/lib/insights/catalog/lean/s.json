@@ -1,0 +1,218 @@
+{
+	"Svelte": {
+		"cats": [
+			12
+		],
+		"dom": [
+			"link[href*='/svelte/']",
+			"main[class^='svelte-']",
+			"a[data-svelte-h^='svelte-']",
+			"nav[data-svelte-h^='svelte-']",
+			"section[data-svelte-h^='svelte-']"
+		],
+		"js": {
+			"__svelte": "",
+			"svelte_taxlistteaser": ""
+		}
+	},
+	"SolidJS": {
+		"cats": [
+			12
+		],
+		"dom": {
+			"[data-hk]": {
+				"exists": ""
+			}
+		},
+		"js": {
+			"Solid$$": ""
+		},
+		"scriptSrc": [
+			"www\\.solidjs\\.com"
+		],
+		"excludes": [
+			"React"
+		]
+	},
+	"Shopify": {
+		"cats": [
+			6
+		],
+		"cookies": {
+			"_shopify_essential_": "",
+			"_shopify_s": "",
+			"_shopify_sa_p": "",
+			"_shopify_sa_t": "",
+			"_shopify_y": ""
+		},
+		"dom": {
+			"link[href*='shopify.com']": {
+				"attributes": {
+					"href": "(?:cdn\\.|\\.my)shopify\\.com\\;confidence:50"
+				}
+			}
+		},
+		"js": {
+			"SHOPIFY_API_BASE_URL": "",
+			"Shopify": "\\;confidence:25",
+			"ShopifyAPI": "",
+			"ShopifyAnalytics": "",
+			"ShopifyCustomer": "",
+			"goaffproShopifyStVariableFix": "",
+			"shopifyAccessUrl": ""
+		},
+		"headers": {
+			"x-shopid": "\\;confidence:50",
+			"x-shopify-stage": ""
+		},
+		"meta": {
+			"shopify-checkout-api-token": "",
+			"shopify-digital-wallet": ""
+		},
+		"scriptSrc": [
+			"sdks\\.shopifycdn\\.com",
+			"cdn\\.shopify\\.com"
+		],
+		"scripts": [
+			"shopifyTag"
+		],
+		"url": [
+			"^https?//.+\\.myshopify\\.com"
+		],
+		"xhr": [
+			"\\.myshopify\\.com"
+		]
+	},
+	"Segment": {
+		"cats": [
+			97
+		],
+		"js": {
+			"__SEGMENT_INSPECTOR__": "",
+			"analytics.SNIPPET_VERSION": "(.+)\\;version:\\1",
+			"analytics.VERSION": "(.+)\\;version:\\1"
+		},
+		"scriptSrc": [
+			"cdn\\.segment\\.com/analytics\\.js",
+			"/segment-wrapper\\.min\\.js"
+		]
+	},
+	"Salesforce Commerce Cloud": {
+		"cats": [
+			6
+		],
+		"cookies": {
+			"dw_dnt": "",
+			"dwsid": ""
+		},
+		"js": {
+			"dwAnalytics": ""
+		},
+		"headers": {
+			"Server": "Demandware eCommerce Server"
+		},
+		"scriptSrc": [
+			"/demandware\\.static/"
+		],
+		"implies": [
+			"Salesforce"
+		]
+	},
+	"Stripe": {
+		"cats": [
+			41
+		],
+		"cookies": {
+			"__stripe_mid": "",
+			"__stripe_sid": ""
+		},
+		"dom": [
+			"a[href*='billing.stripe.com']",
+			"a[href*='checkout.stripe.com']",
+			"input[data-stripe]"
+		],
+		"js": {
+			"Stripe.version": "^(.+)$\\;version:\\1",
+			"__NEXT_DATA__.props.pageProps.appSettings.STRIPE_API_PUBLIC_KEY": "",
+			"checkout.enabledpayments.stripe": "^true$",
+			"stripePublicKey": ""
+		},
+		"html": [
+			"<input[^>]+data-stripe"
+		],
+		"scriptSrc": [
+			"js\\.stripe\\.com"
+		]
+	},
+	"Spring": {
+		"cats": [
+			18
+		],
+		"headers": {
+			"X-Application-Context": ""
+		},
+		"implies": [
+			"Java"
+		]
+	},
+	"shadcn/ui": {
+		"cats": [
+			66
+		],
+		"css": [
+			"--destructive-foreground"
+		],
+		"implies": [
+			"Radix UI",
+			"Tailwind CSS"
+		]
+	},
+	"Supabase": {
+		"cats": [
+			47
+		],
+		"dom": [
+			"a[href*='supabase.com'] > img[src*='/supabase-logo-wordmark\\-\\-dark.png']"
+		],
+		"js": {
+			"__NUXT__.config.public.SUPABASE_URL": "",
+			"__NUXT__.config.public.supabase": "",
+			"createClient": "supabase\\.",
+			"supabase.AuthAdminApi": "",
+			"supabase.storageKey": ""
+		},
+		"scriptSrc": [
+			"cdn\\.supabase\\.com"
+		],
+		"scripts": [
+			"\\.supabase\\.co/"
+		],
+		"implies": [
+			"PostgreSQL"
+		]
+	},
+	"Sentry": {
+		"cats": [
+			13
+		],
+		"js": {
+			"Raven.config": "",
+			"SENTRY_SDK_SOURCE": "",
+			"Sentry": "",
+			"Sentry.SDK_VERSION": "(.+)\\;version:\\1",
+			"__SENTRY__": "",
+			"ravenOptions.whitelistUrls": ""
+		},
+		"headers": {
+			"Sentry-Trace": ""
+		},
+		"html": [
+			"<script[^>]*>\\s*Raven\\.config\\('[^']*', \\{\\s+release: '([0-9\\.]+)'\\;version:\\1",
+			"<script[^>]*src=\"[^\"]*browser\\.sentry\\-cdn\\.com/([0-9.]+)/bundle(?:\\.tracing)?(?:\\.min)?\\.js\\;version:\\1"
+		],
+		"scriptSrc": [
+			"browser\\.sentry\\-cdn\\.com/([0-9.]+)/bundle(?:\\.tracing)?(?:\\.min)?\\.js\\;version:\\1",
+			"\\.sentry-cdn\\.com/"
+		]
+	}
+}

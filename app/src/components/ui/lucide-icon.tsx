@@ -1,4 +1,3 @@
-import React from 'react';
 import {
 	Activity,
 	AlertTriangle,
@@ -19,6 +18,7 @@ import {
 	Edit3,
 	FileEdit,
 	FileJson,
+	Film,
 	Filter,
 	FlaskConical,
 	GripVertical,
@@ -39,6 +39,7 @@ import {
 	Search,
 	ServerCrash,
 	Settings as SettingsIcon,
+	Shield,
 	Sparkles,
 	StopCircle,
 	AppWindow as TabIcon,
@@ -74,6 +75,7 @@ const ICONS = {
 	edit: Edit3,
 	'file-edit': FileEdit,
 	'file-json': FileJson,
+	film: Film,
 	filter: Filter,
 	flask: FlaskConical,
 	'grip-vertical': GripVertical,
@@ -94,6 +96,7 @@ const ICONS = {
 	search: Search,
 	'server-crash': ServerCrash,
 	settings: SettingsIcon,
+	shield: Shield,
 	sparkles: Sparkles,
 	stop: StopCircle,
 	tab: TabIcon,

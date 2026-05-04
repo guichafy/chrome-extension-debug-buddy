@@ -1,0 +1,78 @@
+{
+	"Caddy": {
+		"cats": [
+			22
+		],
+		"headers": {
+			"Server": "Caddy"
+		},
+		"implies": [
+			"Go"
+		]
+	},
+	"Cloudflare": {
+		"cats": [
+			31
+		],
+		"cookies": {
+			"__cfduid": ""
+		},
+		"dom": [
+			"img[src*='//cdn.cloudflare']"
+		],
+		"js": {
+			"CloudFlare": ""
+		},
+		"headers": {
+			"Server": "^cloudflare$",
+			"cf-cache-status": "",
+			"cf-ray": ""
+		},
+		"meta": {
+			"image": "//cdn\\.cloudflare"
+		}
+	},
+	"Cookiebot": {
+		"cats": [
+			67
+		],
+		"js": {
+			"Cookiebot.version": "^(.+)$\\;version:\\1"
+		},
+		"scriptSrc": [
+			"consent\\.cookiebot\\.com"
+		]
+	},
+	"Chakra UI": {
+		"cats": [
+			66
+		],
+		"dom": [
+			"html[style*='chakra-ui-color-mode'], body.chakra-ui-dark, body.chakra-ui-light, div.chakra-portal, div.chakra-container"
+		],
+		"scriptSrc": [
+			"\\.chakra-ui\\."
+		],
+		"implies": [
+			"React"
+		]
+	},
+	"Clerk": {
+		"cats": [
+			69
+		],
+		"js": {
+			"Clerk.authenticateWithMetamask": "",
+			"Clerk.openSignIn": "",
+			"Clerk.version": "([\\d\\.]+)\\;version:\\1"
+		}
+	},
+	"Cloudflare Turnstile": {
+		"cats": [
+			16
+		],
+		"js": {
+			"turnstile": ""
+		}
+	}
+}

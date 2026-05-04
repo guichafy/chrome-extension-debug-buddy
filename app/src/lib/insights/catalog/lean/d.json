@@ -1,0 +1,95 @@
+{
+	"Day.js": {
+		"cats": [
+			59
+		],
+		"js": {
+			"dayjs": ""
+		}
+	},
+	"Drupal": {
+		"cats": [
+			1
+		],
+		"cookies": {
+			"SESS[a-f0-9]{32}": ""
+		},
+		"dom": [
+			"link[href*='/sites/default/themes/'], link[href*='/sites/all/themes/'], link[href*='/sites/default/modules/'], link[href*='/sites/all/modules/'], style[href*='/sites/default/themes/'], style[href*='/sites/all/themes/'], style[href*='/sites/default/modules/'], style[href*='/sites/all/modules/']"
+		],
+		"js": {
+			"Drupal": ""
+		},
+		"headers": {
+			"Expires": "19 Nov 1978",
+			"X-Drupal-Cache": "",
+			"X-Generator": "^Drupal(?:\\s([\\d.]+))?\\;version:\\1"
+		},
+		"html": [
+			"<(?:link|style)[^>]+\"/sites/(?:default|all)/(?:themes|modules)/"
+		],
+		"meta": {
+			"generator": "^Drupal(?:\\s([\\d.]+))?\\;version:\\1"
+		},
+		"scriptSrc": [
+			"drupal\\.js"
+		],
+		"scripts": [
+			"drupal_internal__nid"
+		],
+		"implies": [
+			"PHP"
+		]
+	},
+	"Didomi": {
+		"cats": [
+			67
+		],
+		"scriptSrc": [
+			"sdk\\.privacy-center\\.org/.*/loader\\.js"
+		]
+	},
+	"Django": {
+		"cats": [
+			18
+		],
+		"cookies": {
+			"django_language": ""
+		},
+		"dom": [
+			"input[name='csrfmiddlewaretoken']"
+		],
+		"js": {
+			"__admin_media_prefix__": "",
+			"django": ""
+		},
+		"html": [
+			"(?:powered by <a[^>]+>Django ?([\\d.]+)?<\\/a>|<input[^>]*name=[\"']csrfmiddlewaretoken[\"'][^>]*>)\\;version:\\1"
+		],
+		"implies": [
+			"Python"
+		]
+	},
+	"Drift": {
+		"cats": [
+			52
+		],
+		"js": {
+			"drift": "",
+			"driftt": ""
+		}
+	},
+	"Datadog": {
+		"cats": [
+			78,
+			10
+		],
+		"js": {
+			"DD_LOGS": "\\;confidence:1",
+			"DD_RUM": "\\;confidence:99"
+		},
+		"scriptSrc": [
+			"www\\.datadoghq-browser-agent\\.com"
+		]
+	}
+}

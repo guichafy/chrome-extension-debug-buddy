@@ -1,0 +1,256 @@
+{
+	"React": {
+		"cats": [
+			12
+		],
+		"cpe": "cpe:2.3:a:facebook:react:*:*:*:*:*:*:*:*",
+		"description": "React is an open-source JavaScript library for building user interfaces or UI components.",
+		"dom": {
+			"body > div": {
+				"properties": {
+					"_reactRootContainer": ""
+				}
+			},
+			"div[id*='appReactRoot']": {
+				"exists": ""
+			},
+			"div[id*='react-root']": {
+				"exists": ""
+			},
+			"span[id*='react-']": {
+				"exists": ""
+			},
+			"style[id*='react-tooltip-core-styles']": {
+				"exists": ""
+			}
+		},
+		"html": [
+			"<[^>]+data-react"
+		],
+		"icon": "React.svg",
+		"js": {
+			"React.version": "^([\\d\\.]+)$\\;version:\\1",
+			"ReactOnRails": "",
+			"__REACT_ON_RAILS_EVENT_HANDLERS_RAN_ONCE__": "",
+			"__isReactFizzContext": ""
+		},
+		"meta": {
+			"description": "^Web site created using create-react-app$",
+			"og:image": "%REACT_APP_SEO_IMAGE_URL%"
+		},
+		"scriptSrc": [
+			"react(?:-with-addons)?[.-](\\d+(?:\\.\\d+)+)[^/]*\\.js\\;version:\\1",
+			"/([\\d\\.]+)/react(?:\\.min)?\\.js\\;version:\\1",
+			"^react\\b.*\\.js"
+		],
+		"scripts": [
+			"react\\.js"
+		],
+		"website": "https://reactjs.org"
+	},
+	"Remix": {
+		"cats": [
+			18,
+			22
+		],
+		"description": "Remix is a React framework used for server-side rendering (SSR).",
+		"icon": "Remix.svg",
+		"implies": [
+			"React"
+		],
+		"js": {
+			"__remixContext": "",
+			"__remixRouteModules": "",
+			"__remixRouter": ""
+		},
+		"oss": true,
+		"website": "https://remix.run/"
+	},
+	"Redux": {
+		"cats": [
+			12
+		],
+		"description": "Redux is a predictable state container for JavaScript applications.",
+		"dom": [
+			"link[href*='//redux.js.org']"
+		],
+		"icon": "Redux.svg",
+		"js": {
+			"ReactRedux": "",
+			"Redux.applyMiddleware": "",
+			"__REDUX_DEVTOOLS_EXTENSION__": ""
+		},
+		"oss": true,
+		"scriptSrc": [
+			"/redux(@|/)([\\d.]+)(?:/[a-z]+)?/redux(?:.min)?\\.js\\;version:\\2"
+		],
+		"website": "https://redux.js.org"
+	},
+	"Railway": {
+		"cats": [
+			62
+		],
+		"description": "Railway is a cloud platform that simplifies building, deploying, and managing applications with easy setup and scalable infrastructure.",
+		"headers": {
+			"Server": "^railway$"
+		},
+		"icon": "Railway.svg",
+		"pricing": [
+			"low",
+			"recurring"
+		],
+		"saas": false,
+		"scripts": [
+			"railway\\.app"
+		],
+		"website": "https://railway.app"
+	},
+	"Render": {
+		"cats": [
+			62
+		],
+		"description": "Render is a cloud computing platform that provides a wide range of services, including web hosting, cloud computing, and application development. Render offers several hosting options, including static site hosting, web application hosting, and managed databases.",
+		"headers": {
+			"x-render-origin-server": "Render"
+		},
+		"icon": "Render.svg",
+		"pricing": [
+			"low",
+			"freemium",
+			"payg",
+			"recurring"
+		],
+		"website": "https://render.com"
+	},
+	"Ruby": {
+		"cats": [
+			27
+		],
+		"cpe": "cpe:2.3:a:ruby-lang:ruby:*:*:*:*:*:*:*:*",
+		"description": "Ruby is an open-source object-oriented programming language.",
+		"headers": {
+			"Server": "(?:Mongrel|Ruby(?:/([\\d\\.]+))?)\\;version:\\1"
+		},
+		"icon": "Ruby.svg",
+		"website": "https://ruby-lang.org"
+	},
+	"Ruby on Rails": {
+		"cats": [
+			18
+		],
+		"cookies": {
+			"_session_id": "\\;confidence:75"
+		},
+		"cpe": "cpe:2.3:a:rubyonrails:rails:*:*:*:*:*:*:*:*",
+		"description": "Ruby on Rails is a server-side web application framework written in Ruby under the MIT License.",
+		"headers": {
+			"Server": "mod_(?:rails|rack)",
+			"X-Powered-By": "mod_(?:rails|rack)"
+		},
+		"icon": "Ruby on Rails.svg",
+		"implies": [
+			"Ruby"
+		],
+		"js": {
+			"ReactOnRails": "",
+			"__REACT_ON_RAILS_EVENT_HANDLERS_RAN_ONCE__": "",
+			"_rails_loaded": ""
+		},
+		"meta": {
+			"csrf-param": "^authenticity_token$\\;confidence:50"
+		},
+		"scriptSrc": [
+			"/assets/application-[a-z\\d]{32}/\\.js\\;confidence:50"
+		],
+		"website": "https://rubyonrails.org"
+	},
+	"Radix UI": {
+		"cats": [
+			66
+		],
+		"css": [
+			"--radix-accordion-content-height",
+			"--radix-toast-swipe-end-x",
+			"--radix-toast-swipe-move-x",
+			"--radix-navigation-menu-viewport-width",
+			"--radix-navigation-menu-viewport-height",
+			"--radix-select-trigger-width",
+			"--radix-select-trigger-height",
+			"--radix-context-menu-content-transform-origin",
+			"--radix-context-menu-content-available-height",
+			"--radix-dropdown-menu-content-available-height",
+			"--radix-dropdown-menu-content-transform-origin",
+			"--radix-hover-card-content-transform-origin",
+			"--radix-popover-trigger-width",
+			"--radix-popover-content-transform-origin",
+			"--radix-select-trigger-width",
+			"--radix-select-content-available-height",
+			"--radix-select-content-transform-origin",
+			"--radix-tooltip-content-transform-origin"
+		],
+		"description": "Radix UI is a React-based user interface component library that offers accessible, responsive, and customisable components for building web applications.",
+		"dom": [
+			"a[data-radix-collection-item], button[data-radix-collection-item]"
+		],
+		"icon": "Radix UI.svg",
+		"oss": true,
+		"requires": [
+			"React"
+		],
+		"website": "https://www.radix-ui.com"
+	},
+	"Rollbar": {
+		"cats": [
+			13
+		],
+		"icon": "Rollbar.svg",
+		"scriptSrc": [
+			"rollbar\\.js/([0-9.]+)\\;version:\\1"
+		],
+		"website": "https://rollbar.com/"
+	},
+	"RD Station": {
+		"cats": [
+			32
+		],
+		"description": "RD Station is a platform that helps medium and small businesses manage and automate their Digital Marketing strategy.",
+		"icon": "RD Station.svg",
+		"js": {
+			"RDStation": "",
+			"RDStationTrackingCodeChecker": ""
+		},
+		"scriptSrc": [
+			"d335luupugsy2\\.cloudfront\\.net/js/loader-scripts/.*-loader\\.js"
+		],
+		"website": "https://rdstation.com.br"
+	},
+	"reCAPTCHA": {
+		"cats": [
+			16
+		],
+		"description": "reCAPTCHA is a free service from Google that helps protect websites from spam and abuse.",
+		"dom": [
+			"#recaptcha_image, iframe[src*='.google.com/recaptcha/'], div.g-recaptcha"
+		],
+		"icon": "reCAPTCHA.svg",
+		"js": {
+			"Recaptcha": "",
+			"recaptcha": ""
+		},
+		"pricing": [
+			"freemium",
+			"payg",
+			"poa"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"api-secure\\.recaptcha\\.net",
+			"recaptcha_ajax\\.js",
+			"/recaptcha/(?:api|enterprise)\\.js"
+		],
+		"scripts": [
+			"/recaptcha/api\\.js"
+		],
+		"website": "https://www.google.com/recaptcha/"
+	}
+}

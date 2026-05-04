@@ -1,0 +1,128 @@
+{
+	"Day.js": {
+		"cats": [
+			59
+		],
+		"icon": "Day.js.svg",
+		"js": {
+			"dayjs": ""
+		},
+		"website": "https://github.com/iamkun/dayjs"
+	},
+	"Drupal": {
+		"cats": [
+			1
+		],
+		"cookies": {
+			"SESS[a-f0-9]{32}": ""
+		},
+		"cpe": "cpe:2.3:a:drupal:drupal:*:*:*:*:*:*:*:*",
+		"description": "Drupal is a free and open-source web content management framework.",
+		"dom": [
+			"link[href*='/sites/default/themes/'], link[href*='/sites/all/themes/'], link[href*='/sites/default/modules/'], link[href*='/sites/all/modules/'], style[href*='/sites/default/themes/'], style[href*='/sites/all/themes/'], style[href*='/sites/default/modules/'], style[href*='/sites/all/modules/']"
+		],
+		"headers": {
+			"Expires": "19 Nov 1978",
+			"X-Drupal-Cache": "",
+			"X-Generator": "^Drupal(?:\\s([\\d.]+))?\\;version:\\1"
+		},
+		"html": [
+			"<(?:link|style)[^>]+\"/sites/(?:default|all)/(?:themes|modules)/"
+		],
+		"icon": "Drupal.svg",
+		"implies": [
+			"PHP"
+		],
+		"js": {
+			"Drupal": ""
+		},
+		"meta": {
+			"generator": "^Drupal(?:\\s([\\d.]+))?\\;version:\\1"
+		},
+		"oss": true,
+		"scriptSrc": [
+			"drupal\\.js"
+		],
+		"scripts": [
+			"drupal_internal__nid"
+		],
+		"website": "https://www.drupal.org/"
+	},
+	"Didomi": {
+		"cats": [
+			67
+		],
+		"description": "Didomi is a consent management platform helping brands and businesses collect, store and leverage their customer consents.",
+		"icon": "didomi.png",
+		"scriptSrc": [
+			"sdk\\.privacy-center\\.org/.*/loader\\.js"
+		],
+		"website": "https://www.didomi.io/en/consent-preference-management"
+	},
+	"Django": {
+		"cats": [
+			18
+		],
+		"cookies": {
+			"django_language": ""
+		},
+		"cpe": "cpe:2.3:a:djangoproject:django:*:*:*:*:*:*:*:*",
+		"description": "Django is a Python-based free and open-source web application framework.",
+		"dom": [
+			"input[name='csrfmiddlewaretoken']"
+		],
+		"html": [
+			"(?:powered by <a[^>]+>Django ?([\\d.]+)?<\\/a>|<input[^>]*name=[\"']csrfmiddlewaretoken[\"'][^>]*>)\\;version:\\1"
+		],
+		"icon": "Django.svg",
+		"implies": [
+			"Python"
+		],
+		"js": {
+			"__admin_media_prefix__": "",
+			"django": ""
+		},
+		"oss": true,
+		"website": "https://djangoproject.com"
+	},
+	"Drift": {
+		"cats": [
+			52
+		],
+		"description": "Drift is a conversational marketing platform.",
+		"icon": "Drift.svg",
+		"js": {
+			"drift": "",
+			"driftt": ""
+		},
+		"pricing": [
+			"poa",
+			"mid"
+		],
+		"saas": true,
+		"website": "https://www.drift.com/"
+	},
+	"Datadog": {
+		"cats": [
+			78,
+			10
+		],
+		"description": "Datadog is a SaaS-based monitoring and analytics platform for large-scale applications and infrastructure.",
+		"icon": "Datadog.svg",
+		"js": {
+			"DD_LOGS": "\\;confidence:1",
+			"DD_RUM": "\\;confidence:99"
+		},
+		"pricing": [
+			"low",
+			"payg",
+			"recurring",
+			"freemium"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"www\\.datadoghq-browser-agent\\.com"
+		],
+		"website": "https://www.datadoghq.com"
+	}
+}

@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import path from 'path';
+import { rrwebPlayerRawResolver } from './vite-plugins/rrwebPlayerRawResolver';
 
 export default defineConfig({
 	test: {
@@ -16,4 +17,6 @@ export default defineConfig({
 			'@': path.resolve(__dirname, 'src'),
 		},
 	},
+	plugins: [rrwebPlayerRawResolver(__dirname)],
 });
+

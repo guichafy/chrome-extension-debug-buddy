@@ -1,0 +1,194 @@
+{
+	"Preact": {
+		"cats": [
+			59
+		],
+		"description": "Preact is a JavaScript library that describes itself as a fast 3kB alternative to React with the same ES6 API.",
+		"dom": {
+			"#app, .app, #root, .root, body, body > *, body > * > *, body > * > * > *": {
+				"properties": {
+					"__k": ""
+				}
+			}
+		},
+		"icon": "Preact.svg",
+		"oss": true,
+		"website": "https://preactjs.com"
+	},
+	"Plausible": {
+		"cats": [
+			10
+		],
+		"description": "Plausible is an open-source alternative to Google Analytics.",
+		"icon": "Plausible.svg",
+		"js": {
+			"plausible": ""
+		},
+		"scriptSrc": [
+			"plausible\\.io/js/plausible\\.js"
+		],
+		"website": "https://plausible.io/"
+	},
+	"PrestaShop": {
+		"cats": [
+			6
+		],
+		"cookies": {
+			"PrestaShop": ""
+		},
+		"cpe": "cpe:2.3:a:prestashop:prestashop:*:*:*:*:*:*:*:*",
+		"description": "PrestaShop is a freemium, open-source ecommerce solution, written in the PHP programming language with support for the MySQL database management system.",
+		"dom": [
+			"img[src*='/modules/prestablog/themes/'], img[data-src*='/modules/prestablog/themes/']",
+			"link[href*='/modules/ps_']"
+		],
+		"headers": {
+			"Powered-By": "^Prestashop$"
+		},
+		"html": [
+			"Powered by <a\\s+[^>]+>PrestaShop",
+			"<!-- /Block [a-z ]+ module (?:HEADER|TOP)?\\s?-->",
+			"<!-- /Module Block [a-z ]+ -->"
+		],
+		"icon": "PrestaShop.svg",
+		"implies": [
+			"PHP",
+			"MySQL"
+		],
+		"js": {
+			"freeProductTranslation": "\\;confidence:40",
+			"prestashop": "",
+			"priceDisplayMethod": "\\;confidence:40",
+			"priceDisplayPrecision": "\\;confidence:40",
+			"rcAnalyticsEvents.eventPrestashopCheckout": ""
+		},
+		"meta": {
+			"generator": "PrestaShop"
+		},
+		"oss": true,
+		"scriptSrc": [
+			"/modules/ps_[a-z]+/"
+		],
+		"scripts": [
+			"PrestaShop-"
+		],
+		"website": "https://www.prestashop.com"
+	},
+	"PayPal": {
+		"cats": [
+			41
+		],
+		"cpe": "cpe:2.3:a:paypal:paypal:*:*:*:*:*:*:*:*",
+		"description": "PayPal is an online payments system that supports online money transfers and serves as an electronic alternative to traditional paper methods like checks and money orders.",
+		"dom": {
+			"button": {
+				"text": "PayPal"
+			},
+			"iframe[src*='paypal.com'], img[src*='paypal.com'], img[src*='paypalobjects.com'], [aria-labelledby='pi-paypal'], [data-paypal-v4], [data-paypal-commerce-button], [data-paypal-smart-button-version], img[alt*='PayPal']": {
+				"exists": ""
+			}
+		},
+		"headers": {
+			"content-security-policy": "\\.paypal\\.com"
+		},
+		"icon": "PayPal.svg",
+		"js": {
+			"PAYPAL": "",
+			"__paypal_global__": "",
+			"checkout.enabledpayments.paypal": "^true$",
+			"enablePaypal": "",
+			"paypal": "",
+			"paypalClientId": "",
+			"paypalJs": "",
+			"wc_ga_pro.available_gateways.paypal": ""
+		},
+		"meta": {
+			"id": "in-context-paypal-metadata"
+		},
+		"pricing": [
+			"payg"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"paypalobjects\\.com"
+		],
+		"website": "https://paypal.com",
+		"xhr": [
+			"\\.paypal\\.com"
+		]
+	},
+	"PagSeguro": {
+		"cats": [
+			41
+		],
+		"description": "PagSeguro is an online or mobile payment-based ecommerce service for commercial operations.",
+		"dom": [
+			"form[action*='pagseguro.uol.com.br'][target='pagseguro']"
+		],
+		"icon": "PagSeguro.svg",
+		"js": {
+			"PagSeguroDirectPayment": "",
+			"_PagSeguroDirectPayment": ""
+		},
+		"pricing": [
+			"payg"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"\\.pagseguro\\.uol\\.com\\.br/"
+		],
+		"website": "https://pagseguro.uol.com.br"
+	},
+	"PHP": {
+		"cats": [
+			27
+		],
+		"cookies": {
+			"PHPSESSID": ""
+		},
+		"cpe": "cpe:2.3:a:php:php:*:*:*:*:*:*:*:*",
+		"description": "PHP is a general-purpose scripting language used for web development.",
+		"dom": [
+			"form[action*='login_process.php'], form[action*='assets/mail.php']"
+		],
+		"headers": {
+			"Server": "php/?([\\d.]+)?\\;version:\\1",
+			"X-Powered-By": "^php/?([\\d.]+)?\\;version:\\1"
+		},
+		"icon": "PHP.svg",
+		"scripts": [
+			"\\.php(?:\\?|$)"
+		],
+		"url": [
+			"\\.php(?:$|\\?)"
+		],
+		"website": "https://php.net"
+	},
+	"Python": {
+		"cats": [
+			27
+		],
+		"cpe": "cpe:2.3:a:python:python:*:*:*:*:*:*:*:*",
+		"description": "Python is an interpreted and general-purpose programming language.",
+		"headers": {
+			"Server": "(?:^|\\s)Python(?:/([\\d.]+))?\\;version:\\1"
+		},
+		"icon": "Python.svg",
+		"website": "https://python.org"
+	},
+	"Phoenix Framework": {
+		"cats": [
+			18
+		],
+		"description": "Phoenix Framework is an open-source web application framework built using the Elixir programming language.",
+		"icon": "Phoenix Framework.svg",
+		"implies": [
+			"Elixir"
+		],
+		"js": {
+			"Phoenix.Channel": ""
+		},
+		"oss": true,
+		"website": "https://www.phoenixframework.org"
+	}
+}

@@ -1,0 +1,140 @@
+{
+	"Ghost": {
+		"cats": [
+			1,
+			11
+		],
+		"cpe": "cpe:2.3:a:ghost:ghost:*:*:*:*:*:node.js:*:*",
+		"description": "Ghost is a powerful app for new-media creators to publish, share, and grow a business around their content.",
+		"headers": {
+			"X-Ghost-Cache-Status": ""
+		},
+		"icon": "Ghost.svg",
+		"implies": [
+			"Node.js"
+		],
+		"meta": {
+			"generator": "Ghost(?:\\s([\\d.]+))?\\;version:\\1"
+		},
+		"website": "https://ghost.org"
+	},
+	"Google Analytics": {
+		"cats": [
+			10
+		],
+		"cookies": {
+			"__utma": "",
+			"_ga": "",
+			"_ga_*": "\\;version:GA4",
+			"_gat": "\\;version:UA"
+		},
+		"description": "Google Analytics is a free web analytics service that tracks and reports website traffic.",
+		"dom": [
+			"amp-analytics[type*=googleanalytics]"
+		],
+		"icon": "Google Analytics.svg",
+		"js": {
+			"GoogleAnalyticsObject": "",
+			"gaGlobal": ""
+		},
+		"scriptSrc": [
+			"google-analytics\\.com/(?:ga|urchin|analytics)\\.js",
+			"googletagmanager\\.com/gtag/js"
+		],
+		"scripts": [
+			"gtag\\([^)]+'(UA-)\\;version:\\1?UA:",
+			"gtag\\([^)]+'(G-)\\;version:\\1?GA4:"
+		],
+		"website": "https://google.com/analytics"
+	},
+	"Google Tag Manager": {
+		"cats": [
+			42
+		],
+		"description": "Google Tag Manager is a tag management system (TMS) that allows you to quickly and easily update measurement codes and related code fragments collectively known as tags on your website or mobile app.",
+		"html": [
+			"googletagmanager\\.com/ns\\.html[^>]+></iframe>",
+			"<!-- (?:End )?Google Tag Manager -->"
+		],
+		"icon": "Google Tag Manager.svg",
+		"js": {
+			"google_tag_data": "",
+			"google_tag_manager": "",
+			"googletag": ""
+		},
+		"saas": true,
+		"scriptSrc": [
+			"googletagmanager\\.com/gtm\\.js",
+			"\\.googletagmanager\\.com/"
+		],
+		"website": "https://www.google.com/tagmanager"
+	},
+	"GitHub Pages": {
+		"cats": [
+			62
+		],
+		"description": "GitHub Pages is a static site hosting service.",
+		"headers": {
+			"Server": "^GitHub\\.com$",
+			"X-GitHub-Request-Id": ""
+		},
+		"icon": "GitHub.svg",
+		"url": [
+			"^https?://[^/]+\\.github\\.io"
+		],
+		"website": "https://pages.github.com/"
+	},
+	"Google Optimize": {
+		"cats": [
+			74
+		],
+		"description": "Google Optimize allows you to test variants of web pages and see how they perform.",
+		"icon": "Google Optimize.svg",
+		"js": {
+			"google_optimize": ""
+		},
+		"scriptSrc": [
+			"googleoptimize\\.com/optimize\\.js"
+		],
+		"website": "https://optimize.google.com"
+	},
+	"Gatsby": {
+		"cats": [
+			57,
+			12
+		],
+		"cpe": "cpe:2.3:a:gatsbyjs:gatsby:*:*:*:*:*:node.js:*:*",
+		"description": "Gatsby is a React-based open-source framework with performance, scalability and security built-in.",
+		"dom": [
+			"div#___gatsby, style#gatsby-inlined-css"
+		],
+		"icon": "Gatsby.svg",
+		"implies": [
+			"React",
+			"Webpack"
+		],
+		"meta": {
+			"generator": "^Gatsby(?: ([0-9.]+))?$\\;version:\\1"
+		},
+		"website": "https://www.gatsbyjs.org/"
+	},
+	"Google Maps": {
+		"cats": [
+			35
+		],
+		"description": "Google Maps is a web mapping service. It offers satellite imagery, aerial photography, street maps, 360° interactive panoramic views of streets, real-time traffic conditions, and route planning for traveling by foot, car, bicycle and air, or public transportation.",
+		"dom": [
+			"iframe[src*='google.com/maps']"
+		],
+		"icon": "Google Maps.svg",
+		"js": {
+			"GoogleMap": "",
+			"googleMapsConfig": ""
+		},
+		"scriptSrc": [
+			"(?:maps\\.google\\.com/maps\\?file=api(?:&v=([\\d.]+))?|maps\\.google\\.com/maps/api/staticmap)\\;version:API v\\1",
+			"//maps\\.google(?:apis)?\\.com/maps/api/js"
+		],
+		"website": "https://maps.google.com"
+	}
+}

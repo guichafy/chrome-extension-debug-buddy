@@ -1,5 +1,4 @@
-import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { AppSidebar } from '../layout/AppSidebar';
 
 // Mock para o react-router-dom
@@ -19,7 +18,7 @@ vi.mock('@/components/ui/sidebar', () => ({
 	SidebarFooter: ({ children }: any) => <div data-testid="sidebar-footer">{children}</div>,
 	SidebarMenu: ({ children }: any) => <div data-testid="sidebar-menu">{children}</div>,
 	SidebarMenuItem: ({ children }: any) => <div data-testid="sidebar-menu-item">{children}</div>,
-	SidebarMenuButton: ({ children, asChild, className, size }: any) => (
+	SidebarMenuButton: ({ children, className, size }: any) => (
 		<div data-testid="sidebar-menu-button" className={className} data-size={size}>
 			{children}
 		</div>
@@ -116,6 +115,7 @@ describe('AppSidebar Component', () => {
 		// Verifica se os labels da navegação estão presentes
 		expect(screen.getByText('Command Center')).toBeInTheDocument();
 		expect(screen.getByText('Rules Lab')).toBeInTheDocument();
+		expect(screen.getByText('Sessões')).toBeInTheDocument();
 	});
 
 	// Teste para verificar se o SidebarFooter exibe informações do desenvolvedor
@@ -127,15 +127,17 @@ describe('AppSidebar Component', () => {
 		expect(screen.getByText('Guilherme Chafy')).toBeTruthy();
 	});
 
-	// Após remoção do item "Pausadas", apenas Command Center e Rules Lab restam.
-	test('expõe somente Command Center e Rules Lab no menu', () => {
+	// Itens do menu: Command Center, Rules Lab, Sessões, Privacidade.
+	test('expõe Command Center, Rules Lab, Sessões e Privacidade no menu', () => {
 		render(<AppSidebar />);
 
 		const navItems = screen.getAllByTestId('nav-item');
-		expect(navItems.length).toBe(2);
+		expect(navItems.length).toBe(4);
 		expect(screen.queryByText('Pausadas')).not.toBeInTheDocument();
+		expect(screen.getByText('Sessões')).toBeInTheDocument();
+		expect(screen.getByText('Privacidade')).toBeInTheDocument();
 
-		// Nenhum item de navegação carrega contador depois da remoção do item "Pausadas".
+		// Nenhum item de navegação carrega contador.
 		const counts = screen.queryAllByTestId('nav-item-count');
 		expect(counts.length).toBe(0);
 	});

@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import path from 'path';
+import { inlineContentScripts } from './vite-plugins/inlineContentScripts';
+import { rrwebPlayerRawResolver } from './vite-plugins/rrwebPlayerRawResolver';
 
 const REACT_DEVTOOLS_URL = 'http://localhost:8097';
 
@@ -44,6 +46,16 @@ export default defineConfig(({ mode }) => {
 	}
 	return {
 		root: '.',
+		// Força esbuild a escapar caracteres não-ASCII como `\uXXXX` em vez de gravar
+		// os bytes UTF-8 originais. rrweb agrupa o postcss que tem string literals
+		// com U+FFFE (non-character byte-swap BOM), e o loader de content script
+		// do Chrome rejeita o arquivo como "não UTF-8" mesmo sendo UTF-8 válido —
+		// tem heurística estrita que falha em U+FFFE. Pure-ASCII output evita isso.
+		// Trade-off: alguns KB a mais por arquivo (escape sequences são mais longos
+		// que UTF-8 multi-byte), mas elimina o problema definitivamente.
+		esbuild: {
+			charset: 'ascii',
+		},
 		build: {
 			outDir: 'dist',
 			emptyOutDir: true,
@@ -55,6 +67,9 @@ export default defineConfig(({ mode }) => {
 					offscreen: path.resolve(__dirname, 'offscreen.html'),
 					background: path.resolve(__dirname, 'src/entrypoints/background.ts'),
 					main: path.resolve(__dirname, 'src/entrypoints/options/main.tsx'),
+					'probe-main': path.resolve(__dirname, 'src/probe/main.ts'),
+					'probe-bridge': path.resolve(__dirname, 'src/probe/bridge.ts'),
+					'rrweb-recorder': path.resolve(__dirname, 'src/probe/rrwebRecorder.ts'),
 				},
 				output: {
 					entryFileNames: '[name].js',
@@ -70,6 +85,7 @@ export default defineConfig(({ mode }) => {
 			extensions: ['.tsx', '.ts', '.js', '.jsx'],
 		},
 		plugins: [
+			rrwebPlayerRawResolver(__dirname),
 			react(),
 			tailwindcss(),
 			reactDevtoolsHtmlInject(mode),
@@ -90,6 +106,9 @@ export default defineConfig(({ mode }) => {
 					{ src: 'images', dest: '.' },
 				],
 			}),
+			// Após Vite/Rollup terminar, re-bundle content scripts com esbuild IIFE
+			// para inlinar imports (manifest V3 content_scripts não suporta ESM).
+			inlineContentScripts(path.resolve(__dirname, 'dist')),
 		],
 	};
 });

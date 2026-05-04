@@ -1,0 +1,104 @@
+{
+	"BigCommerce": {
+		"cats": [
+			6
+		],
+		"description": "BigCommerce is a hosted ecommerce platform that allows business owners to set up an online store and sell their products online.",
+		"dom": [
+			"img[data-src*='.bigcommerce.com'], img[src*='.bigcommerce.com'], link[href*='.bigcommerce.com']"
+		],
+		"icon": "BigCommerce.svg",
+		"js": {
+			"bigcommerce_config": "",
+			"bigcommerce_i18n": ""
+		},
+		"meta": {
+			"platform": "^bigcommerce"
+		},
+		"pricing": [
+			"low",
+			"recurring"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"(?:\\.|plugins/)?bigcommerce(?:\\.com)?/(?:assets)?"
+		],
+		"scripts": [
+			"bigcommerceProductId"
+		],
+		"url": [
+			"mybigcommerce\\.com"
+		],
+		"website": "https://www.bigcommerce.com"
+	},
+	"Braintree": {
+		"cats": [
+			41
+		],
+		"description": "Braintree, a division of PayPal, specializes in mobile and web payment systems for ecommerce companies. Braintree provides clients with a merchant account and a payment gateway.",
+		"icon": "Braintree.svg",
+		"js": {
+			"Braintree": "",
+			"Braintree.version": "^(.+)$\\;version:\\1"
+		},
+		"scriptSrc": [
+			"js\\.braintreegateway\\.com"
+		],
+		"website": "https://www.braintreepayments.com"
+	},
+	"Bootstrap": {
+		"cats": [
+			66
+		],
+		"cpe": "cpe:2.3:a:getbootstrap:bootstrap:*:*:*:*:*:*:*:*",
+		"description": "Bootstrap is a free and open-source CSS framework directed at responsive, mobile-first front-end web development. It contains CSS and JavaScript-based design templates for typography, forms, buttons, navigation, and other interface components.",
+		"dom": {
+			"body[data-bs-theme]": {
+				"attributes": {
+					"data-bs-theme": "^(.*)$"
+				}
+			},
+			"link[href*=\"cdn.jsdelivr.net/npm/bootstrap\"]": {
+				"attributes": {
+					"href": "bootstrap@([\\d.]+)"
+				}
+			},
+			"style": {
+				"text": "--bs-(?:gutter|emphasis|space-x|tertiary-bg|secondary-color)"
+			}
+		},
+		"html": [
+			"<style>\\s+/\\*!\\s+\\* Bootstrap v(\\d\\.\\d\\.\\d)\\;version:\\1",
+			"<link[^>]* href=[^>]*?bootstrap(?:[^>]*?([0-9a-fA-F]{7,40}|[\\d]+(?:.[\\d]+(?:.[\\d]+)?)?)|)[^>-]*?(?:\\.min)?\\.css\\;version:\\1"
+		],
+		"icon": "Bootstrap.svg",
+		"js": {
+			"bootstrap.Alert": "",
+			"bootstrap.Alert.VERSION": "^(.+)$\\;version:\\1",
+			"jQuery.fn.tooltip.Constructor.VERSION": "^(.+)$\\;version:\\1"
+		},
+		"scriptSrc": [
+			"bootstrap(?:[^>]*?([0-9a-fA-F]{7,40}|[\\d]+(?:.[\\d]+(?:.[\\d]+)?)?)|)[^>]*?(?:\\.min)?\\.js\\;version:\\1"
+		],
+		"website": "https://getbootstrap.com"
+	},
+	"Bulma": {
+		"cats": [
+			66
+		],
+		"description": "Bulma is a free class-based framework for CSS.",
+		"dom": {
+			"link[href*='bulma']": {
+				"attributes": {
+					"href": "(?:([\\d\\.]+)/css/)?bulma(?:-docs)?\\.min\\.css\\;version:\\1"
+				}
+			}
+		},
+		"icon": "Bulma.svg",
+		"js": {
+			"Bulma.VERSION": "([\\d\\.]+)\\;version:\\1"
+		},
+		"oss": true,
+		"website": "https://bulma.io"
+	}
+}

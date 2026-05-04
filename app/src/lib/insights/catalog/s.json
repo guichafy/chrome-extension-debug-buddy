@@ -1,0 +1,292 @@
+{
+	"Svelte": {
+		"cats": [
+			12
+		],
+		"cpe": "cpe:2.3:a:svelte:svelte:*:*:*:*:*:node.js:*:*",
+		"description": "Svelte is a free and open-source front end compiler created by Rich Harris and maintained by the Svelte core team members.",
+		"dom": [
+			"link[href*='/svelte/']",
+			"main[class^='svelte-']",
+			"a[data-svelte-h^='svelte-']",
+			"nav[data-svelte-h^='svelte-']",
+			"section[data-svelte-h^='svelte-']"
+		],
+		"icon": "Svelte.svg",
+		"js": {
+			"__svelte": "",
+			"svelte_taxlistteaser": ""
+		},
+		"oss": true,
+		"website": "https://svelte.dev"
+	},
+	"SolidJS": {
+		"cats": [
+			12
+		],
+		"description": "SolidJS is a purely reactive library. It was designed from the ground up with a reactive core. It's influenced by reactive principles developed by previous libraries.",
+		"dom": {
+			"[data-hk]": {
+				"exists": ""
+			}
+		},
+		"excludes": [
+			"React"
+		],
+		"icon": "SolidJS.svg",
+		"js": {
+			"Solid$$": ""
+		},
+		"oss": true,
+		"scriptSrc": [
+			"www\\.solidjs\\.com"
+		],
+		"website": "https://www.solidjs.com/"
+	},
+	"Shopify": {
+		"cats": [
+			6
+		],
+		"cookies": {
+			"_shopify_essential_": "",
+			"_shopify_s": "",
+			"_shopify_sa_p": "",
+			"_shopify_sa_t": "",
+			"_shopify_y": ""
+		},
+		"description": "Shopify is a subscription-based software that allows anyone to set up an online store and sell their products. Shopify store owners can also sell in physical locations using Shopify POS, a point-of-sale app and accompanying hardware.",
+		"dom": {
+			"link[href*='shopify.com']": {
+				"attributes": {
+					"href": "(?:cdn\\.|\\.my)shopify\\.com\\;confidence:50"
+				}
+			}
+		},
+		"headers": {
+			"x-shopid": "\\;confidence:50",
+			"x-shopify-stage": ""
+		},
+		"icon": "Shopify.svg",
+		"js": {
+			"SHOPIFY_API_BASE_URL": "",
+			"Shopify": "\\;confidence:25",
+			"ShopifyAPI": "",
+			"ShopifyAnalytics": "",
+			"ShopifyCustomer": "",
+			"goaffproShopifyStVariableFix": "",
+			"shopifyAccessUrl": ""
+		},
+		"meta": {
+			"shopify-checkout-api-token": "",
+			"shopify-digital-wallet": ""
+		},
+		"pricing": [
+			"low",
+			"recurring"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"sdks\\.shopifycdn\\.com",
+			"cdn\\.shopify\\.com"
+		],
+		"scripts": [
+			"shopifyTag"
+		],
+		"url": [
+			"^https?//.+\\.myshopify\\.com"
+		],
+		"website": "https://shopify.com",
+		"xhr": [
+			"\\.myshopify\\.com"
+		]
+	},
+	"Segment": {
+		"cats": [
+			97
+		],
+		"description": "Segment is a customer data platform (CDP) that helps you collect, clean, and control your customer data.",
+		"dns": {
+			"TXT": [
+				"segment-site-verification"
+			]
+		},
+		"icon": "Segment.svg",
+		"js": {
+			"__SEGMENT_INSPECTOR__": "",
+			"analytics.SNIPPET_VERSION": "(.+)\\;version:\\1",
+			"analytics.VERSION": "(.+)\\;version:\\1"
+		},
+		"pricing": [
+			"mid",
+			"freemium",
+			"recurring"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"cdn\\.segment\\.com/analytics\\.js",
+			"/segment-wrapper\\.min\\.js"
+		],
+		"website": "https://segment.com"
+	},
+	"Salesforce Commerce Cloud": {
+		"cats": [
+			6
+		],
+		"cookies": {
+			"dw_dnt": "",
+			"dwsid": ""
+		},
+		"description": "Salesforce Commerce Cloud is a cloud-based software-as-a-service (SaaS) ecommerce solution.",
+		"headers": {
+			"Server": "Demandware eCommerce Server"
+		},
+		"icon": "Salesforce.svg",
+		"implies": [
+			"Salesforce"
+		],
+		"js": {
+			"dwAnalytics": ""
+		},
+		"pricing": [
+			"poa"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"/demandware\\.static/"
+		],
+		"website": "https://demandware.com"
+	},
+	"Stripe": {
+		"cats": [
+			41
+		],
+		"cookies": {
+			"__stripe_mid": "",
+			"__stripe_sid": ""
+		},
+		"cpe": "cpe:2.3:a:stripe:stripe:*:*:*:*:*:*:*:*",
+		"description": "Stripe offers online payment processing for internet businesses as well as fraud prevention, invoicing and subscription management.",
+		"dns": {
+			"TXT": [
+				"stripe-verification="
+			]
+		},
+		"dom": [
+			"a[href*='billing.stripe.com']",
+			"a[href*='checkout.stripe.com']",
+			"input[data-stripe]"
+		],
+		"html": [
+			"<input[^>]+data-stripe"
+		],
+		"icon": "Stripe.svg",
+		"js": {
+			"Stripe.version": "^(.+)$\\;version:\\1",
+			"__NEXT_DATA__.props.pageProps.appSettings.STRIPE_API_PUBLIC_KEY": "",
+			"checkout.enabledpayments.stripe": "^true$",
+			"stripePublicKey": ""
+		},
+		"pricing": [
+			"payg"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"js\\.stripe\\.com"
+		],
+		"website": "https://stripe.com"
+	},
+	"Spring": {
+		"cats": [
+			18
+		],
+		"cpe": "cpe:2.3:a:vmware:spring_framework:*:*:*:*:*:*:*:*",
+		"description": "Spring is a comprehensive framework for building enterprise-level Java applications, providing tools and infrastructure for application development, including dependency injection, transaction management, and integration with various technologies.",
+		"headers": {
+			"X-Application-Context": ""
+		},
+		"icon": "Spring.svg",
+		"implies": [
+			"Java"
+		],
+		"oss": true,
+		"website": "https://spring.io"
+	},
+	"shadcn/ui": {
+		"cats": [
+			66
+		],
+		"css": [
+			"--destructive-foreground"
+		],
+		"description": "shadcn/ui is a component system built with Radix UI and Tailwind CSS.",
+		"icon": "shadcn-ui.svg",
+		"implies": [
+			"Radix UI",
+			"Tailwind CSS"
+		],
+		"oss": true,
+		"website": "https://ui.shadcn.com"
+	},
+	"Supabase": {
+		"cats": [
+			47
+		],
+		"description": "Supabase is an open-source platform that offers a Postgres database, Authentication, APIs, Edge Functions, Realtime subscriptions, Storage, and Vector embeddings for project development.",
+		"dom": [
+			"a[href*='supabase.com'] > img[src*='/supabase-logo-wordmark\\-\\-dark.png']"
+		],
+		"icon": "Supabase.svg",
+		"implies": [
+			"PostgreSQL"
+		],
+		"js": {
+			"__NUXT__.config.public.SUPABASE_URL": "",
+			"__NUXT__.config.public.supabase": "",
+			"createClient": "supabase\\.",
+			"supabase.AuthAdminApi": "",
+			"supabase.storageKey": ""
+		},
+		"oss": true,
+		"pricing": [
+			"freemium",
+			"payg",
+			"recurring"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"cdn\\.supabase\\.com"
+		],
+		"scripts": [
+			"\\.supabase\\.co/"
+		],
+		"website": "https://supabase.com"
+	},
+	"Sentry": {
+		"cats": [
+			13
+		],
+		"cpe": "cpe:2.3:a:sentry:sentry:*:*:*:*:*:*:*:*",
+		"description": "Sentry is an open-source platform for workflow productivity, aggregating errors from across the stack in real time.",
+		"headers": {
+			"Sentry-Trace": ""
+		},
+		"html": [
+			"<script[^>]*>\\s*Raven\\.config\\('[^']*', \\{\\s+release: '([0-9\\.]+)'\\;version:\\1",
+			"<script[^>]*src=\"[^\"]*browser\\.sentry\\-cdn\\.com/([0-9.]+)/bundle(?:\\.tracing)?(?:\\.min)?\\.js\\;version:\\1"
+		],
+		"icon": "Sentry.svg",
+		"js": {
+			"Raven.config": "",
+			"SENTRY_SDK_SOURCE": "",
+			"Sentry": "",
+			"Sentry.SDK_VERSION": "(.+)\\;version:\\1",
+			"__SENTRY__": "",
+			"ravenOptions.whitelistUrls": ""
+		},
+		"scriptSrc": [
+			"browser\\.sentry\\-cdn\\.com/([0-9.]+)/bundle(?:\\.tracing)?(?:\\.min)?\\.js\\;version:\\1",
+			"\\.sentry-cdn\\.com/"
+		],
+		"website": "https://sentry.io/"
+	}
+}

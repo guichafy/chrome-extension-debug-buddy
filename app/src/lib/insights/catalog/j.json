@@ -1,0 +1,94 @@
+{
+	"jQuery": {
+		"cats": [
+			59
+		],
+		"cpe": "cpe:2.3:a:jquery:jquery:*:*:*:*:*:*:*:*",
+		"description": "jQuery is a JavaScript library which is a free, open-source software designed to simplify HTML DOM tree traversal and manipulation, as well as event handling, CSS animation, and Ajax.",
+		"icon": "jQuery.svg",
+		"js": {
+			"$.fn.jquery": "([\\d.]+)\\;version:\\1",
+			"jQuery.fn.jquery": "([\\d.]+)\\;version:\\1",
+			"jQuery.prototype.jquery": "([\\d.]+)\\;version:\\1"
+		},
+		"scriptSrc": [
+			"jquery",
+			"/jquery(?:-(\\d+\\.\\d+\\.\\d+))[/.-]\\;version:\\1",
+			"/(\\d+\\.\\d+\\.\\d+)/jquery(?!\\.popupoverlay\\.js|(?:\\.[\\w-]*)*fancybox)[/.-][^u]\\;version:\\1"
+		],
+		"website": "https://jquery.com"
+	},
+	"Joomla": {
+		"cats": [
+			1
+		],
+		"cookies": {
+			"joomla_[a-z0-9]+": ""
+		},
+		"cpe": "cpe:2.3:a:joomla:joomla\\!:*:*:*:*:*:*:*:*",
+		"description": "Joomla is a free and open-source content management system for publishing web content.",
+		"dom": [
+			"div[id*='wrapper_r'], link[href*='feed/com_'], link[href*='components/com_'], table[class*='pill']"
+		],
+		"headers": {
+			"X-Content-Encoded-By": "Joomla! ([\\d.]+)\\;version:\\1"
+		},
+		"html": [
+			"(?:<div[^>]+id=\"wrapper_r\"|<(?:link|script)[^>]+(?:feed|components)/com_|<table[^>]+class=\"pill)\\;confidence:50"
+		],
+		"icon": "Joomla.svg",
+		"implies": [
+			"PHP"
+		],
+		"js": {
+			"Joomla": "",
+			"jcomments": ""
+		},
+		"meta": {
+			"generator": "Joomla!(?: ([\\d.]+))?\\;version:\\1"
+		},
+		"oss": true,
+		"scriptSrc": [
+			"(?:^|/)(feed/com_|components/com_)"
+		],
+		"url": [
+			"option=com_"
+		],
+		"website": "https://www.joomla.org/"
+	},
+	"Java": {
+		"cats": [
+			27
+		],
+		"cookies": {
+			"JSESSIONID": ""
+		},
+		"cpe": "cpe:2.3:a:oracle:jre:*:*:*:*:*:*:*:*",
+		"description": "Java is a class-based, object-oriented programming language that is designed to have as few implementation dependencies as possible.",
+		"icon": "Java.svg",
+		"website": "https://java.com"
+	},
+	"Jekyll": {
+		"cats": [
+			57
+		],
+		"cpe": "cpe:2.3:a:jekyllrb:jekyll:*:*:*:*:*:*:*:*",
+		"description": "Jekyll is a blog-aware, static site generator for personal, project, or organisation sites.",
+		"html": [
+			"Powered by <a href=\"https?://jekyllrb\\.com\"[^>]*>Jekyll</",
+			"<!-- Created with Jekyll Now -",
+			"<!-- Begin Jekyll SEO tag"
+		],
+		"icon": "Jekyll.svg",
+		"implies": [
+			"Ruby"
+		],
+		"js": {
+			"SimpleJekyllSearch": ""
+		},
+		"meta": {
+			"generator": "Jekyll\\sv([\\d.]+)?\\;version:\\1"
+		},
+		"website": "https://jekyllrb.com"
+	}
+}

@@ -1,0 +1,97 @@
+{
+	"WordPress": {
+		"cats": [
+			1,
+			11
+		],
+		"dom": [
+			"div[class*='wp-block-group'] > div[class*='wp-block-']",
+			"link[rel=stylesheet][href*='/wp-content/']",
+			"link[rel=stylesheet][href*='/wp-includes/']",
+			"link[href*='.wp.com']"
+		],
+		"js": {
+			"wp.ajax": "",
+			"wp.receiveEmbedMessage": "",
+			"wp_username": "",
+			"wpb_prepare_tab_content": ""
+		},
+		"headers": {
+			"X-Pingback": "/xmlrpc\\.php$",
+			"link": "rel=\"https://api\\.w\\.org/\""
+		},
+		"html": [
+			"<link rel=[\"']stylesheet[\"'] [^>]+/wp-(?:content|includes)/",
+			"<link[^>]+s\\d+\\.wp\\.com"
+		],
+		"meta": {
+			"generator": "^WordPress(?: ([\\d.]+))?\\;version:\\1",
+			"shareaholic:wp_version": ""
+		},
+		"scriptSrc": [
+			"/wp-(?:content|includes)/",
+			"wp-embed\\.min\\.js",
+			"wp-static\\.assets\\.sh/"
+		],
+		"scripts": [
+			"/wp-content"
+		],
+		"implies": [
+			"PHP",
+			"MySQL"
+		]
+	},
+	"Wix": {
+		"cats": [
+			1,
+			11
+		],
+		"cookies": {
+			"Domain": "\\.wix\\.com"
+		},
+		"js": {
+			"wixBiSession": "",
+			"wixPerformanceMeasurements": ""
+		},
+		"headers": {
+			"X-Wix-Renderer-Server": "",
+			"X-Wix-Request-Id": "",
+			"X-Wix-Server-Artifact-Id": ""
+		},
+		"meta": {
+			"generator": "Wix\\.com Website Builder"
+		},
+		"scriptSrc": [
+			"static\\.parastorage\\.com"
+		],
+		"implies": [
+			"React"
+		]
+	},
+	"WooCommerce": {
+		"cats": [
+			6,
+			87
+		],
+		"cookies": {
+			"woocommerce_recently_viewed": ""
+		},
+		"dom": [
+			".woocommerce, .woocommerce-no-js, link[rel*='woocommerce']"
+		],
+		"js": {
+			"wc_add_to_cart_params": "",
+			"woocommerce_params": ""
+		},
+		"meta": {
+			"generator": "WooCommerce ([\\d.]+)\\;version:\\1"
+		},
+		"scriptSrc": [
+			"woocommerce",
+			"/woocommerce(?:\\.min)?\\.js(?:\\?ver=([0-9.]+))?\\;version:\\1"
+		],
+		"requires": [
+			"WordPress"
+		]
+	}
+}

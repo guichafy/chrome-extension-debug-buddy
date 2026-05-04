@@ -4,6 +4,15 @@ import Layout from './pages/Layout';
 
 const CommandCenter = lazy(() => import('./pages/CommandCenter'));
 const RulesLab = lazy(() => import('./pages/RulesLab'));
+const SessionsPage = lazy(() =>
+	import('./pages/SessionsPage').then((m) => ({ default: m.SessionsPage })),
+);
+const ReplayPage = lazy(() =>
+	import('./pages/ReplayPage').then((m) => ({ default: m.ReplayPage })),
+);
+const PrivacySettingsPage = lazy(() =>
+	import('./pages/PrivacySettingsPage').then((m) => ({ default: m.PrivacySettingsPage })),
+);
 
 const router = createHashRouter([
 	{
@@ -21,6 +30,9 @@ const router = createHashRouter([
 			},
 			{ path: 'request-history', element: <Navigate to="/command-center" replace /> },
 			{ path: 'requests', element: <Navigate to="/command-center" replace /> },
+			{ path: 'sessions', element: <SessionsPage /> },
+			{ path: 'replay/:sessionId', element: <ReplayPage /> },
+			{ path: 'settings/privacy', element: <PrivacySettingsPage /> },
 		],
 	},
 ]);

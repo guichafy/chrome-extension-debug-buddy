@@ -1,0 +1,244 @@
+{
+	"Angular": {
+		"cats": [
+			12
+		],
+		"dom": {
+			"[ng-version]": {
+				"attributes": {
+					"ng-version": "^([\\d\\.]+)\\;version:\\1"
+				}
+			}
+		},
+		"js": {
+			"getAllAngularRootElements": "",
+			"getAngularTestability": "",
+			"ng.coreTokens": "",
+			"ng.probe": ""
+		},
+		"implies": [
+			"TypeScript"
+		],
+		"excludes": [
+			"AngularDart",
+			"AngularJS"
+		]
+	},
+	"Astro": {
+		"cats": [
+			57,
+			12
+		],
+		"dom": {
+			"[class^='astro-']": {
+				"attributes": {
+					"class": "astro-[\\d\\w]{8,}"
+				}
+			},
+			"astro-root": {
+				"attributes": {
+					"uid": ""
+				}
+			},
+			"link[href*='/_astro/']": {
+				"attributes": {
+					"href": "/_astro/(?:[\\W\\w]+)(?:-|\\.)[\\d\\w]+\\.css"
+				}
+			},
+			"link[href*='/_astro/'][href$='.css']": {
+				"exists": ""
+			}
+		},
+		"js": {
+			"Astro": ""
+		},
+		"meta": {
+			"generator": "^Astro(?:\\sv([\\d\\.]+))?$\\;version:\\1"
+		}
+	},
+	"Apollo": {
+		"cats": [
+			59
+		],
+		"dom": [
+			"script#__APOLLO_STATE__"
+		],
+		"js": {
+			"__APOLLO_CLIENT__": "",
+			"__APOLLO_CLIENT__.version": "^(.+)$\\;version:\\1",
+			"__NEXT_DATA__.props.pageProps.__APOLLO_STATE__": ""
+		},
+		"headers": {
+			"Access-Control-Allow-Headers": "^x-apollo-tracing"
+		},
+		"implies": [
+			"GraphQL",
+			"TypeScript\\;confidence:50"
+		]
+	},
+	"Amplitude": {
+		"cats": [
+			10
+		],
+		"js": {
+			"AMPLITUDE_KEY": "",
+			"__AMPLITUDE__": "",
+			"amplitudeClient": ""
+		},
+		"scriptSrc": [
+			"cdn\\.(?:segment.+)?amplitude(?:\\.com|-plugins)"
+		],
+		"xhr": [
+			"\\.amplitude\\.com"
+		]
+	},
+	"Apache HTTP Server": {
+		"cats": [
+			22
+		],
+		"headers": {
+			"Server": "(?:Apache(?:$|/([\\d.]+)|[^/-])|(?:^|\\b)HTTPD)\\;version:\\1"
+		}
+	},
+	"Amazon CloudFront": {
+		"cats": [
+			31
+		],
+		"headers": {
+			"Via": "\\(CloudFront\\)$",
+			"X-Amz-Cf-Id": ""
+		},
+		"implies": [
+			"Amazon Web Services"
+		]
+	},
+	"Akamai": {
+		"cats": [
+			31
+		],
+		"headers": {
+			"X-Akamai-Transformed": "",
+			"X-EdgeConnect-MidMile-RTT": "",
+			"X-EdgeConnect-Origin-MEX-Latency": ""
+		}
+	},
+	"AB Tasty": {
+		"cats": [
+			74
+		],
+		"js": {
+			"ABTasty": "",
+			"_abtasty": "",
+			"loadABTasty": ""
+		},
+		"scriptSrc": [
+			"try\\.abtasty\\.com"
+		]
+	},
+	"Adobe Target": {
+		"cats": [
+			74,
+			76
+		],
+		"js": {
+			"adobe.target": "",
+			"adobe.target.VERSION": "^(.+)$\\;version:\\1"
+		}
+	},
+	"Ant Design": {
+		"cats": [
+			66
+		],
+		"dom": {
+			"div[class*='ant-collapse']": {
+				"attributes": {
+					"class": "ant-collapse"
+				}
+			},
+			"link[href*='antd']": {
+				"attributes": {
+					"href": "antd(?:@|/)?([\\d\\.]+)?(?:.+|)?\\.css\\;version:\\1"
+				}
+			}
+		},
+		"js": {
+			"__ANTD_STYLE_CACHE_MANAGER_FOR_SSR__": "",
+			"antd.version": "^([\\d\\.]+)$\\;version:\\1"
+		},
+		"html": [
+			"<[^>]*class=\"ant-(?:btn|col|row|layout|breadcrumb|menu|pagination|steps|select|cascader|checkbox|calendar|form|input-number|input|mention|rate|radio|slider|switch|tree-select|time-picker|transfer|upload|avatar|badge|card|carousel|collapse|list|popover|tooltip|table|tabs|tag|timeline|tree|alert|modal|message|notification|progress|popconfirm|spin|anchor|back-top|divider|drawer)",
+			"<i class=\"anticon anticon-"
+		]
+	},
+	"Auth0": {
+		"cats": [
+			69
+		],
+		"dom": [
+			"link[href*='cdn.auth0.com']"
+		],
+		"headers": {
+			"x-auth0-requestid": ""
+		},
+		"scriptSrc": [
+			"/auth0(?:-js)?/([\\d.]+)/auth0(?:.min)?\\.js\\;version:\\1",
+			"/auth0-js@([\\d.]+)/([a-z]+)/auth0\\.min\\.js\\;version:\\1"
+		]
+	},
+	"Amazon Cognito": {
+		"cats": [
+			69
+		],
+		"xhr": [
+			"cognito-idp\\..+\\.amazonaws\\.com"
+		],
+		"implies": [
+			"Amazon Web Services"
+		]
+	},
+	"ActiveCampaign": {
+		"cats": [
+			32,
+			75
+		],
+		"js": {
+			"acEnableTracking": ""
+		},
+		"scriptSrc": [
+			"plugins/activecampaign-subscription-forms/site_tracking\\.js",
+			"\\.activehosted\\.com",
+			"\\.app-us1\\.com",
+			"\\.ac-page\\.com"
+		],
+		"url": [
+			"\\.activehosted\\.com",
+			"\\.ac-page\\.com"
+		]
+	},
+	"Algolia": {
+		"cats": [
+			29
+		],
+		"cookies": {
+			"_ALGOLIA": "",
+			"didomiVendorsConsent": "\\balgolia\\b"
+		},
+		"js": {
+			"ALGOLIA_INSIGHTS_SRC": "",
+			"AlgoliaSearch": "",
+			"__GLOBAL__.algolia": "",
+			"__NEXT_DATA__.props.pageProps.appSettings.ALGOLIA_APP_ID": "",
+			"__algolia": "",
+			"__algolia.algoliasearch.version": "^(.+)$\\;version:\\1",
+			"_didomi_vendors_consent": "\\balgolia\\b",
+			"algoliasearch.version": "^(.+)$\\;version:\\1",
+			"didomiState.didomiVendorsConsent": "\\balgolia\\b"
+		},
+		"headers": {
+			"Content-Security-Policy": "\\.algolia"
+		},
+		"scripts": [
+			"algoliasearch"
+		]
+	}
+}

@@ -60,6 +60,22 @@ vi.mock('../layout/NetworkMetricsBar', () => ({
 	NetworkMetricsBar: () => <div data-testid="network-metrics-bar" />,
 }));
 
+// LiveInsightsPanel é montado dentro de Sheet (que renderiza por portal);
+// isolar o painel do teste evita ter que mockar Radix + chrome.runtime.
+vi.mock('../replay/LiveInsightsPanel', () => ({
+	LiveInsightsPanel: () => <div data-testid="live-insights-panel" />,
+}));
+
+vi.mock('../recording/RecordingToggle', () => ({
+	RecordingToggle: () => <div data-testid="recording-toggle" />,
+}));
+
+vi.mock('../ui/sheet', () => ({
+	Sheet: ({ children }: any) => <div data-testid="sheet">{children}</div>,
+	SheetTrigger: ({ asChild, children }: any) => <div data-testid="sheet-trigger">{children}</div>,
+	SheetContent: ({ children }: any) => <div data-testid="sheet-content">{children}</div>,
+}));
+
 const emptyAggregate = {
 	totalRequests: 0,
 	totalBytes: null,
@@ -83,7 +99,7 @@ describe('SiteHeader Component', () => {
 		render(<SiteHeader {...mockProps} />);
 
 		expect(screen.getByTestId('sidebar-trigger')).toBeTruthy();
-		expect(screen.getByTestId('separator')).toBeTruthy();
+		expect(screen.getAllByTestId('separator').length).toBeGreaterThan(0);
 
 		const tabButtons = screen.getAllByText('Test Tab');
 		expect(tabButtons.length).toBeGreaterThan(0);

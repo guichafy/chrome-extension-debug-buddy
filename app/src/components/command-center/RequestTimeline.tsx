@@ -11,7 +11,11 @@ interface RequestTimelineProps {
 	onSelect: (id: string) => void;
 	filters: Filter[];
 	onFiltersChange: (filters: Filter[]) => void;
-	onClearHistory: () => void;
+	/**
+	 * Se omitido, o botão "Limpar histórico" não aparece — útil em contextos
+	 * read-only (ex.: Replay viewer) onde clear não faz sentido.
+	 */
+	onClearHistory?: () => void;
 }
 
 export function RequestTimeline({

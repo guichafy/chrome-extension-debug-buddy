@@ -1,0 +1,154 @@
+import { recorder } from '../recorder';
+import { sessionStore } from '../storage';
+
+describe('recorder bootstrap phase', () => {
+	beforeEach(async () => {
+		recorder._resetLimitsForTests();
+		await sessionStore.clear();
+	});
+
+	test('startSession cria DetectionPhase bootstrap imediatamente', async () => {
+		const id = await recorder.startSession({
+			tabId: 1,
+			initialUrl: 'https://example.com/',
+			userAgent: 'test',
+			viewportSize: { w: 800, h: 600 },
+			canvasCaptureEnabled: false,
+		});
+		const session = await sessionStore.get(id);
+		expect(session).not.toBeNull();
+		// biome-ignore lint/style/noNonNullAssertion: teste — already asserted not null
+		expect(session!.detectionPhases).toHaveLength(1);
+		// biome-ignore lint/style/noNonNullAssertion: teste — already asserted not null
+		const phase = session!.detectionPhases[0];
+		expect(phase.kind).toBe('bootstrap');
+		expect(phase.id).toBe(`bootstrap-${id}`);
+		// biome-ignore lint/style/noNonNullAssertion: teste — already asserted not null
+		expect(phase.startTimestamp).toBe(session!.startedAt);
+		// biome-ignore lint/style/noNonNullAssertion: teste — already asserted not null
+		expect(phase.endTimestamp).toBe(session!.startedAt);
+		expect(phase.pages).toHaveLength(0);
+	});
+
+	test('addPage substitui bootstrap in-place na primeira detection real', async () => {
+		const id = await recorder.startSession({
+			tabId: 2,
+			initialUrl: 'https://example.com/',
+			userAgent: 'test',
+			viewportSize: { w: 800, h: 600 },
+			canvasCaptureEnabled: false,
+		});
+		const t = Date.now() + 100;
+		await recorder.addPage(id, {
+			url: 'https://example.com/page',
+			timestamp: t,
+			fingerprint: {
+				detectedAt: t,
+				isProductionBuild: false,
+			},
+			triggerType: 'initial',
+		});
+		await recorder._flushForTests(id);
+		const s = await sessionStore.get(id);
+		// biome-ignore lint/style/noNonNullAssertion: teste — sessão recém-criada
+		expect(s!.detectionPhases).toHaveLength(1);
+		// biome-ignore lint/style/noNonNullAssertion: teste — sessão recém-criada
+		const phase = s!.detectionPhases[0];
+		expect(phase.kind).toBe('detected');
+		expect(phase.pages).toHaveLength(1);
+		expect(phase.pages[0].url).toBe('https://example.com/page');
+		expect(phase.fingerprint.isProductionBuild).toBe(false);
+		// Mantém o id bootstrap para que eventos já indexados pelo phaseId
+		// continuem ligados à fase correta após a promoção.
+		expect(phase.id).toBe(`bootstrap-${id}`);
+		// biome-ignore lint/style/noNonNullAssertion: teste — sessão recém-criada
+		expect(phase.startTimestamp).toBe(s!.startedAt);
+		expect(phase.endTimestamp).toBe(t);
+	});
+
+	test('addPage adiciona nova phase quando atual já é detected', async () => {
+		const id = await recorder.startSession({
+			tabId: 3,
+			initialUrl: 'https://example.com/',
+			userAgent: 'test',
+			viewportSize: { w: 800, h: 600 },
+			canvasCaptureEnabled: false,
+		});
+		const t1 = Date.now() + 100;
+		const fp1 = {
+			detectedAt: t1,
+			isProductionBuild: false,
+		};
+		await recorder.addPage(id, {
+			url: 'https://example.com/a',
+			timestamp: t1,
+			fingerprint: fp1,
+			techs: [{ name: 'React', cats: [12], confidence: 100, evidence: [] }],
+			triggerType: 'initial',
+		});
+		const t2 = t1 + 1000;
+		await recorder.addPage(id, {
+			url: 'https://example.com/b',
+			timestamp: t2,
+			fingerprint: {
+				detectedAt: t2,
+				isProductionBuild: false,
+			},
+			techs: [{ name: 'Angular', cats: [12], confidence: 100, evidence: [] }],
+			triggerType: 'navigation',
+		});
+		await recorder._flushForTests(id);
+		const s = await sessionStore.get(id);
+		// biome-ignore lint/style/noNonNullAssertion: teste — sessão recém-criada
+		expect(s!.detectionPhases).toHaveLength(2);
+		// biome-ignore lint/style/noNonNullAssertion: teste — sessão recém-criada
+		expect(s!.detectionPhases[0].kind).toBe('detected');
+		// biome-ignore lint/style/noNonNullAssertion: teste — sessão recém-criada
+		expect(s!.detectionPhases[1].kind).toBe('detected');
+	});
+
+	test('console event antes da primeira pageDetected fica na bootstrap phase', async () => {
+		const id = await recorder.startSession({
+			tabId: 4,
+			initialUrl: 'https://example.com/',
+			userAgent: 'test',
+			viewportSize: { w: 800, h: 600 },
+			canvasCaptureEnabled: false,
+		});
+		const t1 = Date.now() + 50;
+		// Simula console event capturado pelo background.ts antes de a probe
+		// enviar pageDetected. Em background.ts isso seria handleConsoleAPI →
+		// recorder.addEvent. Aqui chamamos addEvent direto.
+		await recorder.addEvent(id, {
+			type: 'console',
+			timestamp: t1,
+			phaseId: `bootstrap-${id}`,
+			source: 'app',
+			level: 'log',
+			args: [{ type: 'string', description: 'pre-detection log' }],
+		});
+
+		const t2 = t1 + 100;
+		await recorder.addPage(id, {
+			url: 'https://example.com/',
+			timestamp: t2,
+			fingerprint: {
+				detectedAt: t2,
+				isProductionBuild: false,
+			},
+			triggerType: 'initial',
+		});
+
+		await recorder._flushForTests(id);
+		const s = await sessionStore.get(id);
+		// biome-ignore lint/style/noNonNullAssertion: teste — sessão recém-criada
+		const consoleEvents = s!.events.filter((e) => e.type === 'console');
+		expect(consoleEvents).toHaveLength(1);
+		expect(consoleEvents[0].phaseId).toBe(`bootstrap-${id}`);
+		// A phase é a mesma após promoção
+		// biome-ignore lint/style/noNonNullAssertion: teste — sessão recém-criada
+		expect(s!.detectionPhases[0].id).toBe(`bootstrap-${id}`);
+		// biome-ignore lint/style/noNonNullAssertion: teste — sessão recém-criada
+		expect(s!.detectionPhases[0].kind).toBe('detected');
+	});
+});

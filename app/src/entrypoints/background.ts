@@ -1,3 +1,4 @@
+import type { Protocol } from 'devtools-protocol/types/protocol';
 import { indexedDBService } from '@/lib/indexedDB';
 import {
 	runEnabledBackfillMigration,
@@ -5,6 +6,35 @@ import {
 	runModifyToTransformMigration,
 } from '@/lib/legacyMigration';
 import { NetworkTimingTracker } from '@/lib/networkTiming';
+import { recorder } from '@/lib/session/recorder';
+import { RecommendationEngine } from '@/lib/session/recommendations/engine';
+import { REGISTRY as RECOMMENDATION_REGISTRY } from '@/lib/session/recommendations/registry';
+import type { NetworkRuleEvent } from '@/lib/session/recommendations/types';
+import { arrayBufferToBase64, base64ToArrayBuffer } from '@/lib/session/binaryTransport';
+import { serializeSession } from '@/lib/session/exporter';
+import { parseDbsession } from '@/lib/session/importer';
+import { getRecordingDisabled, setRecordingDisabled } from '@/lib/session/recordingPreference';
+import { applyBodyPolicy } from '@/lib/session/sessionNetworkAdapter';
+import { sessionStore } from '@/lib/session/storage';
+import { purgeOldSessions } from '@/lib/session/privacy/autoPurge';
+import { redactBody } from '@/lib/session/privacy/bodyRedactor';
+import { getPrivacyConfig, setPrivacyConfig } from '@/lib/session/privacy/config';
+import { redactConsoleArgs } from '@/lib/session/privacy/consoleRedactor';
+import { redactHeaders } from '@/lib/session/privacy/headerRedactor';
+import { truncatePath } from '@/lib/session/privacy/pathTruncator';
+import { shouldIgnoreUrl } from '@/lib/session/privacy/urlGate';
+import type {
+	ConsoleArgPreview,
+	ConsoleLevel,
+	ConsoleStackFrame,
+	EnvironmentFingerprint,
+	PageDetection,
+	Recommendation,
+	RedactionConfig,
+	RrwebEvent,
+	Session,
+	SessionEvent,
+} from '@/lib/session/types';
 import type {
 	AppliedType,
 	InterceptedResponse,
@@ -30,6 +60,11 @@ import {
 import { resolveMockLatencyMs, wait } from '@/domain/mockLatency';
 import { findMatchingRuleAction } from '@/domain/ruleMatching';
 import { applyTransformToBody } from '@/domain/transformExecutor';
+import { COMPILED_CATALOG } from '@/lib/insights/catalog';
+import { extractBackgroundSignals } from '@/lib/insights/bgSignals';
+import { mergeHits } from '@/lib/insights/mergeHits';
+import { Scorer } from '@/lib/insights/scorer';
+import type { CompiledTech, TechHit } from '@/lib/insights/types';
 
 // Global variables
 let isDebugging = false;
@@ -51,6 +86,266 @@ let targetTabClosed = false;
 // "Página atual" exibidas pelo NetworkMetricsBar do header. Persistido em
 // chrome.storage.local pra sobreviver ao reload do service worker (MV3).
 let sessionMarker: SessionMarker = { ...EMPTY_SESSION_MARKER };
+
+// privacyConfig em cache local. Carregado de chrome.storage.local no boot e
+// recarregado em chrome.storage.onChanged. Quando null (boot ainda não
+// terminou), os capture sites pulam a redação — best-effort, não falha.
+let livePrivacyConfig: RedactionConfig | null = null;
+
+async function reloadPrivacyConfig(): Promise<void> {
+	try {
+		livePrivacyConfig = await getPrivacyConfig();
+	} catch (err) {
+		console.warn('[privacy] reloadPrivacyConfig falhou:', err);
+	}
+}
+
+void reloadPrivacyConfig();
+
+// --- Session Replay — helpers CDP Runtime/Log ---
+
+function mapConsoleApiType(type: Protocol.Runtime.ConsoleAPICalledEvent['type']): ConsoleLevel {
+	const map: Record<string, ConsoleLevel> = {
+		log: 'log',
+		debug: 'debug',
+		info: 'info',
+		error: 'error',
+		warning: 'warn',
+		dir: 'dir',
+		dirxml: 'dir',
+		table: 'table',
+		trace: 'trace',
+		clear: 'clear',
+		startGroup: 'group',
+		startGroupCollapsed: 'groupCollapsed',
+		endGroup: 'groupEnd',
+		assert: 'assert',
+		profile: 'log',
+		profileEnd: 'log',
+		count: 'count',
+		timeEnd: 'timeEnd',
+	};
+	return map[type] ?? 'log';
+}
+
+function toArgPreview(obj: Protocol.Runtime.RemoteObject): ConsoleArgPreview {
+	const out: ConsoleArgPreview = {
+		type: (obj.type ?? 'string') as ConsoleArgPreview['type'],
+		description: obj.description ?? String(obj.value ?? ''),
+	};
+	if (obj.preview) {
+		out.preview = {
+			properties: obj.preview.properties.map((p) => ({
+				name: p.name,
+				type: p.type,
+				value: p.value,
+			})),
+			overflow: obj.preview.overflow ?? false,
+		};
+	}
+	return out;
+}
+
+function toStackFrames(
+	stack?: Protocol.Runtime.StackTrace,
+): { frames: ConsoleStackFrame[] } | undefined {
+	if (!stack) return undefined;
+	return {
+		frames: stack.callFrames.map((f) => ({
+			url: f.url,
+			lineNumber: f.lineNumber,
+			columnNumber: f.columnNumber,
+			functionName: f.functionName,
+		})),
+	};
+}
+
+function currentPhaseId(session: Session): string {
+	const last = session.detectionPhases[session.detectionPhases.length - 1];
+	if (!last) {
+		throw new Error(
+			`Session ${session.id}: nenhuma DetectionPhase ainda — evento sendo emitido antes da primeira pageDetected`,
+		);
+	}
+	return last.id;
+}
+
+function mapLogLevel(level: Protocol.Log.LogEntry['level']): ConsoleLevel {
+	if (level === 'error') return 'error';
+	if (level === 'warning') return 'warn';
+	if (level === 'info') return 'info';
+	return 'debug';
+}
+
+function mapLogSource(source: Protocol.Log.LogEntry['source']): 'browser' | 'security' {
+	return source === 'security' ? 'security' : 'browser';
+}
+
+async function handleConsoleAPI(
+	session: Session,
+	params: Protocol.Runtime.ConsoleAPICalledEvent,
+): Promise<void> {
+	const event: SessionEvent = {
+		type: 'console',
+		// CDP timestamp em segundos com fração; multiplicamos por 1 (ms compatível com Date.now da app).
+		timestamp: params.timestamp,
+		phaseId: currentPhaseId(session),
+		source: 'app',
+		level: mapConsoleApiType(params.type),
+		args: params.args.map(toArgPreview),
+		stackTrace: toStackFrames(params.stackTrace),
+	};
+	if (livePrivacyConfig) {
+		event.args = redactConsoleArgs(event.args, livePrivacyConfig);
+		if (event.stackTrace && livePrivacyConfig.truncateUserPaths) {
+			event.stackTrace.frames = event.stackTrace.frames.map((f) => ({
+				...f,
+				url: truncatePath(f.url),
+			}));
+		}
+	}
+	try {
+		await recorder.addEvent(session.id, event);
+	} catch (err) {
+		console.warn('[session] addEvent console falhou:', err);
+	}
+}
+
+async function handleExceptionThrown(
+	session: Session,
+	params: Protocol.Runtime.ExceptionThrownEvent,
+): Promise<void> {
+	const det = params.exceptionDetails;
+	const rawMessage = det.exception?.description ?? det.text ?? 'Exception';
+	// Phase 6: aplica bodyRedactor na mensagem da exception. Mensagens de erro
+	// frequentemente carregam payload sensível ("Error: invalid token eyJ...",
+	// "SQLException: SELECT ... password='abc'"). Sem isso, a redaction de
+	// network/console deixaria um vazamento via stack-trace error events.
+	const message =
+		livePrivacyConfig && livePrivacyConfig.enabled
+			? redactBody(rawMessage, livePrivacyConfig)
+			: rawMessage;
+	const event: SessionEvent = {
+		type: 'error',
+		timestamp: params.timestamp,
+		phaseId: currentPhaseId(session),
+		message,
+		stackTrace: toStackFrames(det.stackTrace),
+	};
+	if (livePrivacyConfig?.truncateUserPaths && event.stackTrace) {
+		event.stackTrace.frames = event.stackTrace.frames.map((f) => ({
+			...f,
+			url: truncatePath(f.url),
+		}));
+	}
+	try {
+		await recorder.addEvent(session.id, event);
+	} catch (err) {
+		console.warn('[session] addEvent error falhou:', err);
+	}
+}
+
+async function handleLogEntry(
+	session: Session,
+	params: Protocol.Log.EntryAddedEvent,
+): Promise<void> {
+	const e = params.entry;
+	const event: SessionEvent = {
+		type: 'console',
+		timestamp: e.timestamp,
+		phaseId: currentPhaseId(session),
+		source: mapLogSource(e.source),
+		level: mapLogLevel(e.level),
+		args: [{ type: 'string', description: e.text }],
+		stackTrace: toStackFrames(e.stackTrace),
+	};
+	if (livePrivacyConfig) {
+		event.args = redactConsoleArgs(event.args, livePrivacyConfig);
+		if (event.stackTrace && livePrivacyConfig.truncateUserPaths) {
+			event.stackTrace.frames = event.stackTrace.frames.map((f) => ({
+				...f,
+				url: truncatePath(f.url),
+			}));
+		}
+	}
+	try {
+		await recorder.addEvent(session.id, event);
+	} catch (err) {
+		console.warn('[session] addEvent log falhou:', err);
+	}
+}
+
+// --- fim helpers CDP Runtime/Log ---
+
+// --- Session Replay — network event helper ---
+
+// Aplica redação em headers (resposta + requisição) e body de um InterceptedResponse.
+// Muta in-place para minimizar custo — a InterceptedResponse já é construída neste
+// frame (não há leitor concorrente). Chamado antes de persistRequest e
+// emitNetworkEventForSession nos pontos de captura.
+function applyPrivacyToInterceptedResponse(resp: InterceptedResponse): void {
+	const cfg = livePrivacyConfig;
+	if (!cfg || !cfg.enabled) return;
+	resp.headers = redactHeaders(resp.headers, cfg);
+	if (resp.response?.headers) {
+		resp.response.headers = redactHeaders(resp.response.headers, cfg);
+	}
+	if (resp.request?.headers) {
+		resp.request.headers = redactHeaders(resp.request.headers, cfg);
+	}
+	if (typeof resp.body === 'string') {
+		resp.body = redactBody(resp.body, cfg);
+	}
+	if (typeof resp.response?.body === 'string') {
+		resp.response.body = redactBody(resp.response.body, cfg);
+	}
+	if (typeof resp.request?.postData === 'string') {
+		resp.request.postData = redactBody(resp.request.postData, cfg);
+	}
+}
+
+async function emitNetworkEventForSession(
+	tabId: number,
+	requestId: string,
+	request: InterceptedResponse,
+): Promise<void> {
+	if (!request.method) {
+		console.warn(`[session] NetworkEvent: method ausente para ${requestId}, ignorando`);
+		return;
+	}
+
+	const session = await recorder.getActiveByTab(tabId);
+
+	// Construímos o NetworkEvent uma vez. phaseId só faz sentido quando há sessão
+	// gravada (modo passivo não tem detection phases) — usamos string vazia como
+	// marcador "sem fase" no buffer da engine; detectores não dependem de phaseId
+	// para detecção, apenas para popular o hit.
+	const event: SessionEvent = {
+		type: 'network',
+		timestamp: request.timestamp,
+		phaseId: session ? currentPhaseId(session) : '',
+		requestId,
+		method: request.method,
+		url: request.url,
+		status: request.status,
+		durationMs: request.duration,
+		// Snapshot com body policy: bodies textuais ≤ 64KB são preservados pra
+		// inspeção no drawer do Replay; binários e excedentes vão como
+		// bodyUnavailableReason explicando por que. Ver applyBodyPolicy.
+		// applyPrivacyToInterceptedResponse já rodou em persistRequest.
+		request: applyBodyPolicy(request),
+	};
+
+	if (session) {
+		try {
+			await recorder.addEvent(session.id, event);
+		} catch (err) {
+			console.warn('[session] addEvent network falhou:', err);
+		}
+	}
+}
+
+// --- fim network event helper ---
 
 function broadcastSessionMarker(): void {
 	broadcastToUI('sessionMarkerUpdated', { sessionMarker });
@@ -92,16 +387,277 @@ async function loadSessionMarker(): Promise<void> {
 // e não bloqueiam regras subsequentes.
 
 function broadcastToUI(action: string, payload: Record<string, unknown>): void {
-	if (interceptorTabId === null) return;
-	chrome.tabs.sendMessage(interceptorTabId, { action, ...payload }).catch(() => {
-		// UI fechada ou navegando — sem problema; o IndexedDB já tem o dado.
+	// Side panel (sidepanel.html) e popup não são "tabs" — chrome.tabs.sendMessage
+	// só alcança a página de opções carregada como aba normal. Para cobrir todas
+	// as extension pages abertas, complementamos com chrome.runtime.sendMessage,
+	// que entrega para todas as views da extensão (options + sidepanel + popup).
+	if (interceptorTabId !== null) {
+		chrome.tabs.sendMessage(interceptorTabId, { action, ...payload }).catch(() => {
+			// UI fechada ou navegando — sem problema; o IndexedDB permanece como fonte de verdade.
+		});
+	}
+	chrome.runtime.sendMessage({ action, ...payload }).catch(() => {
+		// Sem listener ativo (todas as UIs fechadas) — sem problema.
 	});
 }
 
+// Cache de top-frame URL por tab. Recommendations regra `mixed-content`
+// precisa saber o origin da página principal — invalidamos a cada
+// onCommitted no top frame.
+const topFrameUrlCache = new Map<number, string>();
+
+async function getTopFrameUrl(tabId: number): Promise<string | null> {
+	const cached = topFrameUrlCache.get(tabId);
+	if (cached !== undefined) return cached;
+	try {
+		const tab = await chrome.tabs.get(tabId);
+		const url = tab.url ?? null;
+		if (url) topFrameUrlCache.set(tabId, url);
+		return url;
+	} catch {
+		return null;
+	}
+}
+
+function invalidateTopFrameUrl(tabId: number): void {
+	topFrameUrlCache.delete(tabId);
+}
+
+const recommendationEngine = new RecommendationEngine(RECOMMENDATION_REGISTRY);
+
+// Cache de Live Insights por tab. Necessário porque o `SheetContent` (Radix) só
+// monta seus filhos quando o drawer abre — broadcasts emitidos antes ficariam
+// perdidos. Esse cache funciona como snapshot hidratável (espelha o que a UI
+// receberia se estivesse aberta desde o `startDebugging`).
+//
+// Detecções são agrupadas por host (DNS): durante uma sessão de interceptação
+// o usuário pode navegar por vários hosts e queremos preservar o framework/libs
+// de cada um, não só do último. Recomendações continuam em lista plana global
+// (cap em 50) porque cada Recommendation já carrega o campo `host`.
+interface LiveDetectionEntry {
+	url: string;
+	timestamp: number;
+	fingerprint: EnvironmentFingerprint;
+	techs: TechHit[]; // NOVO — cumulativo probe + bg signals com implications
+}
+
+interface LiveSnapshot {
+	// Map preserva ordem de inserção. Re-set bumps host pra "mais recente"
+	// (precedido de delete). Serializado como array na ordem mais-recente-primeiro
+	// para o wire em `getLiveSnapshot`.
+	detectionsByHost: Map<string, LiveDetectionEntry>;
+	recommendations: Recommendation[];
+}
+
+const LIVE_RECOMMENDATIONS_CAP = 50;
+const liveSnapshotByTab = new Map<number, LiveSnapshot>();
+
+// Estado paralelo: per (tabId, host) Scorer instances acumulam signals do
+// background-side (handleRequestPaused) e mergeam com techs vindas do probe
+// (pageDetected). Lifecycle alinhado com liveSnapshotByTab.
+const scorersByTabHost = new Map<number, Map<string, Scorer>>();
+
+const COMPILED_BY_NAME = new Map<string, CompiledTech>(COMPILED_CATALOG.map((t) => [t.name, t]));
+
+function getOrCreateScorer(tabId: number, host: string): Scorer {
+	let perHost = scorersByTabHost.get(tabId);
+	if (!perHost) {
+		perHost = new Map();
+		scorersByTabHost.set(tabId, perHost);
+	}
+	let s = perHost.get(host);
+	if (!s) {
+		s = new Scorer(COMPILED_CATALOG);
+		perHost.set(host, s);
+	}
+	return s;
+}
+
+function clearScorers(tabId: number): void {
+	scorersByTabHost.delete(tabId);
+}
+
+const dirtyHostsByTab = new Map<number, Set<string>>();
+const broadcastTimers = new Map<number, ReturnType<typeof setTimeout>>();
+const BROADCAST_DEBOUNCE_MS = 200;
+
+function scheduleBroadcast(tabId: number, host: string): void {
+	let dirty = dirtyHostsByTab.get(tabId);
+	if (!dirty) {
+		dirty = new Set();
+		dirtyHostsByTab.set(tabId, dirty);
+	}
+	dirty.add(host);
+	if (broadcastTimers.has(tabId)) return;
+	const timer = setTimeout(() => {
+		broadcastTimers.delete(tabId);
+		flushBroadcast(tabId);
+	}, BROADCAST_DEBOUNCE_MS);
+	broadcastTimers.set(tabId, timer);
+}
+
+function flushBroadcast(tabId: number): void {
+	const dirty = dirtyHostsByTab.get(tabId);
+	if (!dirty || dirty.size === 0) return;
+	const snap = liveSnapshotByTab.get(tabId);
+	if (!snap) {
+		dirty.clear();
+		return;
+	}
+	const techsUpdates: Array<{ host: string; techs: TechHit[] }> = [];
+	for (const host of dirty) {
+		const entry = snap.detectionsByHost.get(host);
+		if (entry && entry.techs.length > 0) {
+			techsUpdates.push({ host, techs: entry.techs });
+		}
+	}
+	dirty.clear();
+	if (techsUpdates.length === 0) return;
+	broadcastToUI('liveDetection', { tabId, techsUpdates });
+}
+
+function getOrInitLiveSnapshot(tabId: number): LiveSnapshot {
+	let snap = liveSnapshotByTab.get(tabId);
+	if (!snap) {
+		snap = { detectionsByHost: new Map(), recommendations: [] };
+		liveSnapshotByTab.set(tabId, snap);
+	}
+	return snap;
+}
+
+function makeEmptyFingerprint(): EnvironmentFingerprint {
+	return {
+		detectedAt: Date.now(),
+		isProductionBuild: false,
+	};
+}
+
+function ingestBgSignalsForRequest(tabId: number, intercepted: InterceptedResponse): void {
+	const host = extractHost(intercepted.url);
+	if (!host || host === 'unknown') return;
+	const sigs = extractBackgroundSignals(intercepted);
+	if (sigs.length === 0) return;
+	const scorer = getOrCreateScorer(tabId, host);
+	scorer.pushSignals(sigs);
+
+	// Merge scorer snapshot com techs já no entry (vindas do probe).
+	const snap = getOrInitLiveSnapshot(tabId);
+	let entry = snap.detectionsByHost.get(host);
+	if (!entry) {
+		// Sem pageDetected ainda para este host — placeholder.
+		entry = {
+			url: `https://${host}/`,
+			timestamp: Date.now(),
+			fingerprint: makeEmptyFingerprint(),
+			techs: [],
+		};
+		snap.detectionsByHost.set(host, entry);
+	}
+	entry.techs = mergeHits(entry.techs, scorer.snapshot(), COMPILED_BY_NAME);
+	scheduleBroadcast(tabId, host);
+}
+
+function extractHost(url: string): string {
+	try {
+		return new URL(url).host;
+	} catch {
+		return 'unknown';
+	}
+}
+
+function updateLiveDetection(
+	tabId: number,
+	entry: Omit<LiveDetectionEntry, 'techs'> & { techs?: TechHit[] },
+): void {
+	const snap = getOrInitLiveSnapshot(tabId);
+	const host = extractHost(entry.url);
+	const existing = snap.detectionsByHost.get(host);
+	if (existing) snap.detectionsByHost.delete(host);
+	snap.detectionsByHost.set(host, {
+		url: entry.url,
+		timestamp: entry.timestamp,
+		fingerprint: entry.fingerprint,
+		techs: entry.techs ?? existing?.techs ?? [], // preserva techs já presentes
+	});
+}
+
+function pushLiveRecommendation(tabId: number, rec: Recommendation): void {
+	const snap = getOrInitLiveSnapshot(tabId);
+	snap.recommendations.unshift(rec); // newest first
+	if (snap.recommendations.length > LIVE_RECOMMENDATIONS_CAP) {
+		snap.recommendations.length = LIVE_RECOMMENDATIONS_CAP;
+	}
+}
+
+function clearLiveSnapshot(tabId: number): void {
+	liveSnapshotByTab.delete(tabId);
+	clearScorers(tabId);
+	const t = broadcastTimers.get(tabId);
+	if (t) {
+		clearTimeout(t);
+		broadcastTimers.delete(tabId);
+	}
+	dirtyHostsByTab.delete(tabId);
+}
+
+function serializeLiveSnapshot(snap: LiveSnapshot): {
+	detections: Array<{
+		host: string;
+		url: string;
+		timestamp: number;
+		fingerprint: EnvironmentFingerprint;
+		techs?: TechHit[];
+	}>;
+	recommendations: Recommendation[];
+} {
+	// Ordem mais-recente-primeiro: Map mantém inserção ascendente; reverter pra
+	// o último host visitado aparecer no topo do drawer.
+	const detections: Array<{
+		host: string;
+		url: string;
+		timestamp: number;
+		fingerprint: EnvironmentFingerprint;
+		techs?: TechHit[];
+	}> = [];
+	for (const [host, entry] of snap.detectionsByHost) {
+		detections.unshift({
+			host,
+			url: entry.url,
+			timestamp: entry.timestamp,
+			fingerprint: entry.fingerprint,
+			techs: entry.techs.length > 0 ? entry.techs : undefined,
+		});
+	}
+	return { detections, recommendations: snap.recommendations };
+}
+
+function buildNetworkRuleEvent(
+	requestId: string | undefined,
+	r: InterceptedResponse,
+): NetworkRuleEvent {
+	const responseHeaders: Record<string, string> = {};
+	for (const [k, v] of Object.entries(r.response?.headers ?? r.headers ?? {})) {
+		responseHeaders[k.toLowerCase()] = v;
+	}
+	const requestHeaders: Record<string, string> = {};
+	for (const [k, v] of Object.entries(r.request?.headers ?? {})) {
+		requestHeaders[k.toLowerCase()] = v;
+	}
+	return {
+		requestId,
+		method: r.method ?? 'GET',
+		url: r.url,
+		status: r.status,
+		requestHeaders,
+		responseHeaders,
+		mimeType: r.mimeType,
+	};
+}
+
 // Eventos de ciclo de vida da aba alvo precisam alcançar tanto a página de
-// opções quanto o side panel. `broadcastToUI` só atinge o `interceptorTabId`,
-// então também emitimos via `chrome.runtime.sendMessage` para que qualquer
-// extension page aberta (options + sidepanel) receba o update.
+// opções quanto o side panel. `broadcastToUI` agora cobre os dois caminhos
+// (tabs.sendMessage para o interceptor + runtime.sendMessage para sidepanel/popup),
+// então este helper só padroniza o payload.
 function broadcastTargetTabState(
 	action: 'targetTabSelected' | 'targetTabUpdated' | 'targetTabClosed',
 ): void {
@@ -111,10 +667,16 @@ function broadcastTargetTabState(
 		tabUrl: targetTabUrl,
 	};
 	broadcastToUI(action, payload);
-	chrome.runtime.sendMessage({ action, ...payload }).catch(() => {
-		// Sem listener ativo (todas as UIs fechadas) — o storage permanece como
-		// fonte de verdade e o próximo mount lerá `targetTabInfo`.
-	});
+}
+
+// `broadcastToUI` já entrega para options + sidepanel; este helper só
+// centraliza o nome da action para os call sites de gravação.
+function broadcastRecordingState(payload: {
+	tabId: number;
+	active: boolean;
+	sessionId?: string;
+}): void {
+	broadcastToUI('recordingStateChanged', payload);
 }
 
 function persistTargetTabInfo(): void {
@@ -129,13 +691,24 @@ function persistTargetTabInfo(): void {
 }
 
 async function persistRequest(requestId: string, request: InterceptedResponse): Promise<void> {
+	// Aplica redaction defensiva — todos os caminhos de captura passam por aqui
+	// (handleRequestPaused, applyMockResponse, applyTransformResponse, approve).
+	// In-place, idempotente — repetir é seguro porque [REDACTED] não casa as regex.
+	applyPrivacyToInterceptedResponse(request);
 	allRequests[requestId] = request;
+	// IMPORTANTE: broadcast ANTES do await IDB. UI precisa de reatividade
+	// instantânea — sessions store (que cresce com cada request) cria
+	// contenção na conexão IDB compartilhada e atrasa o saveRequest. Sem
+	// este reorder, requests aparecem em lote no Command Center.
+	// Trade-off: extensão recarregada entre broadcast e save = request fica
+	// só em memória (allRequests[id]) e não em IDB. Aceitável — recarga
+	// durante debug é raro e o dado em memória já é mostrado ao usuário.
+	broadcastToUI('newRequest', { requestId, request });
 	try {
 		await indexedDBService.saveRequest(requestId, request);
 	} catch (err) {
 		console.error(`Erro ao salvar requisição ${requestId} no IndexedDB:`, err);
 	}
-	broadcastToUI('newRequest', { requestId, request });
 }
 
 async function patchRequest(
@@ -146,20 +719,69 @@ async function patchRequest(
 	if (!existing) return;
 	const merged = { ...existing, ...updates };
 	allRequests[requestId] = merged;
+	// Mesmo padrão de persistRequest: broadcast ANTES do await IDB pra
+	// preservar reatividade no Command Center sob contenção do sessions store.
+	broadcastToUI('requestUpdated', { requestId, updates });
 	try {
 		await indexedDBService.saveRequest(requestId, merged);
 	} catch (err) {
 		console.error(`Erro ao atualizar requisição ${requestId} no IndexedDB:`, err);
 	}
-	broadcastToUI('requestUpdated', { requestId, updates });
+
+	// Espelhar updates relevantes no snapshot da sessão ativa. Necessário porque
+	// approve/modify de breakpoint chega DEPOIS do emitNetworkEventForSession —
+	// sem este espelhamento, o Replay viewer mostraria forever-pending com body
+	// original. Cobre também duration assíncrono (NetworkTimingTracker callback).
+	// Roda detached do main flow (não bloqueia a resposta UI), e é idempotente.
+	if (attachedTabId !== null) {
+		const tabId = attachedTabId;
+		(async () => {
+			try {
+				const session = await recorder.getActiveByTab(tabId);
+				if (!session) return;
+				await recorder.patchNetworkEventRequest(session.id, requestId, updates);
+			} catch (err) {
+				console.warn('[session] patchNetworkEventRequest falhou:', err);
+			}
+		})();
+	}
+}
+
+// Coalesce timing updates (duration + networkTiming chegam quase juntos via
+// callbacks separados). Um único patchRequest ao final reduz pela metade os
+// IDB writes do requests store + os espelhamentos em session.
+const TIMING_FLUSH_DEBOUNCE_MS = 50;
+const pendingTimingPatches = new Map<string, Partial<InterceptedResponse>>();
+const pendingTimingTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function scheduleTimingFlush(requestId: string): void {
+	const existing = pendingTimingTimers.get(requestId);
+	if (existing) clearTimeout(existing);
+	const timer = setTimeout(() => {
+		const updates = pendingTimingPatches.get(requestId);
+		pendingTimingPatches.delete(requestId);
+		pendingTimingTimers.delete(requestId);
+		if (updates && Object.keys(updates).length > 0) {
+			void patchRequest(requestId, updates);
+		}
+	}, TIMING_FLUSH_DEBOUNCE_MS);
+	pendingTimingTimers.set(requestId, timer);
 }
 
 const timingTracker = new NetworkTimingTracker(
 	(fetchRequestId, duration) => {
-		patchRequest(fetchRequestId, { duration, durationSource: 'network' });
+		const prev = pendingTimingPatches.get(fetchRequestId) ?? {};
+		pendingTimingPatches.set(fetchRequestId, {
+			...prev,
+			duration,
+			durationSource: 'network',
+		});
+		scheduleTimingFlush(fetchRequestId);
 	},
 	(fetchRequestId, networkTiming) => {
-		patchRequest(fetchRequestId, { networkTiming });
+		const prev = pendingTimingPatches.get(fetchRequestId) ?? {};
+		pendingTimingPatches.set(fetchRequestId, { ...prev, networkTiming });
+		scheduleTimingFlush(fetchRequestId);
 	},
 );
 
@@ -178,6 +800,15 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 	if (enabledResult.migrated) {
 		console.log(`[background] Backfilled enabled em ${enabledResult.backfilled} regras.`);
 	}
+	try {
+		const cfg = await getPrivacyConfig();
+		if (cfg.autoPurgeEnabled) {
+			const deleted = await purgeOldSessions(cfg.autoPurgeRetentionDays);
+			console.log(`[debug-buddy] auto-purge (onInstalled): ${deleted} sessões deletadas`);
+		}
+	} catch (err) {
+		console.warn('[debug-buddy] auto-purge (onInstalled) falhou:', err);
+	}
 });
 
 // Roda a migração também no startup do navegador (extensão já instalada).
@@ -187,13 +818,26 @@ chrome.runtime.onStartup.addListener(async () => {
 	await runLegacyMigration();
 	await runModifyToTransformMigration();
 	await runEnabledBackfillMigration();
+	try {
+		const cfg = await getPrivacyConfig();
+		if (cfg.autoPurgeEnabled) {
+			const deleted = await purgeOldSessions(cfg.autoPurgeRetentionDays);
+			console.log(`[debug-buddy] auto-purge: ${deleted} sessões deletadas`);
+		}
+	} catch (err) {
+		console.warn('[debug-buddy] auto-purge (onStartup) falhou:', err);
+	}
 });
 
 // Listener para mudanças no storage (para atualizar regras em tempo real)
 chrome.storage.onChanged.addListener((changes, namespace) => {
-	if (namespace === 'local' && changes.rules) {
+	if (namespace !== 'local') return;
+	if (changes.rules) {
 		rules = changes.rules.newValue || [];
 		console.log(`Regras atualizadas: ${rules.length} regras carregadas`);
+	}
+	if (changes.privacyConfig) {
+		void reloadPrivacyConfig();
 	}
 });
 
@@ -275,6 +919,9 @@ chrome.action.onClicked.addListener(() => {
 
 // Quando uma aba é fechada, verificar se é a aba do interceptor ou a aba alvo.
 chrome.tabs.onRemoved.addListener((tabId) => {
+	topFrameUrlCache.delete(tabId);
+	clearLiveSnapshot(tabId);
+
 	if (tabId === interceptorTabId) {
 		console.log('Aba do interceptor fechada, parando debugging');
 		interceptorTabId = null;
@@ -321,9 +968,86 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 	}
 });
 
+// Re-detecção em navegação real: quando o usuário navega na tab alvo (full page load
+// ou SPA que dispara onCommitted), sinaliza o probe para emitir uma nova detection
+// com triggerType='navigation'. O probe já foi re-injetado pelo content_script via
+// document_start; o sendMessage apenas dispara o início do scan.
+chrome.webNavigation.onCommitted.addListener(async (details) => {
+	if (details.frameId !== 0) return; // só top frame — ignora iframes
+	invalidateTopFrameUrl(details.tabId);
+	// Não resetamos `recommendationEngine` nem `liveSnapshotByTab` aqui: o painel
+	// Live Insights deve acumular insights de todos os hosts visitados durante a
+	// sessão de interceptação. O dedup do engine (ruleId|host|path) já evita
+	// duplicatas entre navegações na mesma sessão. Reset acontece em start/stopDebugging.
+	const session = await recorder.getActiveByTab(details.tabId);
+
+	// Bug 4: probe deve emitir detection a cada navegação enquanto a tab está
+	// sendo interceptada, mesmo sem session de gravação (modo passivo).
+	// Taps são instalados pelo probe incondicionalmente — ver C1.
+	const interceptingThisTab = isDebugging && attachedTabId === details.tabId;
+	if (interceptingThisTab) {
+		try {
+			await chrome.tabs.sendMessage(details.tabId, {
+				action: 'probeStartDetection',
+				reason: 'navigation',
+			});
+		} catch (err) {
+			const msg = String(err);
+			// Casos esperados: tab fechada entre evento e sendMessage, OR bridge ainda
+			// não injetado (race com document_start). Ambos não-actionables.
+			if (
+				!msg.includes('Could not establish connection') &&
+				!msg.includes('The tab was closed') &&
+				!msg.includes('No tab with id')
+			) {
+				console.warn(`[session] probeStartDetection inesperado em tab ${details.tabId}:`, err);
+			}
+		}
+	}
+
+	if (!session) return;
+
+	// 1. Emite RouteChangeEvent para a sessão ativa.
+	try {
+		const routeEvent: SessionEvent = {
+			type: 'route',
+			timestamp: details.timeStamp,
+			phaseId: currentPhaseId(session),
+			url: details.url,
+			triggerType: 'navigation',
+		};
+		await recorder.addEvent(session.id, routeEvent);
+	} catch (err) {
+		console.warn('[session] addEvent route (webNavigation) falhou:', err);
+	}
+
+	// 3. Re-inicia rrweb no novo documento — content_script é re-injetado pelo Chrome
+	// em document_start, mas precisa receber __rrweb_start de novo (probe é idle até
+	// receber a mensagem). recordCanvas vem da metadata da sessão ativa.
+	try {
+		await chrome.tabs.sendMessage(details.tabId, {
+			action: '__rrweb_start',
+			sessionId: session.id,
+			recordCanvas: session.metadata.canvasCaptureEnabled,
+			maskTextSelector: livePrivacyConfig?.rrwebMaskTextSelector,
+			maskAllInputs: livePrivacyConfig?.rrwebMaskAllInputs,
+		});
+	} catch (err) {
+		const msg = String(err);
+		if (
+			msg.includes('Could not establish connection') ||
+			msg.includes('The tab was closed') ||
+			msg.includes('No tab with id')
+		) {
+			return;
+		}
+		console.warn(`[session] __rrweb_start em navegação inesperado em tab ${details.tabId}:`, err);
+	}
+});
+
 // Listen for messages from the popup or hot reload
 chrome.runtime.onMessage.addListener(
-	(message: any, _sender, sendResponse: (response: MessageResponse) => void) => {
+	(message: any, sender, sendResponse: (response: MessageResponse) => void) => {
 		// Mensagens roteadas para o offscreen document não devem ser tratadas
 		// pelo service worker — o offscreen tem seu próprio listener e disputa
 		// pelo sendResponse causaria respostas perdidas/duplicadas.
@@ -589,6 +1313,455 @@ chrome.runtime.onMessage.addListener(
 			return true; // Indicates we'll respond asynchronously
 		}
 
+		// --- Session Replay — Phase 1a ---
+
+		if (message.action === 'startRecording') {
+			(async () => {
+				try {
+					// Valida que interceptação está ativa nesta tab antes de iniciar a sessão.
+					const targets = await chrome.debugger.getTargets();
+					const attached = targets.find((t) => t.tabId === message.tabId && t.attached);
+					if (!attached) {
+						sendResponse({ ok: false, error: 'Interceptação não está ativa nesta tab' });
+						return;
+					}
+
+					const tab = await chrome.tabs.get(message.tabId);
+					const id = await recorder.startSession({
+						tabId: message.tabId,
+						initialUrl: tab.url ?? '',
+						userAgent: navigator.userAgent,
+						viewportSize: { w: tab.width ?? 0, h: tab.height ?? 0 },
+						canvasCaptureEnabled: message.canvasCaptureEnabled ?? false,
+					});
+
+					// Ativa Runtime e Log para captura de console/exceptions.
+					// Se falhar (debugger detachou entre check e enable), propaga.
+					await chrome.debugger.sendCommand({ tabId: message.tabId }, 'Runtime.enable');
+					await chrome.debugger.sendCommand({ tabId: message.tabId }, 'Log.enable');
+
+					// Sinaliza o probe daquela tab pra começar a emitir detections.
+					// Taps são instalados pelo probe incondicionalmente — ver C1.
+					// Se sendMessage falhar (probe não injetado), propaga erro via
+					// sendResponse.
+					await chrome.tabs.sendMessage(message.tabId, {
+						action: 'probeStartDetection',
+						reason: 'initial',
+					});
+
+					// Inicia rrweb no content script ISOLATED da tab alvo. Falha aqui propaga
+					// erro pro caller (no-fallbacks): sem rrweb a sessão não tem captura visual.
+					await chrome.tabs.sendMessage(message.tabId, {
+						action: '__rrweb_start',
+						sessionId: id,
+						recordCanvas: message.canvasCaptureEnabled ?? false,
+						maskTextSelector: livePrivacyConfig?.rrwebMaskTextSelector,
+						maskAllInputs: livePrivacyConfig?.rrwebMaskAllInputs,
+					});
+					sendResponse({ ok: true, sessionId: id });
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === 'stopRecording') {
+			(async () => {
+				try {
+					// Lê tabId da session ANTES de stopSession (depois disso, getActiveByTab
+					// não retorna mais essa session porque endedAt foi setado).
+					const session = await sessionStore.get(message.sessionId as string);
+					await recorder.stopSession(message.sessionId as string);
+					if (session?.tabId !== undefined) {
+						// Desativa Runtime e Log antes do probeIdle.
+						try {
+							await chrome.debugger.sendCommand({ tabId: session.tabId }, 'Runtime.disable');
+							await chrome.debugger.sendCommand({ tabId: session.tabId }, 'Log.disable');
+						} catch {
+							// Debugger pode ter detached entre stopSession e disable; ignorar.
+						}
+						try {
+							await chrome.tabs.sendMessage(session.tabId, { action: '__rrweb_stop' });
+						} catch {
+							// Tab pode ter fechado; ignorar (probe idle cobre o resto).
+						}
+						try {
+							await chrome.tabs.sendMessage(session.tabId, { action: 'probeIdle' });
+						} catch {
+							// Tab pode ter fechado; ignorar.
+						}
+					}
+					sendResponse({ ok: true });
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === 'pageDetected') {
+			(async () => {
+				const tabId = sender?.tab?.id;
+				if (tabId === undefined) {
+					sendResponse({ ok: false, reason: 'no tab id in sender' });
+					return;
+				}
+
+				// Broadcast incondicional: o painel Live Insights consome o fingerprint
+				// em qualquer modo (com ou sem gravação ativa). A persistência em
+				// sessão (bloco abaixo) é independente e só ocorre quando há sessão.
+				// Também alimenta o cache `liveSnapshotByTab` pra hidratar a UI quando
+				// o usuário abrir o drawer depois (Sheet só monta children no open).
+				if (isDebugging && attachedTabId === tabId && message.payload) {
+					// Sub-projeto 3 — merge das techs emitidas pelo probe com o que já está
+					// acumulado para este host (do background pipeline da task 5).
+					if (message.payload.techs && message.payload.techs.length > 0) {
+						const host = extractHost(message.payload.url);
+						if (host && host !== 'unknown') {
+							const snap = getOrInitLiveSnapshot(tabId);
+							let entry = snap.detectionsByHost.get(host);
+							if (!entry) {
+								entry = {
+									url: message.payload.url,
+									timestamp: message.payload.timestamp ?? Date.now(),
+									fingerprint: message.payload.fingerprint ?? makeEmptyFingerprint(),
+									techs: [],
+								};
+								snap.detectionsByHost.set(host, entry);
+							}
+							entry.techs = mergeHits(entry.techs, message.payload.techs, COMPILED_BY_NAME);
+							scheduleBroadcast(tabId, host);
+						}
+					}
+					updateLiveDetection(tabId, {
+						url: message.payload.url,
+						timestamp: message.payload.timestamp,
+						fingerprint: message.payload.fingerprint,
+					});
+					broadcastToUI('liveDetection', { tabId, payload: message.payload });
+				}
+
+				const session = await recorder.getActiveByTab(tabId);
+				if (!session) {
+					sendResponse({ ok: false, reason: 'no active session for tab' });
+					return;
+				}
+				try {
+					const detection: PageDetection = {
+						url: message.payload!.url,
+						timestamp: message.payload!.timestamp,
+						fingerprint: message.payload!.fingerprint,
+						triggerType: message.payload!.triggerType,
+					};
+					await recorder.addPage(session.id, detection);
+					// Emite RouteChangeEvent com o mesmo trigger do probe, relendo a sessão
+					// para que currentPhaseId retorne a phase recém-criada (ou atualizada).
+					const updated = await recorder.getActiveByTab(tabId);
+					if (updated) {
+						const routeEvent: SessionEvent = {
+							type: 'route',
+							timestamp: message.payload!.timestamp,
+							phaseId: currentPhaseId(updated),
+							url: message.payload!.url,
+							triggerType: message.payload!.triggerType,
+						};
+						await recorder.addEvent(updated.id, routeEvent);
+					}
+					sendResponse({ ok: true });
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === 'getActiveSession') {
+			(async () => {
+				try {
+					const session = await recorder.getActiveByTab(message.tabId as number);
+					sendResponse({ ok: true, session });
+				} catch (err) {
+					sendResponse({ ok: false, session: null, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === 'getLiveSnapshot') {
+			// Hidratação síncrona do drawer Live Insights. SheetContent (Radix) só
+			// monta os filhos quando abre, então broadcasts emitidos antes do
+			// usuário clicar no botão Activity são perdidos. Esse handler entrega
+			// o estado acumulado pelo cache `liveSnapshotByTab` para a UI plotar
+			// no mount do `LiveInsightsPanel` antes de registrar o listener.
+			const tabId = message.tabId;
+			if (typeof tabId !== 'number') {
+				sendResponse({ ok: false, error: 'tabId obrigatório' });
+				return false;
+			}
+			const snap = liveSnapshotByTab.get(tabId);
+			const serialized = snap
+				? serializeLiveSnapshot(snap)
+				: { detections: [], recommendations: [] };
+			sendResponse({ ok: true, liveSnapshot: serialized });
+			return false;
+		}
+
+		if (message.action === 'getRecordingStatus') {
+			(async () => {
+				try {
+					const session = await recorder.getActiveByTab(message.tabId as number);
+					if (!session) {
+						sendResponse({ ok: true, active: false });
+						return;
+					}
+					const status = recorder.getRuntimeStatus(session.id);
+					// `status` ser null significa "session existe no IDB mas não no runtime cache"
+					// (post service worker recycle). Devolvemos zeros — UI re-mede no próximo
+					// polling quando runtime for reconstruído pelo próximo addEvent.
+					sendResponse({
+						ok: true,
+						active: true,
+						sessionId: session.id,
+						sizeBytes: status?.sizeBytes ?? 0,
+						durationMs: status?.durationMs ?? 0,
+					});
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === 'deleteSession') {
+			(async () => {
+				try {
+					await sessionStore.delete(message.sessionId as string);
+					sendResponse({ ok: true });
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === 'exportSession') {
+			(async () => {
+				try {
+					const session = await sessionStore.get(message.sessionId as string);
+					if (!session) {
+						sendResponse({ ok: false, error: 'Sessão não encontrada' });
+						return;
+					}
+					const buf = await serializeSession(session);
+					// chrome.runtime.sendMessage descarta ArrayBuffer no transporte (vira {}).
+					// Encodamos como base64 — UI decoda em SessionRow antes do new Blob().
+					sendResponse({ ok: true, data: arrayBufferToBase64(buf) });
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === 'importSession') {
+			(async () => {
+				try {
+					if (typeof message.data !== 'string') {
+						// Sem fallback: transporte deve carregar base64. Mensagem mal-formada
+						// indica chamador antigo ou bug — falha visível pra UI.
+						sendResponse({
+							ok: false,
+							error: 'importSession: data ausente ou nao e string base64',
+						});
+						return;
+					}
+					const buf = base64ToArrayBuffer(message.data);
+					const session = await parseDbsession(buf);
+					await sessionStore.put(session);
+					sendResponse({ ok: true, sessionId: session.id });
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === 'rrwebBatch') {
+			(async () => {
+				try {
+					const sid = message.sessionId;
+					const events = message.rrwebEvents;
+					if (!sid || !Array.isArray(events)) {
+						sendResponse({ ok: false, error: 'rrwebBatch: sessionId/rrwebEvents inválidos' });
+						return;
+					}
+					// Validação estrutural rasa: cada item precisa ter o shape mínimo de RrwebEvent.
+					// Probe bugado ou remetente externo malicioso poderia enfiar lixo no IDB
+					// se o handler só checasse Array.isArray. No-fallbacks: rejeita o batch inteiro.
+					const valid = events.every(
+						(e): e is RrwebEvent =>
+							!!e && typeof e.type === 'number' && typeof e.timestamp === 'number',
+					);
+					if (!valid) {
+						sendResponse({ ok: false, error: 'rrwebBatch: payload com items inválidos' });
+						return;
+					}
+					await recorder.addRrwebEvents(sid, events);
+					sendResponse({ ok: true });
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		// Phase 6 — privacyConfig CRUD + autoPurge on demand.
+		if (message.action === 'getPrivacyConfig') {
+			(async () => {
+				try {
+					const cfg = await getPrivacyConfig();
+					sendResponse({ ok: true, privacyConfig: cfg });
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === 'setPrivacyConfig') {
+			(async () => {
+				try {
+					if (!message.config) {
+						sendResponse({ ok: false, error: 'config ausente' });
+						return;
+					}
+					await setPrivacyConfig(message.config);
+					await reloadPrivacyConfig();
+					sendResponse({ ok: true });
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === 'purgeOldSessions') {
+			(async () => {
+				try {
+					const cfg = await getPrivacyConfig();
+					const purgedCount = await purgeOldSessions(cfg.autoPurgeRetentionDays);
+					sendResponse({ ok: true, purgedCount });
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === 'setRecordingLive') {
+			(async () => {
+				try {
+					if (typeof message.tabId !== 'number') {
+						sendResponse({ ok: false, error: 'tabId ausente' });
+						return;
+					}
+					const targetTabId = message.tabId;
+					if (message.active === true) {
+						// Liga gravação live: inicia sessão se interceptação rodando
+						// e ainda não há sessão pra essa tab.
+						const existing = await recorder.getActiveByTab(targetTabId);
+						if (existing) {
+							sendResponse({ ok: true, sessionId: existing.id });
+							return;
+						}
+						if (!isDebugging || attachedTabId !== targetTabId) {
+							sendResponse({
+								ok: false,
+								error: 'Interceptação não está ativa nesta tab',
+							});
+							return;
+						}
+						// Reusa fluxo de auto-start: chama tryAutoStartRecording. Mas essa
+						// função respeita recordingDisabled — antes de chamar, garante flag=false.
+						await setRecordingDisabled(false);
+						await tryAutoStartRecording(targetTabId);
+						const created = await recorder.getActiveByTab(targetTabId);
+						sendResponse({ ok: true, sessionId: created?.id });
+					} else {
+						// Desliga: stopa sessão ativa (se houver). NÃO detacha debugger.
+						const existing = await recorder.getActiveByTab(targetTabId);
+						if (!existing) {
+							sendResponse({ ok: true });
+							return;
+						}
+						try {
+							await chrome.debugger.sendCommand({ tabId: targetTabId }, 'Runtime.disable');
+							await chrome.debugger.sendCommand({ tabId: targetTabId }, 'Log.disable');
+						} catch {
+							// Debugger pode ter sido detached por outro caminho — ignorar.
+						}
+						try {
+							await chrome.tabs.sendMessage(targetTabId, { action: '__rrweb_stop' });
+						} catch {
+							// Tab pode ter fechado.
+						}
+						try {
+							await chrome.tabs.sendMessage(targetTabId, { action: 'probeIdle' });
+						} catch {
+							// Tab pode ter fechado.
+						}
+						await recorder.stopSession(existing.id);
+						broadcastRecordingState({
+							tabId: targetTabId,
+							active: false,
+							sessionId: existing.id,
+						});
+						sendResponse({ ok: true });
+					}
+				} catch (err) {
+					sendResponse({ ok: false, error: String(err) });
+				}
+			})();
+			return true;
+		}
+
+		if (message.action === 'angularHttpTag') {
+			const tag = message.angularHttpTag;
+			if (!tag) return false;
+			// Match heurístico: mesma URL+method e timestamp do request dentro de
+			// 250ms da tag. Sem fallback: se nada casar, log de debug — não tagueamos
+			// uma request arbitrária.
+			const cutoff = tag.timestampHint - 250;
+			const candidates = Object.values(allRequests).filter(
+				(req) =>
+					req.url === tag.url &&
+					req.method === tag.method &&
+					typeof req.timestamp === 'number' &&
+					req.timestamp >= cutoff &&
+					req.timestamp <= tag.timestampHint + 250,
+			);
+			if (candidates.length === 0) {
+				console.debug(
+					`[probe] angularHttpTag sem match: ${tag.method} ${tag.url} (timestampHint=${tag.timestampHint})`,
+				);
+				return false;
+			}
+			// Pega a candidata com timestamp mais próximo do hint. NOTA: o campo
+			// `client` ainda NÃO existe em InterceptedResponse — quando for adicionado
+			// ao schema (futura phase), trocar este log por
+			// `patchRequest(matched.id ?? key, { client: 'angular-http' })`.
+			const matched = candidates.reduce((best, cur) =>
+				Math.abs(cur.timestamp - tag.timestampHint) < Math.abs(best.timestamp - tag.timestampHint)
+					? cur
+					: best,
+			);
+			console.debug(
+				`[probe] angularHttpTag match: ${tag.method} ${tag.url} → request@${matched.timestamp} (client=angular-http; aguardando InterceptedResponse.client)`,
+			);
+			return false;
+		}
+
 		return false;
 	},
 );
@@ -790,6 +1963,93 @@ async function applyResponseModifications(
 	}
 }
 
+// Auto-start de gravação acoplado à interceptação (Bug 1).
+//
+// Encapsulado em função própria para permitir `return` cedo em caso de falha
+// parcial sem afetar o fluxo de `startDebugging` (que precisa retornar `true`
+// mesmo quando a gravação não inicia). O `return` aqui sai apenas desta
+// função, mantendo a interceptação ativa.
+//
+// No-fallback: se `Runtime.enable` ou `Log.enable` falham depois de
+// `startSession` ter sucesso, fazemos rollback da sessão (stopSession) para
+// não vazar uma sessão "fake-ativa" para a UI — sessão sem console/exceptions
+// é silenciosamente quebrada e violaria a regra de no-fallbacks.
+async function tryAutoStartRecording(tabId: number): Promise<boolean> {
+	const recordingDisabled = await getRecordingDisabled();
+	if (recordingDisabled) return false;
+	const tab = await chrome.tabs.get(tabId);
+	const sessionId = await recorder.startSession({
+		tabId,
+		initialUrl: tab.url ?? '',
+		userAgent: navigator.userAgent,
+		viewportSize: { w: tab.width ?? 0, h: tab.height ?? 0 },
+		// TODO(session): captura de canvas é decisão por-sessão e hoje
+		// não há UI para isso após a remoção do dialog. Follow-up: trazer
+		// opt-in via menu/settings se houver demanda.
+		canvasCaptureEnabled: false,
+	});
+	// Habilita Runtime/Log para captura de console/exceptions. Falha aqui
+	// significa debugger desanexado entre attach e enable — sessão recém-criada
+	// não capturaria console nenhum, então fazemos rollback antes de seguir.
+	try {
+		await chrome.debugger.sendCommand({ tabId }, 'Runtime.enable');
+		await chrome.debugger.sendCommand({ tabId }, 'Log.enable');
+	} catch (enableErr) {
+		console.warn('[session] Runtime/Log.enable falhou apos startSession; rollback:', enableErr);
+		try {
+			await recorder.stopSession(sessionId);
+		} catch (rollbackErr) {
+			console.warn('[session] rollback de stopSession falhou:', rollbackErr);
+		}
+		// Sai sem broadcast — UI nao vai mostrar "Gravando" indevidamente.
+		return false;
+	}
+	// Sinaliza probe e rrweb separadamente — antes uma falha em probe abortava
+	// rrweb e ainda retornava true, deixando a sessão sem detection sem trigger
+	// do fallback passivo em startDebugging (review issue #1).
+	let probeStarted = false;
+	try {
+		// Taps são instalados pelo probe incondicionalmente — ver C1.
+		await chrome.tabs.sendMessage(tabId, {
+			action: 'probeStartDetection',
+			reason: 'initial',
+		});
+		probeStarted = true;
+	} catch (err) {
+		console.warn(
+			'[session] probeStartDetection falhou em recording start (content script provavelmente nao injetado):',
+			err,
+		);
+	}
+	let rrwebStarted = false;
+	try {
+		await chrome.tabs.sendMessage(tabId, {
+			action: '__rrweb_start',
+			sessionId,
+			recordCanvas: false,
+			maskTextSelector: livePrivacyConfig?.rrwebMaskTextSelector,
+			maskAllInputs: livePrivacyConfig?.rrwebMaskAllInputs,
+		});
+		rrwebStarted = true;
+	} catch (err) {
+		console.warn('[session] __rrweb_start falhou em recording start:', err);
+	}
+	// Se NADA iniciou (provavelmente content scripts ausentes), rollback da
+	// sessão para nao travar UI em "Gravando" sem captura — e devolver false
+	// faz startDebugging cair no fallback passivo (probeStartDetection sem
+	// state taps), ainda dando ao usuário Live Insights via webNavigation.
+	if (!probeStarted && !rrwebStarted) {
+		try {
+			await recorder.stopSession(sessionId);
+		} catch (rollbackErr) {
+			console.warn('[session] rollback de stopSession falhou:', rollbackErr);
+		}
+		return false;
+	}
+	broadcastRecordingState({ tabId, active: true, sessionId });
+	return true;
+}
+
 // Start debugging
 async function startDebugging(specificTabId: number | null = null): Promise<boolean> {
 	// If already debugging, stop first
@@ -887,6 +2147,48 @@ async function startDebugging(specificTabId: number | null = null): Promise<bool
 		attachedTabId = tabId;
 		pendingResponses = {};
 		timingTracker.reset();
+		recommendationEngine.reset();
+		// Live Insights: nova sessão = snapshot zerado. Detections/recomendações
+		// passam a acumular por host até o próximo startDebugging.
+		clearLiveSnapshot(tabId);
+
+		// --- Acoplamento gravação ↔ interceptação (Bug 1) ---
+		// Default: ao iniciar interceptação, iniciamos uma sessão de gravação.
+		// Usuário pode desligar via switch "Gravação" da SiteHeader, que persiste
+		// `recordingDisabled=true` em chrome.storage.local.
+		// Falhas aqui são logadas e ignoradas — a interceptação continua mesmo se
+		// gravação não puder começar (ex.: storage corrompido, content script
+		// ausente para probe/rrweb).
+		let recordingStarted = false;
+		try {
+			recordingStarted = await tryAutoStartRecording(tabId);
+		} catch (err) {
+			// Não-fatal: interceptação continua mesmo se gravação falha (ex.: aba
+			// sem permissão de probe). Erro é logado para depuração.
+			console.warn('[session] auto-start de gravação falhou:', err);
+		}
+
+		// Modo passivo (Bug 4): se gravação NÃO auto-iniciou, ainda queremos
+		// rodar smart detection per-URL para alimentar Live Insights com
+		// contexto de fase e mostrar framework/libs ao usuário em tempo real.
+		// Taps são instalados pelo probe incondicionalmente — ver C1.
+		if (!recordingStarted) {
+			try {
+				await chrome.tabs.sendMessage(tabId, {
+					action: 'probeStartDetection',
+					reason: 'initial',
+				});
+			} catch (err) {
+				const msg = String(err);
+				if (
+					!msg.includes('Could not establish connection') &&
+					!msg.includes('The tab was closed') &&
+					!msg.includes('No tab with id')
+				) {
+					console.warn('[session] probeStartDetection passivo falhou:', err);
+				}
+			}
+		}
 
 		console.log('Debugging started successfully');
 		return true;
@@ -930,6 +2232,40 @@ async function stopDebugging(): Promise<boolean> {
 		await chrome.debugger.sendCommand({ tabId: attachedTabId }, 'Network.disable');
 		console.log('Network tracking disabled');
 
+		// --- Acoplamento gravação ↔ interceptação (Bug 1) ---
+		// Encerra qualquer sessão ativa associada à tab antes de detacharmos.
+		// stopSession é idempotente; se a sessão já foi parada (usuário clicou
+		// "Parar Gravação" sozinho — fluxo legado), o segundo call no-op.
+		try {
+			const activeSession = await recorder.getActiveByTab(attachedTabId);
+			if (activeSession) {
+				try {
+					await chrome.debugger.sendCommand({ tabId: attachedTabId }, 'Runtime.disable');
+					await chrome.debugger.sendCommand({ tabId: attachedTabId }, 'Log.disable');
+				} catch {
+					// Debugger pode ter sido detached por outro caminho — ignorar.
+				}
+				try {
+					await chrome.tabs.sendMessage(attachedTabId, { action: '__rrweb_stop' });
+				} catch {
+					// Tab pode ter fechado.
+				}
+				try {
+					await chrome.tabs.sendMessage(attachedTabId, { action: 'probeIdle' });
+				} catch {
+					// Tab pode ter fechado.
+				}
+				await recorder.stopSession(activeSession.id);
+				broadcastRecordingState({
+					tabId: attachedTabId,
+					active: false,
+					sessionId: activeSession.id,
+				});
+			}
+		} catch (err) {
+			console.warn('[session] auto-stop de gravação falhou:', err);
+		}
+
 		// Detach debugger
 		await chrome.debugger.detach({ tabId: attachedTabId });
 		console.log(`Debugger detached from tab ${attachedTabId}`);
@@ -943,6 +2279,11 @@ async function stopDebugging(): Promise<boolean> {
 		isDebugging = false;
 		attachedTabId = null;
 		pendingResponses = {};
+		// Cancela timers pendentes — qualquer patchRequest após detach cairia em
+		// allRequests undefined.
+		for (const t of pendingTimingTimers.values()) clearTimeout(t);
+		pendingTimingTimers.clear();
+		pendingTimingPatches.clear();
 		timingTracker.reset();
 		allRequests = {};
 
@@ -992,6 +2333,37 @@ function debuggerEventListener(
 				},
 			);
 		});
+		return;
+	}
+
+	// Eventos de Session Replay: encaminha para o recorder se há sessão ativa.
+	// attachedTabId é garantidamente number aqui: o outer guard (tabId !== attachedTabId)
+	// elimina undefined antes deste ponto, mas o TypeScript não infere o narrowing — usamos
+	// attachedTabId diretamente, que já é number | null e narrowed pelo outer guard.
+	if (
+		message === 'Runtime.consoleAPICalled' ||
+		message === 'Runtime.exceptionThrown' ||
+		message === 'Log.entryAdded'
+	) {
+		const tabId = debuggeeId.tabId as number;
+		recorder.getActiveByTab(tabId).then((session) => {
+			if (!session) return;
+			if (message === 'Runtime.consoleAPICalled') {
+				handleConsoleAPI(session, params as Protocol.Runtime.ConsoleAPICalledEvent).catch((err) => {
+					console.warn('[session] handleConsoleAPI falhou:', err);
+				});
+			} else if (message === 'Runtime.exceptionThrown') {
+				handleExceptionThrown(session, params as Protocol.Runtime.ExceptionThrownEvent).catch(
+					(err) => {
+						console.warn('[session] handleExceptionThrown falhou:', err);
+					},
+				);
+			} else {
+				handleLogEntry(session, params as Protocol.Log.EntryAddedEvent).catch((err) => {
+					console.warn('[session] handleLogEntry falhou:', err);
+				});
+			}
+		});
 	}
 }
 
@@ -1032,6 +2404,16 @@ async function handleRequestPaused(params: any): Promise<void> {
 	}
 	if (!resourceType) {
 		throw new Error(`CDP nao informou resourceType para ${requestId}`);
+	}
+
+	// Privacy URL gate: domínios em blacklist passam pela rede sem persistência
+	// nem emissão de NetworkEvent — captura zero. networkId fica órfão no tracker
+	// (descartamos para liberar memória). Sem fallback: se continueRequest falhar,
+	// erro propaga normalmente.
+	if (livePrivacyConfig && shouldIgnoreUrl(url, livePrivacyConfig)) {
+		timingTracker.discardByNetworkId(networkId);
+		await continueRequest(requestId);
+		return;
 	}
 
 	// Request stage: responseStatusCode é undefined (a request ainda não foi para a rede).
@@ -1181,9 +2563,16 @@ async function handleRequestPaused(params: any): Promise<void> {
 				appliedTypes: deriveAppliedTypesFromMatch(matchedAction),
 			};
 
+			applyPrivacyToInterceptedResponse(failedCaptureRequest);
+
 			persistRequest(requestId, failedCaptureRequest).catch((persistError) => {
 				console.error(`Falha ao persistir erro de captura para ${requestId}:`, persistError);
 			});
+			if (attachedTabId !== null) {
+				emitNetworkEventForSession(attachedTabId, requestId, failedCaptureRequest).catch((err) => {
+					console.warn('[session] emitNetworkEventForSession (captureError) falhou:', err);
+				});
+			}
 			return;
 		}
 	}
@@ -1227,8 +2616,25 @@ async function handleRequestPaused(params: any): Promise<void> {
 				...(delayMs !== undefined ? { delayMs } : {}),
 			};
 
+	applyPrivacyToInterceptedResponse(persistedRequest);
+
+	// Sub-projeto 3 — pipeline: extrai signals da response e atualiza techs do host.
+	// Roda só quando há tabId conhecido (debugger anexado a um targetTab válido).
+	if (targetTabId !== null) {
+		try {
+			ingestBgSignalsForRequest(targetTabId, persistedRequest);
+		} catch (err) {
+			console.warn('[live-insights] falha em ingestBgSignalsForRequest:', err);
+		}
+	}
+
 	if (willIntercept) {
 		await persistRequest(requestId, persistedRequest);
+		if (attachedTabId !== null) {
+			emitNetworkEventForSession(attachedTabId, requestId, persistedRequest).catch((err) => {
+				console.warn('[session] emitNetworkEventForSession (breakpoint) falhou:', err);
+			});
+		}
 		console.log(`Intercepting response for ${url}`);
 		pendingResponses[requestId] = persistedRequest;
 		chrome.runtime.sendMessage({
@@ -1262,6 +2668,34 @@ async function handleRequestPaused(params: any): Promise<void> {
 		persistRequest(requestId, toPersist).catch((persistError) => {
 			console.error(`Falha ao persistir request ${requestId}:`, persistError);
 		});
+		if (attachedTabId !== null) {
+			emitNetworkEventForSession(attachedTabId, requestId, toPersist).catch((err) => {
+				console.warn('[session] emitNetworkEventForSession (pass-through) falhou:', err);
+			});
+		}
+
+		// Recommendations engine — só roda no pass-through (resposta real do
+		// servidor). Mocks/transforms são pulados pra evitar recomendar sobre
+		// payload sintético. Hits são broadcast como liveRecommendation e
+		// persistidos quando há sessão ativa.
+		if (attachedTabId !== null) {
+			const tabId = attachedTabId;
+			try {
+				const ruleEv = buildNetworkRuleEvent(networkId ?? requestId, toPersist);
+				const ctx = { topFrameUrl: await getTopFrameUrl(tabId) };
+				const hits = recommendationEngine.pushResponse(ruleEv, ctx);
+				for (const hit of hits) {
+					pushLiveRecommendation(tabId, hit);
+					broadcastToUI('liveRecommendation', { tabId, recommendation: hit });
+					const session = await recorder.getActiveByTab(tabId);
+					if (session) {
+						await recorder.addRecommendation(session.id, hit);
+					}
+				}
+			} catch (err) {
+				console.warn('[recommendations] pushResponse falhou:', err);
+			}
+		}
 	}
 }
 
@@ -1561,6 +2995,7 @@ async function applyTransformResponse(
 			responseHeaders: responseHeaderArray,
 			body: encodeBodyToBase64(transformedBody),
 		});
+		// TODO(session): transform requests não emitem NetworkEvent ainda (follow-up).
 		await persistRequest(requestId, fulfilledResponse);
 		console.log(`Transform aplicado com sucesso para ${requestId}`);
 	} catch (error) {
@@ -1587,3 +3022,9 @@ chrome.debugger.onDetach.addListener((debuggeeId: chrome.debugger.Debuggee, reas
 		attachedTabId = null;
 	}
 });
+
+// --- helpers de teste (não usar em produção) ---
+export const _testStartDebugging = startDebugging;
+export const _testStopDebugging = stopDebugging;
+export const _testPersistRequest = persistRequest;
+export const _testPatchRequest = patchRequest;

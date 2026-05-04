@@ -1,0 +1,61 @@
+{
+	"Lodash": {
+		"cats": [
+			59
+		],
+		"cpe": "cpe:2.3:a:lodash:lodash:*:*:*:*:*:*:*:*",
+		"description": "Lodash is a JavaScript library which provides utility functions for common programming tasks using the functional programming paradigm.",
+		"excludes": [
+			"Underscore.js"
+		],
+		"icon": "Lodash.svg",
+		"js": {
+			"_.VERSION": "^(.+)$\\;confidence:0\\;version:\\1",
+			"_.differenceBy": "",
+			"_.templateSettings.imports._.templateSettings.imports._.VERSION": "^(.+)$\\;version:\\1"
+		},
+		"scriptSrc": [
+			"lodash.*\\.js"
+		],
+		"website": "https://www.lodash.com"
+	},
+	"Laravel": {
+		"cats": [
+			18
+		],
+		"cookies": {
+			"laravel_session": ""
+		},
+		"cpe": "cpe:2.3:a:laravel:laravel:*:*:*:*:*:*:*:*",
+		"description": "Laravel is a free, open-source PHP web framework.",
+		"icon": "Laravel.svg",
+		"implies": [
+			"PHP"
+		],
+		"js": {
+			"Laravel": ""
+		},
+		"oss": true,
+		"website": "https://laravel.com"
+	},
+	"LogRocket": {
+		"cats": [
+			10
+		],
+		"description": "LogRocket is a logging and session replay platform that helps developers identify and troubleshoot issues in web applications by recording and replaying user sessions, along with capturing logs and user interactions in real-time.",
+		"icon": "LogRocket.svg",
+		"js": {
+			"LogRocket._buffer": ""
+		},
+		"pricing": [
+			"freemium",
+			"mid",
+			"recurring"
+		],
+		"saas": true,
+		"scriptSrc": [
+			"cdn\\.(?:lr-ingest|logrocket)\\.(?:com|io)"
+		],
+		"website": "https://logrocket.com"
+	}
+}

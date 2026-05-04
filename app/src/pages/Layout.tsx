@@ -42,6 +42,12 @@ const Layout: React.FC = () => {
 	const sessionMarker = useSessionMarker();
 	const metrics = useNetworkMetrics(allRequestsState.allRequests, sessionMarker);
 
+	// Live Insights está disponível em qualquer modo (com ou sem gravação)
+	// enquanto há tab alvo selecionada. O painel é aberto via Sheet pelo
+	// botão no SiteHeader; quando a interceptação está OFF o painel mostra
+	// um banner pedindo pra iniciar (cache fica vazio sem broadcasts).
+	// Quando a gravação está ativa, o replay tem sua própria
+	// RecommendationsTab — os dois canais coexistem.
 	const [selectTabDialogOpen, setSelectTabDialogOpen] = useState(false);
 
 	useEffect(() => {
@@ -228,7 +234,6 @@ const Layout: React.FC = () => {
 					sessionDetails={metrics.sessionDetails}
 					currentPageDetails={metrics.currentPageDetails}
 				/>
-
 				<div className="main-content-container flex-1 min-h-0 min-w-0 overflow-hidden">
 					<Suspense fallback={<RouteFallback />}>
 						<Outlet context={outletContext} />

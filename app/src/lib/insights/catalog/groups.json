@@ -1,0 +1,44 @@
+{
+	"1": {
+		"name": "Sales"
+	},
+	"2": {
+		"name": "Marketing"
+	},
+	"3": {
+		"name": "Content"
+	},
+	"4": {
+		"name": "Communication"
+	},
+	"6": {
+		"name": "Other"
+	},
+	"7": {
+		"name": "Servers"
+	},
+	"8": {
+		"name": "Analytics"
+	},
+	"9": {
+		"name": "Web development"
+	},
+	"11": {
+		"name": "Security"
+	},
+	"13": {
+		"name": "Privacy"
+	},
+	"15": {
+		"name": "Add-ons"
+	},
+	"16": {
+		"name": "Business tools"
+	},
+	"17": {
+		"name": "Location"
+	},
+	"18": {
+		"name": "User generated content"
+	}
+}

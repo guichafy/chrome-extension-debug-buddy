@@ -1,0 +1,8 @@
+{
+	"signals": [
+		{ "kind": "scriptSrc", "value": "https://cdn.shopify.com/s/files/1/0001/0001/t/2/assets/theme.js" },
+		{ "kind": "header", "name": "x-shopify-stage", "value": "production" },
+		{ "kind": "header", "name": "x-shopid", "value": "12345" }
+	],
+	"expectedHits": ["Shopify"]
+}
