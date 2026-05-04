@@ -330,6 +330,15 @@ async function handleLogEntry(
 
 // --- Session Replay — network event helper ---
 
+/**
+ * URL gate: domínios em blacklist passam pela rede sem persistência nem
+ * emissão de NetworkEvent. Retorna true se a URL deve ser ignorada.
+ */
+export function applyPrivacyGate(url: string, config: RedactionConfig | null): boolean {
+	if (!config) return false;
+	return shouldIgnoreUrl(url, config);
+}
+
 // Aplica redação em headers (resposta + requisição) e body de um InterceptedResponse.
 // Muta in-place para minimizar custo — a InterceptedResponse já é construída neste
 // frame (não há leitor concorrente). Chamado antes de persistRequest e
@@ -2434,7 +2443,7 @@ async function handleRequestPaused(params: any): Promise<void> {
 	// nem emissão de NetworkEvent — captura zero. networkId fica órfão no tracker
 	// (descartamos para liberar memória). Sem fallback: se continueRequest falhar,
 	// erro propaga normalmente.
-	if (livePrivacyConfig && shouldIgnoreUrl(url, livePrivacyConfig)) {
+	if (applyPrivacyGate(url, livePrivacyConfig)) {
 		timingTracker.discardByNetworkId(networkId);
 		await continueRequest(requestId);
 		return;
