@@ -2,6 +2,7 @@ import { detectDataFetching } from './detectors/dataFetching';
 import { detectFramework } from './detectors/framework';
 import { detectHttpClients } from './detectors/httpClients';
 import { detectLibraries } from './detectors/libraries';
+import { detectTechs } from './detectors/wappalyzer';
 import { isProbeMessage, PROBE_NAMESPACE, type ProbeMessage } from './protocol';
 import { installAngularHttpTap } from './state/angularHttpTap';
 import type { EnvironmentFingerprint, PageDetectionTrigger } from '@/lib/session/types';
@@ -40,6 +41,7 @@ function emitDetection(triggerType: PageDetectionTrigger): void {
 			timestamp: Date.now(),
 			triggerType,
 			fingerprint: buildFingerprint(),
+			techs: detectTechs(window, document),
 		},
 	};
 	window.postMessage(msg, location.origin);
