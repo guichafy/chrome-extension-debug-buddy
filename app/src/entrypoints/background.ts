@@ -61,6 +61,8 @@ import { resolveMockLatencyMs, wait } from '@/domain/mockLatency';
 import { findMatchingRuleAction } from '@/domain/ruleMatching';
 import { applyTransformToBody } from '@/domain/transformExecutor';
 import { COMPILED_CATALOG } from '@/lib/insights/catalog';
+import { extractBackgroundSignals } from '@/lib/insights/bgSignals';
+import { mergeHits } from '@/lib/insights/mergeHits';
 import { Scorer } from '@/lib/insights/scorer';
 import type { CompiledTech, TechHit } from '@/lib/insights/types';
 
@@ -521,6 +523,42 @@ function getOrInitLiveSnapshot(tabId: number): LiveSnapshot {
 		liveSnapshotByTab.set(tabId, snap);
 	}
 	return snap;
+}
+
+function makeEmptyFingerprint(): EnvironmentFingerprint {
+	return {
+		framework: { name: 'vanilla' },
+		libraries: [],
+		httpClients: [],
+		dataFetching: [],
+		detectedAt: Date.now(),
+		isProductionBuild: false,
+	};
+}
+
+function ingestBgSignalsForRequest(tabId: number, intercepted: InterceptedResponse): void {
+	const host = extractHost(intercepted.url);
+	if (!host || host === 'unknown') return;
+	const sigs = extractBackgroundSignals(intercepted);
+	if (sigs.length === 0) return;
+	const scorer = getOrCreateScorer(tabId, host);
+	scorer.pushSignals(sigs);
+
+	// Merge scorer snapshot com techs já no entry (vindas do probe).
+	const snap = getOrInitLiveSnapshot(tabId);
+	let entry = snap.detectionsByHost.get(host);
+	if (!entry) {
+		// Sem pageDetected ainda para este host — placeholder.
+		entry = {
+			url: `https://${host}/`,
+			timestamp: Date.now(),
+			fingerprint: makeEmptyFingerprint(),
+			techs: [],
+		};
+		snap.detectionsByHost.set(host, entry);
+	}
+	entry.techs = mergeHits(entry.techs, scorer.snapshot(), COMPILED_BY_NAME);
+	scheduleBroadcast(tabId, host);
 }
 
 function extractHost(url: string): string {
@@ -2563,6 +2601,16 @@ async function handleRequestPaused(params: any): Promise<void> {
 			};
 
 	applyPrivacyToInterceptedResponse(persistedRequest);
+
+	// Sub-projeto 3 — pipeline: extrai signals da response e atualiza techs do host.
+	// Roda só quando há tabId conhecido (debugger anexado a um targetTab válido).
+	if (targetTabId !== null) {
+		try {
+			ingestBgSignalsForRequest(targetTabId, persistedRequest);
+		} catch (err) {
+			console.warn('[live-insights] falha em ingestBgSignalsForRequest:', err);
+		}
+	}
 
 	if (willIntercept) {
 		await persistRequest(requestId, persistedRequest);
