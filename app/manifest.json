@@ -2,7 +2,7 @@
   "name": "Debug Buddy",
   "short_name": "DbgBuddy",
   "description": "Inspect, intercept, and mock HTTP responses in Chrome to test how your app handles network failures without touching the backend.",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "manifest_version": 3,
   "icons": {
     "16": "images/icon_16px.png",

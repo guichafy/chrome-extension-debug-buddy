@@ -1,3 +1,29 @@
+## [0.12.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.11.0...v0.12.0) (2026-05-04)
+
+### Features
+
+* **background:** requireField helper substitui validacao ad-hoc em 5 sites ([1328d4d](https://github.com/guichafy/chrome-extension-debug-buddy/commit/1328d4d3d115990a949a7f9868ee701d010a6b7c))
+* **background:** runAsyncHandler para padronizar handlers async ([f7b19a1](https://github.com/guichafy/chrome-extension-debug-buddy/commit/f7b19a18ce8cfa29ed967ad879e6a11d1b9d3f61))
+
+### Bug Fixes
+
+* **background:** preserva session:null no getActiveSession error path ([d44c1a6](https://github.com/guichafy/chrome-extension-debug-buddy/commit/d44c1a65ac2c12abd258b5b8e878d90fcf15979d))
+* **ui:** silencia warnings de a11y do Radix Dialog e simplifica NetworkMetricsBar ([79aabf7](https://github.com/guichafy/chrome-extension-debug-buddy/commit/79aabf7b3591ad60ca4318a5934229304f2642c5))
+
+### Refactoring
+
+* **background:** aplica runAsyncHandler nos 13 handlers async de session ([122eb2b](https://github.com/guichafy/chrome-extension-debug-buddy/commit/122eb2b49e78f84da3b516922d3b2fe951bcd12f))
+* **background:** aplica runAsyncHandler nos 5 handlers de debugging ([1fadb18](https://github.com/guichafy/chrome-extension-debug-buddy/commit/1fadb182339de2951491b37e7cb47486861f0385))
+* **background:** extrai applyPrivacyGate de handleRequestPaused ([71813fb](https://github.com/guichafy/chrome-extension-debug-buddy/commit/71813fb706cb3189d6fb42ddda7ad6757515adee))
+* **background:** extrai buildResponseSnapshot pra função pura testável ([3361ebb](https://github.com/guichafy/chrome-extension-debug-buddy/commit/3361ebbe559f58fa1da16fa409408e27952237af))
+* **background:** extrai processRequestStage como decisão pura ([82f95c9](https://github.com/guichafy/chrome-extension-debug-buddy/commit/82f95c95b93f2a916ac3d936084d7b8850fbdf2a))
+* **background:** extrai runRecommendationsForResponse de handleRequestPaused ([b7852fd](https://github.com/guichafy/chrome-extension-debug-buddy/commit/b7852fdba8a99ef7481660c1f06cf1df63a6a417))
+* **background:** remove hot_reload action sem senders ([992f707](https://github.com/guichafy/chrome-extension-debug-buddy/commit/992f707dd67f9fc77a5716ee4364fd9a4b7b0061))
+* **background:** substitui dispatcher if/else-if por messageHandlers map ([70af514](https://github.com/guichafy/chrome-extension-debug-buddy/commit/70af514cf3a46d507ec20e238e8ab964955f4016))
+* **data-table:** set default visibility for mimeType column ([3df2c5c](https://github.com/guichafy/chrome-extension-debug-buddy/commit/3df2c5c11af10a7c16da4a71175feee121caee42))
+* dry helpers compartilhados (bloco 2/4) ([dd9235d](https://github.com/guichafy/chrome-extension-debug-buddy/commit/dd9235d11aaf56d85466b31f395b44c5a222ab27))
+* remove dead code da branch session-replay (bloco 1/4) ([397dba5](https://github.com/guichafy/chrome-extension-debug-buddy/commit/397dba5ed8d7093e295d315ae7413eff337fc467))
+
 ## [0.11.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.10.0...v0.11.0) (2026-05-04)
 
 ### Features
