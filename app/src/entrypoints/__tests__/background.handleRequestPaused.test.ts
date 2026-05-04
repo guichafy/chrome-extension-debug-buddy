@@ -79,11 +79,7 @@ describe('processRequestStage', () => {
 			type: 'mock',
 			action: { latency: 100, status: 200, body: '', headers: {} } as never,
 		} as never;
-		const result = processRequestStage(action);
-		expect(result.handled).toBe(true);
-		if (result.handled) {
-			expect(result.kind).toBe('mock');
-		}
+		expect(processRequestStage(action)).toEqual({ handled: true, kind: 'mock' });
 	});
 
 	test('retorna { handled: true, kind: "delay" } quando matchedAction é delay', async () => {
@@ -92,11 +88,7 @@ describe('processRequestStage', () => {
 			type: 'delay',
 			action: { timeMs: 5000 } as never,
 		} as never;
-		const result = processRequestStage(action);
-		expect(result.handled).toBe(true);
-		if (result.handled && result.kind === 'delay') {
-			expect(result.timeMs).toBe(5000);
-		}
+		expect(processRequestStage(action)).toEqual({ handled: true, kind: 'delay', timeMs: 5000 });
 	});
 
 	test('retorna { handled: false } quando mock não tem latency', async () => {
