@@ -120,6 +120,12 @@ export interface Message {
 	// probeStartDetection metadata. Background envia probe via bridge:
 	// `reason` casa com PageDetectionTrigger (initial/navigation/pushstate/...).
 	reason?: PageDetectionTrigger;
+	// Sub-projeto 3 — broadcast extendido de liveDetection. UI atual ignora
+	// graciosamente; Sub-projeto 4 consome.
+	techsUpdates?: Array<{
+		host: string;
+		techs: TechHit[];
+	}>;
 }
 
 export interface MessageResponse {
