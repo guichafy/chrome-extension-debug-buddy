@@ -135,6 +135,3 @@ export function sessionEventsToRequestsRecord(
 	}
 	return out;
 }
-
-// Exporta constantes pra testes / UI (drawer pode citar o cap explicitamente).
-export const REPLAY_BODY_CAP_BYTES = MAX_BODY_BYTES;

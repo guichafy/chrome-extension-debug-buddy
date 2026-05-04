@@ -317,9 +317,9 @@ describe('EditResponseSheet', () => {
 			target: { value: 'edição em andamento' },
 		});
 
-		// Simula o polling de useResponses (setInterval 2s + listener responseBodyReady):
-		// o background devolve a mesma request, mas como passa pelo message channel
-		// a referência é nova. Sem fix, o useEffect reseta o state local.
+		// Simula o polling de useResponses (setInterval 2s): o background devolve a
+		// mesma request, mas como passa pelo message channel a referência é nova.
+		// Sem fix, o useEffect reseta o state local.
 		rerender(
 			<EditResponseSheet
 				open

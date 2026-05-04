@@ -91,8 +91,8 @@ export function EditResponseSheet({
 
 	// Mantém o snapshot mais recente de `request` acessível dentro do effect de
 	// reset sem entrar nas deps — o reset não deve disparar quando o objeto muda
-	// de identidade durante a edição (polling de pendingResponses, body chegando
-	// tarde via responseBodyReady, etc.).
+	// de identidade durante a edição (polling de pendingResponses devolve uma
+	// nova referência apesar do conteúdo igual).
 	const requestRef = useRef(request);
 	useEffect(() => {
 		requestRef.current = request;
