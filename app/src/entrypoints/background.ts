@@ -112,6 +112,12 @@ export function requireField<T>(
 	return value;
 }
 
+type ActionHandler = (
+	message: import('@/types/messages').Message,
+	sender: chrome.runtime.MessageSender,
+	sendResponse: (response: unknown) => void,
+) => boolean | undefined;
+
 // Global variables
 let isDebugging = false;
 let attachedTabId: number | null = null;
