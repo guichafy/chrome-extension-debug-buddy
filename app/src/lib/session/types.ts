@@ -1,32 +1,7 @@
 import type { InterceptedResponse } from '@/types/intercepted';
 import type { TechHit } from '@/lib/insights/types';
 
-export type FrameworkName = 'react' | 'angular' | 'vanilla';
-
-export type LibTreatment = 'tracked' | 'detection-only';
-
-export interface HttpClientDetection {
-	name: string;
-	confidence: 'high' | 'medium' | 'low';
-}
-
-export interface DataFetchingDetection {
-	name: string;
-	version?: string;
-	treatment: LibTreatment;
-}
-
-export interface LibraryDetection {
-	name: 'jquery';
-	version?: string;
-	confidence: 'high' | 'medium' | 'low';
-}
-
 export interface EnvironmentFingerprint {
-	framework: { name: FrameworkName; version?: string };
-	libraries: LibraryDetection[];
-	httpClients: HttpClientDetection[];
-	dataFetching: DataFetchingDetection[];
 	detectedAt: number;
 	isProductionBuild: boolean;
 }
@@ -229,6 +204,13 @@ export interface Recommendation {
 	requestId?: string;
 	url: string;
 	host: string;
+	/**
+	 * Host do top-frame ativo quando a recomendação foi emitida (URL navegada
+	 * na barra de endereço). Difere de `host` quando o rec é sobre um
+	 * sub-resource (ex.: CDN/analytics/API externa carregado por uma página).
+	 * Optional: ausente em sessões persistidas antes desta versão.
+	 */
+	pageHost?: string;
 	summary: string;
 	evidence: Record<string, string>;
 	suggestion?: string;

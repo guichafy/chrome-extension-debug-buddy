@@ -1,26 +1,26 @@
 import { describe, expect, it, test } from 'vitest';
 import {
-	fingerprintsEqual,
+	pageDetectionsHaveSameTechs,
 	sameSet,
 	groupConsecutiveDetections,
 } from '../fingerprint';
 import type { EnvironmentFingerprint, PageDetection } from '../types';
 
-const fp = (overrides: Partial<EnvironmentFingerprint> = {}): EnvironmentFingerprint => ({
-	framework: { name: 'react', version: '18.2.0' },
-	libraries: [],
-	httpClients: [{ name: 'fetch', confidence: 'high' }],
-	dataFetching: [],
+const fp = (): EnvironmentFingerprint => ({
 	detectedAt: 0,
 	isProductionBuild: false,
-	...overrides,
 });
 
-const page = (url: string, ts: number, fingerprint: EnvironmentFingerprint): PageDetection => ({
+const page = (
+	url: string,
+	ts: number,
+	techs: PageDetection['techs'] = [],
+): PageDetection => ({
 	url,
 	timestamp: ts,
-	fingerprint,
+	fingerprint: fp(),
 	triggerType: 'navigation',
+	techs,
 });
 
 describe('sameSet', () => {
@@ -31,64 +31,46 @@ describe('sameSet', () => {
 	});
 });
 
-describe('fingerprintsEqual', () => {
-	it('retorna true para fingerprints estruturalmente idênticos', () => {
-		expect(fingerprintsEqual(fp(), fp())).toBe(true);
+describe('pageDetectionsHaveSameTechs', () => {
+	it('retorna true quando ambas não têm techs', () => {
+		expect(pageDetectionsHaveSameTechs(page('https://x/', 1), page('https://y/', 2))).toBe(true);
 	});
 
-	it('ignora detectedAt e isProductionBuild na comparação', () => {
-		expect(
-			fingerprintsEqual(
-				fp({ detectedAt: 1, isProductionBuild: true }),
-				fp({ detectedAt: 999, isProductionBuild: false }),
-			),
-		).toBe(true);
+	it('retorna true quando techs têm os mesmos nomes (ordem irrelevante)', () => {
+		const a = page('https://x/', 1, [
+			{ name: 'React', cats: [12], confidence: 100, evidence: [] },
+			{ name: 'jQuery', cats: [1], confidence: 75, evidence: [] },
+		]);
+		const b = page('https://y/', 2, [
+			{ name: 'jQuery', cats: [1], confidence: 80, evidence: [] },
+			{ name: 'React', cats: [12], confidence: 90, evidence: [] },
+		]);
+		expect(pageDetectionsHaveSameTechs(a, b)).toBe(true);
 	});
 
-	it('detecta versão de framework diferente', () => {
-		expect(
-			fingerprintsEqual(
-				fp({ framework: { name: 'react', version: '18.2.0' } }),
-				fp({ framework: { name: 'react', version: '17.0.0' } }),
-			),
-		).toBe(false);
+	it('retorna false quando techs diferem', () => {
+		const a = page('https://x/', 1, [{ name: 'React', cats: [12], confidence: 100, evidence: [] }]);
+		const b = page('https://y/', 2, [{ name: 'Angular', cats: [12], confidence: 100, evidence: [] }]);
+		expect(pageDetectionsHaveSameTechs(a, b)).toBe(false);
 	});
 
-	it('detecta framework diferente', () => {
-		expect(
-			fingerprintsEqual(
-				fp({ framework: { name: 'react' } }),
-				fp({ framework: { name: 'angular' } }),
-			),
-		).toBe(false);
-	});
-
-	it('detecta lib nova adicionada', () => {
-		expect(
-			fingerprintsEqual(
-				fp({ dataFetching: [] }),
-				fp({ dataFetching: [{ name: 'apollo', treatment: 'detection-only' }] }),
-			),
-		).toBe(false);
-	});
-
-	it('detecta confidence diferente em http client', () => {
-		expect(
-			fingerprintsEqual(
-				fp({ httpClients: [{ name: 'fetch', confidence: 'high' }] }),
-				fp({ httpClients: [{ name: 'fetch', confidence: 'low' }] }),
-			),
-		).toBe(false);
+	it('retorna false quando b tem tech adicional', () => {
+		const a = page('https://x/', 1, [{ name: 'React', cats: [12], confidence: 100, evidence: [] }]);
+		const b = page('https://y/', 2, [
+			{ name: 'React', cats: [12], confidence: 100, evidence: [] },
+			{ name: 'jQuery', cats: [1], confidence: 75, evidence: [] },
+		]);
+		expect(pageDetectionsHaveSameTechs(a, b)).toBe(false);
 	});
 });
 
 describe('groupConsecutiveDetections', () => {
-	it('agrupa detections consecutivas com fingerprint idêntico em uma fase', () => {
-		const f = fp();
+	it('agrupa detections consecutivas com techs idênticas em uma fase', () => {
+		const techs = [{ name: 'React', cats: [12], confidence: 100, evidence: [] }];
 		const phases = groupConsecutiveDetections([
-			page('https://x.test/a', 1, f),
-			page('https://x.test/b', 2, f),
-			page('https://x.test/c', 3, f),
+			page('https://x.test/a', 1, techs),
+			page('https://x.test/b', 2, techs),
+			page('https://x.test/c', 3, techs),
 		]);
 		expect(phases).toHaveLength(1);
 		expect(phases[0].pages.map((p) => p.url)).toEqual([
@@ -100,24 +82,26 @@ describe('groupConsecutiveDetections', () => {
 		expect(phases[0].endTimestamp).toBe(3);
 	});
 
-	it('cria nova fase quando fingerprint muda', () => {
-		const reactFp = fp();
-		const angularFp = fp({ framework: { name: 'angular', version: '17' } });
+	it('cria nova fase quando techs mudam', () => {
+		const reactTechs = [{ name: 'React', cats: [12], confidence: 100, evidence: [] }];
+		const angularTechs = [{ name: 'Angular', cats: [12], confidence: 100, evidence: [] }];
 		const phases = groupConsecutiveDetections([
-			page('https://r.test/', 1, reactFp),
-			page('https://r.test/x', 2, reactFp),
-			page('https://a.test/', 3, angularFp),
+			page('https://r.test/', 1, reactTechs),
+			page('https://r.test/x', 2, reactTechs),
+			page('https://a.test/', 3, angularTechs),
 		]);
 		expect(phases).toHaveLength(2);
 		expect(phases[0].pages).toHaveLength(2);
 		expect(phases[1].pages).toHaveLength(1);
-		expect(phases[1].fingerprint.framework.name).toBe('angular');
+		expect(phases[1].pages[0].techs?.[0].name).toBe('Angular');
 	});
 
 	it('cada fase recebe id único', () => {
+		const reactTechs = [{ name: 'React', cats: [12], confidence: 100, evidence: [] }];
+		const angularTechs = [{ name: 'Angular', cats: [12], confidence: 100, evidence: [] }];
 		const phases = groupConsecutiveDetections([
-			page('https://a/', 1, fp()),
-			page('https://b/', 2, fp({ framework: { name: 'angular' } })),
+			page('https://a/', 1, reactTechs),
+			page('https://b/', 2, angularTechs),
 		]);
 		expect(phases[0].id).not.toBe(phases[1].id);
 	});
@@ -125,62 +109,34 @@ describe('groupConsecutiveDetections', () => {
 	it('lista vazia → array vazio', () => {
 		expect(groupConsecutiveDetections([])).toEqual([]);
 	});
-});
 
-describe('fingerprintsEqual — Phase 5 Angular libs', () => {
-	const baseFp = {
-		framework: { name: 'angular' as const, version: '17' },
-		libraries: [],
-		httpClients: [],
-		dataFetching: [],
-		detectedAt: 1,
-		isProductionBuild: false,
-	};
-
-	it('fingerprintsEqual=false quando angular-http muda de detection-only para tracked', () => {
-		const before = {
-			...baseFp,
-			httpClients: [{ name: 'angular-http', confidence: 'high' as const }],
-			dataFetching: [{ name: 'angular-http', treatment: 'detection-only' as const }],
-		};
-		const after = {
-			...before,
-			dataFetching: [{ name: 'angular-http', treatment: 'tracked' as const }],
-		};
-		expect(fingerprintsEqual(before, after)).toBe(false);
+	it('detections sem techs (undefined) agrupam na mesma fase', () => {
+		const phases = groupConsecutiveDetections([
+			page('https://x/a', 1),
+			page('https://x/b', 2),
+		]);
+		expect(phases).toHaveLength(1);
 	});
 });
 
-test('libraries diferentes resultam em fingerprints distintos', () => {
-	const a: EnvironmentFingerprint = {
-		framework: { name: 'react', version: '18.2.0' },
-		libraries: [],
-		httpClients: [],
-		dataFetching: [],
-		detectedAt: 1,
-		isProductionBuild: false,
-	};
-	const b: EnvironmentFingerprint = {
-		...a,
-		libraries: [{ name: 'jquery', version: '3.7.0', confidence: 'high' }],
-	};
-	expect(fingerprintsEqual(a, b)).toBe(false);
+test('techs diferentes resultam em fases distintas', () => {
+	const a = page('https://x/', 1, [{ name: 'React', cats: [12], confidence: 100, evidence: [] }]);
+	const b = page('https://x/', 2, [{ name: 'Vue', cats: [12], confidence: 100, evidence: [] }]);
+	const phases = groupConsecutiveDetections([a, b]);
+	expect(phases).toHaveLength(2);
 });
 
-test('libraries iguais (ordem irrelevante) resultam em fingerprints iguais', () => {
-	const lib1 = { name: 'jquery' as const, version: '3.7.0', confidence: 'high' as const };
-	const a: EnvironmentFingerprint = {
-		framework: { name: 'react' },
-		libraries: [lib1],
-		httpClients: [],
-		dataFetching: [],
-		detectedAt: 1,
-		isProductionBuild: false,
-	};
-	const b: EnvironmentFingerprint = {
-		...a,
-		libraries: [{ ...lib1 }],
-		detectedAt: 999,
-	};
-	expect(fingerprintsEqual(a, b)).toBe(true);
+test('techs iguais (ordem irrelevante) agrupam na mesma fase', () => {
+	const techs1 = [
+		{ name: 'React', cats: [12], confidence: 100, evidence: [] },
+		{ name: 'jQuery', cats: [1], confidence: 75, evidence: [] },
+	];
+	const techs2 = [
+		{ name: 'jQuery', cats: [1], confidence: 80, evidence: [] },
+		{ name: 'React', cats: [12], confidence: 90, evidence: [] },
+	];
+	const a = page('https://x/', 1, techs1);
+	const b = page('https://x/', 2, techs2);
+	const phases = groupConsecutiveDetections([a, b]);
+	expect(phases).toHaveLength(1);
 });

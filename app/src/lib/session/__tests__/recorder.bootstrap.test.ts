@@ -43,10 +43,6 @@ describe('recorder bootstrap phase', () => {
 			url: 'https://example.com/page',
 			timestamp: t,
 			fingerprint: {
-				framework: { name: 'react', version: '18.0' },
-				libraries: [],
-				httpClients: [],
-				dataFetching: [],
 				detectedAt: t,
 				isProductionBuild: false,
 			},
@@ -61,7 +57,7 @@ describe('recorder bootstrap phase', () => {
 		expect(phase.kind).toBe('detected');
 		expect(phase.pages).toHaveLength(1);
 		expect(phase.pages[0].url).toBe('https://example.com/page');
-		expect(phase.fingerprint.framework.name).toBe('react');
+		expect(phase.fingerprint.isProductionBuild).toBe(false);
 		// Mantém o id bootstrap para que eventos já indexados pelo phaseId
 		// continuem ligados à fase correta após a promoção.
 		expect(phase.id).toBe(`bootstrap-${id}`);
@@ -80,10 +76,6 @@ describe('recorder bootstrap phase', () => {
 		});
 		const t1 = Date.now() + 100;
 		const fp1 = {
-			framework: { name: 'react' as const, version: '18.0' },
-			libraries: [],
-			httpClients: [],
-			dataFetching: [],
 			detectedAt: t1,
 			isProductionBuild: false,
 		};
@@ -91,6 +83,7 @@ describe('recorder bootstrap phase', () => {
 			url: 'https://example.com/a',
 			timestamp: t1,
 			fingerprint: fp1,
+			techs: [{ name: 'React', cats: [12], confidence: 100, evidence: [] }],
 			triggerType: 'initial',
 		});
 		const t2 = t1 + 1000;
@@ -98,13 +91,10 @@ describe('recorder bootstrap phase', () => {
 			url: 'https://example.com/b',
 			timestamp: t2,
 			fingerprint: {
-				framework: { name: 'angular', version: '17' },
-				libraries: [],
-				httpClients: [],
-				dataFetching: [],
 				detectedAt: t2,
 				isProductionBuild: false,
 			},
+			techs: [{ name: 'Angular', cats: [12], confidence: 100, evidence: [] }],
 			triggerType: 'navigation',
 		});
 		await recorder._flushForTests(id);
@@ -143,10 +133,6 @@ describe('recorder bootstrap phase', () => {
 			url: 'https://example.com/',
 			timestamp: t2,
 			fingerprint: {
-				framework: { name: 'vanilla' },
-				libraries: [],
-				httpClients: [],
-				dataFetching: [],
 				detectedAt: t2,
 				isProductionBuild: false,
 			},

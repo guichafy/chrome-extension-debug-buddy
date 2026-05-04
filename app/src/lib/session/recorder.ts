@@ -1,6 +1,6 @@
 import type { InterceptedResponse } from '@/types/intercepted';
 import { tryCoalesceConsole } from './coalesce';
-import { fingerprintsEqual, newPhaseId } from './fingerprint';
+import { pageDetectionsHaveSameTechs, newPhaseId } from './fingerprint';
 import { getPrivacyConfig, toRedactionApplied } from './privacy/config';
 import { applyBodyPolicy } from './sessionNetworkAdapter';
 import { estimateEventBytes, estimateRrwebBytes } from './sizeEstimate';
@@ -205,14 +205,10 @@ export const recorder = {
 			id: `bootstrap-${id}`,
 			startTimestamp: startedAt,
 			endTimestamp: startedAt,
-			// Fingerprint vazio temporário — será sobrescrito pela primeira
+			// Fingerprint de metadata vazio temporário — será sobrescrito pela primeira
 			// detection real. Não é fallback porque é substituído sincronamente
 			// quando a probe envia o pageDetected.
 			fingerprint: {
-				framework: { name: 'vanilla' },
-				libraries: [],
-				httpClients: [],
-				dataFetching: [],
 				detectedAt: startedAt,
 				isProductionBuild: false,
 			},
@@ -296,7 +292,7 @@ export const recorder = {
 			// Mutação in-place segura: serializeBySessionId garante que apenas uma
 			// mutation por sessão roda por vez (get → mutate → put atômico do ponto
 			// de vista do recorder).
-			if (last && fingerprintsEqual(last.fingerprint, detection.fingerprint)) {
+			if (last && pageDetectionsHaveSameTechs(last.pages[last.pages.length - 1], detection)) {
 				last.pages.push(detection);
 				last.endTimestamp = detection.timestamp;
 			} else {

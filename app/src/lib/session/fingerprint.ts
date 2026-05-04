@@ -14,33 +14,23 @@ export function sameSet<T>(a: T[], b: T[], key: (item: T) => string): boolean {
 	return true;
 }
 
-// `treatment` entra na chave canônica (dataFetching): duas detections da mesma
-// lib mas com treatments diferentes representam environments distintos. Hoje
-// treatment é estático por detector, mas mantemos por defesa em profundidade.
-// state detection removida em Live Insights v3.
+// Compara duas PageDetections pelo conjunto de techs detectadas (por nome).
+// Duas detections com o mesmo conjunto de nomes são consideradas do mesmo
+// ambiente — diferenças de version/confidence não abrem nova fase (evita
+// flapping em re-detections leves). Ausência de techs em ambas → iguais.
+export function pageDetectionsHaveSameTechs(a: PageDetection, b: PageDetection): boolean {
+	const at = a.techs ?? [];
+	const bt = b.techs ?? [];
+	return sameSet(at, bt, (t) => t.name);
+}
+
+// Mantido como alias interno para comparação de fingerprints de metadata.
+// Agora é no-op: fingerprint só carrega {detectedAt, isProductionBuild} e
+// esses campos não determinam mudança de fase — techs determinam.
 export function fingerprintsEqual(
-	a: EnvironmentFingerprint,
-	b: EnvironmentFingerprint,
+	_a: EnvironmentFingerprint,
+	_b: EnvironmentFingerprint,
 ): boolean {
-	if (a.framework.name !== b.framework.name) return false;
-	if (a.framework.version !== b.framework.version) return false;
-	if (
-		!sameSet(a.libraries, b.libraries, (l) => `${l.name}:${l.version ?? ''}:${l.confidence}`)
-	) {
-		return false;
-	}
-	if (!sameSet(a.httpClients, b.httpClients, (c) => `${c.name}:${c.confidence}`)) {
-		return false;
-	}
-	if (
-		!sameSet(
-			a.dataFetching,
-			b.dataFetching,
-			(d) => `${d.name}:${d.version ?? ''}:${d.treatment}`,
-		)
-	) {
-		return false;
-	}
 	return true;
 }
 
@@ -62,7 +52,7 @@ export function groupConsecutiveDetections(
 	};
 	for (let i = 1; i < detections.length; i++) {
 		const d = detections[i];
-		if (fingerprintsEqual(current.fingerprint, d.fingerprint)) {
+		if (pageDetectionsHaveSameTechs(current.pages[current.pages.length - 1], d)) {
 			current.pages.push(d);
 			current.endTimestamp = d.timestamp;
 		} else {

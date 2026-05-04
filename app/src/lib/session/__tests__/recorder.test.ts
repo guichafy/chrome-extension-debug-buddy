@@ -2,21 +2,23 @@ import { afterEach, beforeEach, describe, expect, it, test } from 'vitest';
 import { recorder } from '../recorder';
 import { sessionStore } from '../storage';
 import type { EnvironmentFingerprint, PageDetection, Recommendation } from '../types';
+import type { TechHit } from '@/lib/insights/types';
 
-const fp = (overrides: Partial<EnvironmentFingerprint> = {}): EnvironmentFingerprint => ({
-	framework: { name: 'react', version: '18.2.0' },
-	libraries: [],
-	httpClients: [{ name: 'fetch', confidence: 'high' }],
-	dataFetching: [],
+// EnvironmentFingerprint usado pelo type de PageDetection (fingerprint field).
+const fp = (): EnvironmentFingerprint => ({
 	detectedAt: 0,
 	isProductionBuild: false,
-	...overrides,
 });
 
-const page = (url: string, ts: number, fingerprint: EnvironmentFingerprint): PageDetection => ({
+const page = (
+	url: string,
+	ts: number,
+	techs?: TechHit[],
+): PageDetection => ({
 	url,
 	timestamp: ts,
-	fingerprint,
+	fingerprint: fp(),
+	techs,
 	triggerType: 'navigation',
 });
 
@@ -70,7 +72,7 @@ describe('recorder', () => {
 		).rejects.toThrow(/já existe/i);
 	});
 
-	it('addPage agrupa em phase única quando fingerprint repete', async () => {
+	it('addPage agrupa em phase única quando techs repetem', async () => {
 		const id = await recorder.startSession({
 			tabId: 1,
 			initialUrl: 'https://x/',
@@ -78,8 +80,9 @@ describe('recorder', () => {
 			viewportSize: { w: 1, h: 1 },
 			canvasCaptureEnabled: false,
 		});
-		await recorder.addPage(id, page('https://x/a', 10, fp()));
-		await recorder.addPage(id, page('https://x/b', 20, fp()));
+		const techs = [{ name: 'React', cats: [12], confidence: 100, evidence: [] }];
+		await recorder.addPage(id, page('https://x/a', 10, techs));
+		await recorder.addPage(id, page('https://x/b', 20, techs));
 		await recorder._flushForTests(id);
 		const got = await sessionStore.get(id);
 		expect(got?.detectionPhases).toHaveLength(1);
@@ -87,7 +90,7 @@ describe('recorder', () => {
 		expect(got?.detectionPhases[0].endTimestamp).toBe(20);
 	});
 
-	it('addPage abre nova phase quando fingerprint muda', async () => {
+	it('addPage abre nova phase quando techs mudam', async () => {
 		const id = await recorder.startSession({
 			tabId: 1,
 			initialUrl: 'https://x/',
@@ -95,12 +98,14 @@ describe('recorder', () => {
 			viewportSize: { w: 1, h: 1 },
 			canvasCaptureEnabled: false,
 		});
-		await recorder.addPage(id, page('https://x/', 10, fp()));
-		await recorder.addPage(id, page('https://y/', 20, fp({ framework: { name: 'angular' } })));
+		const reactTechs = [{ name: 'React', cats: [12], confidence: 100, evidence: [] }];
+		const angularTechs = [{ name: 'Angular', cats: [12], confidence: 100, evidence: [] }];
+		await recorder.addPage(id, page('https://x/', 10, reactTechs));
+		await recorder.addPage(id, page('https://y/', 20, angularTechs));
 		await recorder._flushForTests(id);
 		const got = await sessionStore.get(id);
 		expect(got?.detectionPhases).toHaveLength(2);
-		expect(got?.detectionPhases[1].fingerprint.framework.name).toBe('angular');
+		expect(got?.detectionPhases[1].pages[0].techs?.[0].name).toBe('Angular');
 	});
 
 	it('cada nova phase emite um SessionEvent type=detection com phaseId', async () => {
@@ -111,8 +116,10 @@ describe('recorder', () => {
 			viewportSize: { w: 1, h: 1 },
 			canvasCaptureEnabled: false,
 		});
-		await recorder.addPage(id, page('https://x/', 10, fp()));
-		await recorder.addPage(id, page('https://y/', 20, fp({ framework: { name: 'angular' } })));
+		const reactTechs = [{ name: 'React', cats: [12], confidence: 100, evidence: [] }];
+		const angularTechs = [{ name: 'Angular', cats: [12], confidence: 100, evidence: [] }];
+		await recorder.addPage(id, page('https://x/', 10, reactTechs));
+		await recorder.addPage(id, page('https://y/', 20, angularTechs));
 		await recorder._flushForTests(id);
 		const got = await sessionStore.get(id);
 		const detectionEvents = got?.events.filter((e) => e.type === 'detection') ?? [];
@@ -149,7 +156,7 @@ describe('recorder', () => {
 
 	it('addPage lança erro quando session não existe', async () => {
 		await expect(
-			recorder.addPage('inexistente', page('https://x/', 1, fp())),
+			recorder.addPage('inexistente', page('https://x/', 1)),
 		).rejects.toThrow(/não encontrada/i);
 	});
 
@@ -161,7 +168,7 @@ describe('recorder', () => {
 			viewportSize: { w: 1, h: 1 },
 			canvasCaptureEnabled: false,
 		});
-		await recorder.addPage(id, page('https://x/', 10, fp()));
+		await recorder.addPage(id, page('https://x/', 10));
 		await recorder._flushForTests(id);
 		const phaseId = (await sessionStore.get(id))!.detectionPhases[0].id;
 		await recorder.addEvent(id, {
@@ -187,7 +194,7 @@ describe('recorder', () => {
 			viewportSize: { w: 1, h: 1 },
 			canvasCaptureEnabled: false,
 		});
-		await recorder.addPage(id, page('https://x/', 10, fp()));
+		await recorder.addPage(id, page('https://x/', 10));
 		await recorder._flushForTests(id);
 		const phaseId = (await sessionStore.get(id))!.detectionPhases[0].id;
 		const baseConsole = {
@@ -216,7 +223,7 @@ describe('recorder', () => {
 			viewportSize: { w: 1, h: 1 },
 			canvasCaptureEnabled: false,
 		});
-		await recorder.addPage(id, page('https://x/', 10, fp()));
+		await recorder.addPage(id, page('https://x/', 10));
 		await recorder._flushForTests(id);
 		const phaseId = (await sessionStore.get(id))!.detectionPhases[0].id;
 		recorder._setLimitsForTests({ sizeBytes: 500, durationMs: 60_000 });
@@ -248,7 +255,7 @@ describe('recorder', () => {
 			viewportSize: { w: 1, h: 1 },
 			canvasCaptureEnabled: false,
 		});
-		await recorder.addPage(id, page('https://x/', 10, fp()));
+		await recorder.addPage(id, page('https://x/', 10));
 		await recorder._flushForTests(id);
 		const phaseId = (await sessionStore.get(id))!.detectionPhases[0].id;
 		recorder._setLimitsForTests({ sizeBytes: 50_000_000, durationMs: 1 });
@@ -278,7 +285,7 @@ describe('recorder', () => {
 			viewportSize: { w: 1, h: 1 },
 			canvasCaptureEnabled: false,
 		});
-		await recorder.addPage(id, page('https://x/', 10, fp()));
+		await recorder.addPage(id, page('https://x/', 10));
 		await recorder._flushForTests(id);
 		const phaseId = (await sessionStore.get(id))!.detectionPhases[0].id;
 		await recorder.addEvent(id, {
