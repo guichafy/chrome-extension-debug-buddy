@@ -144,8 +144,11 @@ const phases = document.getElementById('phases');
 (SESSION.detectionPhases || []).forEach((p, i) => {
 	const div = document.createElement('div');
 	div.className = 'phase';
-	const fw = (p.fingerprint && p.fingerprint.framework) || {};
-	div.innerHTML = '<strong>Fase ' + (i + 1) + ' — ' + escape(fw.name || '') + (fw.version ? ' v' + escape(fw.version) : '') + '</strong><br>' + (p.pages || []).length + ' URL(s)';
+	const techs = (p.pages && p.pages[0] && p.pages[0].techs) || [];
+	const topTech = techs[0] || {};
+	const topName = topTech.name || 'sem detecção';
+	const topVersion = topTech.version ? ' v' + escape(topTech.version) : '';
+	div.innerHTML = '<strong>Fase ' + (i + 1) + ' — ' + escape(topName) + topVersion + '</strong><br>' + (p.pages || []).length + ' URL(s)';
 	phases.appendChild(div);
 });
 

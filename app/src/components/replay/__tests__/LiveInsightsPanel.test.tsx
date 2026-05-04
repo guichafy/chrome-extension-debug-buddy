@@ -41,13 +41,6 @@ function deliverMessage(msg: unknown): void {
 }
 
 const baseFingerprint = {
-	framework: { name: 'react' as const, version: '18.2.0' },
-	libraries: [{ name: 'jquery' as const, version: '3.7.0', confidence: 'high' as const }],
-	httpClients: [
-		{ name: 'fetch' as const, confidence: 'high' as const },
-		{ name: 'xhr' as const, confidence: 'high' as const },
-	],
-	dataFetching: [],
 	detectedAt: 1,
 	isProductionBuild: false,
 };
@@ -290,17 +283,14 @@ describe('LiveInsightsPanel', () => {
 			payload: {
 				...baseDetectionPayload,
 				url: 'https://b.com/page',
-				fingerprint: {
-					...baseFingerprint,
-					framework: { name: 'angular' as const, version: '17.0.0' },
-				},
+				techs: [{ name: 'Angular', version: '17.0.0', cats: [12], confidence: 100, evidence: [] }],
 			},
 		});
 
 		// b.com foi a última detection: select inicia nele.
 		const trigger = await screen.findByTestId('live-insights-host-picker');
 		expect(trigger).toHaveTextContent('b.com');
-		expect(trigger).toHaveTextContent('angular 17.0.0');
+		expect(trigger).toHaveTextContent('Angular 17.0.0');
 		// URL detalhada do host selecionado aparece no corpo.
 		expect(screen.getByText('https://b.com/page')).toBeInTheDocument();
 		// URL do host não selecionado NÃO está no DOM (foco em um host de cada vez).
@@ -422,10 +412,6 @@ describe('LiveInsightsPanel — techs flow', () => {
 
 function legacyFingerprint() {
 	return {
-		framework: { name: 'vanilla' as const },
-		libraries: [],
-		httpClients: [],
-		dataFetching: [],
 		detectedAt: Date.now(),
 		isProductionBuild: false,
 	};

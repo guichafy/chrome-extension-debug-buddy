@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useReducer, useState } from 'react';
+import { useEffect, useMemo, useReducer, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import {
 	Select,
@@ -77,10 +77,6 @@ function pickerLabel(entry: LiveDetectionEntry): string | null {
 		const top = groups[0]?.techs[0];
 		if (top) return top.version ? `${top.name} ${top.version}` : top.name;
 	}
-	const fw = entry.fingerprint?.framework;
-	if (fw && fw.name !== 'vanilla') {
-		return fw.version ? `${fw.name} ${fw.version}` : fw.name;
-	}
 	return null;
 }
 
@@ -128,15 +124,11 @@ function reducer(s: PanelState, a: PanelAction): PanelState {
 				next.set(a.payload.host, { ...existing, techs: a.payload.techs });
 			} else {
 				// host ainda sem detection (pode acontecer se bg pipeline detectar
-				// antes do probe scan). Cria placeholder.
+				// antes do probe scan). Cria placeholder com metadata mínima.
 				next.set(a.payload.host, {
 					url: `https://${a.payload.host}/`,
 					timestamp: Date.now(),
 					fingerprint: {
-						framework: { name: 'vanilla' },
-						libraries: [],
-						httpClients: [],
-						dataFetching: [],
 						detectedAt: Date.now(),
 						isProductionBuild: false,
 					},
@@ -437,23 +429,6 @@ function EmptyState() {
 	);
 }
 
-function SubSection({
-	label,
-	children,
-}: {
-	label: string;
-	children: ReactNode;
-}) {
-	return (
-		<div>
-			<h4 className="mb-1 font-medium text-[10px] text-muted-foreground uppercase tracking-wider">
-				{label}
-			</h4>
-			<div className="flex flex-wrap items-center gap-1.5">{children}</div>
-		</div>
-	);
-}
-
 function HostTechs({ detection }: { detection: LiveDetectionEntry | null }) {
 	const techs = detection?.techs ?? [];
 	const groups = useMemo(() => groupTechsByCategory(techs), [techs]);
@@ -494,80 +469,6 @@ function HostTechs({ detection }: { detection: LiveDetectionEntry | null }) {
 			{groups.map((g, idx) => (
 				<TechCategorySection key={g.categoryId} group={g} defaultOpen={idx < 3} />
 			))}
-		</div>
-	);
-}
-
-function HostFramework({ detection }: { detection: LiveDetectionEntry | null }) {
-	if (!detection) {
-		return (
-			<p className="border-b px-3 py-2 text-muted-foreground text-xs">
-				Sem detecção do probe para este host. Recomendações abaixo são derivadas de respostas HTTP
-				capturadas.
-			</p>
-		);
-	}
-	const fp = detection.fingerprint;
-	const interestingHttp = fp.httpClients.filter((c) => c.name !== 'fetch' && c.name !== 'xhr');
-
-	return (
-		<div className="space-y-3 border-b px-3 py-3">
-			<SubSection label="URL">
-				<p className="break-all font-mono text-[11px] text-muted-foreground" title={detection.url}>
-					{detection.url}
-				</p>
-			</SubSection>
-
-			<SubSection label="Framework">
-				<Badge variant="default" className="text-xs">
-					{fp.framework.name}
-					{fp.framework.version ? ` ${fp.framework.version}` : ''}
-				</Badge>
-			</SubSection>
-
-			{fp.libraries.length > 0 && (
-				<SubSection label="Libraries">
-					{fp.libraries.map((l) => (
-						<Badge key={`lib-${l.name}`} variant="secondary" className="text-xs">
-							{l.name}
-							{l.version ? ` ${l.version}` : ''}
-							{l.confidence !== 'high' ? ` (${l.confidence})` : ''}
-						</Badge>
-					))}
-				</SubSection>
-			)}
-
-			{interestingHttp.length > 0 && (
-				<SubSection label="HTTP Clients">
-					{interestingHttp.map((c) => (
-						<Badge key={`http-${c.name}`} variant="secondary" className="text-xs">
-							{c.name}
-							{c.confidence !== 'high' ? ` (${c.confidence})` : ''}
-						</Badge>
-					))}
-				</SubSection>
-			)}
-
-			{fp.dataFetching.length > 0 && (
-				<SubSection label="Data Fetching">
-					{fp.dataFetching.map((d) => (
-						<Badge
-							key={`data-${d.name}`}
-							variant={d.treatment === 'tracked' ? 'secondary' : 'outline'}
-							className="text-xs"
-							title={
-								d.treatment === 'detection-only'
-									? 'Detectada nesta versão; sem agrupamento de operations / cache inspector dedicado.'
-									: undefined
-							}
-						>
-							{d.name}
-							{d.version ? ` ${d.version}` : ''}
-							{d.treatment === 'detection-only' ? ' · detect-only' : ''}
-						</Badge>
-					))}
-				</SubSection>
-			)}
 		</div>
 	);
 }

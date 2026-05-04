@@ -527,10 +527,6 @@ function getOrInitLiveSnapshot(tabId: number): LiveSnapshot {
 
 function makeEmptyFingerprint(): EnvironmentFingerprint {
 	return {
-		framework: { name: 'vanilla' },
-		libraries: [],
-		httpClients: [],
-		dataFetching: [],
 		detectedAt: Date.now(),
 		isProductionBuild: false,
 	};
