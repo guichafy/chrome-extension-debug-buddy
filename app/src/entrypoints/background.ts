@@ -60,6 +60,9 @@ import {
 import { resolveMockLatencyMs, wait } from '@/domain/mockLatency';
 import { findMatchingRuleAction } from '@/domain/ruleMatching';
 import { applyTransformToBody } from '@/domain/transformExecutor';
+import { COMPILED_CATALOG } from '@/lib/insights/catalog';
+import { Scorer } from '@/lib/insights/scorer';
+import type { CompiledTech, TechHit } from '@/lib/insights/types';
 
 // Global variables
 let isDebugging = false;
@@ -433,6 +436,7 @@ interface LiveDetectionEntry {
 	url: string;
 	timestamp: number;
 	fingerprint: EnvironmentFingerprint;
+	techs: TechHit[]; // NOVO — cumulativo probe + bg signals com implications
 }
 
 interface LiveSnapshot {
@@ -445,6 +449,31 @@ interface LiveSnapshot {
 
 const LIVE_RECOMMENDATIONS_CAP = 50;
 const liveSnapshotByTab = new Map<number, LiveSnapshot>();
+
+// Estado paralelo: per (tabId, host) Scorer instances acumulam signals do
+// background-side (handleRequestPaused) e mergeam com techs vindas do probe
+// (pageDetected). Lifecycle alinhado com liveSnapshotByTab.
+const scorersByTabHost = new Map<number, Map<string, Scorer>>();
+
+const COMPILED_BY_NAME = new Map<string, CompiledTech>(COMPILED_CATALOG.map((t) => [t.name, t]));
+
+function getOrCreateScorer(tabId: number, host: string): Scorer {
+	let perHost = scorersByTabHost.get(tabId);
+	if (!perHost) {
+		perHost = new Map();
+		scorersByTabHost.set(tabId, perHost);
+	}
+	let s = perHost.get(host);
+	if (!s) {
+		s = new Scorer(COMPILED_CATALOG);
+		perHost.set(host, s);
+	}
+	return s;
+}
+
+function clearScorers(tabId: number): void {
+	scorersByTabHost.delete(tabId);
+}
 
 function getOrInitLiveSnapshot(tabId: number): LiveSnapshot {
 	let snap = liveSnapshotByTab.get(tabId);
@@ -463,12 +492,20 @@ function extractHost(url: string): string {
 	}
 }
 
-function updateLiveDetection(tabId: number, entry: LiveDetectionEntry): void {
+function updateLiveDetection(
+	tabId: number,
+	entry: Omit<LiveDetectionEntry, 'techs'> & { techs?: TechHit[] },
+): void {
 	const snap = getOrInitLiveSnapshot(tabId);
 	const host = extractHost(entry.url);
-	// Bump host para "mais recente" preservando ordem de visita.
-	if (snap.detectionsByHost.has(host)) snap.detectionsByHost.delete(host);
-	snap.detectionsByHost.set(host, entry);
+	const existing = snap.detectionsByHost.get(host);
+	if (existing) snap.detectionsByHost.delete(host);
+	snap.detectionsByHost.set(host, {
+		url: entry.url,
+		timestamp: entry.timestamp,
+		fingerprint: entry.fingerprint,
+		techs: entry.techs ?? existing?.techs ?? [], // preserva techs já presentes
+	});
 }
 
 function pushLiveRecommendation(tabId: number, rec: Recommendation): void {
@@ -481,6 +518,7 @@ function pushLiveRecommendation(tabId: number, rec: Recommendation): void {
 
 function clearLiveSnapshot(tabId: number): void {
 	liveSnapshotByTab.delete(tabId);
+	clearScorers(tabId);
 }
 
 function serializeLiveSnapshot(snap: LiveSnapshot): {
@@ -489,6 +527,7 @@ function serializeLiveSnapshot(snap: LiveSnapshot): {
 		url: string;
 		timestamp: number;
 		fingerprint: EnvironmentFingerprint;
+		techs?: TechHit[];
 	}>;
 	recommendations: Recommendation[];
 } {
@@ -499,6 +538,7 @@ function serializeLiveSnapshot(snap: LiveSnapshot): {
 		url: string;
 		timestamp: number;
 		fingerprint: EnvironmentFingerprint;
+		techs?: TechHit[];
 	}> = [];
 	for (const [host, entry] of snap.detectionsByHost) {
 		detections.unshift({
@@ -506,6 +546,7 @@ function serializeLiveSnapshot(snap: LiveSnapshot): {
 			url: entry.url,
 			timestamp: entry.timestamp,
 			fingerprint: entry.fingerprint,
+			techs: entry.techs.length > 0 ? entry.techs : undefined,
 		});
 	}
 	return { detections, recommendations: snap.recommendations };
