@@ -38,7 +38,6 @@ import type {
 import type {
 	AppliedType,
 	InterceptedResponse,
-	MessageResponse,
 	MockAction,
 	ResponseModifications,
 	Rule,
