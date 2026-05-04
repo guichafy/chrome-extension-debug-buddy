@@ -1418,6 +1418,26 @@ chrome.runtime.onMessage.addListener(
 				// Também alimenta o cache `liveSnapshotByTab` pra hidratar a UI quando
 				// o usuário abrir o drawer depois (Sheet só monta children no open).
 				if (isDebugging && attachedTabId === tabId && message.payload) {
+					// Sub-projeto 3 — merge das techs emitidas pelo probe com o que já está
+					// acumulado para este host (do background pipeline da task 5).
+					if (message.payload.techs && message.payload.techs.length > 0) {
+						const host = extractHost(message.payload.url);
+						if (host && host !== 'unknown') {
+							const snap = getOrInitLiveSnapshot(tabId);
+							let entry = snap.detectionsByHost.get(host);
+							if (!entry) {
+								entry = {
+									url: message.payload.url,
+									timestamp: message.payload.timestamp ?? Date.now(),
+									fingerprint: message.payload.fingerprint ?? makeEmptyFingerprint(),
+									techs: [],
+								};
+								snap.detectionsByHost.set(host, entry);
+							}
+							entry.techs = mergeHits(entry.techs, message.payload.techs, COMPILED_BY_NAME);
+							scheduleBroadcast(tabId, host);
+						}
+					}
 					updateLiveDetection(tabId, {
 						url: message.payload.url,
 						timestamp: message.payload.timestamp,
