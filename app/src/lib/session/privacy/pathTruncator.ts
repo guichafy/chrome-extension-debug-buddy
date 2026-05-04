@@ -26,11 +26,3 @@ export function truncatePath(path: string): string {
 	}
 	return out;
 }
-
-/**
- * Aplica `truncatePath` linha a linha em uma stack trace multi-linha,
- * preservando os separadores de linha.
- */
-export function truncateStackTrace(stack: string): string {
-	return stack.split('\n').map(truncatePath).join('\n');
-}

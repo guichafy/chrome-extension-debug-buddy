@@ -9,17 +9,12 @@ export function useResponses() {
 	const [currentResponse, setCurrentResponse] = useState<InterceptedResponse | null>(null);
 	const [loading, setLoading] = useState(true);
 
-	// Refs espelham o estado pra que o useEffect de mount possa ler valores
-	// frescos sem ter pendingResponses/currentResponseId/currentResponse nas
-	// deps — evitando re-attach do listener + reload em loop a cada setState.
+	// Ref espelha currentResponseId para que o useEffect de mount possa ler valor
+	// fresco sem entrar nas deps — evita re-attach do listener a cada setState.
 	const currentResponseIdRef = useRef<string | null>(null);
-	const currentResponseRef = useRef<InterceptedResponse | null>(null);
 	useEffect(() => {
 		currentResponseIdRef.current = currentResponseId;
 	}, [currentResponseId]);
-	useEffect(() => {
-		currentResponseRef.current = currentResponse;
-	}, [currentResponse]);
 
 	// Carregar respostas pendentes
 	const loadPendingResponses = useCallback(async () => {
@@ -239,27 +234,6 @@ export function useResponses() {
 					...prev,
 					[message.requestId]: message.response,
 				}));
-			} else if (message.action === 'responseBodyReady') {
-				// Atualizar o corpo da resposta — usa updater para ler estado fresco
-				// sem depender de closure (deps do useEffect ficaram em []).
-				setPendingResponses((prev) => {
-					if (!prev[message.requestId]) return prev;
-					return {
-						...prev,
-						[message.requestId]: {
-							...prev[message.requestId],
-							body: message.body,
-						},
-					};
-				});
-
-				// Atualizar resposta atual se for a mesma
-				if (currentResponseIdRef.current === message.requestId && currentResponseRef.current) {
-					setCurrentResponse({
-						...currentResponseRef.current,
-						body: message.body,
-					});
-				}
 			} else if (message.action === 'requestUpdated') {
 				// Quando o background sinaliza que uma request saiu do estado pausado
 				// (isWaiting=false após aprovação/ignore por outro caminho), removemos

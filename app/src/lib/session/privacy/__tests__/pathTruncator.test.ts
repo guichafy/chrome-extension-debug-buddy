@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { truncatePath, truncateStackTrace } from '../pathTruncator';
+import { truncatePath } from '../pathTruncator';
 
 describe('truncatePath', () => {
 	it('trunca /Users/<name>/... (macOS)', () => {
@@ -28,20 +28,3 @@ describe('truncatePath', () => {
 	});
 });
 
-describe('truncateStackTrace', () => {
-	it('aplica truncatePath linha a linha em stack multi-linha', () => {
-		const stack = [
-			'Error: boom',
-			'    at fn1 (/Users/alice/proj/src/a.ts:10:5)',
-			'    at fn2 (/home/bob/proj/src/b.ts:20:7)',
-			'    at fn3 (C:\\Users\\carol\\proj\\src\\c.ts:30:9)',
-		].join('\n');
-		const expected = [
-			'Error: boom',
-			'    at fn1 (/Users/<u>/proj/src/a.ts:10:5)',
-			'    at fn2 (/home/<u>/proj/src/b.ts:20:7)',
-			'    at fn3 (C:\\Users\\<u>\\proj\\src\\c.ts:30:9)',
-		].join('\n');
-		expect(truncateStackTrace(stack)).toBe(expected);
-	});
-});

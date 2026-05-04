@@ -25,7 +25,6 @@ export type MessageAction =
 	| 'approveResponse'
 	| 'approveResponseWithEdit'
 	| 'newPendingResponse'
-	| 'responseBodyReady'
 	| 'newRequest'
 	| 'requestUpdated'
 	| 'selectTargetTab'

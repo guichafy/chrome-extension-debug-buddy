@@ -1,10 +1,9 @@
 import type { InterceptedResponse } from '@/types/intercepted';
-import {
-	applyBodyPolicy,
-	REPLAY_BODY_CAP_BYTES,
-	sessionEventsToRequestsRecord,
-} from '../sessionNetworkAdapter';
+import { applyBodyPolicy, sessionEventsToRequestsRecord } from '../sessionNetworkAdapter';
 import type { SessionEvent } from '../types';
+
+// Espelha o cap interno (MAX_BODY_BYTES) — manter sincronizado com sessionNetworkAdapter.ts.
+const BODY_CAP_BYTES = 64 * 1024;
 
 describe('sessionEventsToRequestsRecord', () => {
 	test('mapeia eventos network com request snapshot', () => {
@@ -129,7 +128,7 @@ describe('applyBodyPolicy', () => {
 	});
 
 	test('descarta response body textual maior que 64KB com nota de cap', () => {
-		const big = 'a'.repeat(REPLAY_BODY_CAP_BYTES + 1);
+		const big = 'a'.repeat(BODY_CAP_BYTES + 1);
 		const r = baseRequest({
 			body: big,
 			response: {
