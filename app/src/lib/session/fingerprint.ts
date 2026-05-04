@@ -1,8 +1,4 @@
-import type {
-	DetectionPhase,
-	EnvironmentFingerprint,
-	PageDetection,
-} from './types';
+import type { DetectionPhase, PageDetection } from './types';
 
 export function sameSet<T>(a: T[], b: T[], key: (item: T) => string): boolean {
 	if (a.length !== b.length) return false;
@@ -22,16 +18,6 @@ export function pageDetectionsHaveSameTechs(a: PageDetection, b: PageDetection):
 	const at = a.techs ?? [];
 	const bt = b.techs ?? [];
 	return sameSet(at, bt, (t) => t.name);
-}
-
-// Mantido como alias interno para comparação de fingerprints de metadata.
-// Agora é no-op: fingerprint só carrega {detectedAt, isProductionBuild} e
-// esses campos não determinam mudança de fase — techs determinam.
-export function fingerprintsEqual(
-	_a: EnvironmentFingerprint,
-	_b: EnvironmentFingerprint,
-): boolean {
-	return true;
 }
 
 export function newPhaseId(): string {
