@@ -318,7 +318,7 @@ export function LiveInsightsPanel({ tabId, isInterceptionActive, onCountChange }
 					key={selectedHost ?? 'none'}
 					className="flex-1 overflow-auto animate-in fade-in-0 duration-150"
 				>
-					<HostFramework detection={activeDetection} />
+					<HostTechs detection={activeDetection} />
 					<HostRecommendations items={activeRecommendations} />
 				</div>
 			)}
@@ -445,6 +445,50 @@ function SubSection({
 				{label}
 			</h4>
 			<div className="flex flex-wrap items-center gap-1.5">{children}</div>
+		</div>
+	);
+}
+
+function HostTechs({ detection }: { detection: LiveDetectionEntry | null }) {
+	const techs = detection?.techs ?? [];
+	const groups = useMemo(() => groupTechsByCategory(techs), [techs]);
+
+	if (!detection) {
+		return (
+			<p className="border-b px-3 py-2 text-muted-foreground text-xs">
+				Sem detecção do probe para este host. Recomendações abaixo são derivadas de respostas HTTP
+				capturadas.
+			</p>
+		);
+	}
+	if (groups.length === 0) {
+		return (
+			<div className="border-b">
+				<div className="px-3 py-2">
+					<p
+						className="break-all font-mono text-[11px] text-muted-foreground"
+						title={detection.url}
+					>
+						{detection.url}
+					</p>
+				</div>
+				<p className="px-3 pb-3 text-muted-foreground text-xs">
+					Nenhuma tecnologia detectada para este host ainda. Aguarde o próximo Fetch ou navegação
+					SPA.
+				</p>
+			</div>
+		);
+	}
+	return (
+		<div className="border-b">
+			<div className="px-3 py-2">
+				<p className="break-all font-mono text-[11px] text-muted-foreground" title={detection.url}>
+					{detection.url}
+				</p>
+			</div>
+			{groups.map((g, idx) => (
+				<TechCategorySection key={g.categoryId} group={g} defaultOpen={idx < 3} />
+			))}
 		</div>
 	);
 }
