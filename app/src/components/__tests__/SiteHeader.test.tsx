@@ -1,12 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SiteHeader } from '../layout/SiteHeader';
-import type { SessionMarker } from '@/types/sessionMarker';
-
-const emptyMarker: SessionMarker = {
-	sessionStartedAt: null,
-	currentPageUrl: null,
-	currentPageNavigatedAt: null,
-};
 
 vi.mock('../ui/separator', () => ({
 	Separator: ({ orientation, className }: any) => (
@@ -74,11 +67,19 @@ vi.mock('../ui/sheet', () => ({
 	Sheet: ({ children }: any) => <div data-testid="sheet">{children}</div>,
 	SheetTrigger: ({ asChild, children }: any) => <div data-testid="sheet-trigger">{children}</div>,
 	SheetContent: ({ children }: any) => <div data-testid="sheet-content">{children}</div>,
+	SheetHeader: ({ children, className }: any) => (
+		<div data-testid="sheet-header" className={className}>
+			{children}
+		</div>
+	),
+	SheetTitle: ({ children }: any) => <div data-testid="sheet-title">{children}</div>,
+	SheetDescription: ({ children }: any) => <div data-testid="sheet-description">{children}</div>,
 }));
 
 const emptyAggregate = {
 	totalRequests: 0,
 	totalBytes: null,
+	totalResourceBytes: null,
 	avgTtfbMs: null,
 	slowCount: 0,
 	failedCount: 0,
@@ -91,8 +92,7 @@ describe('SiteHeader Component', () => {
 		onSelectTabClick: vi.fn(),
 		onStartDebugging: vi.fn(),
 		onStopDebugging: vi.fn(),
-		metrics: { session: emptyAggregate, currentPage: emptyAggregate },
-		sessionMarker: emptyMarker,
+		metrics: { session: emptyAggregate },
 	};
 
 	test('renderiza corretamente', () => {
@@ -153,8 +153,7 @@ describe('SiteHeader Component', () => {
 				onSelectTabClick={vi.fn()}
 				onStartDebugging={vi.fn()}
 				onStopDebugging={vi.fn()}
-				metrics={{ session: emptyAggregate, currentPage: emptyAggregate }}
-				sessionMarker={emptyMarker}
+				metrics={{ session: emptyAggregate }}
 			/>,
 		);
 		const tabButton = screen.getByRole('button', { name: /Tab/i });
@@ -172,8 +171,7 @@ describe('SiteHeader Component', () => {
 				onSelectTabClick={onSelectTabClick}
 				onStartDebugging={onStartDebugging}
 				onStopDebugging={vi.fn()}
-				metrics={{ session: emptyAggregate, currentPage: emptyAggregate }}
-				sessionMarker={emptyMarker}
+				metrics={{ session: emptyAggregate }}
 			/>,
 		);
 

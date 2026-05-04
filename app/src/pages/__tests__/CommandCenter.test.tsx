@@ -170,8 +170,14 @@ vi.mock('@/hooks/useSessionMarker', () => ({
 }));
 vi.mock('@/hooks/useNetworkMetrics', () => ({
 	useNetworkMetrics: () => ({
-		sessionDetails: null,
-		currentPageDetails: null,
+		session: {
+			totalRequests: 0,
+			totalBytes: null,
+			totalResourceBytes: null,
+			avgTtfbMs: null,
+			slowCount: 0,
+			failedCount: 0,
+		},
 	}),
 }));
 vi.mock('@/components/layout/AppSidebar', () => ({ AppSidebar: () => null }));

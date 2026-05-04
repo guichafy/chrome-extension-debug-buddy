@@ -1,12 +1,12 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import type { MetricsAggregate } from '@/lib/networkMetrics';
-import type { SessionMarker } from '@/types/sessionMarker';
 import { NetworkMetricsBar } from '../NetworkMetricsBar';
 
 function agg(overrides: Partial<MetricsAggregate> = {}): MetricsAggregate {
 	return {
 		totalRequests: 0,
 		totalBytes: null,
+		totalResourceBytes: null,
 		avgTtfbMs: null,
 		slowCount: 0,
 		failedCount: 0,
@@ -14,165 +14,48 @@ function agg(overrides: Partial<MetricsAggregate> = {}): MetricsAggregate {
 	};
 }
 
-const emptyMarker: SessionMarker = {
-	sessionStartedAt: null,
-	currentPageUrl: null,
-	currentPageNavigatedAt: null,
-};
-
 describe('NetworkMetricsBar', () => {
-	it('mostra placeholder quando totalRequests da aba ativa é 0', () => {
-		render(
-			<NetworkMetricsBar
-				session={agg()}
-				currentPage={agg()}
-				hasCurrentPage={false}
-				isDebugging={false}
-				sessionMarker={emptyMarker}
-			/>,
-		);
+	it('mostra placeholder quando totalRequests da sessão é 0', () => {
+		render(<NetworkMetricsBar session={agg()} />);
 		expect(screen.getByText(/sem requests/i)).toBeInTheDocument();
 	});
 
-	it('renderiza as 5 pills da Sessão por padrão', () => {
+	it('renderiza as três pills do footer com valores formatados', () => {
 		render(
 			<NetworkMetricsBar
 				session={agg({
-					totalRequests: 47,
-					totalBytes: 1024 * 1024 * 1.2,
-					avgTtfbMs: 245,
-					slowCount: 3,
-					failedCount: 1,
+					totalRequests: 5,
+					totalBytes: 19763, // ~19.3 KB
+					totalResourceBytes: 7270, // ~7.1 KB
 				})}
-				currentPage={agg()}
-				hasCurrentPage={true}
-				isDebugging={true}
-				sessionMarker={emptyMarker}
 			/>,
 		);
-		expect(screen.getByText('47')).toBeInTheDocument();
-		expect(screen.getByText('1.2 MB')).toBeInTheDocument();
-		expect(screen.getByText('245 ms')).toBeInTheDocument();
-		expect(screen.getAllByText('3').length).toBeGreaterThan(0);
-		expect(screen.getAllByText('1').length).toBeGreaterThan(0);
+		expect(screen.getByText('5 requests')).toBeInTheDocument();
+		expect(screen.getByText(/19\.3 KB transferred/)).toBeInTheDocument();
+		expect(screen.getByText(/7\.1 KB resources/)).toBeInTheDocument();
 	});
 
-	it('alterna para janela "Página atual" ao clicar na tab', () => {
+	it('mostra "—" para bytes/resources nulls (sem fallback fictício)', () => {
 		render(
 			<NetworkMetricsBar
-				session={agg({ totalRequests: 47 })}
-				currentPage={agg({ totalRequests: 12 })}
-				hasCurrentPage={true}
-				isDebugging={true}
-				sessionMarker={emptyMarker}
+				session={agg({ totalRequests: 3, totalBytes: null, totalResourceBytes: null })}
 			/>,
 		);
-		expect(screen.getByText('47')).toBeInTheDocument();
-		// Radix Tabs reage a mouseDown (não click); jsdom não dispara o ciclo completo.
-		fireEvent.mouseDown(screen.getByRole('tab', { name: /página/i }));
-		expect(screen.getByText('12')).toBeInTheDocument();
+		expect(screen.getByText('3 requests')).toBeInTheDocument();
+		expect(screen.getByText('— transferred')).toBeInTheDocument();
+		expect(screen.getByText('— resources')).toBeInTheDocument();
 	});
 
-	it('desabilita tab "Página" quando hasCurrentPage é false', () => {
-		render(
-			<NetworkMetricsBar
-				session={agg({ totalRequests: 5 })}
-				currentPage={agg()}
-				hasCurrentPage={false}
-				isDebugging={true}
-				sessionMarker={emptyMarker}
-			/>,
-		);
-		const pageTab = screen.getByRole('tab', { name: /página/i });
-		expect(pageTab).toBeDisabled();
-	});
-
-	it('aplica classe de cor de aviso quando slowCount > 0', () => {
+	it('cada pill tem data-pill identificável e renderiza como <span>', () => {
 		const { container } = render(
 			<NetworkMetricsBar
-				session={agg({ totalRequests: 5, slowCount: 2 })}
-				currentPage={agg()}
-				hasCurrentPage={false}
-				isDebugging={true}
-				sessionMarker={emptyMarker}
+				session={agg({ totalRequests: 1, totalBytes: 100, totalResourceBytes: 50 })}
 			/>,
 		);
-		const slowPill = container.querySelector('[data-pill="slow"]');
-		expect(slowPill?.className).toMatch(/text-amber/);
-	});
-
-	it('aplica classe destrutiva quando failedCount > 0', () => {
-		const { container } = render(
-			<NetworkMetricsBar
-				session={agg({ totalRequests: 5, failedCount: 1 })}
-				currentPage={agg()}
-				hasCurrentPage={false}
-				isDebugging={true}
-				sessionMarker={emptyMarker}
-			/>,
-		);
-		const failPill = container.querySelector('[data-pill="failed"]');
-		expect(failPill?.className).toMatch(/text-destructive/);
-	});
-
-	it('renderiza "—" para totalBytes/avgTtfbMs nulls', () => {
-		render(
-			<NetworkMetricsBar
-				session={agg({ totalRequests: 5, totalBytes: null, avgTtfbMs: null })}
-				currentPage={agg()}
-				hasCurrentPage={false}
-				isDebugging={true}
-				sessionMarker={emptyMarker}
-			/>,
-		);
-		expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2);
-	});
-
-	it('pills sempre renderizadas como <span> (sem click)', () => {
-		render(
-			<NetworkMetricsBar
-				session={agg({ totalRequests: 5, slowCount: 2 })}
-				currentPage={agg()}
-				hasCurrentPage={false}
-				isDebugging={true}
-				sessionMarker={{
-					sessionStartedAt: 1000,
-					currentPageUrl: null,
-					currentPageNavigatedAt: null,
-				}}
-			/>,
-		);
-		const slowPill = document.querySelector('[data-pill="slow"]');
-		expect(slowPill?.tagName).toBe('SPAN');
-		// Sem aria-disabled — pills não têm conceito de disabled (não são interativas).
-		expect(slowPill?.getAttribute('aria-disabled')).toBeNull();
-	});
-
-	it('aceita sessionDetails sem crash quando fornecido', () => {
-		// Conteúdo do tooltip só renderiza quando o usuário hover/focus na pill —
-		// Radix Tooltip + jsdom não simula hover real de forma confiável. O smoke
-		// check visual cobre a renderização do detail. Aqui apenas garantimos que
-		// passar `sessionDetails` não quebra a montagem do componente.
-		const { container } = render(
-			<NetworkMetricsBar
-				session={agg({ totalRequests: 5 })}
-				currentPage={agg()}
-				hasCurrentPage={false}
-				isDebugging={true}
-				sessionMarker={{
-					sessionStartedAt: 1000,
-					currentPageUrl: null,
-					currentPageNavigatedAt: null,
-				}}
-				sessionDetails={{
-					total: { byMethod: [['GET', 5]], byStatusRange: { '2xx': 5, '3xx': 0, '4xx5xx': 0 } },
-					bytes: { top: [] },
-					ttfb: null,
-					slow: { top: [] },
-					failed: { list: [] },
-				}}
-			/>,
-		);
-		expect(container.querySelector('[data-pill="total"]')).not.toBeNull();
+		for (const name of ['requests', 'transferred', 'resources']) {
+			const pill = container.querySelector(`[data-pill="${name}"]`);
+			expect(pill).not.toBeNull();
+			expect(pill?.tagName).toBe('SPAN');
+		}
 	});
 });

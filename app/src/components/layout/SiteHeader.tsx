@@ -2,13 +2,18 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { LucideIcon, type LucideIconName } from '@/components/ui/lucide-icon';
 import { Separator } from '@/components/ui/separator';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import {
+	Sheet,
+	SheetContent,
+	SheetDescription,
+	SheetHeader,
+	SheetTitle,
+	SheetTrigger,
+} from '@/components/ui/sheet';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { MetricsAggregate } from '@/lib/networkMetrics';
-import type { PillsDetailProp } from './NetworkMetricsBar';
 import { NetworkMetricsBar } from './NetworkMetricsBar';
-import type { SessionMarker } from '@/types/sessionMarker';
 import { RecordingToggle } from '@/components/recording/RecordingToggle';
 import { LiveInsightsPanel } from '@/components/replay/LiveInsightsPanel';
 
@@ -23,10 +28,7 @@ interface SiteHeaderProps {
 	onSelectTabClick: () => void;
 	onStartDebugging: () => void;
 	onStopDebugging: () => void;
-	metrics: { session: MetricsAggregate; currentPage: MetricsAggregate };
-	sessionMarker: SessionMarker;
-	sessionDetails?: PillsDetailProp;
-	currentPageDetails?: PillsDetailProp;
+	metrics: { session: MetricsAggregate };
 }
 
 type TabButtonState = 'empty' | 'available' | 'closed';
@@ -44,11 +46,7 @@ export function SiteHeader({
 	onStartDebugging,
 	onStopDebugging,
 	metrics,
-	sessionMarker,
-	sessionDetails,
-	currentPageDetails,
 }: SiteHeaderProps) {
-	const hasCurrentPage = sessionMarker.currentPageNavigatedAt != null;
 	const tabState = resolveTabButtonState(targetTab);
 	const [liveInsightsCount, setLiveInsightsCount] = useState(0);
 
@@ -75,15 +73,7 @@ export function SiteHeader({
 						orientation="vertical"
 						className="mx-2 hidden data-[orientation=vertical]:h-6 md:block"
 					/>
-					<NetworkMetricsBar
-						session={metrics.session}
-						currentPage={metrics.currentPage}
-						hasCurrentPage={hasCurrentPage}
-						isDebugging={isDebugging}
-						sessionMarker={sessionMarker}
-						sessionDetails={sessionDetails}
-						currentPageDetails={currentPageDetails}
-					/>
+					<NetworkMetricsBar session={metrics.session} />
 				</div>
 
 				<div className="flex items-center gap-2">
@@ -104,6 +94,12 @@ export function SiteHeader({
 								side="right"
 								className="w-[520px] p-0 sm:w-[640px] sm:max-w-none lg:w-[760px]"
 							>
+								<SheetHeader className="sr-only">
+									<SheetTitle>Live Insights</SheetTitle>
+									<SheetDescription>
+										Detecções de stack e recomendações em tempo real para a aba alvo.
+									</SheetDescription>
+								</SheetHeader>
 								<LiveInsightsPanel
 									tabId={targetTab.id}
 									isInterceptionActive={isDebugging}

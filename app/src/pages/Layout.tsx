@@ -230,9 +230,6 @@ const Layout: React.FC = () => {
 					onStartDebugging={() => startDebugging()}
 					onStopDebugging={() => stopDebugging()}
 					metrics={metrics}
-					sessionMarker={sessionMarker}
-					sessionDetails={metrics.sessionDetails}
-					currentPageDetails={metrics.currentPageDetails}
 				/>
 				<div className="main-content-container flex-1 min-h-0 min-w-0 overflow-hidden">
 					<Suspense fallback={<RouteFallback />}>
