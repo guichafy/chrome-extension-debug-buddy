@@ -363,6 +363,56 @@ export function processRequestStage(
 	return { handled: false };
 }
 
+interface ResponseSnapshotInput {
+	url: string;
+	method: string;
+	status: number;
+	statusText: string;
+	responseHeaders: Record<string, string>;
+	mimeType: string | undefined;
+	resourceType: string;
+	requestHeaders: Record<string, string>;
+	postData: string | undefined;
+	body: string | undefined;
+	bodyUnavailableReason: string | undefined;
+	timestamp: number;
+}
+
+/**
+ * Monta o snapshot InterceptedResponse com base nos dados crus do CDP.
+ * Função pura — quem chama injeta privacy/persist depois.
+ */
+export function buildResponseSnapshot(input: ResponseSnapshotInput): InterceptedResponse {
+	const requestInfo: InterceptedResponse['request'] = {
+		headers: input.requestHeaders,
+		...(input.postData !== undefined ? { postData: input.postData } : {}),
+	};
+	const responseInfo: InterceptedResponse['response'] = {
+		headers: input.responseHeaders,
+	};
+
+	const out: InterceptedResponse = {
+		url: input.url,
+		method: input.method,
+		status: input.status,
+		statusText: input.statusText,
+		headers: input.responseHeaders,
+		...(input.mimeType !== undefined ? { mimeType: input.mimeType } : {}),
+		type: input.resourceType,
+		timestamp: input.timestamp,
+		request: requestInfo,
+		response: responseInfo,
+	};
+	if (input.body !== undefined) {
+		out.body = input.body;
+		out.response = { ...responseInfo, body: input.body };
+	}
+	if (input.bodyUnavailableReason) {
+		out.bodyUnavailableReason = input.bodyUnavailableReason;
+	}
+	return out;
+}
+
 // Aplica redação em headers (resposta + requisição) e body de um InterceptedResponse.
 // Muta in-place para minimizar custo — a InterceptedResponse já é construída neste
 // frame (não há leitor concorrente). Chamado antes de persistRequest e
@@ -2634,23 +2684,20 @@ async function handleRequestPaused(params: any): Promise<void> {
 	}
 
 	// Criar objeto de resposta
-	const responseObj: InterceptedResponse = {
+	const responseObj = buildResponseSnapshot({
 		url,
 		method,
 		status: responseStatusCode,
 		statusText,
-		headers: responseHeadersRecord,
-		...(mimeType !== undefined ? { mimeType } : {}),
-		type: resourceType,
+		responseHeaders: responseHeadersRecord,
+		mimeType,
+		resourceType,
+		requestHeaders,
+		postData,
+		body,
+		bodyUnavailableReason,
 		timestamp: Date.now(),
-		request: requestInfo,
-		response: responseInfo,
-	};
-	if (body !== undefined) {
-		responseObj.body = body;
-		responseObj.response = { ...responseInfo, body };
-	}
-	if (bodyUnavailableReason) responseObj.bodyUnavailableReason = bodyUnavailableReason;
+	});
 
 	// Quando Network.loadingFinished chegar (tipicamente depois do paused),
 	// o tracker emitirá `requestUpdated` com a duration final.
