@@ -1,13 +1,9 @@
 import type { RedactionConfig } from '../types';
 import { REDACTION_PLACEHOLDER } from './defaults';
+import { compileRegexList } from './regexCompiler';
 
 export interface HeaderMap {
 	[name: string]: string;
-}
-
-function compileRegexList(list: string[]): RegExp[] {
-	// Lança RegExp.SyntaxError em regex inválida — sem fallback silencioso (regra do projeto).
-	return list.map((r) => new RegExp(r, 'i'));
 }
 
 /**
@@ -20,7 +16,7 @@ export function redactHeaders(headers: HeaderMap, config: RedactionConfig): Head
 	if (!config.enabled) return headers;
 
 	const keySet = new Set(config.headerKeys.map((k) => k.toLowerCase()));
-	const regexes = compileRegexList(config.headerRegex);
+	const regexes = compileRegexList(config.headerRegex, 'i');
 	const out: HeaderMap = {};
 
 	for (const [name, value] of Object.entries(headers)) {

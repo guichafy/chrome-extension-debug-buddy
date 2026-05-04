@@ -1,4 +1,5 @@
 import type { Rule, RuleDescriptor } from '../types';
+import { safeParseUrl } from '../urlHelpers';
 
 function parseFirstCookieFlags(setCookie: string): { name: string; flags: Set<string> } {
 	// Split em ',' não é seguro porque Expires=Wed, 01... contém vírgula. Em CDP
@@ -23,20 +24,16 @@ const rule: Rule = (ev) => {
 	if (!flags.has('httponly')) missing.push('HttpOnly');
 	if (missing.length === 0) return null;
 
-	let host: string;
-	try {
-		host = new URL(ev.url).host;
-	} catch {
-		return null;
-	}
+	const u = safeParseUrl(ev.url);
+	if (!u) return null;
 
 	return {
 		ruleId: 'cookie-insecure',
 		severity: 'error',
 		requestId: ev.requestId,
 		url: ev.url,
-		host,
-		summary: `cookie ${name || '?'} sem ${missing.join('+')} em ${host}`,
+		host: u.host,
+		summary: `cookie ${name || '?'} sem ${missing.join('+')} em ${u.host}`,
 		evidence: { cookie: name || '?', missing: missing.join(';') },
 		suggestion: 'Adicione flags `Secure; HttpOnly` (e considere `SameSite=Lax`).',
 	};

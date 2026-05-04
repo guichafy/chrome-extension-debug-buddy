@@ -1,10 +1,6 @@
 import type { RedactionConfig } from '../types';
 import { REDACTION_PLACEHOLDER } from './defaults';
-
-function compileRegexList(list: string[]): RegExp[] {
-	// Flag g obrigatório para varredura (replaceAll). Lança SyntaxError em regex inválida — sem fallback.
-	return list.map((r) => new RegExp(r, 'g'));
-}
+import { compileRegexList } from './regexCompiler';
 
 /**
  * Aplica a lista de regex de body em uma string.
@@ -13,7 +9,8 @@ function compileRegexList(list: string[]): RegExp[] {
  */
 export function redactBody(text: string, config: RedactionConfig): string {
 	if (!config.enabled) return text;
-	const regexes = compileRegexList(config.bodyRegex);
+	// Flag g obrigatória para varredura (replace global).
+	const regexes = compileRegexList(config.bodyRegex, 'g');
 	let out = text;
 	for (const r of regexes) {
 		out = out.replace(r, REDACTION_PLACEHOLDER);
