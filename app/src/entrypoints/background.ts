@@ -475,6 +475,45 @@ function clearScorers(tabId: number): void {
 	scorersByTabHost.delete(tabId);
 }
 
+const dirtyHostsByTab = new Map<number, Set<string>>();
+const broadcastTimers = new Map<number, ReturnType<typeof setTimeout>>();
+const BROADCAST_DEBOUNCE_MS = 200;
+
+function scheduleBroadcast(tabId: number, host: string): void {
+	let dirty = dirtyHostsByTab.get(tabId);
+	if (!dirty) {
+		dirty = new Set();
+		dirtyHostsByTab.set(tabId, dirty);
+	}
+	dirty.add(host);
+	if (broadcastTimers.has(tabId)) return;
+	const timer = setTimeout(() => {
+		broadcastTimers.delete(tabId);
+		flushBroadcast(tabId);
+	}, BROADCAST_DEBOUNCE_MS);
+	broadcastTimers.set(tabId, timer);
+}
+
+function flushBroadcast(tabId: number): void {
+	const dirty = dirtyHostsByTab.get(tabId);
+	if (!dirty || dirty.size === 0) return;
+	const snap = liveSnapshotByTab.get(tabId);
+	if (!snap) {
+		dirty.clear();
+		return;
+	}
+	const techsUpdates: Array<{ host: string; techs: TechHit[] }> = [];
+	for (const host of dirty) {
+		const entry = snap.detectionsByHost.get(host);
+		if (entry && entry.techs.length > 0) {
+			techsUpdates.push({ host, techs: entry.techs });
+		}
+	}
+	dirty.clear();
+	if (techsUpdates.length === 0) return;
+	broadcastToUI('liveDetection', { tabId, techsUpdates });
+}
+
 function getOrInitLiveSnapshot(tabId: number): LiveSnapshot {
 	let snap = liveSnapshotByTab.get(tabId);
 	if (!snap) {
@@ -519,6 +558,12 @@ function pushLiveRecommendation(tabId: number, rec: Recommendation): void {
 function clearLiveSnapshot(tabId: number): void {
 	liveSnapshotByTab.delete(tabId);
 	clearScorers(tabId);
+	const t = broadcastTimers.get(tabId);
+	if (t) {
+		clearTimeout(t);
+		broadcastTimers.delete(tabId);
+	}
+	dirtyHostsByTab.delete(tabId);
 }
 
 function serializeLiveSnapshot(snap: LiveSnapshot): {
