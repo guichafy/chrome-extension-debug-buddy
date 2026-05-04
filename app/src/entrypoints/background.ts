@@ -117,6 +117,10 @@ type ActionHandler = (
 	sendResponse: (response: unknown) => void,
 ) => boolean | undefined;
 
+function getErrorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
 // Global variables
 let isDebugging = false;
 let attachedTabId: number | null = null;
@@ -1870,7 +1874,7 @@ const messageHandlers: Partial<Record<import('@/types/messages').MessageAction, 
 
 export { messageHandlers };
 
-// Listen for messages from the popup or hot reload
+// Listen for messages from the popup
 chrome.runtime.onMessage.addListener(
 	(raw: unknown, sender, sendResponse: (response: unknown) => void): boolean | undefined => {
 		// Mensagens roteadas para o offscreen document não devem ser tratadas
@@ -1898,10 +1902,6 @@ chrome.runtime.onMessage.addListener(
 		return result === undefined ? undefined : result;
 	},
 );
-
-function getErrorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
 
 function sendDebuggerCommand<T = unknown>(
 	method: string,
