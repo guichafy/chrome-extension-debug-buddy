@@ -1,3 +1,9 @@
+## [0.11.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.10.0...v0.11.0) (2026-05-04)
+
+### Features
+
+* **session:** adiciona session replay com live insights e recommendations ([623dda0](https://github.com/guichafy/chrome-extension-debug-buddy/commit/623dda045a64fd707db57b1afc6aad70c5a4100d))
+
 ## [0.10.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.9.0...v0.10.0) (2026-05-02)
 
 ### Features
