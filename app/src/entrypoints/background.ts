@@ -1060,13 +1060,6 @@ chrome.runtime.onMessage.addListener(
 			console.log('Received message:', message);
 		}
 
-		// Handle hot reload message
-		if (message.action === 'hot_reload') {
-			console.log('Hot reload triggered');
-			// No need to do anything here, the extension will be reloaded by Chrome
-			return false;
-		}
-
 		if (message.action === 'startDebugging') {
 			// Usa o tabId armazenado ou o fornecido pelo usuário
 			const tabIdToUse = message.tabId || targetTabId;
