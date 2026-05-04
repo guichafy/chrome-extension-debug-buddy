@@ -113,3 +113,48 @@ describe('processRequestStage', () => {
 		expect(processRequestStage(undefined)).toEqual({ handled: false });
 	});
 });
+
+describe('buildResponseSnapshot', () => {
+	test('monta snapshot completo com body, request e response', async () => {
+		const { buildResponseSnapshot } = await import('../background');
+		const snap = buildResponseSnapshot({
+			url: 'https://api.test/x',
+			method: 'GET',
+			status: 200,
+			statusText: 'OK',
+			responseHeaders: { 'content-type': 'application/json' },
+			mimeType: 'application/json',
+			resourceType: 'xhr',
+			requestHeaders: { accept: 'application/json' },
+			postData: undefined,
+			body: '{"ok":true}',
+			bodyUnavailableReason: undefined,
+			timestamp: 100,
+		});
+		expect(snap.url).toBe('https://api.test/x');
+		expect(snap.body).toBe('{"ok":true}');
+		expect(snap.response?.body).toBe('{"ok":true}');
+		expect(snap.request?.headers?.accept).toBe('application/json');
+	});
+
+	test('omite mimeType quando undefined (não cria campo undefined)', async () => {
+		const { buildResponseSnapshot } = await import('../background');
+		const snap = buildResponseSnapshot({
+			url: 'https://api.test/x',
+			method: 'GET',
+			status: 204,
+			statusText: 'No Content',
+			responseHeaders: {},
+			mimeType: undefined,
+			resourceType: 'xhr',
+			requestHeaders: {},
+			postData: undefined,
+			body: undefined,
+			bodyUnavailableReason: 'redirect/204/HEAD',
+			timestamp: 100,
+		});
+		expect('mimeType' in snap).toBe(false);
+		expect(snap.bodyUnavailableReason).toBe('redirect/204/HEAD');
+		expect(snap.body).toBeUndefined();
+	});
+});
