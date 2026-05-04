@@ -109,3 +109,42 @@ describe('requireField', () => {
 		).toThrow('data ausente ou inválido');
 	});
 });
+
+describe('messageHandlers map', () => {
+	test('possui handler pra cada action listada na MessageAction union usada por UI→background', async () => {
+		const { messageHandlers } = await import('../background');
+		// Whitelist de actions UI→background (todas precisam ter handler).
+		const uiToBackground = [
+			'startDebugging',
+			'stopDebugging',
+			'getDebuggingStatus',
+			'getPendingResponses',
+			'getAllRequests',
+			'getResponseDetails',
+			'selectTargetTab',
+			'setTargetTab',
+			'clearAllRequests',
+			'getSessionMarker',
+			'approveResponse',
+			'approveResponseWithEdit',
+			'startRecording',
+			'stopRecording',
+			'pageDetected',
+			'getActiveSession',
+			'getLiveSnapshot',
+			'getRecordingStatus',
+			'deleteSession',
+			'exportSession',
+			'importSession',
+			'rrwebBatch',
+			'getPrivacyConfig',
+			'setPrivacyConfig',
+			'purgeOldSessions',
+			'setRecordingLive',
+			'angularHttpTag',
+		];
+		for (const action of uiToBackground) {
+			expect(messageHandlers[action as keyof typeof messageHandlers]).toBeDefined();
+		}
+	});
+});
