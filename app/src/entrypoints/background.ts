@@ -788,6 +788,32 @@ function buildNetworkRuleEvent(
 	};
 }
 
+// Executa o pipeline de recommendations para uma resposta interceptada no
+// pass-through (resposta real do servidor). Não roda em mocks/transforms pra
+// evitar recomendar sobre payload sintético.
+async function runRecommendationsForResponse(
+	tabId: number,
+	networkId: string | undefined,
+	requestId: string,
+	intercepted: InterceptedResponse,
+): Promise<void> {
+	try {
+		const ruleEv = buildNetworkRuleEvent(networkId ?? requestId, intercepted);
+		const ctx = { topFrameUrl: await getTopFrameUrl(tabId) };
+		const hits = recommendationEngine.pushResponse(ruleEv, ctx);
+		for (const hit of hits) {
+			pushLiveRecommendation(tabId, hit);
+			broadcastToUI('liveRecommendation', { tabId, recommendation: hit });
+			const session = await recorder.getActiveByTab(tabId);
+			if (session) {
+				await recorder.addRecommendation(session.id, hit);
+			}
+		}
+	} catch (err) {
+		console.warn('[recommendations] pushResponse falhou:', err);
+	}
+}
+
 // Eventos de ciclo de vida da aba alvo precisam alcançar tanto a página de
 // opções quanto o side panel. `broadcastToUI` agora cobre os dois caminhos
 // (tabs.sendMessage para o interceptor + runtime.sendMessage para sidepanel/popup),
@@ -2782,22 +2808,7 @@ async function handleRequestPaused(params: any): Promise<void> {
 		// payload sintético. Hits são broadcast como liveRecommendation e
 		// persistidos quando há sessão ativa.
 		if (attachedTabId !== null) {
-			const tabId = attachedTabId;
-			try {
-				const ruleEv = buildNetworkRuleEvent(networkId ?? requestId, toPersist);
-				const ctx = { topFrameUrl: await getTopFrameUrl(tabId) };
-				const hits = recommendationEngine.pushResponse(ruleEv, ctx);
-				for (const hit of hits) {
-					pushLiveRecommendation(tabId, hit);
-					broadcastToUI('liveRecommendation', { tabId, recommendation: hit });
-					const session = await recorder.getActiveByTab(tabId);
-					if (session) {
-						await recorder.addRecommendation(session.id, hit);
-					}
-				}
-			} catch (err) {
-				console.warn('[recommendations] pushResponse falhou:', err);
-			}
+			await runRecommendationsForResponse(attachedTabId, networkId, requestId, toPersist);
 		}
 	}
 }
