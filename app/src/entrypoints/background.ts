@@ -85,11 +85,11 @@ export function runAsyncHandler<T>(
 ): (
 	message: import('@/types/messages').Message,
 	sender: chrome.runtime.MessageSender,
-	sendResponse: (response: unknown) => void,
+	sendResponse: (response: import('@/types/messages').MessageResponse) => void,
 ) => true {
 	return (message, sender, sendResponse) => {
 		fn(message, sender)
-			.then((result) => sendResponse(result))
+			.then((result) => sendResponse(result as import('@/types/messages').MessageResponse))
 			.catch((err) => sendResponse({ ok: false, error: String(err) }));
 		return true;
 	};
@@ -1338,96 +1338,88 @@ chrome.runtime.onMessage.addListener(
 		// --- Session Replay — Phase 1a ---
 
 		if (message.action === 'startRecording') {
-			(async () => {
-				try {
-					// Valida que interceptação está ativa nesta tab antes de iniciar a sessão.
-					const targets = await chrome.debugger.getTargets();
-					const attached = targets.find((t) => t.tabId === message.tabId && t.attached);
-					if (!attached) {
-						sendResponse({ ok: false, error: 'Interceptação não está ativa nesta tab' });
-						return;
-					}
-
-					const tab = await chrome.tabs.get(message.tabId);
-					const id = await recorder.startSession({
-						tabId: message.tabId,
-						initialUrl: tab.url ?? '',
-						userAgent: navigator.userAgent,
-						viewportSize: { w: tab.width ?? 0, h: tab.height ?? 0 },
-						canvasCaptureEnabled: message.canvasCaptureEnabled ?? false,
-					});
-
-					// Ativa Runtime e Log para captura de console/exceptions.
-					// Se falhar (debugger detachou entre check e enable), propaga.
-					await chrome.debugger.sendCommand({ tabId: message.tabId }, 'Runtime.enable');
-					await chrome.debugger.sendCommand({ tabId: message.tabId }, 'Log.enable');
-
-					// Sinaliza o probe daquela tab pra começar a emitir detections.
-					// Taps são instalados pelo probe incondicionalmente — ver C1.
-					// Se sendMessage falhar (probe não injetado), propaga erro via
-					// sendResponse.
-					await chrome.tabs.sendMessage(message.tabId, {
-						action: 'probeStartDetection',
-						reason: 'initial',
-					});
-
-					// Inicia rrweb no content script ISOLATED da tab alvo. Falha aqui propaga
-					// erro pro caller (no-fallbacks): sem rrweb a sessão não tem captura visual.
-					await chrome.tabs.sendMessage(message.tabId, {
-						action: '__rrweb_start',
-						sessionId: id,
-						recordCanvas: message.canvasCaptureEnabled ?? false,
-						maskTextSelector: livePrivacyConfig?.rrwebMaskTextSelector,
-						maskAllInputs: livePrivacyConfig?.rrwebMaskAllInputs,
-					});
-					sendResponse({ ok: true, sessionId: id });
-				} catch (err) {
-					sendResponse({ ok: false, error: String(err) });
+			return runAsyncHandler(async (msg) => {
+				if (typeof msg.tabId !== 'number') {
+					return { ok: false, error: 'tabId ausente' };
 				}
-			})();
-			return true;
+				const tabId = msg.tabId;
+				// Valida que interceptação está ativa nesta tab antes de iniciar a sessão.
+				const targets = await chrome.debugger.getTargets();
+				const attached = targets.find((t) => t.tabId === tabId && t.attached);
+				if (!attached) {
+					return { ok: false, error: 'Interceptação não está ativa nesta tab' };
+				}
+
+				const tab = await chrome.tabs.get(tabId);
+				const id = await recorder.startSession({
+					tabId,
+					initialUrl: tab.url ?? '',
+					userAgent: navigator.userAgent,
+					viewportSize: { w: tab.width ?? 0, h: tab.height ?? 0 },
+					canvasCaptureEnabled: msg.canvasCaptureEnabled ?? false,
+				});
+
+				// Ativa Runtime e Log para captura de console/exceptions.
+				// Se falhar (debugger detachou entre check e enable), propaga.
+				await chrome.debugger.sendCommand({ tabId }, 'Runtime.enable');
+				await chrome.debugger.sendCommand({ tabId }, 'Log.enable');
+
+				// Sinaliza o probe daquela tab pra começar a emitir detections.
+				// Taps são instalados pelo probe incondicionalmente — ver C1.
+				// Se sendMessage falhar (probe não injetado), propaga erro via
+				// sendResponse.
+				await chrome.tabs.sendMessage(tabId, {
+					action: 'probeStartDetection',
+					reason: 'initial',
+				});
+
+				// Inicia rrweb no content script ISOLATED da tab alvo. Falha aqui propaga
+				// erro pro caller (no-fallbacks): sem rrweb a sessão não tem captura visual.
+				await chrome.tabs.sendMessage(tabId, {
+					action: '__rrweb_start',
+					sessionId: id,
+					recordCanvas: msg.canvasCaptureEnabled ?? false,
+					maskTextSelector: livePrivacyConfig?.rrwebMaskTextSelector,
+					maskAllInputs: livePrivacyConfig?.rrwebMaskAllInputs,
+				});
+				return { ok: true, sessionId: id };
+			})(message, sender, sendResponse);
 		}
 
 		if (message.action === 'stopRecording') {
-			(async () => {
-				try {
-					// Lê tabId da session ANTES de stopSession (depois disso, getActiveByTab
-					// não retorna mais essa session porque endedAt foi setado).
-					const session = await sessionStore.get(message.sessionId as string);
-					await recorder.stopSession(message.sessionId as string);
-					if (session?.tabId !== undefined) {
-						// Desativa Runtime e Log antes do probeIdle.
-						try {
-							await chrome.debugger.sendCommand({ tabId: session.tabId }, 'Runtime.disable');
-							await chrome.debugger.sendCommand({ tabId: session.tabId }, 'Log.disable');
-						} catch {
-							// Debugger pode ter detached entre stopSession e disable; ignorar.
-						}
-						try {
-							await chrome.tabs.sendMessage(session.tabId, { action: '__rrweb_stop' });
-						} catch {
-							// Tab pode ter fechado; ignorar (probe idle cobre o resto).
-						}
-						try {
-							await chrome.tabs.sendMessage(session.tabId, { action: 'probeIdle' });
-						} catch {
-							// Tab pode ter fechado; ignorar.
-						}
+			return runAsyncHandler(async (msg) => {
+				// Lê tabId da session ANTES de stopSession (depois disso, getActiveByTab
+				// não retorna mais essa session porque endedAt foi setado).
+				const session = await sessionStore.get(msg.sessionId as string);
+				await recorder.stopSession(msg.sessionId as string);
+				if (session?.tabId !== undefined) {
+					// Desativa Runtime e Log antes do probeIdle.
+					try {
+						await chrome.debugger.sendCommand({ tabId: session.tabId }, 'Runtime.disable');
+						await chrome.debugger.sendCommand({ tabId: session.tabId }, 'Log.disable');
+					} catch {
+						// Debugger pode ter detached entre stopSession e disable; ignorar.
 					}
-					sendResponse({ ok: true });
-				} catch (err) {
-					sendResponse({ ok: false, error: String(err) });
+					try {
+						await chrome.tabs.sendMessage(session.tabId, { action: '__rrweb_stop' });
+					} catch {
+						// Tab pode ter fechado; ignorar (probe idle cobre o resto).
+					}
+					try {
+						await chrome.tabs.sendMessage(session.tabId, { action: 'probeIdle' });
+					} catch {
+						// Tab pode ter fechado; ignorar.
+					}
 				}
-			})();
-			return true;
+				return { ok: true };
+			})(message, sender, sendResponse);
 		}
 
 		if (message.action === 'pageDetected') {
-			(async () => {
+			return runAsyncHandler(async (msg, sender) => {
 				const tabId = sender?.tab?.id;
 				if (tabId === undefined) {
-					sendResponse({ ok: false, reason: 'no tab id in sender' });
-					return;
+					return { ok: false, reason: 'no tab id in sender' };
 				}
 
 				// Broadcast incondicional: o painel Live Insights consome o fingerprint
@@ -1435,79 +1427,68 @@ chrome.runtime.onMessage.addListener(
 				// sessão (bloco abaixo) é independente e só ocorre quando há sessão.
 				// Também alimenta o cache `liveSnapshotByTab` pra hidratar a UI quando
 				// o usuário abrir o drawer depois (Sheet só monta children no open).
-				if (isDebugging && attachedTabId === tabId && message.payload) {
+				if (isDebugging && attachedTabId === tabId && msg.payload) {
 					// Sub-projeto 3 — merge das techs emitidas pelo probe com o que já está
 					// acumulado para este host (do background pipeline da task 5).
-					if (message.payload.techs && message.payload.techs.length > 0) {
-						const host = extractHost(message.payload.url);
+					if (msg.payload.techs && msg.payload.techs.length > 0) {
+						const host = extractHost(msg.payload.url);
 						if (host && host !== 'unknown') {
 							const snap = getOrInitLiveSnapshot(tabId);
 							let entry = snap.detectionsByHost.get(host);
 							if (!entry) {
 								entry = {
-									url: message.payload.url,
-									timestamp: message.payload.timestamp ?? Date.now(),
-									fingerprint: message.payload.fingerprint ?? makeEmptyFingerprint(),
+									url: msg.payload.url,
+									timestamp: msg.payload.timestamp ?? Date.now(),
+									fingerprint: msg.payload.fingerprint ?? makeEmptyFingerprint(),
 									techs: [],
 								};
 								snap.detectionsByHost.set(host, entry);
 							}
-							entry.techs = mergeHits(entry.techs, message.payload.techs, COMPILED_BY_NAME);
+							entry.techs = mergeHits(entry.techs, msg.payload.techs, COMPILED_BY_NAME);
 							scheduleBroadcast(tabId, host);
 						}
 					}
 					updateLiveDetection(tabId, {
-						url: message.payload.url,
-						timestamp: message.payload.timestamp,
-						fingerprint: message.payload.fingerprint,
+						url: msg.payload.url,
+						timestamp: msg.payload.timestamp,
+						fingerprint: msg.payload.fingerprint,
 					});
-					broadcastToUI('liveDetection', { tabId, payload: message.payload });
+					broadcastToUI('liveDetection', { tabId, payload: msg.payload });
 				}
 
 				const session = await recorder.getActiveByTab(tabId);
 				if (!session) {
-					sendResponse({ ok: false, reason: 'no active session for tab' });
-					return;
+					return { ok: false, reason: 'no active session for tab' };
 				}
-				try {
-					const detection: PageDetection = {
-						url: message.payload!.url,
-						timestamp: message.payload!.timestamp,
-						fingerprint: message.payload!.fingerprint,
-						triggerType: message.payload!.triggerType,
+				const detection: PageDetection = {
+					url: msg.payload!.url,
+					timestamp: msg.payload!.timestamp,
+					fingerprint: msg.payload!.fingerprint,
+					triggerType: msg.payload!.triggerType,
+				};
+				await recorder.addPage(session.id, detection);
+				// Emite RouteChangeEvent com o mesmo trigger do probe, relendo a sessão
+				// para que currentPhaseId retorne a phase recém-criada (ou atualizada).
+				const updated = await recorder.getActiveByTab(tabId);
+				if (updated) {
+					const routeEvent: SessionEvent = {
+						type: 'route',
+						timestamp: msg.payload!.timestamp,
+						phaseId: currentPhaseId(updated),
+						url: msg.payload!.url,
+						triggerType: msg.payload!.triggerType,
 					};
-					await recorder.addPage(session.id, detection);
-					// Emite RouteChangeEvent com o mesmo trigger do probe, relendo a sessão
-					// para que currentPhaseId retorne a phase recém-criada (ou atualizada).
-					const updated = await recorder.getActiveByTab(tabId);
-					if (updated) {
-						const routeEvent: SessionEvent = {
-							type: 'route',
-							timestamp: message.payload!.timestamp,
-							phaseId: currentPhaseId(updated),
-							url: message.payload!.url,
-							triggerType: message.payload!.triggerType,
-						};
-						await recorder.addEvent(updated.id, routeEvent);
-					}
-					sendResponse({ ok: true });
-				} catch (err) {
-					sendResponse({ ok: false, error: String(err) });
+					await recorder.addEvent(updated.id, routeEvent);
 				}
-			})();
-			return true;
+				return { ok: true };
+			})(message, sender, sendResponse);
 		}
 
 		if (message.action === 'getActiveSession') {
-			(async () => {
-				try {
-					const session = await recorder.getActiveByTab(message.tabId as number);
-					sendResponse({ ok: true, session });
-				} catch (err) {
-					sendResponse({ ok: false, session: null, error: String(err) });
-				}
-			})();
-			return true;
+			return runAsyncHandler(async (msg) => {
+				const session = await recorder.getActiveByTab(msg.tabId as number);
+				return { ok: true, session };
+			})(message, sender, sendResponse);
 		}
 
 		if (message.action === 'getLiveSnapshot') {
@@ -1530,222 +1511,167 @@ chrome.runtime.onMessage.addListener(
 		}
 
 		if (message.action === 'getRecordingStatus') {
-			(async () => {
-				try {
-					const session = await recorder.getActiveByTab(message.tabId as number);
-					if (!session) {
-						sendResponse({ ok: true, active: false });
-						return;
-					}
-					const status = recorder.getRuntimeStatus(session.id);
-					// `status` ser null significa "session existe no IDB mas não no runtime cache"
-					// (post service worker recycle). Devolvemos zeros — UI re-mede no próximo
-					// polling quando runtime for reconstruído pelo próximo addEvent.
-					sendResponse({
-						ok: true,
-						active: true,
-						sessionId: session.id,
-						sizeBytes: status?.sizeBytes ?? 0,
-						durationMs: status?.durationMs ?? 0,
-					});
-				} catch (err) {
-					sendResponse({ ok: false, error: String(err) });
+			return runAsyncHandler(async (msg) => {
+				const session = await recorder.getActiveByTab(msg.tabId as number);
+				if (!session) {
+					return { ok: true, active: false };
 				}
-			})();
-			return true;
+				const status = recorder.getRuntimeStatus(session.id);
+				// `status` ser null significa "session existe no IDB mas não no runtime cache"
+				// (post service worker recycle). Devolvemos zeros — UI re-mede no próximo
+				// polling quando runtime for reconstruído pelo próximo addEvent.
+				return {
+					ok: true,
+					active: true,
+					sessionId: session.id,
+					sizeBytes: status?.sizeBytes ?? 0,
+					durationMs: status?.durationMs ?? 0,
+				};
+			})(message, sender, sendResponse);
 		}
 
 		if (message.action === 'deleteSession') {
-			(async () => {
-				try {
-					await sessionStore.delete(message.sessionId as string);
-					sendResponse({ ok: true });
-				} catch (err) {
-					sendResponse({ ok: false, error: String(err) });
-				}
-			})();
-			return true;
+			return runAsyncHandler(async (msg) => {
+				await sessionStore.delete(msg.sessionId as string);
+				return { ok: true };
+			})(message, sender, sendResponse);
 		}
 
 		if (message.action === 'exportSession') {
-			(async () => {
-				try {
-					const session = await sessionStore.get(message.sessionId as string);
-					if (!session) {
-						sendResponse({ ok: false, error: 'Sessão não encontrada' });
-						return;
-					}
-					const buf = await serializeSession(session);
-					// chrome.runtime.sendMessage descarta ArrayBuffer no transporte (vira {}).
-					// Encodamos como base64 — UI decoda em SessionRow antes do new Blob().
-					sendResponse({ ok: true, data: arrayBufferToBase64(buf) });
-				} catch (err) {
-					sendResponse({ ok: false, error: String(err) });
+			return runAsyncHandler(async (msg) => {
+				const session = await sessionStore.get(msg.sessionId as string);
+				if (!session) {
+					return { ok: false, error: 'Sessão não encontrada' };
 				}
-			})();
-			return true;
+				const buf = await serializeSession(session);
+				// chrome.runtime.sendMessage descarta ArrayBuffer no transporte (vira {}).
+				// Encodamos como base64 — UI decoda em SessionRow antes do new Blob().
+				return { ok: true, data: arrayBufferToBase64(buf) };
+			})(message, sender, sendResponse);
 		}
 
 		if (message.action === 'importSession') {
-			(async () => {
-				try {
-					if (typeof message.data !== 'string') {
-						// Sem fallback: transporte deve carregar base64. Mensagem mal-formada
-						// indica chamador antigo ou bug — falha visível pra UI.
-						sendResponse({
-							ok: false,
-							error: 'importSession: data ausente ou nao e string base64',
-						});
-						return;
-					}
-					const buf = base64ToArrayBuffer(message.data);
-					const session = await parseDbsession(buf);
-					await sessionStore.put(session);
-					sendResponse({ ok: true, sessionId: session.id });
-				} catch (err) {
-					sendResponse({ ok: false, error: String(err) });
+			return runAsyncHandler(async (msg) => {
+				if (typeof msg.data !== 'string') {
+					// Sem fallback: transporte deve carregar base64. Mensagem mal-formada
+					// indica chamador antigo ou bug — falha visível pra UI.
+					return {
+						ok: false,
+						error: 'importSession: data ausente ou nao e string base64',
+					};
 				}
-			})();
-			return true;
+				const buf = base64ToArrayBuffer(msg.data);
+				const session = await parseDbsession(buf);
+				await sessionStore.put(session);
+				return { ok: true, sessionId: session.id };
+			})(message, sender, sendResponse);
 		}
 
 		if (message.action === 'rrwebBatch') {
-			(async () => {
-				try {
-					const sid = message.sessionId;
-					const events = message.rrwebEvents;
-					if (!sid || !Array.isArray(events)) {
-						sendResponse({ ok: false, error: 'rrwebBatch: sessionId/rrwebEvents inválidos' });
-						return;
-					}
-					// Validação estrutural rasa: cada item precisa ter o shape mínimo de RrwebEvent.
-					// Probe bugado ou remetente externo malicioso poderia enfiar lixo no IDB
-					// se o handler só checasse Array.isArray. No-fallbacks: rejeita o batch inteiro.
-					const valid = events.every(
-						(e): e is RrwebEvent =>
-							!!e && typeof e.type === 'number' && typeof e.timestamp === 'number',
-					);
-					if (!valid) {
-						sendResponse({ ok: false, error: 'rrwebBatch: payload com items inválidos' });
-						return;
-					}
-					await recorder.addRrwebEvents(sid, events);
-					sendResponse({ ok: true });
-				} catch (err) {
-					sendResponse({ ok: false, error: String(err) });
+			return runAsyncHandler(async (msg) => {
+				const sid = msg.sessionId;
+				const events = msg.rrwebEvents;
+				if (!sid || !Array.isArray(events)) {
+					return { ok: false, error: 'rrwebBatch: sessionId/rrwebEvents inválidos' };
 				}
-			})();
-			return true;
+				// Validação estrutural rasa: cada item precisa ter o shape mínimo de RrwebEvent.
+				// Probe bugado ou remetente externo malicioso poderia enfiar lixo no IDB
+				// se o handler só checasse Array.isArray. No-fallbacks: rejeita o batch inteiro.
+				const valid = events.every(
+					(e): e is RrwebEvent =>
+						!!e && typeof e.type === 'number' && typeof e.timestamp === 'number',
+				);
+				if (!valid) {
+					return { ok: false, error: 'rrwebBatch: payload com items inválidos' };
+				}
+				await recorder.addRrwebEvents(sid, events);
+				return { ok: true };
+			})(message, sender, sendResponse);
 		}
 
 		// Phase 6 — privacyConfig CRUD + autoPurge on demand.
 		if (message.action === 'getPrivacyConfig') {
-			(async () => {
-				try {
-					const cfg = await getPrivacyConfig();
-					sendResponse({ ok: true, privacyConfig: cfg });
-				} catch (err) {
-					sendResponse({ ok: false, error: String(err) });
-				}
-			})();
-			return true;
+			return runAsyncHandler(async () => {
+				const cfg = await getPrivacyConfig();
+				return { ok: true, privacyConfig: cfg };
+			})(message, sender, sendResponse);
 		}
 
 		if (message.action === 'setPrivacyConfig') {
-			(async () => {
-				try {
-					if (!message.config) {
-						sendResponse({ ok: false, error: 'config ausente' });
-						return;
-					}
-					await setPrivacyConfig(message.config);
-					await reloadPrivacyConfig();
-					sendResponse({ ok: true });
-				} catch (err) {
-					sendResponse({ ok: false, error: String(err) });
+			return runAsyncHandler(async (msg) => {
+				if (!msg.config) {
+					return { ok: false, error: 'config ausente' };
 				}
-			})();
-			return true;
+				await setPrivacyConfig(msg.config);
+				await reloadPrivacyConfig();
+				return { ok: true };
+			})(message, sender, sendResponse);
 		}
 
 		if (message.action === 'purgeOldSessions') {
-			(async () => {
-				try {
-					const cfg = await getPrivacyConfig();
-					const purgedCount = await purgeOldSessions(cfg.autoPurgeRetentionDays);
-					sendResponse({ ok: true, purgedCount });
-				} catch (err) {
-					sendResponse({ ok: false, error: String(err) });
-				}
-			})();
-			return true;
+			return runAsyncHandler(async () => {
+				const cfg = await getPrivacyConfig();
+				const purgedCount = await purgeOldSessions(cfg.autoPurgeRetentionDays);
+				return { ok: true, purgedCount };
+			})(message, sender, sendResponse);
 		}
 
 		if (message.action === 'setRecordingLive') {
-			(async () => {
-				try {
-					if (typeof message.tabId !== 'number') {
-						sendResponse({ ok: false, error: 'tabId ausente' });
-						return;
-					}
-					const targetTabId = message.tabId;
-					if (message.active === true) {
-						// Liga gravação live: inicia sessão se interceptação rodando
-						// e ainda não há sessão pra essa tab.
-						const existing = await recorder.getActiveByTab(targetTabId);
-						if (existing) {
-							sendResponse({ ok: true, sessionId: existing.id });
-							return;
-						}
-						if (!isDebugging || attachedTabId !== targetTabId) {
-							sendResponse({
-								ok: false,
-								error: 'Interceptação não está ativa nesta tab',
-							});
-							return;
-						}
-						// Reusa fluxo de auto-start: chama tryAutoStartRecording. Mas essa
-						// função respeita recordingDisabled — antes de chamar, garante flag=false.
-						await setRecordingDisabled(false);
-						await tryAutoStartRecording(targetTabId);
-						const created = await recorder.getActiveByTab(targetTabId);
-						sendResponse({ ok: true, sessionId: created?.id });
-					} else {
-						// Desliga: stopa sessão ativa (se houver). NÃO detacha debugger.
-						const existing = await recorder.getActiveByTab(targetTabId);
-						if (!existing) {
-							sendResponse({ ok: true });
-							return;
-						}
-						try {
-							await chrome.debugger.sendCommand({ tabId: targetTabId }, 'Runtime.disable');
-							await chrome.debugger.sendCommand({ tabId: targetTabId }, 'Log.disable');
-						} catch {
-							// Debugger pode ter sido detached por outro caminho — ignorar.
-						}
-						try {
-							await chrome.tabs.sendMessage(targetTabId, { action: '__rrweb_stop' });
-						} catch {
-							// Tab pode ter fechado.
-						}
-						try {
-							await chrome.tabs.sendMessage(targetTabId, { action: 'probeIdle' });
-						} catch {
-							// Tab pode ter fechado.
-						}
-						await recorder.stopSession(existing.id);
-						broadcastRecordingState({
-							tabId: targetTabId,
-							active: false,
-							sessionId: existing.id,
-						});
-						sendResponse({ ok: true });
-					}
-				} catch (err) {
-					sendResponse({ ok: false, error: String(err) });
+			return runAsyncHandler(async (msg) => {
+				if (typeof msg.tabId !== 'number') {
+					return { ok: false, error: 'tabId ausente' };
 				}
-			})();
-			return true;
+				const targetTabId = msg.tabId;
+				if (msg.active === true) {
+					// Liga gravação live: inicia sessão se interceptação rodando
+					// e ainda não há sessão pra essa tab.
+					const existing = await recorder.getActiveByTab(targetTabId);
+					if (existing) {
+						return { ok: true, sessionId: existing.id };
+					}
+					if (!isDebugging || attachedTabId !== targetTabId) {
+						return {
+							ok: false,
+							error: 'Interceptação não está ativa nesta tab',
+						};
+					}
+					// Reusa fluxo de auto-start: chama tryAutoStartRecording. Mas essa
+					// função respeita recordingDisabled — antes de chamar, garante flag=false.
+					await setRecordingDisabled(false);
+					await tryAutoStartRecording(targetTabId);
+					const created = await recorder.getActiveByTab(targetTabId);
+					return { ok: true, sessionId: created?.id };
+				} else {
+					// Desliga: stopa sessão ativa (se houver). NÃO detacha debugger.
+					const existing = await recorder.getActiveByTab(targetTabId);
+					if (!existing) {
+						return { ok: true };
+					}
+					try {
+						await chrome.debugger.sendCommand({ tabId: targetTabId }, 'Runtime.disable');
+						await chrome.debugger.sendCommand({ tabId: targetTabId }, 'Log.disable');
+					} catch {
+						// Debugger pode ter sido detached por outro caminho — ignorar.
+					}
+					try {
+						await chrome.tabs.sendMessage(targetTabId, { action: '__rrweb_stop' });
+					} catch {
+						// Tab pode ter fechado.
+					}
+					try {
+						await chrome.tabs.sendMessage(targetTabId, { action: 'probeIdle' });
+					} catch {
+						// Tab pode ter fechado.
+					}
+					await recorder.stopSession(existing.id);
+					broadcastRecordingState({
+						tabId: targetTabId,
+						active: false,
+						sessionId: existing.id,
+					});
+					return { ok: true };
+				}
+			})(message, sender, sendResponse);
 		}
 
 		if (message.action === 'angularHttpTag') {
