@@ -61,6 +61,7 @@ export function DataTable<TData, TValue>({
 	const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
 	const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
 		requestType: false, // Ocultar a coluna 'requestType' por padrão
+		mimeType: false, // Ocultar a coluna 'mimeType' por padrão
 	});
 	const [rowSelection, setRowSelection] = React.useState({});
 
@@ -81,17 +82,6 @@ export function DataTable<TData, TValue>({
 			setPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }));
 		}
 	}, [data.length]);
-
-	// Definir visibilidade inicial das colunas
-	React.useEffect(() => {
-		// Em telas menores, ocultar algumas colunas menos importantes
-		if (typeof window !== 'undefined' && window.innerWidth < 1200) {
-			setColumnVisibility((prev) => ({
-				...prev,
-				mimeType: false,
-			}));
-		}
-	}, []);
 
 	// Inicializa a tabela
 	const table = useReactTable({
