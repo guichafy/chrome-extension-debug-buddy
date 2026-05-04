@@ -102,7 +102,7 @@ describe('LiveInsightsPanel', () => {
 		).toBeInTheDocument();
 	});
 
-	test('omite seção HTTP Clients quando só fetch/xhr (universais) presentes', async () => {
+	test('mostra empty state de techs quando detection chega sem techs', async () => {
 		render(<LiveInsightsPanel tabId={1} isInterceptionActive={true} />);
 		await waitFor(() => expect(messageListeners.length).toBeGreaterThan(0));
 
@@ -113,14 +113,15 @@ describe('LiveInsightsPanel', () => {
 		});
 
 		await waitFor(() =>
-			expect(screen.getByRole('heading', { level: 4, name: /^Framework$/ })).toBeInTheDocument(),
+			expect(
+				screen.getByText(/Nenhuma tecnologia detectada para este host ainda/),
+			).toBeInTheDocument(),
 		);
-		expect(
-			screen.queryByRole('heading', { level: 4, name: /^HTTP Clients$/ }),
-		).not.toBeInTheDocument();
+		// URL do host deve aparecer mesmo no empty state.
+		expect(screen.getByText('https://example.com/page')).toBeInTheDocument();
 	});
 
-	test('mostra HTTP Clients quando há clients além de fetch/xhr', async () => {
+	test('renderiza TechCategorySection quando techs chegam junto com a detection', async () => {
 		render(<LiveInsightsPanel tabId={1} isInterceptionActive={true} />);
 		await waitFor(() => expect(messageListeners.length).toBeGreaterThan(0));
 
@@ -129,21 +130,15 @@ describe('LiveInsightsPanel', () => {
 			tabId: 1,
 			payload: {
 				...baseDetectionPayload,
-				fingerprint: {
-					...baseDetectionPayload.fingerprint,
-					httpClients: [
-						{ name: 'fetch' as const, confidence: 'high' as const },
-						{ name: 'xhr' as const, confidence: 'high' as const },
-						{ name: 'angular-http' as const, confidence: 'medium' as const },
-					],
-				},
+				techs: [{ name: 'React', cats: [12], confidence: 100, evidence: [] }],
 			},
 		});
 
-		await waitFor(() =>
-			expect(screen.getByRole('heading', { level: 4, name: /^HTTP Clients$/ })).toBeInTheDocument(),
-		);
-		expect(screen.getByText(/angular-http \(medium\)/)).toBeInTheDocument();
+		await waitFor(() => expect(screen.getByText('React')).toBeInTheDocument());
+		// Não deve mostrar o empty state de techs.
+		expect(
+			screen.queryByText(/Nenhuma tecnologia detectada para este host ainda/),
+		).not.toBeInTheDocument();
 	});
 
 	test('agrupa recomendações em Segurança / Performance com counters (host único)', async () => {
@@ -392,3 +387,44 @@ describe('LiveInsightsPanel', () => {
 		expect(screen.getByText(/Aguardando primeira detecção do probe…/)).toBeInTheDocument();
 	});
 });
+
+describe('LiveInsightsPanel — techs flow', () => {
+	test('hidratação carrega techs do snapshot', async () => {
+		const sendMessage = vi.fn(async (msg: { action: string }) => {
+			if (msg.action === 'getLiveSnapshot') {
+				return {
+					ok: true,
+					liveSnapshot: {
+						detections: [
+							{
+								host: 'wordpress.org',
+								url: 'https://wordpress.org/',
+								timestamp: Date.now(),
+								fingerprint: legacyFingerprint(),
+								techs: [{ name: 'WordPress', cats: [1], confidence: 100, evidence: [] }],
+							},
+						],
+						recommendations: [],
+					},
+				};
+			}
+			return undefined;
+		});
+		(chrome.runtime as unknown as { sendMessage: typeof sendMessage }).sendMessage = sendMessage;
+
+		render(<LiveInsightsPanel tabId={1} isInterceptionActive={true} />);
+
+		expect(await screen.findByText('WordPress')).toBeInTheDocument();
+	});
+});
+
+function legacyFingerprint() {
+	return {
+		framework: { name: 'vanilla' as const },
+		libraries: [],
+		httpClients: [],
+		dataFetching: [],
+		detectedAt: Date.now(),
+		isProductionBuild: false,
+	};
+}
