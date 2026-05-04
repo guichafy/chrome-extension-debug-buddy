@@ -12,6 +12,7 @@ import type {
 	RrwebEvent,
 	Session,
 } from '@/lib/session/types';
+import type { TechHit } from '@/lib/insights/types';
 
 export type MessageAction =
 	| 'startDebugging'
@@ -89,6 +90,7 @@ export interface Message {
 		timestamp: number;
 		triggerType: PageDetectionTrigger;
 		fingerprint: EnvironmentFingerprint;
+		techs?: TechHit[]; // sub-projeto 2 — opcional
 	};
 	// exportSession / importSession (Phase 1d) — string base64 do .dbsession.
 	// chrome.runtime.sendMessage não preserva ArrayBuffer no transporte (vira

@@ -1,4 +1,5 @@
 import type { InterceptedResponse } from '@/types/intercepted';
+import type { TechHit } from '@/lib/insights/types';
 
 export type FrameworkName = 'react' | 'angular' | 'vanilla';
 
@@ -41,6 +42,7 @@ export interface PageDetection {
 	url: string;
 	timestamp: number;
 	fingerprint: EnvironmentFingerprint;
+	techs?: TechHit[]; // sub-projeto 2 — opcional; ausente em sessões persistidas antes desta versão
 	triggerType: PageDetectionTrigger;
 }
 

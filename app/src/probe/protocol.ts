@@ -1,4 +1,5 @@
 import type { EnvironmentFingerprint, PageDetectionTrigger } from '@/lib/session/types';
+import type { TechHit } from '@/lib/insights/types';
 
 export const PROBE_NAMESPACE = 'debug-buddy-probe';
 
@@ -17,6 +18,7 @@ export type ProbeMessage =
 				timestamp: number;
 				triggerType: PageDetectionTrigger;
 				fingerprint: EnvironmentFingerprint;
+				techs?: TechHit[]; // sub-projeto 2 — opcional, ausente no schema legado
 			};
 	  }
 	| {
