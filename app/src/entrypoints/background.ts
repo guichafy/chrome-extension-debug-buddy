@@ -1486,8 +1486,12 @@ chrome.runtime.onMessage.addListener(
 
 		if (message.action === 'getActiveSession') {
 			return runAsyncHandler(async (msg) => {
-				const session = await recorder.getActiveByTab(msg.tabId as number);
-				return { ok: true, session };
+				try {
+					const session = await recorder.getActiveByTab(msg.tabId as number);
+					return { ok: true, session };
+				} catch (err) {
+					return { ok: false, session: null, error: String(err) };
+				}
 			})(message, sender, sendResponse);
 		}
 
