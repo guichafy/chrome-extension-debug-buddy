@@ -69,3 +69,47 @@ describe('applyPrivacyGate', () => {
 		expect(applyPrivacyGate('https://blocked.com/foo', cfg)).toBe(true);
 	});
 });
+
+import type { MatchedRuleAction } from '@/domain/ruleMatching';
+
+describe('processRequestStage', () => {
+	test('retorna { handled: true, kind: "mock" } quando matchedAction é mock+latency', async () => {
+		const { processRequestStage } = await import('../background');
+		const action: MatchedRuleAction = {
+			type: 'mock',
+			action: { latency: 100, status: 200, body: '', headers: {} } as never,
+		} as never;
+		const result = processRequestStage(action);
+		expect(result.handled).toBe(true);
+		if (result.handled) {
+			expect(result.kind).toBe('mock');
+		}
+	});
+
+	test('retorna { handled: true, kind: "delay" } quando matchedAction é delay', async () => {
+		const { processRequestStage } = await import('../background');
+		const action: MatchedRuleAction = {
+			type: 'delay',
+			action: { timeMs: 5000 } as never,
+		} as never;
+		const result = processRequestStage(action);
+		expect(result.handled).toBe(true);
+		if (result.handled && result.kind === 'delay') {
+			expect(result.timeMs).toBe(5000);
+		}
+	});
+
+	test('retorna { handled: false } quando mock não tem latency', async () => {
+		const { processRequestStage } = await import('../background');
+		const action: MatchedRuleAction = {
+			type: 'mock',
+			action: { status: 200, body: '', headers: {} } as never,
+		} as never;
+		expect(processRequestStage(action)).toEqual({ handled: false });
+	});
+
+	test('retorna { handled: false } quando matchedAction é undefined', async () => {
+		const { processRequestStage } = await import('../background');
+		expect(processRequestStage(undefined)).toEqual({ handled: false });
+	});
+});

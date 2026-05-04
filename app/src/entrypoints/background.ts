@@ -339,6 +339,30 @@ export function applyPrivacyGate(url: string, config: RedactionConfig | null): b
 	return shouldIgnoreUrl(url, config);
 }
 
+type RequestStageDecision =
+	| { handled: false }
+	| { handled: true; kind: 'mock' }
+	| { handled: true; kind: 'delay'; timeMs: number };
+
+/**
+ * Decide se o Request stage deve interceptar a request antes dela sair pra
+ * rede. Mock+latency precisa ser aplicado aqui (DevTools só conta o delay
+ * se o fulfillRequest for no Request stage). Delay standalone idem.
+ *
+ * Função pura — não dispara side-effects. O caller orquestra o efeito.
+ */
+export function processRequestStage(
+	matchedAction: MatchedRuleAction | undefined,
+): RequestStageDecision {
+	if (matchedAction?.type === 'mock' && matchedAction.action.latency) {
+		return { handled: true, kind: 'mock' };
+	}
+	if (matchedAction?.type === 'delay') {
+		return { handled: true, kind: 'delay', timeMs: matchedAction.action.timeMs };
+	}
+	return { handled: false };
+}
+
 // Aplica redação em headers (resposta + requisição) e body de um InterceptedResponse.
 // Muta in-place para minimizar custo — a InterceptedResponse já é construída neste
 // frame (não há leitor concorrente). Chamado antes de persistRequest e
@@ -2457,42 +2481,41 @@ async function handleRequestPaused(params: any): Promise<void> {
 	const postData = typeof request.postData === 'string' ? request.postData : undefined;
 
 	if (!isResponseStage) {
-		// Request stage: só intercepta mocks com latência aqui.
-		// Motivo: Fetch.fulfillRequest no Response stage reusa o timing de rede original —
-		// o Chrome DevTools exibe o TTFB real, ignorando qualquer `await wait(latencyMs)`
-		// aplicado depois. Interceptando no Request stage, antes de a request sair para a rede,
-		// o Chrome contabiliza os 5s de delay na coluna "Time" do Network panel.
 		const matchedAction = findMatchingRuleAction(rules, {
 			url,
 			method,
 			headers: requestHeaders,
 		});
 
-		if (matchedAction?.type === 'mock' && matchedAction.action.latency) {
-			console.log(`Aplicando mock com latência via Request stage: ${url}`);
-			// Não haverá Network.loadingFinished para esta request — descarta o tracker.
-			timingTracker.discardByNetworkId(networkId);
-			await applyMockResponse(requestId, matchedAction.action, {
-				url,
-				method,
-				requestHeaders,
-				postData,
-				responseStatusCode: 0,
-				responseStatusText: '',
-				responseHeaders: [],
-				resourceType,
-			});
-			return;
-		}
-
-		// DelayAction (Latência standalone): aguarda no Request stage para que o
-		// Chrome DevTools contabilize o atraso na coluna "Time" do Network panel
-		// (mesma técnica do mock+latência). Após o wait, libera a request — ela
-		// ainda passará pelo Response stage normalmente.
-		if (matchedAction?.type === 'delay') {
-			const timeMs = matchedAction.action.timeMs;
-			console.log(`Aplicando delay de ${timeMs}ms via Request stage: ${url}`);
-			await wait(timeMs);
+		const decision = processRequestStage(matchedAction);
+		if (decision.handled) {
+			if (decision.kind === 'mock') {
+				console.log(`Aplicando mock com latência via Request stage: ${url}`);
+				// Não haverá Network.loadingFinished para esta request — descarta o tracker.
+				timingTracker.discardByNetworkId(networkId);
+				// matchedAction deve ser mock+latency aqui (decision.kind === 'mock')
+				if (matchedAction?.type !== 'mock') {
+					throw new Error('processRequestStage retornou kind=mock mas matchedAction não é mock');
+				}
+				await applyMockResponse(requestId, matchedAction.action, {
+					url,
+					method,
+					requestHeaders,
+					postData,
+					responseStatusCode: 0,
+					responseStatusText: '',
+					responseHeaders: [],
+					resourceType,
+				});
+				return;
+			}
+			// decision.kind === 'delay'
+			// DelayAction (Latência standalone): aguarda no Request stage para que o
+			// Chrome DevTools contabilize o atraso na coluna "Time" do Network panel
+			// (mesma técnica do mock+latência). Após o wait, libera a request — ela
+			// ainda passará pelo Response stage normalmente.
+			console.log(`Aplicando delay de ${decision.timeMs}ms via Request stage: ${url}`);
+			await wait(decision.timeMs);
 			await continueRequest(requestId);
 			return;
 		}
