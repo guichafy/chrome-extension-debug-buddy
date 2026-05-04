@@ -1,11 +1,7 @@
-import { detectDataFetching } from './detectors/dataFetching';
-import { detectFramework } from './detectors/framework';
-import { detectHttpClients } from './detectors/httpClients';
-import { detectLibraries } from './detectors/libraries';
 import { detectTechs } from './detectors/wappalyzer';
 import { isProbeMessage, PROBE_NAMESPACE, type ProbeMessage } from './protocol';
 import { installAngularHttpTap } from './state/angularHttpTap';
-import type { EnvironmentFingerprint, PageDetectionTrigger } from '@/lib/session/types';
+import type { PageDetectionTrigger } from '@/lib/session/types';
 
 let active = false;
 let historyPatched = false;
@@ -20,17 +16,6 @@ function isProductionBuild(): boolean {
 	return !hasReactDevtools && !hasReduxDevtools;
 }
 
-function buildFingerprint(): EnvironmentFingerprint {
-	return {
-		framework: detectFramework(),
-		libraries: detectLibraries(),
-		httpClients: detectHttpClients(),
-		dataFetching: detectDataFetching(),
-		detectedAt: Date.now(),
-		isProductionBuild: isProductionBuild(),
-	};
-}
-
 function emitDetection(triggerType: PageDetectionTrigger): void {
 	if (!active) return;
 	const msg: ProbeMessage = {
@@ -40,7 +25,7 @@ function emitDetection(triggerType: PageDetectionTrigger): void {
 			url: location.href,
 			timestamp: Date.now(),
 			triggerType,
-			fingerprint: buildFingerprint(),
+			fingerprint: { detectedAt: Date.now(), isProductionBuild: isProductionBuild() },
 			techs: detectTechs(window, document),
 		},
 	};
