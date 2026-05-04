@@ -71,6 +71,19 @@ function extractHost(url: string): string {
 	}
 }
 
+function pickerLabel(entry: LiveDetectionEntry): string | null {
+	if (entry.techs && entry.techs.length > 0) {
+		const groups = groupTechsByCategory(entry.techs);
+		const top = groups[0]?.techs[0];
+		if (top) return top.version ? `${top.name} ${top.version}` : top.name;
+	}
+	const fw = entry.fingerprint?.framework;
+	if (fw && fw.name !== 'vanilla') {
+		return fw.version ? `${fw.name} ${fw.version}` : fw.name;
+	}
+	return null;
+}
+
 function reducer(s: PanelState, a: PanelAction): PanelState {
 	switch (a.type) {
 		case 'detection': {
@@ -341,13 +354,7 @@ function HostPicker({
 }) {
 	const selectedDetection = detectionsByHost.get(value) ?? null;
 	const selectedRecs = recsByHost.get(value)?.length ?? 0;
-	const frameworkLabel = selectedDetection
-		? `${selectedDetection.fingerprint.framework.name}${
-				selectedDetection.fingerprint.framework.version
-					? ` ${selectedDetection.fingerprint.framework.version}`
-					: ''
-			}`
-		: null;
+	const frameworkLabel = selectedDetection ? pickerLabel(selectedDetection) : null;
 
 	return (
 		<Select value={value} onValueChange={onChange}>
@@ -379,9 +386,7 @@ function HostPicker({
 				{hosts.map((host, idx) => {
 					const det = detectionsByHost.get(host) ?? null;
 					const recs = recsByHost.get(host)?.length ?? 0;
-					const fw = det
-						? `${det.fingerprint.framework.name}${det.fingerprint.framework.version ? ` ${det.fingerprint.framework.version}` : ''}`
-						: null;
+					const fw = det ? pickerLabel(det) : null;
 					return (
 						<SelectItem
 							key={host}

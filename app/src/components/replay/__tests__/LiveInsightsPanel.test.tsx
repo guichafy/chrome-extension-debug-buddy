@@ -134,7 +134,8 @@ describe('LiveInsightsPanel', () => {
 			},
 		});
 
-		await waitFor(() => expect(screen.getByText('React')).toBeInTheDocument());
+		// Tech aparece tanto no picker badge quanto no TechItem — usar getAllByText.
+		await waitFor(() => expect(screen.getAllByText('React').length).toBeGreaterThan(0));
 		// Não deve mostrar o empty state de techs.
 		expect(
 			screen.queryByText(/Nenhuma tecnologia detectada para este host ainda/),
@@ -414,7 +415,8 @@ describe('LiveInsightsPanel — techs flow', () => {
 
 		render(<LiveInsightsPanel tabId={1} isInterceptionActive={true} />);
 
-		expect(await screen.findByText('WordPress')).toBeInTheDocument();
+		// WordPress aparece tanto no picker badge quanto no TechItem — usar findAllByText.
+		expect((await screen.findAllByText('WordPress')).length).toBeGreaterThan(0);
 	});
 });
 
