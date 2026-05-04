@@ -142,6 +142,55 @@ function main(): void {
 		writeJson(path.join(OUTPUT_DIR, `${letter}.json`), bucket);
 	}
 
+	// Lean variant — para probe-main.js bundle. Strip campos UI-only.
+	const LEAN_OUTPUT_DIR = path.join(REPO_ROOT, 'src/lib/insights/catalog/lean');
+	if (fs.existsSync(LEAN_OUTPUT_DIR)) {
+		for (const f of fs.readdirSync(LEAN_OUTPUT_DIR)) {
+			if (f.endsWith('.json')) fs.unlinkSync(path.join(LEAN_OUTPUT_DIR, f));
+		}
+	}
+	const leanBuckets = new Map<string, Record<string, Partial<RawTech>>>();
+	for (const [name, raw] of subset) {
+		const letter = bucketLetter(name);
+		const bucket = leanBuckets.get(letter) ?? {};
+		// Strip UI-only fields. Mantém: cats, cookies, dom, js, headers, html, text,
+		// css, meta, scriptSrc, scripts, url, xhr, implies, requires, requiresCategory,
+		// excludes. Remove: description, icon, website, cpe (nunca usados em runtime).
+		const lean: Partial<RawTech> = {
+			cats: raw.cats,
+		};
+		for (const k of [
+			'cookies',
+			'dom',
+			'js',
+			'headers',
+			'html',
+			'text',
+			'css',
+			'meta',
+			'scriptSrc',
+			'scripts',
+			'url',
+			'xhr',
+			'implies',
+			'requires',
+			'requiresCategory',
+			'excludes',
+		] as const) {
+			const v = (raw as Record<string, unknown>)[k];
+			if (v !== undefined) (lean as Record<string, unknown>)[k] = v;
+		}
+		bucket[name] = lean;
+		leanBuckets.set(letter, bucket);
+	}
+	for (const [letter, bucket] of leanBuckets) {
+		writeJson(path.join(LEAN_OUTPUT_DIR, `${letter}.json`), bucket);
+	}
+	const leanTotalSize = fs.readdirSync(LEAN_OUTPUT_DIR)
+		.filter((f) => f.endsWith('.json'))
+		.reduce((acc, f) => acc + fs.statSync(path.join(LEAN_OUTPUT_DIR, f)).size, 0);
+	console.log(`[catalog/lean] ${(leanTotalSize / 1024).toFixed(1)} KB`);
+
 	// Filtra categories.json + groups.json.
 	const upCats = readJson<Record<string, { name: string; priority: number; groups?: number[] }>>(
 		path.join(UPSTREAM, 'categories.json'),

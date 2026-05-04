@@ -24,6 +24,9 @@ export function mergeHits(
 		}
 		ex.confidence = Math.min(100, ex.confidence + inc.confidence);
 		if (!ex.version && inc.version) ex.version = inc.version;
+		if (!ex.icon && inc.icon) ex.icon = inc.icon;
+		if ((!ex.website || ex.website === '') && inc.website) ex.website = inc.website;
+		if (!ex.description && inc.description) ex.description = inc.description;
 		for (const evi of inc.evidence) {
 			if (ex.evidence.length >= EVIDENCE_CAP) break;
 			ex.evidence.push(evi);

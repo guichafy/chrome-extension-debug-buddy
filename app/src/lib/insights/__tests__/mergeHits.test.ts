@@ -80,6 +80,56 @@ describe('mergeHits', () => {
 		expect(phpHit?.implied).toBe(true);
 	});
 
+	test('preenche icon/website/description do incoming quando existing não os tem', () => {
+		const existing: TechHit[] = [
+			{ name: 'X', cats: [12], confidence: 50, evidence: [], website: '' },
+		];
+		const incoming: TechHit[] = [
+			{
+				name: 'X',
+				cats: [12],
+				confidence: 50,
+				evidence: [],
+				website: 'https://example.com',
+				icon: 'X.svg',
+				description: 'A test tech',
+			},
+		];
+		const merged = mergeHits(existing, incoming, new Map());
+		expect(merged[0].website).toBe('https://example.com');
+		expect(merged[0].icon).toBe('X.svg');
+		expect(merged[0].description).toBe('A test tech');
+	});
+
+	test('não sobrescreve icon/website/description quando existing já os tem', () => {
+		const existing: TechHit[] = [
+			{
+				name: 'X',
+				cats: [12],
+				confidence: 50,
+				evidence: [],
+				website: 'https://existing.com',
+				icon: 'old.svg',
+				description: 'old description',
+			},
+		];
+		const incoming: TechHit[] = [
+			{
+				name: 'X',
+				cats: [12],
+				confidence: 50,
+				evidence: [],
+				website: 'https://incoming.com',
+				icon: 'new.svg',
+				description: 'new description',
+			},
+		];
+		const merged = mergeHits(existing, incoming, new Map());
+		expect(merged[0].website).toBe('https://existing.com');
+		expect(merged[0].icon).toBe('old.svg');
+		expect(merged[0].description).toBe('old description');
+	});
+
 	test('does not mutate input arrays', () => {
 		const existing = [hit('X', { confidence: 50, evidence: [] })];
 		const incoming = [hit('X', { confidence: 30 })];

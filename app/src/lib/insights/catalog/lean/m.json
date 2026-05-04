@@ -1,0 +1,124 @@
+{
+	"Moment.js": {
+		"cats": [
+			59
+		],
+		"js": {
+			"moment": "",
+			"moment.version": "^(.+)$\\;version:\\1"
+		},
+		"scriptSrc": [
+			"moment(?:\\.min)?\\.js"
+		]
+	},
+	"MobX": {
+		"cats": [
+			59
+		],
+		"js": {
+			"__mobxGlobal": "",
+			"__mobxGlobals": "",
+			"__mobxInstanceCount": ""
+		},
+		"scriptSrc": [
+			"(?:/([\\d\\.]+))?/mobx(?:\\.[a-z]+){0,2}\\.js(?:$|\\?)\\;version:\\1"
+		]
+	},
+	"Mixpanel": {
+		"cats": [
+			10
+		],
+		"dom": [
+			"meta[http-equiv='Content-Security-Policy'][content*='api.mixpanel.com']"
+		],
+		"js": {
+			"mixpanel": ""
+		},
+		"scriptSrc": [
+			"cdn\\.mxpnl\\.com/libs/mixpanel\\-([0-9.]+)\\.min\\.js\\;version:\\1",
+			"api\\.mixpanel\\.com/track"
+		],
+		"scripts": [
+			"VITE_MIXPANEL_KEY"
+		]
+	},
+	"mParticle": {
+		"cats": [
+			97
+		],
+		"js": {
+			"mParticle": "",
+			"mParticle.config.snippetVersion": "(.+)\\;version:\\1"
+		},
+		"scriptSrc": [
+			"\\.mparticle\\.com/"
+		]
+	},
+	"Magento": {
+		"cats": [
+			6
+		],
+		"cookies": {
+			"X-Magento-Vary": "",
+			"frontend": "\\;confidence:50",
+			"mage-cache-storage": "",
+			"mage-cache-storage-section-invalidation": "",
+			"mage-translation-file-version": "",
+			"mage-translation-storage": ""
+		},
+		"dom": {
+			"script[data-requiremodule*='mage/'], script[data-requiremodule*='Magento_'], html[data-image-optimizing-origin]": {
+				"exists": "\\;version:2"
+			},
+			"script[type='text/x-magento-init']": {
+				"exists": ""
+			}
+		},
+		"js": {
+			"Mage": "",
+			"VarienForm": ""
+		},
+		"scriptSrc": [
+			"js/mage",
+			"skin/frontend/(?:default|(enterprise))\\;version:\\1?1 (Enterprise):1 (Community)",
+			"skin/frontend/\\;confidence:50\\;version:\\1",
+			"static/_requirejs\\;confidence:50\\;version:2"
+		],
+		"implies": [
+			"PHP",
+			"MySQL"
+		]
+	},
+	"Material UI": {
+		"cats": [
+			66
+		],
+		"dom": [
+			"style[data-meta='MuiPaper'], div.MuiBox-root, div.MuiPaper-root, style[data-meta='MuiButton'], input.MuiInputBase-input, div.MuiContainer-root, .MuiButton-root"
+		],
+		"css": [
+			"\\.MuiPaper-root",
+			"\\.Mui-disabled"
+		],
+		"scripts": [
+			"https://mui\\.com"
+		],
+		"implies": [
+			"React"
+		]
+	},
+	"Marketo": {
+		"cats": [
+			32
+		],
+		"cookies": {
+			"_mkto_trk": ""
+		},
+		"js": {
+			"Munchkin": ""
+		},
+		"scriptSrc": [
+			"munchkin\\.marketo\\.\\w+/(?:([\\d.]+)/)?munchkin\\.js\\;version:\\1"
+		]
+	}
+}

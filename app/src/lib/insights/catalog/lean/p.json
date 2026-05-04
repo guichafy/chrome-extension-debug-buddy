@@ -1,0 +1,155 @@
+{
+	"Preact": {
+		"cats": [
+			59
+		],
+		"dom": {
+			"#app, .app, #root, .root, body, body > *, body > * > *, body > * > * > *": {
+				"properties": {
+					"__k": ""
+				}
+			}
+		}
+	},
+	"Plausible": {
+		"cats": [
+			10
+		],
+		"js": {
+			"plausible": ""
+		},
+		"scriptSrc": [
+			"plausible\\.io/js/plausible\\.js"
+		]
+	},
+	"PrestaShop": {
+		"cats": [
+			6
+		],
+		"cookies": {
+			"PrestaShop": ""
+		},
+		"dom": [
+			"img[src*='/modules/prestablog/themes/'], img[data-src*='/modules/prestablog/themes/']",
+			"link[href*='/modules/ps_']"
+		],
+		"js": {
+			"freeProductTranslation": "\\;confidence:40",
+			"prestashop": "",
+			"priceDisplayMethod": "\\;confidence:40",
+			"priceDisplayPrecision": "\\;confidence:40",
+			"rcAnalyticsEvents.eventPrestashopCheckout": ""
+		},
+		"headers": {
+			"Powered-By": "^Prestashop$"
+		},
+		"html": [
+			"Powered by <a\\s+[^>]+>PrestaShop",
+			"<!-- /Block [a-z ]+ module (?:HEADER|TOP)?\\s?-->",
+			"<!-- /Module Block [a-z ]+ -->"
+		],
+		"meta": {
+			"generator": "PrestaShop"
+		},
+		"scriptSrc": [
+			"/modules/ps_[a-z]+/"
+		],
+		"scripts": [
+			"PrestaShop-"
+		],
+		"implies": [
+			"PHP",
+			"MySQL"
+		]
+	},
+	"PayPal": {
+		"cats": [
+			41
+		],
+		"dom": {
+			"button": {
+				"text": "PayPal"
+			},
+			"iframe[src*='paypal.com'], img[src*='paypal.com'], img[src*='paypalobjects.com'], [aria-labelledby='pi-paypal'], [data-paypal-v4], [data-paypal-commerce-button], [data-paypal-smart-button-version], img[alt*='PayPal']": {
+				"exists": ""
+			}
+		},
+		"js": {
+			"PAYPAL": "",
+			"__paypal_global__": "",
+			"checkout.enabledpayments.paypal": "^true$",
+			"enablePaypal": "",
+			"paypal": "",
+			"paypalClientId": "",
+			"paypalJs": "",
+			"wc_ga_pro.available_gateways.paypal": ""
+		},
+		"headers": {
+			"content-security-policy": "\\.paypal\\.com"
+		},
+		"meta": {
+			"id": "in-context-paypal-metadata"
+		},
+		"scriptSrc": [
+			"paypalobjects\\.com"
+		],
+		"xhr": [
+			"\\.paypal\\.com"
+		]
+	},
+	"PagSeguro": {
+		"cats": [
+			41
+		],
+		"dom": [
+			"form[action*='pagseguro.uol.com.br'][target='pagseguro']"
+		],
+		"js": {
+			"PagSeguroDirectPayment": "",
+			"_PagSeguroDirectPayment": ""
+		},
+		"scriptSrc": [
+			"\\.pagseguro\\.uol\\.com\\.br/"
+		]
+	},
+	"PHP": {
+		"cats": [
+			27
+		],
+		"cookies": {
+			"PHPSESSID": ""
+		},
+		"dom": [
+			"form[action*='login_process.php'], form[action*='assets/mail.php']"
+		],
+		"headers": {
+			"Server": "php/?([\\d.]+)?\\;version:\\1",
+			"X-Powered-By": "^php/?([\\d.]+)?\\;version:\\1"
+		},
+		"scripts": [
+			"\\.php(?:\\?|$)"
+		],
+		"url": [
+			"\\.php(?:$|\\?)"
+		]
+	},
+	"Python": {
+		"cats": [
+			27
+		],
+		"headers": {
+			"Server": "(?:^|\\s)Python(?:/([\\d.]+))?\\;version:\\1"
+		}
+	},
+	"Phoenix Framework": {
+		"cats": [
+			18
+		],
+		"js": {
+			"Phoenix.Channel": ""
+		},
+		"implies": [
+			"Elixir"
+		]
+	}
+}

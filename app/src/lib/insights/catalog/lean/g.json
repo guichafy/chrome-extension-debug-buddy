@@ -1,0 +1,116 @@
+{
+	"Ghost": {
+		"cats": [
+			1,
+			11
+		],
+		"headers": {
+			"X-Ghost-Cache-Status": ""
+		},
+		"meta": {
+			"generator": "Ghost(?:\\s([\\d.]+))?\\;version:\\1"
+		},
+		"implies": [
+			"Node.js"
+		]
+	},
+	"Google Analytics": {
+		"cats": [
+			10
+		],
+		"cookies": {
+			"__utma": "",
+			"_ga": "",
+			"_ga_*": "\\;version:GA4",
+			"_gat": "\\;version:UA"
+		},
+		"dom": [
+			"amp-analytics[type*=googleanalytics]"
+		],
+		"js": {
+			"GoogleAnalyticsObject": "",
+			"gaGlobal": ""
+		},
+		"scriptSrc": [
+			"google-analytics\\.com/(?:ga|urchin|analytics)\\.js",
+			"googletagmanager\\.com/gtag/js"
+		],
+		"scripts": [
+			"gtag\\([^)]+'(UA-)\\;version:\\1?UA:",
+			"gtag\\([^)]+'(G-)\\;version:\\1?GA4:"
+		]
+	},
+	"Google Tag Manager": {
+		"cats": [
+			42
+		],
+		"js": {
+			"google_tag_data": "",
+			"google_tag_manager": "",
+			"googletag": ""
+		},
+		"html": [
+			"googletagmanager\\.com/ns\\.html[^>]+></iframe>",
+			"<!-- (?:End )?Google Tag Manager -->"
+		],
+		"scriptSrc": [
+			"googletagmanager\\.com/gtm\\.js",
+			"\\.googletagmanager\\.com/"
+		]
+	},
+	"GitHub Pages": {
+		"cats": [
+			62
+		],
+		"headers": {
+			"Server": "^GitHub\\.com$",
+			"X-GitHub-Request-Id": ""
+		},
+		"url": [
+			"^https?://[^/]+\\.github\\.io"
+		]
+	},
+	"Google Optimize": {
+		"cats": [
+			74
+		],
+		"js": {
+			"google_optimize": ""
+		},
+		"scriptSrc": [
+			"googleoptimize\\.com/optimize\\.js"
+		]
+	},
+	"Gatsby": {
+		"cats": [
+			57,
+			12
+		],
+		"dom": [
+			"div#___gatsby, style#gatsby-inlined-css"
+		],
+		"meta": {
+			"generator": "^Gatsby(?: ([0-9.]+))?$\\;version:\\1"
+		},
+		"implies": [
+			"React",
+			"Webpack"
+		]
+	},
+	"Google Maps": {
+		"cats": [
+			35
+		],
+		"dom": [
+			"iframe[src*='google.com/maps']"
+		],
+		"js": {
+			"GoogleMap": "",
+			"googleMapsConfig": ""
+		},
+		"scriptSrc": [
+			"(?:maps\\.google\\.com/maps\\?file=api(?:&v=([\\d.]+))?|maps\\.google\\.com/maps/api/staticmap)\\;version:API v\\1",
+			"//maps\\.google(?:apis)?\\.com/maps/api/js"
+		]
+	}
+}

@@ -1,4 +1,4 @@
-import { COMPILED_CATALOG } from '@/lib/insights/catalog';
+import { COMPILED_CATALOG_LEAN as COMPILED_CATALOG } from '@/lib/insights/catalog/lean';
 import { applyImplications } from '@/lib/insights/implications';
 import { Scorer } from '@/lib/insights/scorer';
 import type { CompiledTech, TechHit } from '@/lib/insights/types';

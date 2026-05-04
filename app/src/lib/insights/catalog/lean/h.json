@@ -1,0 +1,91 @@
+{
+	"Heap": {
+		"cats": [
+			10
+		],
+		"js": {
+			"heap.version.heapJsVersion": "([\\d.]+)\\;version:\\1"
+		},
+		"scriptSrc": [
+			"cdn\\.heapanalytics\\.com",
+			"heap-\\d+\\.js"
+		]
+	},
+	"Hotjar": {
+		"cats": [
+			10
+		],
+		"js": {
+			"HotLeadfactory": "",
+			"HotleadController": "",
+			"hj.apiUrlBase": ""
+		},
+		"scriptSrc": [
+			"//static\\.hotjar\\.com/"
+		]
+	},
+	"Heroku": {
+		"cats": [
+			62
+		],
+		"headers": {
+			"Via": "[\\d.-]+ vegur$"
+		},
+		"url": [
+			"\\.herokuapp\\.com"
+		]
+	},
+	"HubSpot": {
+		"cats": [
+			32
+		],
+		"js": {
+			"_hsq": "",
+			"hubspot": ""
+		},
+		"html": [
+			"<!-- Start of Async HubSpot"
+		],
+		"scriptSrc": [
+			"\\.hs-scripts\\.com/"
+		]
+	},
+	"hCaptcha": {
+		"cats": [
+			16
+		],
+		"dom": [
+			"link[href*='hcaptcha.com']"
+		],
+		"js": {
+			"hcaptcha.getRespKey": "",
+			"hcaptchaOnLoad": "",
+			"hcaptcha_sitekey": ""
+		},
+		"headers": {
+			"content-security-policy": "(?:\\.|//)hcaptcha\\.com"
+		},
+		"css": [
+			"#cf-hcaptcha-container"
+		],
+		"scriptSrc": [
+			"hcaptcha\\.com/([\\d]+?)/api\\.js\\;version:\\1"
+		]
+	},
+	"Hugo": {
+		"cats": [
+			57
+		],
+		"dom": {
+			"a[href*='hugo.']": {
+				"attributes": {
+					"href": "(?:go)?hugo(?:\\..+)?\\.(?:com|io)\\;confidence:0"
+				},
+				"text": "Hugo\\;confidence:99"
+			}
+		},
+		"meta": {
+			"generator": "Hugo ([\\d.]+)?\\;version:\\1"
+		}
+	}
+}

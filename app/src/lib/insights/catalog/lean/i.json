@@ -1,0 +1,19 @@
+{
+	"Intercom": {
+		"cats": [
+			52,
+			53
+		],
+		"dom": [
+			"link[href^='https://widget.intercom.io']",
+			"div.live-chat-loader-placeholder",
+			"iframe#intercom-frame"
+		],
+		"js": {
+			"Intercom": ""
+		},
+		"scriptSrc": [
+			"(?:api\\.intercom\\.io/api|static\\.intercomcdn\\.com/intercom\\.v1)"
+		]
+	}
+}

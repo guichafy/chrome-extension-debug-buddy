@@ -1,0 +1,34 @@
+{
+	"OneTrust": {
+		"cats": [
+			67
+		],
+		"cookies": {
+			"OptanonConsent": ""
+		},
+		"scriptSrc": [
+			"cdn\\.cookielaw\\.org",
+			"optanon\\.blob\\.core\\.windows\\.net",
+			"otSDKStub\\.js",
+			"cdn\\.cookielaw\\.org",
+			"optanon\\.blob\\.core\\.windows\\.net"
+		]
+	},
+	"Optimizely": {
+		"cats": [
+			74,
+			76
+		],
+		"cookies": {
+			"optimizelyEndUserId": ""
+		},
+		"js": {
+			"optimizely": "",
+			"optimizelyClient.clientVersion": "([\\d\\.]+)\\;version:\\1",
+			"optimizelySdk": ""
+		},
+		"scriptSrc": [
+			"optimizely\\.com.*\\.js"
+		]
+	}
+}

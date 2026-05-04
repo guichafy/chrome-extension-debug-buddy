@@ -1,0 +1,23 @@
+{
+	"Zendesk": {
+		"cats": [
+			4,
+			13,
+			52
+		],
+		"cookies": {
+			"_help_center_session": "",
+			"_zendesk_cookie": "",
+			"_zendesk_shared_session": ""
+		},
+		"js": {
+			"Zendesk": ""
+		},
+		"headers": {
+			"x-zendesk-user-id": ""
+		},
+		"scriptSrc": [
+			"static\\.zdassets\\.com"
+		]
+	}
+}

@@ -1,0 +1,43 @@
+{
+	"Lodash": {
+		"cats": [
+			59
+		],
+		"js": {
+			"_.VERSION": "^(.+)$\\;confidence:0\\;version:\\1",
+			"_.differenceBy": "",
+			"_.templateSettings.imports._.templateSettings.imports._.VERSION": "^(.+)$\\;version:\\1"
+		},
+		"scriptSrc": [
+			"lodash.*\\.js"
+		],
+		"excludes": [
+			"Underscore.js"
+		]
+	},
+	"Laravel": {
+		"cats": [
+			18
+		],
+		"cookies": {
+			"laravel_session": ""
+		},
+		"js": {
+			"Laravel": ""
+		},
+		"implies": [
+			"PHP"
+		]
+	},
+	"LogRocket": {
+		"cats": [
+			10
+		],
+		"js": {
+			"LogRocket._buffer": ""
+		},
+		"scriptSrc": [
+			"cdn\\.(?:lr-ingest|logrocket)\\.(?:com|io)"
+		]
+	}
+}

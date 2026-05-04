@@ -1,0 +1,77 @@
+{
+	"jQuery": {
+		"cats": [
+			59
+		],
+		"js": {
+			"$.fn.jquery": "([\\d.]+)\\;version:\\1",
+			"jQuery.fn.jquery": "([\\d.]+)\\;version:\\1",
+			"jQuery.prototype.jquery": "([\\d.]+)\\;version:\\1"
+		},
+		"scriptSrc": [
+			"jquery",
+			"/jquery(?:-(\\d+\\.\\d+\\.\\d+))[/.-]\\;version:\\1",
+			"/(\\d+\\.\\d+\\.\\d+)/jquery(?!\\.popupoverlay\\.js|(?:\\.[\\w-]*)*fancybox)[/.-][^u]\\;version:\\1"
+		]
+	},
+	"Joomla": {
+		"cats": [
+			1
+		],
+		"cookies": {
+			"joomla_[a-z0-9]+": ""
+		},
+		"dom": [
+			"div[id*='wrapper_r'], link[href*='feed/com_'], link[href*='components/com_'], table[class*='pill']"
+		],
+		"js": {
+			"Joomla": "",
+			"jcomments": ""
+		},
+		"headers": {
+			"X-Content-Encoded-By": "Joomla! ([\\d.]+)\\;version:\\1"
+		},
+		"html": [
+			"(?:<div[^>]+id=\"wrapper_r\"|<(?:link|script)[^>]+(?:feed|components)/com_|<table[^>]+class=\"pill)\\;confidence:50"
+		],
+		"meta": {
+			"generator": "Joomla!(?: ([\\d.]+))?\\;version:\\1"
+		},
+		"scriptSrc": [
+			"(?:^|/)(feed/com_|components/com_)"
+		],
+		"url": [
+			"option=com_"
+		],
+		"implies": [
+			"PHP"
+		]
+	},
+	"Java": {
+		"cats": [
+			27
+		],
+		"cookies": {
+			"JSESSIONID": ""
+		}
+	},
+	"Jekyll": {
+		"cats": [
+			57
+		],
+		"js": {
+			"SimpleJekyllSearch": ""
+		},
+		"html": [
+			"Powered by <a href=\"https?://jekyllrb\\.com\"[^>]*>Jekyll</",
+			"<!-- Created with Jekyll Now -",
+			"<!-- Begin Jekyll SEO tag"
+		],
+		"meta": {
+			"generator": "Jekyll\\sv([\\d.]+)?\\;version:\\1"
+		},
+		"implies": [
+			"Ruby"
+		]
+	}
+}
