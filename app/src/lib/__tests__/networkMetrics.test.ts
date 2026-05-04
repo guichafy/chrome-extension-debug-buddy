@@ -1,10 +1,5 @@
 import type { InterceptedResponse } from '@/types/intercepted';
-import {
-	SLOW_THRESHOLD_MS,
-	aggregateRequests,
-	filterByCurrentPage,
-	filterBySession,
-} from '../networkMetrics';
+import { SLOW_THRESHOLD_MS, aggregateRequests, filterBySession } from '../networkMetrics';
 
 function req(overrides: Partial<InterceptedResponse> = {}): InterceptedResponse {
 	return {
@@ -23,6 +18,7 @@ describe('aggregateRequests', () => {
 		expect(aggregateRequests([])).toEqual({
 			totalRequests: 0,
 			totalBytes: null,
+			totalResourceBytes: null,
 			avgTtfbMs: null,
 			slowCount: 0,
 			failedCount: 0,
@@ -44,6 +40,20 @@ describe('aggregateRequests', () => {
 	it('totalBytes é null quando nenhuma request tem transferSize', () => {
 		const requests = [req({ networkTiming: { fromDiskCache: true } }), req({})];
 		expect(aggregateRequests(requests).totalBytes).toBeNull();
+	});
+
+	it('totalResourceBytes soma bytes UTF-8 de bodies capturados (response.body e legado body)', () => {
+		const requests = [
+			req({ response: { headers: {}, body: 'abc' } }), // 3 bytes
+			req({ body: 'xy' }), // 2 bytes via alias legado
+			req({ response: { headers: {}, body: 'açã' } }), // a=1 + ç=2 + ã=2 = 5 bytes
+		];
+		expect(aggregateRequests(requests).totalResourceBytes).toBe(10);
+	});
+
+	it('totalResourceBytes é null quando nenhuma request tem body capturado', () => {
+		const requests = [req({}), req({ bodyUnavailableReason: 'binário' })];
+		expect(aggregateRequests(requests).totalResourceBytes).toBeNull();
 	});
 
 	it('avgTtfbMs é média sobre requests com ttfbMs definido', () => {
@@ -101,21 +111,5 @@ describe('filterBySession', () => {
 		};
 		const result = filterBySession(all, 500);
 		expect(result.map((r) => r.timestamp).sort()).toEqual([500, 999]);
-	});
-});
-
-describe('filterByCurrentPage', () => {
-	it('retorna lista vazia quando currentPageNavigatedAt é null', () => {
-		const all = { a: req({ timestamp: 100 }) };
-		expect(filterByCurrentPage(all, null)).toEqual([]);
-	});
-
-	it('retorna requests com timestamp >= currentPageNavigatedAt', () => {
-		const all = {
-			a: req({ timestamp: 100 }),
-			b: req({ timestamp: 500 }),
-		};
-		const result = filterByCurrentPage(all, 500);
-		expect(result.map((r) => r.timestamp)).toEqual([500]);
 	});
 });

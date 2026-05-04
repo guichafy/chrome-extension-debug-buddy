@@ -1,7 +1,13 @@
 import { Badge } from '@/components/ui/badge';
 import { LucideIcon } from '@/components/ui/lucide-icon';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+	Sheet,
+	SheetContent,
+	SheetDescription,
+	SheetHeader,
+	SheetTitle,
+} from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BodyViewer } from '@/components/command-center/BodyViewer';
 import { formatDuration } from '@/components/requests/duration';
@@ -43,6 +49,9 @@ export function ReplayRequestDetailsSheet({ request, open, onOpenChange }: Props
 							{formatDuration(request.duration)}
 						</span>
 					</SheetTitle>
+					<SheetDescription className="sr-only">
+						Detalhes da requisição capturada na sessão de replay.
+					</SheetDescription>
 					<p className="break-all font-mono text-muted-foreground text-xs" title={request.url}>
 						{request.url}
 					</p>

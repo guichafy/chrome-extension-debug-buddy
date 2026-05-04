@@ -25,7 +25,8 @@ describe('useNetworkMetrics', () => {
 		};
 		const { result } = renderHook(() => useNetworkMetrics(all, marker));
 		expect(result.current.session.totalRequests).toBe(0);
-		expect(result.current.currentPage.totalRequests).toBe(0);
+		expect(result.current.session.totalBytes).toBeNull();
+		expect(result.current.session.totalResourceBytes).toBeNull();
 	});
 
 	it('agrega só requests da janela "Sessão" quando sessionStartedAt está setado', () => {
@@ -41,23 +42,6 @@ describe('useNetworkMetrics', () => {
 		};
 		const { result } = renderHook(() => useNetworkMetrics(all, marker));
 		expect(result.current.session).toMatchObject({ totalRequests: 2, totalBytes: 2000 });
-		expect(result.current.currentPage.totalRequests).toBe(0);
-	});
-
-	it('agrega "Página atual" usando currentPageNavigatedAt', () => {
-		const all = {
-			a: req({ timestamp: 1000 }),
-			b: req({ timestamp: 2500, status: 500 }),
-			c: req({ timestamp: 3000 }),
-		};
-		const marker: SessionMarker = {
-			sessionStartedAt: 1000,
-			currentPageUrl: 'https://x.com',
-			currentPageNavigatedAt: 2500,
-		};
-		const { result } = renderHook(() => useNetworkMetrics(all, marker));
-		expect(result.current.currentPage).toMatchObject({ totalRequests: 2, failedCount: 1 });
-		expect(result.current.session.totalRequests).toBe(3);
 	});
 
 	it('memoiza: mesma referência de input retorna mesmo objeto', () => {
@@ -77,32 +61,18 @@ describe('useNetworkMetrics', () => {
 		expect(result.current).toBe(first);
 	});
 
-	it('retorna sessionDetails e currentPageDetails por janela', () => {
+	it('soma totalResourceBytes a partir dos response bodies capturados', () => {
 		const all = {
-			s: req({
-				timestamp: 1500,
-				method: 'GET',
-				networkTiming: { transferSize: 1000, ttfbMs: 100 },
-			}),
-			p: req({
-				timestamp: 2500,
-				method: 'POST',
-				networkTiming: { transferSize: 2000, ttfbMs: 200 },
-			}),
+			a: req({ timestamp: 1500, response: { headers: {}, body: 'hello' } }), // 5
+			b: req({ timestamp: 1700, body: 'wo' }), // 2 via alias legado
+			c: req({ timestamp: 1900, bodyUnavailableReason: 'binário' }), // não soma
 		};
 		const marker: SessionMarker = {
 			sessionStartedAt: 1000,
-			currentPageUrl: 'https://x.com',
-			currentPageNavigatedAt: 2000,
+			currentPageUrl: null,
+			currentPageNavigatedAt: null,
 		};
 		const { result } = renderHook(() => useNetworkMetrics(all, marker));
-
-		// Sessão: 2 requests (s e p ambos >= sessionStartedAt 1000)
-		expect(result.current.sessionDetails.bytes.top).toHaveLength(2);
-		expect(result.current.sessionDetails.ttfb).toEqual({ p50: 150, p95: 200, max: 200 });
-
-		// Página: só a 'p' (timestamp 2500 >= 2000)
-		expect(result.current.currentPageDetails.bytes.top).toHaveLength(1);
-		expect(result.current.currentPageDetails.bytes.top[0]?.transferSize).toBe(2000);
+		expect(result.current.session.totalResourceBytes).toBe(7);
 	});
 });
