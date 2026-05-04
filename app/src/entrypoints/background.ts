@@ -1090,42 +1090,52 @@ chrome.runtime.onMessage.addListener(
 		}
 
 		if (message.action === 'startDebugging') {
-			// Usa o tabId armazenado ou o fornecido pelo usuário
-			const tabIdToUse = message.tabId || targetTabId;
-			if (tabIdToUse) {
-				// Iniciar debugging diretamente sem verificar regras
-				startDebugging(tabIdToUse)
-					.then(() => sendResponse({ success: true }))
-					.catch((error) => {
-						console.error('Error starting debugging:', error);
-						sendResponse({ success: false, error: error.message });
-					});
-				return true; // Indicates we'll respond asynchronously
-			} else {
-				sendResponse({
-					success: false,
-					error: 'Nenhuma aba selecionada. Selecione uma aba primeiro.',
-				});
-				return false;
-			}
-		} else if (message.action === 'stopDebugging') {
-			stopDebugging()
-				.then(() => sendResponse({ success: true }))
-				.catch((error) => {
+			return runAsyncHandler(async (msg) => {
+				const tabIdToUse = msg.tabId || targetTabId;
+				if (!tabIdToUse) {
+					return {
+						success: false,
+						error: 'Nenhuma aba selecionada. Selecione uma aba primeiro.',
+					};
+				}
+				try {
+					await startDebugging(tabIdToUse);
+					return { success: true };
+				} catch (error) {
+					console.error('Error starting debugging:', error);
+					return { success: false, error: getErrorMessage(error) };
+				}
+			})(message, sender, sendResponse);
+		}
+
+		if (message.action === 'stopDebugging') {
+			return runAsyncHandler(async () => {
+				try {
+					await stopDebugging();
+					return { success: true };
+				} catch (error) {
 					console.error('Error stopping debugging:', error);
-					sendResponse({ success: false, error: error.message });
-				});
-			return true; // Indicates we'll respond asynchronously
-		} else if (message.action === 'getDebuggingStatus') {
+					return { success: false, error: getErrorMessage(error) };
+				}
+			})(message, sender, sendResponse);
+		}
+
+		if (message.action === 'getDebuggingStatus') {
 			sendResponse({ isDebugging });
 			return false; // Indicates we've responded synchronously
-		} else if (message.action === 'getPendingResponses') {
+		}
+
+		if (message.action === 'getPendingResponses') {
 			sendResponse({ pendingResponses });
 			return false; // Indicates we've responded synchronously
-		} else if (message.action === 'getAllRequests') {
+		}
+
+		if (message.action === 'getAllRequests') {
 			sendResponse({ allRequests });
 			return false; // Indicates we've responded synchronously
-		} else if (message.action === 'getResponseDetails') {
+		}
+
+		if (message.action === 'getResponseDetails') {
 			const { requestId } = message;
 			if (requestId && pendingResponses[requestId]) {
 				sendResponse({ success: true, response: pendingResponses[requestId] });
@@ -1133,7 +1143,9 @@ chrome.runtime.onMessage.addListener(
 				sendResponse({ success: false, error: 'Response not found' });
 			}
 			return false; // Indicates we've responded synchronously
-		} else if (message.action === 'selectTargetTab') {
+		}
+
+		if (message.action === 'selectTargetTab') {
 			// Notificar a página principal para abrir o modal de seleção de aba
 			if (interceptorTabId) {
 				chrome.tabs
@@ -1146,7 +1158,9 @@ chrome.runtime.onMessage.addListener(
 			}
 			sendResponse({ success: true });
 			return false; // Indicates we've responded synchronously
-		} else if (message.action === 'setTargetTab') {
+		}
+
+		if (message.action === 'setTargetTab') {
 			// Armazenar informações da aba selecionada
 			if (message.tabId) {
 				targetTabId = message.tabId;
@@ -1162,60 +1176,65 @@ chrome.runtime.onMessage.addListener(
 				sendResponse({ success: false, error: 'ID da aba não fornecido' });
 			}
 			return false; // Indicates we've responded synchronously
-		} else if (message.action === 'clearAllRequests') {
-			allRequests = {};
-			// Se ainda estamos debugando, re-anchora a sessão para "agora": o usuário
-			// quer ver as próximas requests, não congelar o histórico em branco.
-			// Quando não há debug ativo, zera tudo (próximo startDebugging seta novamente).
-			if (isDebugging) {
-				sessionMarker = {
-					sessionStartedAt: Date.now(),
-					currentPageUrl: null,
-					currentPageNavigatedAt: null,
-				};
-			} else {
-				sessionMarker = { ...EMPTY_SESSION_MARKER };
-			}
-			persistSessionMarker();
-			broadcastSessionMarker();
-			indexedDBService
-				.clearAllRequests()
-				.then(() => sendResponse({ success: true }))
-				.catch((err) => {
+		}
+
+		if (message.action === 'clearAllRequests') {
+			return runAsyncHandler(async () => {
+				allRequests = {};
+				// Se ainda estamos debugando, re-anchora a sessão para "agora": o usuário
+				// quer ver as próximas requests, não congelar o histórico em branco.
+				// Quando não há debug ativo, zera tudo (próximo startDebugging seta novamente).
+				if (isDebugging) {
+					sessionMarker = {
+						sessionStartedAt: Date.now(),
+						currentPageUrl: null,
+						currentPageNavigatedAt: null,
+					};
+				} else {
+					sessionMarker = { ...EMPTY_SESSION_MARKER };
+				}
+				persistSessionMarker();
+				broadcastSessionMarker();
+				try {
+					await indexedDBService.clearAllRequests();
+					return { success: true };
+				} catch (err) {
 					console.error('Erro ao limpar IndexedDB:', err);
-					sendResponse({ success: false, error: String(err) });
-				});
-			return true; // resposta assíncrona
-		} else if (message.action === 'getSessionMarker') {
+					return { success: false, error: String(err) };
+				}
+			})(message, sender, sendResponse);
+		}
+
+		if (message.action === 'getSessionMarker') {
 			sendResponse({ sessionMarker });
 			return false;
-		} else if (message.action === 'approveResponse') {
-			const { requestId, modifications } = message;
+		}
 
-			console.log('background.ts - Received approveResponse message:', JSON.stringify(message));
-			if (modifications && modifications.status !== undefined) {
-				console.log(
-					`background.ts - Received status code: ${modifications.status}, type: ${typeof modifications.status}`,
-				);
-			}
+		if (message.action === 'approveResponse') {
+			return runAsyncHandler(async (msg) => {
+				const { requestId, modifications } = msg;
 
-			if (!requestId || !pendingResponses[requestId]) {
-				sendResponse({ success: false, error: 'Response not found' });
-				return false;
-			}
-
-			// Apply modifications if provided
-			if (modifications) {
-				// Garantir que o status code seja um número
-				if (modifications.status !== undefined) {
-					modifications.status = Number(modifications.status);
+				console.log('background.ts - Received approveResponse message:', JSON.stringify(msg));
+				if (modifications && modifications.status !== undefined) {
 					console.log(
-						`background.ts - Converted status code: ${modifications.status}, type: ${typeof modifications.status}`,
+						`background.ts - Received status code: ${modifications.status}, type: ${typeof modifications.status}`,
 					);
 				}
 
-				applyResponseModifications(requestId, modifications)
-					.then(() => {
+				if (!requestId || !pendingResponses[requestId]) {
+					return { success: false, error: 'Response not found' };
+				}
+
+				if (modifications) {
+					// Garantir que o status code seja um número
+					if (modifications.status !== undefined) {
+						modifications.status = Number(modifications.status);
+						console.log(
+							`background.ts - Converted status code: ${modifications.status}, type: ${typeof modifications.status}`,
+						);
+					}
+					try {
+						await applyResponseModifications(requestId, modifications);
 						const pendingResponse = pendingResponses[requestId];
 						delete pendingResponses[requestId];
 						// Filtra undefined: spread cego do `modifications` poderia apagar
@@ -1248,74 +1267,58 @@ chrome.runtime.onMessage.addListener(
 							};
 						}
 						patchRequest(requestId, finalUpdates);
-						sendResponse({ success: true });
-					})
-					.catch((error) => {
+						return { success: true };
+					} catch (error) {
 						console.error('Error applying modifications:', error);
-						sendResponse({ success: false, error: error.message });
-					});
-				return true; // Indicates we'll respond asynchronously
-			} else {
-				// No modifications, just continue the request (ignoring the response)
-				console.log(
-					`Ignoring response for request ${requestId} - continuing without modifications`,
-				);
-				const finalize = () => {
-					delete pendingResponses[requestId];
-					patchRequest(requestId, { isWaiting: false });
-					sendResponse({ success: true });
-				};
-				continueRequest(requestId)
-					.then(() => {
+						return { success: false, error: getErrorMessage(error) };
+					}
+				} else {
+					// No modifications, just continue the request (ignoring the response)
+					console.log(
+						`Ignoring response for request ${requestId} - continuing without modifications`,
+					);
+					try {
+						await continueRequest(requestId);
 						console.log(`Request ${requestId} continued without modifications`);
-						finalize();
-					})
-					.catch((error) => {
+						delete pendingResponses[requestId];
+						patchRequest(requestId, { isWaiting: false });
+						return { success: true };
+					} catch (error) {
 						console.error(`Erro ao ignorar resposta ${requestId}:`, error);
-						sendResponse({ success: false, error: getErrorMessage(error) });
-					});
-				return true; // Indicates we'll respond asynchronously
-			}
-		} else if (message.action === 'approveResponseWithEdit') {
+						return { success: false, error: getErrorMessage(error) };
+					}
+				}
+			})(message, sender, sendResponse);
+		}
+
+		if (message.action === 'approveResponseWithEdit') {
 			// Edição one-shot: o usuário ajusta status/headers/body de uma response
 			// pausada via EditResponseSheet e devolvemos via Fetch.fulfillRequest.
 			// Diferente de approveResponse: não há fallback para continueRequest se
 			// fulfill falhar — a edição precisa ser visível como erro na UI.
-			const { requestId, status, headers, body } = message as {
-				requestId?: string;
-				status?: number;
-				headers?: Record<string, string>;
-				body?: string;
-			};
+			return runAsyncHandler(async (msg) => {
+				const { requestId, status, headers, body } = msg as {
+					requestId?: string;
+					status?: number;
+					headers?: Record<string, string>;
+					body?: string;
+				};
 
-			if (!requestId || !pendingResponses[requestId]) {
-				sendResponse({ success: false, error: 'Response not found' });
-				return false;
-			}
-			if (typeof status !== 'number') {
-				sendResponse({
-					success: false,
-					error: 'Status code obrigatório para edição one-shot',
-				});
-				return false;
-			}
-			if (!headers) {
-				sendResponse({
-					success: false,
-					error: 'Headers obrigatórios para edição one-shot',
-				});
-				return false;
-			}
-			if (typeof body !== 'string') {
-				sendResponse({
-					success: false,
-					error: 'Body obrigatório para edição one-shot',
-				});
-				return false;
-			}
+				if (!requestId || !pendingResponses[requestId]) {
+					return { success: false, error: 'Response not found' };
+				}
+				if (typeof status !== 'number') {
+					return { success: false, error: 'Status code obrigatório para edição one-shot' };
+				}
+				if (!headers) {
+					return { success: false, error: 'Headers obrigatórios para edição one-shot' };
+				}
+				if (typeof body !== 'string') {
+					return { success: false, error: 'Body obrigatório para edição one-shot' };
+				}
 
-			applyEditedResponse(requestId, { status, headers, body })
-				.then(() => {
+				try {
+					await applyEditedResponse(requestId, { status, headers, body });
 					delete pendingResponses[requestId];
 					patchRequest(requestId, {
 						isWaiting: false,
@@ -1326,13 +1329,12 @@ chrome.runtime.onMessage.addListener(
 						body,
 						response: { headers, body },
 					});
-					sendResponse({ success: true });
-				})
-				.catch((error) => {
+					return { success: true };
+				} catch (error) {
 					console.error(`Erro ao aplicar edição one-shot em ${requestId}:`, error);
-					sendResponse({ success: false, error: getErrorMessage(error) });
-				});
-			return true; // Indicates we'll respond asynchronously
+					return { success: false, error: getErrorMessage(error) };
+				}
+			})(message, sender, sendResponse);
 		}
 
 		// --- Session Replay — Phase 1a ---
