@@ -7,6 +7,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select';
+import { groupTechsByCategory } from '@/lib/insights/groupByCategory';
+import type { TechHit } from '@/lib/insights/types';
 import {
 	CATEGORY_LABEL,
 	CATEGORY_ORDER,
@@ -20,6 +22,7 @@ import type {
 } from '@/lib/session/types';
 import type { Message } from '@/types/messages';
 import { RECOMMENDATION_ROW_TOKENS, RecommendationRow } from './RecommendationRow';
+import { TechCategorySection } from './TechCategorySection';
 
 const MAX_RECOMMENDATIONS = 50;
 
@@ -27,6 +30,7 @@ interface LiveDetectionEntry {
 	url: string;
 	timestamp: number;
 	fingerprint: EnvironmentFingerprint;
+	techs?: TechHit[]; // sub-projeto 4 — vem do sub-projeto 3 (techsUpdates / hidratação)
 }
 
 interface PanelState {
@@ -42,6 +46,7 @@ interface HydrateSnapshot {
 		url: string;
 		timestamp: number;
 		fingerprint: EnvironmentFingerprint;
+		techs?: TechHit[];
 	}>;
 	recommendations: Recommendation[];
 }
@@ -50,7 +55,8 @@ type PanelAction =
 	| { type: 'detection'; payload: { host: string; entry: LiveDetectionEntry } }
 	| { type: 'recommendation'; payload: Recommendation }
 	| { type: 'clear' }
-	| { type: 'hydrate'; snapshot: HydrateSnapshot };
+	| { type: 'hydrate'; snapshot: HydrateSnapshot }
+	| { type: 'techsUpdate'; payload: { host: string; techs: TechHit[] } };
 
 const INITIAL: PanelState = {
 	detectionsByHost: new Map(),
@@ -69,8 +75,12 @@ function reducer(s: PanelState, a: PanelAction): PanelState {
 	switch (a.type) {
 		case 'detection': {
 			const next = new Map(s.detectionsByHost);
+			const existingForHost = next.get(a.payload.host);
 			if (next.has(a.payload.host)) next.delete(a.payload.host);
-			next.set(a.payload.host, a.payload.entry);
+			next.set(a.payload.host, {
+				...a.payload.entry,
+				techs: a.payload.entry.techs ?? existingForHost?.techs,
+			});
 			return { ...s, detectionsByHost: next };
 		}
 		case 'recommendation':
@@ -86,12 +96,41 @@ function reducer(s: PanelState, a: PanelAction): PanelState {
 			// ordem do Map (ascendente) reflita a do backend.
 			for (let i = a.snapshot.detections.length - 1; i >= 0; i--) {
 				const d = a.snapshot.detections[i];
-				next.set(d.host, { url: d.url, timestamp: d.timestamp, fingerprint: d.fingerprint });
+				next.set(d.host, {
+					url: d.url,
+					timestamp: d.timestamp,
+					fingerprint: d.fingerprint,
+					techs: d.techs,
+				});
 			}
 			return {
 				detectionsByHost: next,
 				recommendations: a.snapshot.recommendations,
 			};
+		}
+		case 'techsUpdate': {
+			const next = new Map(s.detectionsByHost);
+			const existing = next.get(a.payload.host);
+			if (existing) {
+				next.set(a.payload.host, { ...existing, techs: a.payload.techs });
+			} else {
+				// host ainda sem detection (pode acontecer se bg pipeline detectar
+				// antes do probe scan). Cria placeholder.
+				next.set(a.payload.host, {
+					url: `https://${a.payload.host}/`,
+					timestamp: Date.now(),
+					fingerprint: {
+						framework: { name: 'vanilla' },
+						libraries: [],
+						httpClients: [],
+						dataFetching: [],
+						detectedAt: Date.now(),
+						isProductionBuild: false,
+					},
+					techs: a.payload.techs,
+				});
+			}
+			return { ...s, detectionsByHost: next };
 		}
 	}
 }
@@ -138,18 +177,25 @@ export function LiveInsightsPanel({ tabId, isInterceptionActive, onCountChange }
 		const onMessage = (msg: Message) => {
 			if (msg.tabId !== tabId) return;
 			if (msg.action === 'liveDetection') {
-				if (!msg.payload) return;
-				dispatch({
-					type: 'detection',
-					payload: {
-						host: extractHost(msg.payload.url),
-						entry: {
-							url: msg.payload.url,
-							fingerprint: msg.payload.fingerprint,
-							timestamp: msg.payload.timestamp,
+				if (msg.payload) {
+					dispatch({
+						type: 'detection',
+						payload: {
+							host: extractHost(msg.payload.url),
+							entry: {
+								url: msg.payload.url,
+								fingerprint: msg.payload.fingerprint,
+								timestamp: msg.payload.timestamp,
+								techs: msg.payload.techs,
+							},
 						},
-					},
-				});
+					});
+				}
+				if (msg.techsUpdates) {
+					for (const u of msg.techsUpdates) {
+						dispatch({ type: 'techsUpdate', payload: u });
+					}
+				}
 			} else if (msg.action === 'liveRecommendation') {
 				if (!msg.recommendation) return;
 				dispatch({ type: 'recommendation', payload: msg.recommendation });
