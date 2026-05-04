@@ -39,16 +39,16 @@ function installChromeStubs() {
 	};
 }
 
-describe('runAsyncHandler', () => {
-	beforeEach(async () => {
-		(chrome.storage.local as unknown as { _data: Record<string, unknown> })._data = {};
-		installChromeStubs();
-		(chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>).mockImplementation(
-			async () => ({}),
-		);
-		vi.resetModules();
-	});
+beforeEach(async () => {
+	(chrome.storage.local as unknown as { _data: Record<string, unknown> })._data = {};
+	installChromeStubs();
+	(chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+		async () => ({}),
+	);
+	vi.resetModules();
+});
 
+describe('runAsyncHandler', () => {
 	test('chama sendResponse com o valor resolvido pela promise', async () => {
 		const { runAsyncHandler } = await import('../background');
 		const handler = runAsyncHandler(async () => ({ ok: true as const, sessionId: 'abc' }));
@@ -81,5 +81,31 @@ describe('runAsyncHandler', () => {
 		handler({ action: 'x' } as never, {} as never, sendResponse);
 		await new Promise((r) => setTimeout(r, 10));
 		expect(sendResponse).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('requireField', () => {
+	test('retorna o valor quando o predicado passa', async () => {
+		const { requireField } = await import('../background');
+		expect(requireField('tabId', 42, (v): v is number => typeof v === 'number')).toBe(42);
+	});
+
+	test('lança Error com mensagem padronizada quando o predicado falha', async () => {
+		const { requireField } = await import('../background');
+		expect(() => requireField('tabId', 'foo', (v): v is number => typeof v === 'number')).toThrow(
+			'tabId obrigatório',
+		);
+	});
+
+	test('lança Error com mensagem custom se fornecida', async () => {
+		const { requireField } = await import('../background');
+		expect(() =>
+			requireField(
+				'data',
+				null,
+				(v): v is string => typeof v === 'string',
+				'data ausente ou inválido',
+			),
+		).toThrow('data ausente ou inválido');
 	});
 });

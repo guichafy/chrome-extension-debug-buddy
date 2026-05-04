@@ -95,6 +95,23 @@ export function runAsyncHandler<T>(
 	};
 }
 
+/**
+ * Validador genérico pra campos de Message. Retorna o valor quando o type
+ * guard passa; senão lança Error — capturado pelo runAsyncHandler e propagado
+ * pro sender como `{ ok: false, error }`. Sem fallback silencioso.
+ */
+export function requireField<T>(
+	fieldName: string,
+	value: unknown,
+	predicate: (v: unknown) => v is T,
+	customMessage?: string,
+): T {
+	if (!predicate(value)) {
+		throw new Error(customMessage ?? `${fieldName} obrigatório`);
+	}
+	return value;
+}
+
 // Global variables
 let isDebugging = false;
 let attachedTabId: number | null = null;
@@ -1503,16 +1520,20 @@ chrome.runtime.onMessage.addListener(
 			// usuário clicar no botão Activity são perdidos. Esse handler entrega
 			// o estado acumulado pelo cache `liveSnapshotByTab` para a UI plotar
 			// no mount do `LiveInsightsPanel` antes de registrar o listener.
-			const tabId = message.tabId;
-			if (typeof tabId !== 'number') {
-				sendResponse({ ok: false, error: 'tabId obrigatório' });
-				return false;
+			try {
+				const tabId = requireField(
+					'tabId',
+					message.tabId,
+					(v): v is number => typeof v === 'number',
+				);
+				const snap = liveSnapshotByTab.get(tabId);
+				const serialized = snap
+					? serializeLiveSnapshot(snap)
+					: { detections: [], recommendations: [] };
+				sendResponse({ ok: true, liveSnapshot: serialized });
+			} catch (err) {
+				sendResponse({ ok: false, error: getErrorMessage(err) });
 			}
-			const snap = liveSnapshotByTab.get(tabId);
-			const serialized = snap
-				? serializeLiveSnapshot(snap)
-				: { detections: [], recommendations: [] };
-			sendResponse({ ok: true, liveSnapshot: serialized });
 			return false;
 		}
 
@@ -1558,15 +1579,15 @@ chrome.runtime.onMessage.addListener(
 
 		if (message.action === 'importSession') {
 			return runAsyncHandler(async (msg) => {
-				if (typeof msg.data !== 'string') {
-					// Sem fallback: transporte deve carregar base64. Mensagem mal-formada
-					// indica chamador antigo ou bug — falha visível pra UI.
-					return {
-						ok: false,
-						error: 'importSession: data ausente ou nao e string base64',
-					};
-				}
-				const buf = base64ToArrayBuffer(msg.data);
+				// Sem fallback: transporte deve carregar base64. Mensagem mal-formada
+				// indica chamador antigo ou bug — falha visível pra UI.
+				const data = requireField(
+					'data',
+					msg.data,
+					(v): v is string => typeof v === 'string',
+					'importSession: data ausente ou nao e string base64',
+				);
+				const buf = base64ToArrayBuffer(data);
 				const session = await parseDbsession(buf);
 				await sessionStore.put(session);
 				return { ok: true, sessionId: session.id };
@@ -1575,11 +1596,18 @@ chrome.runtime.onMessage.addListener(
 
 		if (message.action === 'rrwebBatch') {
 			return runAsyncHandler(async (msg) => {
-				const sid = msg.sessionId;
-				const events = msg.rrwebEvents;
-				if (!sid || !Array.isArray(events)) {
-					return { ok: false, error: 'rrwebBatch: sessionId/rrwebEvents inválidos' };
-				}
+				const sid = requireField(
+					'sessionId',
+					msg.sessionId,
+					(v): v is string => typeof v === 'string' && v.length > 0,
+					'rrwebBatch: sessionId/rrwebEvents inválidos',
+				);
+				const events = requireField(
+					'rrwebEvents',
+					msg.rrwebEvents,
+					(v): v is RrwebEvent[] => Array.isArray(v),
+					'rrwebBatch: sessionId/rrwebEvents inválidos',
+				);
 				// Validação estrutural rasa: cada item precisa ter o shape mínimo de RrwebEvent.
 				// Probe bugado ou remetente externo malicioso poderia enfiar lixo no IDB
 				// se o handler só checasse Array.isArray. No-fallbacks: rejeita o batch inteiro.
@@ -1605,10 +1633,13 @@ chrome.runtime.onMessage.addListener(
 
 		if (message.action === 'setPrivacyConfig') {
 			return runAsyncHandler(async (msg) => {
-				if (!msg.config) {
-					return { ok: false, error: 'config ausente' };
-				}
-				await setPrivacyConfig(msg.config);
+				const config = requireField(
+					'config',
+					msg.config,
+					(v): v is RedactionConfig => v != null && typeof v === 'object',
+					'config ausente',
+				);
+				await setPrivacyConfig(config);
 				await reloadPrivacyConfig();
 				return { ok: true };
 			})(message, sender, sendResponse);
@@ -1624,10 +1655,11 @@ chrome.runtime.onMessage.addListener(
 
 		if (message.action === 'setRecordingLive') {
 			return runAsyncHandler(async (msg) => {
-				if (typeof msg.tabId !== 'number') {
-					return { ok: false, error: 'tabId ausente' };
-				}
-				const targetTabId = msg.tabId;
+				const targetTabId = requireField(
+					'tabId',
+					msg.tabId,
+					(v): v is number => typeof v === 'number',
+				);
 				if (msg.active === true) {
 					// Liga gravação live: inicia sessão se interceptação rodando
 					// e ainda não há sessão pra essa tab.
