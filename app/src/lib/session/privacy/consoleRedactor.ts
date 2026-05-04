@@ -1,10 +1,6 @@
 import type { ConsoleArgPreview, RedactionConfig } from '../types';
 import { REDACTION_PLACEHOLDER } from './defaults';
-
-function compileRegexList(list: string[]): RegExp[] {
-	// Lança SyntaxError em regex inválida — sem fallback (regra do projeto).
-	return list.map((r) => new RegExp(r, 'g'));
-}
+import { compileRegexList } from './regexCompiler';
 
 /**
  * Sanitiza um array de ConsoleArgPreview substituindo matches em `description`
@@ -15,7 +11,8 @@ export function redactConsoleArgs(
 	config: RedactionConfig,
 ): ConsoleArgPreview[] {
 	if (!config.enabled || !config.consoleEnabled) return args;
-	const regexes = compileRegexList(config.consoleRegex);
+	// Flag g obrigatória — varredura completa em strings de description.
+	const regexes = compileRegexList(config.consoleRegex, 'g');
 
 	const sweep = (s: string): string => {
 		let out = s;

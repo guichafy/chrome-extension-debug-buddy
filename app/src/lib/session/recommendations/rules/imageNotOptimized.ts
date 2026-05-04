@@ -1,4 +1,5 @@
 import type { Rule, RuleDescriptor } from '../types';
+import { safeParseUrl } from '../urlHelpers';
 
 const rule: Rule = (ev) => {
 	if (ev.status !== 200) return null;
@@ -9,19 +10,15 @@ const rule: Rule = (ev) => {
 
 	const accept = ev.requestHeaders.accept ?? ev.requestHeaders.Accept ?? '';
 
-	let host: string;
-	try {
-		host = new URL(ev.url).host;
-	} catch {
-		return null;
-	}
+	const u = safeParseUrl(ev.url);
+	if (!u) return null;
 
 	return {
 		ruleId: 'image-not-optimized',
 		severity: 'info',
 		requestId: ev.requestId,
 		url: ev.url,
-		host,
+		host: u.host,
 		summary: `imagem de ${(length / 1024).toFixed(0)} KB em formato não otimizado (${ct})`,
 		evidence: {
 			'content-type': ct,
