@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'vitest';
-import type { Matcher, Rule } from '../../types/rules';
-import { explainMatchers, findMatchingRuleAction } from '../ruleMatching';
+import type { Action, Matcher, Rule, RuleStage } from '../../types/rules';
+import {
+	explainMatchers,
+	findMatchingRuleAction,
+	findMatchingRulesChain,
+	validateMatchersForStage,
+} from '../ruleMatching';
 
 const baseRule = (overrides: Partial<Rule>): Rule => ({
 	id: 'rule-1',
@@ -489,5 +494,267 @@ describe('explainMatchers', () => {
 		});
 		expect(result.overall).toBe(false);
 		expect(result.checks).toHaveLength(0);
+	});
+});
+
+const chainRule = (
+	id: string,
+	actions: Action[],
+	stage: RuleStage = 'response',
+	matchers: Matcher[] = [{ type: 'url', enabled: true, pattern: '/api', isRegex: false }],
+): Rule => ({
+	id,
+	name: id,
+	enabled: true,
+	stage,
+	matchers,
+	actions,
+	createdAt: 0,
+	updatedAt: 0,
+});
+
+describe('findMatchingRulesChain', () => {
+	test('chain vazio quando nenhuma regra casa', () => {
+		const rule = chainRule('r1', [{ type: 'breakpoint', enabled: true }]);
+		const chain = findMatchingRulesChain([rule], 'response', {
+			url: 'https://x.test/no-match',
+			method: 'GET',
+			headers: {},
+		});
+		expect(chain).toEqual([]);
+	});
+
+	test('chain inclui apenas regras do stage solicitado', () => {
+		const reqRule = chainRule(
+			'r-req',
+			[{ type: 'requestModify', enabled: true, addHeaders: { x: '1' } }],
+			'request',
+		);
+		const resRule = chainRule(
+			'r-res',
+			[{ type: 'responseModify', enabled: true, setHeaders: { y: '2' } }],
+			'response',
+		);
+		const input = { url: 'https://x.test/api', method: 'GET', headers: {} };
+		expect(
+			findMatchingRulesChain([reqRule, resRule], 'request', input).map((m) => m.rule.id),
+		).toEqual(['r-req']);
+		expect(
+			findMatchingRulesChain([reqRule, resRule], 'response', input).map((m) => m.rule.id),
+		).toEqual(['r-res']);
+	});
+
+	test('chain ordena na mesma ordem do array `rules`', () => {
+		const r1 = chainRule(
+			'r1',
+			[{ type: 'requestModify', enabled: true, addHeaders: { a: '1' } }],
+			'request',
+		);
+		const r2 = chainRule(
+			'r2',
+			[{ type: 'requestModify', enabled: true, addHeaders: { b: '2' } }],
+			'request',
+		);
+		const r3 = chainRule(
+			'r3',
+			[{ type: 'requestModify', enabled: true, addHeaders: { c: '3' } }],
+			'request',
+		);
+		const chain = findMatchingRulesChain([r1, r2, r3], 'request', {
+			url: 'https://x.test/api',
+			method: 'GET',
+			headers: {},
+		});
+		expect(chain.map((m) => m.rule.id)).toEqual(['r1', 'r2', 'r3']);
+	});
+
+	test('chain corta após regra com ação terminal (block/mock/breakpoint)', () => {
+		const modify = chainRule(
+			'r-mod',
+			[{ type: 'requestModify', enabled: true, addHeaders: { x: '1' } }],
+			'request',
+		);
+		const block = chainRule(
+			'r-block',
+			[{ type: 'block', enabled: true, errorReason: 'Failed' }],
+			'request',
+		);
+		const after = chainRule(
+			'r-after',
+			[{ type: 'requestModify', enabled: true, addHeaders: { y: '2' } }],
+			'request',
+		);
+		const chain = findMatchingRulesChain([modify, block, after], 'request', {
+			url: 'https://x.test/api',
+			method: 'GET',
+			headers: {},
+		});
+		expect(chain.map((m) => m.rule.id)).toEqual(['r-mod', 'r-block']);
+	});
+
+	test('chain ignora regras com enabled=false', () => {
+		const r1 = chainRule(
+			'r1',
+			[{ type: 'requestModify', enabled: true, addHeaders: { a: '1' } }],
+			'request',
+		);
+		const r2 = {
+			...chainRule(
+				'r2',
+				[{ type: 'requestModify', enabled: true, addHeaders: { b: '2' } }],
+				'request',
+			),
+			enabled: false,
+		};
+		const r3 = chainRule(
+			'r3',
+			[{ type: 'requestModify', enabled: true, addHeaders: { c: '3' } }],
+			'request',
+		);
+		const chain = findMatchingRulesChain([r1, r2, r3], 'request', {
+			url: 'https://x.test/api',
+			method: 'GET',
+			headers: {},
+		});
+		expect(chain.map((m) => m.rule.id)).toEqual(['r1', 'r3']);
+	});
+
+	test('chain só retorna actions enabled=true de cada regra', () => {
+		const r1 = chainRule(
+			'r1',
+			[
+				{ type: 'requestModify', enabled: false, addHeaders: { a: '1' } },
+				{ type: 'requestDelay', enabled: true, timeMs: 100 },
+			],
+			'request',
+		);
+		const chain = findMatchingRulesChain([r1], 'request', {
+			url: 'https://x.test/api',
+			method: 'GET',
+			headers: {},
+		});
+		expect(chain).toHaveLength(1);
+		expect(chain[0].actions.map((a) => a.type)).toEqual(['requestDelay']);
+	});
+
+	test('chain pula regras com matchers inválidos para o stage', () => {
+		const invalid = chainRule(
+			'r-invalid',
+			[{ type: 'requestModify', enabled: true, addHeaders: { x: '1' } }],
+			'request',
+			[
+				{ type: 'url', enabled: true, pattern: '/api', isRegex: false },
+				{
+					type: 'header',
+					enabled: true,
+					name: 'X-Foo',
+					value: 'bar',
+					headerType: 'response',
+				},
+			],
+		);
+		const chain = findMatchingRulesChain([invalid], 'request', {
+			url: 'https://x.test/api',
+			method: 'GET',
+			headers: { 'X-Foo': 'bar' },
+		});
+		expect(chain).toEqual([]);
+	});
+
+	test('matcher header.headerType=response casa em stage=response quando header presente', () => {
+		const rule = chainRule(
+			'r1',
+			[{ type: 'responseModify', enabled: true, setHeaders: { x: 'v' } }],
+			'response',
+			[
+				{
+					type: 'header',
+					enabled: true,
+					name: 'X-Foo',
+					value: 'bar',
+					headerType: 'response',
+				},
+			],
+		);
+		const chain = findMatchingRulesChain([rule], 'response', {
+			url: 'https://x.test/api',
+			method: 'GET',
+			headers: { 'X-Foo': 'bar' },
+		});
+		expect(chain).toHaveLength(1);
+	});
+
+	test('matcher body usa input.body (engine injeta postData em req, response body em res)', () => {
+		const rule = chainRule(
+			'r1',
+			[{ type: 'requestModify', enabled: true, addHeaders: { z: 'z' } }],
+			'request',
+			[
+				{ type: 'url', enabled: true, pattern: '/api', isRegex: false },
+				{ type: 'body', enabled: true, pattern: 'magic', isRegex: false },
+			],
+		);
+		const matched = findMatchingRulesChain([rule], 'request', {
+			url: 'https://x.test/api',
+			method: 'POST',
+			headers: {},
+			body: 'has magic word',
+		});
+		const unmatched = findMatchingRulesChain([rule], 'request', {
+			url: 'https://x.test/api',
+			method: 'POST',
+			headers: {},
+			body: 'no match here',
+		});
+		expect(matched).toHaveLength(1);
+		expect(unmatched).toEqual([]);
+	});
+});
+
+describe('validateMatchersForStage', () => {
+	test('ok quando todos os matchers são válidos para o stage', () => {
+		const result = validateMatchersForStage(
+			[
+				{ type: 'url', enabled: true, pattern: '/api', isRegex: false },
+				{ type: 'method', enabled: true, method: 'GET' },
+			],
+			'request',
+		);
+		expect(result).toEqual({ ok: true });
+	});
+
+	test('rejeita header.headerType=response em stage=request', () => {
+		const result = validateMatchersForStage(
+			[
+				{
+					type: 'header',
+					enabled: true,
+					name: 'X-Foo',
+					value: 'bar',
+					headerType: 'response',
+				},
+			],
+			'request',
+		);
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.errors).toHaveLength(1);
+		expect(result.errors[0].reason).toMatch(/headerType='response'/);
+	});
+
+	test('aceita header.headerType=response em stage=response', () => {
+		const result = validateMatchersForStage(
+			[
+				{
+					type: 'header',
+					enabled: true,
+					name: 'X-Foo',
+					value: 'bar',
+					headerType: 'response',
+				},
+			],
+			'response',
+		);
+		expect(result).toEqual({ ok: true });
 	});
 });
