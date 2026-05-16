@@ -1,7 +1,13 @@
 import React from 'react';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Action, BreakpointAction, DelayAction, MockAction, TransformAction } from '@/types/rules';
+import type {
+	Action,
+	BreakpointAction,
+	MockAction,
+	RequestDelayAction,
+	TransformAction,
+} from '@/types/rules';
 import { TransformActionEditor } from './TransformActionEditor';
 import { DelayActionEditor } from './DelayActionEditor';
 import { MockActionEditor } from './MockActionEditor';
@@ -17,14 +23,25 @@ interface ActionEditorProps {
 	samplePayload?: string;
 }
 
+// Editores para os novos tipos `requestModify`/`responseModify`/`block` ainda
+// não existem em Phase 1 — serão entregues em Phase 4. Renderizamos placeholder
+// para manter o UI funcional enquanto schema/engine recebem suporte.
+function PlaceholderEditor({ kind }: { kind: string }) {
+	return (
+		<div className="rounded-md border border-dashed border-muted-foreground/30 p-4 text-sm text-muted-foreground">
+			Editor de <strong>{kind}</strong> será implementado em Phase 4 (UI dual-stage).
+		</div>
+	);
+}
+
 export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange, samplePayload }) => {
 	// Renderizar editor específico para cada tipo de ação
 	const renderActionEditor = () => {
 		switch (action.type) {
 			case 'mock':
 				return <MockActionEditor action={action as MockAction} onChange={onChange} />;
-			case 'delay':
-				return <DelayActionEditor action={action as DelayAction} onChange={onChange} />;
+			case 'requestDelay':
+				return <DelayActionEditor action={action as RequestDelayAction} onChange={onChange} />;
 			case 'transform':
 				return (
 					<TransformActionEditor
@@ -35,6 +52,12 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange, sa
 				);
 			case 'breakpoint':
 				return renderBreakpointActionEditor(action as BreakpointAction);
+			case 'requestModify':
+				return <PlaceholderEditor kind="Request Modify" />;
+			case 'responseModify':
+				return <PlaceholderEditor kind="Response Modify" />;
+			case 'block':
+				return <PlaceholderEditor kind="Block / Fail Request" />;
 			default:
 				return null;
 		}

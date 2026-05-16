@@ -46,9 +46,13 @@ export function RuleTableRow({
 	draggingId,
 	onMove,
 }: RuleTableRowProps) {
-	const visuals = getActionVisuals(rule.action);
+	// Phase 1 (compat): exibe a primeira action como "head" do chain. Phase 4
+	// substituirá por visualização da chain completa quando houver múltiplas
+	// actions na mesma regra.
+	const headAction = rule.actions[0];
+	const visuals = getActionVisuals(headAction);
 	const matchSummary = getMatcherSummary(rule.matchers);
-	const thenSummary = getActionSummary(rule.action);
+	const thenSummary = getActionSummary(headAction);
 	const updatedAt = dateFormatter.format(new Date(rule.updatedAt));
 
 	const [dropPosition, setDropPosition] = useState<'before' | 'after' | null>(null);

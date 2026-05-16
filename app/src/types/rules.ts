@@ -1,4 +1,9 @@
-// Tipos para o sistema de regras
+// Tipos para o sistema de regras (schema dual-stage Request/Response)
+
+// Estágio em que a regra atua. Request stage roda antes da requisição sair
+// para a rede; Response stage roda depois da resposta chegar do servidor.
+// Cada regra opera em UM stage só — se precisa agir nos dois, cria duas regras.
+export type RuleStage = 'request' | 'response';
 
 // Tipos de matchers disponíveis
 export type MatcherType = 'url' | 'method' | 'header' | 'body';
@@ -31,7 +36,10 @@ export interface HeaderMatcher extends BaseMatcher {
 	headerType: 'request' | 'response';
 }
 
-// Matcher para corpo da requisição/resposta
+// Matcher para corpo da requisição/resposta. O alvo do `pattern` é
+// stage-dependent — em regras `stage='request'` casa contra o `postData`
+// enviado pelo cliente; em `stage='response'` casa contra o body retornado
+// pelo servidor.
 export interface BodyMatcher extends BaseMatcher {
 	type: 'body';
 	pattern: string;
@@ -42,8 +50,17 @@ export interface BodyMatcher extends BaseMatcher {
 // União de todos os tipos de matchers
 export type Matcher = UrlMatcher | MethodMatcher | HeaderMatcher | BodyMatcher;
 
-// Tipos de ações disponíveis
-export type ActionType = 'mock' | 'delay' | 'transform' | 'breakpoint';
+// Tipos de ações disponíveis. Algumas são exclusivas de um stage.
+// Modificadores: requestModify, responseModify, requestDelay, transform (response).
+// Terminais (interrompem a chain após executar): mock, block, breakpoint.
+export type ActionType =
+	| 'requestModify'
+	| 'responseModify'
+	| 'requestDelay'
+	| 'transform'
+	| 'mock'
+	| 'block'
+	| 'breakpoint';
 
 // Interface base para todas as ações
 export interface BaseAction {
@@ -51,42 +68,11 @@ export interface BaseAction {
 	enabled: boolean;
 }
 
-export type MockLatency =
-	| {
-			mode: 'fixed';
-			delayMs: number;
-	  }
-	| {
-			mode: 'range';
-			minMs: number;
-			maxMs: number;
-	  };
-
-// Ação para retornar uma resposta mockada
-export interface MockAction extends BaseAction {
-	type: 'mock';
-	status: number;
-	statusPhrase?: string;
-	headers: Record<string, string>;
-	body?: string;
-	contentType?: string;
-	latency?: MockLatency;
-}
-
-// Ação para adicionar um delay na resposta
-export interface DelayAction extends BaseAction {
-	type: 'delay';
-	timeMs: number;
-}
-
-// Tipos de operações declarativas aplicadas pela ação Transform sobre o body
-// JSON da resposta. Cada operação navega o documento via JSONPath subset
-// (`$`, `.name`, `['name']`, `[N]`) e altera, remove ou substitui valores.
+// Operação declarativa sobre body. JSONPath subset igual ao Transform atual.
+// Aplica-se via TransformOperation[] em bodyOperations dos modify-actions e
+// no `operations` do TransformAction.
 export type TransformOperationType = 'add' | 'remove' | 'replace';
 
-// Operação declarativa aplicada à resposta JSON. `value` é uma string contendo
-// JSON literal — strings devem vir entre aspas (ex.: `"hello"`), objetos e
-// arrays como JSON válido. Operações `remove` ignoram `value`.
 export interface TransformOperation {
 	id: string;
 	type: TransformOperationType;
@@ -95,10 +81,62 @@ export interface TransformOperation {
 }
 
 // Modo do editor de Transform. `declarative` usa `operations`; `advanced` usa
-// `advancedScript` (US-017, ainda não implementado pelo runtime).
+// `advancedScript`.
 export type TransformMode = 'declarative' | 'advanced';
 
-// Ação para transformar a resposta (chama o servidor remoto e modifica o resultado)
+// errorReason aceito pelo CDP Fetch.failRequest. Subset curado pra UX —
+// outros valores como BlockedByResponse não fazem sentido pré-envio.
+export type BlockErrorReason =
+	| 'Failed'
+	| 'Aborted'
+	| 'TimedOut'
+	| 'AccessDenied'
+	| 'ConnectionFailed'
+	| 'ConnectionRefused'
+	| 'NameNotResolved'
+	| 'BlockedByClient'
+	| 'InternetDisconnected';
+
+// Operações de headers nas ações de modify. Engine compõe a lista final
+// aplicando, em ordem: removeHeaders, setHeaders, addHeaders.
+// - setHeaders: substitui valor (cria se não existe)
+// - addHeaders: adiciona somente se ainda não existe (case-insensitive)
+// - removeHeaders: remove o header pelo nome (case-insensitive)
+export interface HeaderOps {
+	setHeaders?: Record<string, string>;
+	addHeaders?: Record<string, string>;
+	removeHeaders?: string[];
+}
+
+// Modificador no Request stage. Altera campos da requisição em voo antes do
+// envio ao destino. `body` e `bodyOperations` são mutuamente exclusivos.
+export interface RequestModifyAction extends BaseAction, HeaderOps {
+	type: 'requestModify';
+	url?: string;
+	method?: string;
+	body?: string;
+	bodyOperations?: TransformOperation[];
+}
+
+// Modificador no Response stage. Altera campos da resposta em voo antes do
+// retorno ao browser. `body` e `bodyOperations` são mutuamente exclusivos.
+export interface ResponseModifyAction extends BaseAction, HeaderOps {
+	type: 'responseModify';
+	status?: number;
+	statusPhrase?: string;
+	body?: string;
+	bodyOperations?: TransformOperation[];
+}
+
+// Modificador: atrasa a requisição N ms antes de continuar o chain. Não é
+// terminal — a chain segue após o wait. Só faz sentido em stage='request'.
+export interface RequestDelayAction extends BaseAction {
+	type: 'requestDelay';
+	timeMs: number;
+}
+
+// Modificador: chama o servidor remoto e modifica o resultado antes de
+// devolver ao browser. Só faz sentido em stage='response'.
 export interface TransformAction extends BaseAction {
 	type: 'transform';
 	status?: number;
@@ -110,22 +148,92 @@ export interface TransformAction extends BaseAction {
 	advancedScript?: string;
 }
 
-// Ação para pausar a requisição e aguardar interação do usuário
-export interface BreakpointAction extends BaseAction {
-	type: 'breakpoint';
-	description?: string; // Descrição opcional para o usuário
+// Terminal: substitui a resposta inteira sem chamar a rede (stage='request')
+// ou após receber a resposta original (stage='response'). Mock NÃO tem mais
+// latency — quem quiser mock atrasado encadeia [requestDelay, mock] no array
+// de actions da regra.
+export interface MockAction extends BaseAction {
+	type: 'mock';
+	status: number;
+	statusPhrase?: string;
+	headers: Record<string, string>;
+	body?: string;
+	contentType?: string;
 }
 
-// União de todos os tipos de ações
-export type Action = MockAction | DelayAction | TransformAction | BreakpointAction;
+// Terminal: falha a requisição antes de sair pra rede. Só faz sentido em
+// stage='request'.
+export interface BlockAction extends BaseAction {
+	type: 'block';
+	errorReason: BlockErrorReason;
+}
 
-// Interface para uma regra completa
+// Terminal: pausa a requisição e aguarda interação manual do usuário.
+// Em stage='request' abre EditRequestSheet (edita URL/method/headers/body
+// antes do envio). Em stage='response' abre EditResponseSheet
+// (edita status/headers/body antes do retorno).
+export interface BreakpointAction extends BaseAction {
+	type: 'breakpoint';
+	description?: string;
+}
+
+// União discriminada de todos os tipos de ações
+export type Action =
+	| RequestModifyAction
+	| ResponseModifyAction
+	| RequestDelayAction
+	| TransformAction
+	| MockAction
+	| BlockAction
+	| BreakpointAction;
+
+// Helper: ação é terminal? Terminais interrompem a chain após executar.
+export function isTerminalAction(action: Action): boolean {
+	return action.type === 'mock' || action.type === 'block' || action.type === 'breakpoint';
+}
+
+// Tabela de validade ação×stage. Mock/Breakpoint são válidos em ambos os
+// stages porque compartilham o tipo e o `rule.stage` decide o pipeline.
+export const REQUEST_STAGE_ACTIONS: readonly ActionType[] = [
+	'requestModify',
+	'requestDelay',
+	'mock',
+	'block',
+	'breakpoint',
+];
+
+export const RESPONSE_STAGE_ACTIONS: readonly ActionType[] = [
+	'responseModify',
+	'transform',
+	'mock',
+	'breakpoint',
+];
+
+export function isActionValidForStage(actionType: ActionType, stage: RuleStage): boolean {
+	if (stage === 'request') return REQUEST_STAGE_ACTIONS.includes(actionType);
+	return RESPONSE_STAGE_ACTIONS.includes(actionType);
+}
+
+// Helper: matcher é válido neste stage? `header.headerType='response'` só faz
+// sentido em regras response (no Request stage não há headers de resposta
+// ainda). Body matcher é stage-aware no engine (vê postData ou response body).
+export function isMatcherValidForStage(matcher: Matcher, stage: RuleStage): boolean {
+	if (matcher.type === 'header' && matcher.headerType === 'response') {
+		return stage === 'response';
+	}
+	return true;
+}
+
+// Interface para uma regra completa. Múltiplas ações executam em ordem;
+// uma ação terminal interrompe a chain (e bloqueia inserção de novas ações
+// abaixo dela na UI).
 export interface Rule {
 	id: string;
 	name: string;
 	enabled: boolean;
+	stage: RuleStage;
 	matchers: Matcher[];
-	action: Action;
+	actions: Action[];
 	createdAt: number;
 	updatedAt: number;
 }

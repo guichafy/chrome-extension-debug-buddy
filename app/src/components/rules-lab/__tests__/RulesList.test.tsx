@@ -8,8 +8,9 @@ function makeRule(i: number, overrides: Partial<Rule> = {}): Rule {
 		id: `r${i}`,
 		name: `Regra ${i}`,
 		enabled: true,
+		stage: 'response',
 		matchers: [{ type: 'url', enabled: true, pattern: `/api/${i}`, isRegex: false }],
-		action: { type: 'mock', enabled: true, status: 200, headers: {} },
+		actions: [{ type: 'mock', enabled: true, status: 200, headers: {} }],
 		createdAt: 0,
 		updatedAt: 0,
 		...overrides,
@@ -73,10 +74,13 @@ describe('RulesList', () => {
 
 	test('badge de tipo aparece na coluna Tipo com label do tipo', () => {
 		const rules = [
-			makeRule(1, { action: { type: 'mock', enabled: true, status: 200, headers: {} } }),
-			makeRule(2, { action: { type: 'delay', enabled: true, timeMs: 500 } }),
-			makeRule(3, { action: { type: 'transform', enabled: true } }),
-			makeRule(4, { action: { type: 'breakpoint', enabled: true } }),
+			makeRule(1, { actions: [{ type: 'mock', enabled: true, status: 200, headers: {} }] }),
+			makeRule(2, {
+				stage: 'request',
+				actions: [{ type: 'requestDelay', enabled: true, timeMs: 500 }],
+			}),
+			makeRule(3, { actions: [{ type: 'transform', enabled: true }] }),
+			makeRule(4, { actions: [{ type: 'breakpoint', enabled: true }] }),
 		];
 		render(
 			<RulesList rules={rules} totalCount={4} orderById={makeOrderById(rules)} {...callbacks} />,

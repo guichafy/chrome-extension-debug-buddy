@@ -4,17 +4,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LucideIcon } from '@/components/ui/lucide-icon';
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import type { MockAction, MockLatency } from '@/types/rules';
+import type { MockAction } from '@/types/rules';
 
 interface MockActionEditorProps {
 	action: MockAction;
@@ -45,14 +38,6 @@ const isValidStatusString = (value: string): boolean => {
 	return Number.isInteger(parsed) && parsed >= 100 && parsed <= 599;
 };
 
-const parseLatencyValue = (value: string): number | null => {
-	const trimmed = value.trim();
-	if (trimmed.length === 0) return null;
-	if (!/^\d+$/.test(trimmed)) return null;
-	const parsed = Number.parseInt(trimmed, 10);
-	return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
-};
-
 type JsonValidation = { kind: 'empty' } | { kind: 'valid' } | { kind: 'invalid'; message: string };
 
 const validateJson = (raw: string): JsonValidation => {
@@ -79,7 +64,6 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 	}, [action.status]);
 
 	const hasBody = action.body !== undefined;
-	const latencyMode = action.latency?.mode ?? 'none';
 
 	const bodyValidation = useMemo<JsonValidation>(() => {
 		if (!hasBody) return { kind: 'empty' };
@@ -185,10 +169,6 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 		onChange({ ...action, headers: newHeaders });
 	};
 
-	const updateLatency = (latency?: MockLatency) => {
-		onChange({ ...action, latency });
-	};
-
 	const renderBodyValidation = (): React.ReactNode => {
 		if (!hasBody) return null;
 		if (bodyValidation.kind === 'empty') {
@@ -235,9 +215,6 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 					</TabsTrigger>
 					<TabsTrigger value="body" className="flex-1">
 						Body
-					</TabsTrigger>
-					<TabsTrigger value="latency" className="flex-1">
-						Latência
 					</TabsTrigger>
 				</TabsList>
 
@@ -453,96 +430,6 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 							</p>
 						)}
 					</div>
-				</TabsContent>
-
-				<TabsContent value="latency" className="space-y-4">
-					<div>
-						<Label>Latência artificial</Label>
-						<Select
-							value={latencyMode}
-							onValueChange={(value: 'none' | 'fixed' | 'range') => {
-								if (value === 'none') {
-									updateLatency();
-								} else if (value === 'fixed') {
-									const delayMs = action.latency?.mode === 'fixed' ? action.latency.delayMs : 0;
-									updateLatency({ mode: 'fixed', delayMs });
-								} else {
-									const previousDelay =
-										action.latency?.mode === 'fixed' ? action.latency.delayMs : 0;
-									const minMs =
-										action.latency?.mode === 'range' ? action.latency.minMs : previousDelay;
-									const maxMs =
-										action.latency?.mode === 'range' ? action.latency.maxMs : previousDelay;
-									updateLatency({ mode: 'range', minMs, maxMs });
-								}
-							}}
-						>
-							<SelectTrigger data-testid="mock-action-latency-mode">
-								<SelectValue placeholder="Selecione a latência" />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value="none">Sem latência artificial</SelectItem>
-								<SelectItem value="fixed">Fixa</SelectItem>
-								<SelectItem value="range">Range dinâmico</SelectItem>
-							</SelectContent>
-						</Select>
-					</div>
-
-					{action.latency?.mode === 'fixed' && (
-						<div>
-							<Label htmlFor="mock-action-latency-delay">Delay em ms</Label>
-							<Input
-								id="mock-action-latency-delay"
-								data-testid="mock-action-latency-delay"
-								type="number"
-								min={0}
-								value={action.latency.delayMs}
-								onChange={(e) => {
-									const delayMs = parseLatencyValue(e.target.value);
-									if (delayMs !== null) {
-										updateLatency({ mode: 'fixed', delayMs });
-									}
-								}}
-							/>
-						</div>
-					)}
-
-					{action.latency?.mode === 'range' && (
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div>
-								<Label htmlFor="mock-action-latency-min">Delay mínimo em ms</Label>
-								<Input
-									id="mock-action-latency-min"
-									data-testid="mock-action-latency-min"
-									type="number"
-									min={0}
-									value={action.latency.minMs}
-									onChange={(e) => {
-										const minMs = parseLatencyValue(e.target.value);
-										if (minMs !== null && action.latency?.mode === 'range') {
-											updateLatency({ ...action.latency, minMs });
-										}
-									}}
-								/>
-							</div>
-							<div>
-								<Label htmlFor="mock-action-latency-max">Delay máximo em ms</Label>
-								<Input
-									id="mock-action-latency-max"
-									data-testid="mock-action-latency-max"
-									type="number"
-									min={0}
-									value={action.latency.maxMs}
-									onChange={(e) => {
-										const maxMs = parseLatencyValue(e.target.value);
-										if (maxMs !== null && action.latency?.mode === 'range') {
-											updateLatency({ ...action.latency, maxMs });
-										}
-									}}
-								/>
-							</div>
-						</div>
-					)}
 				</TabsContent>
 			</Tabs>
 		</div>

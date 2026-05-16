@@ -1,11 +1,10 @@
-import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { DelayActionEditor } from '../DelayActionEditor';
-import type { DelayAction } from '@/types/rules';
+import type { RequestDelayAction } from '@/types/rules';
 
-const baseAction = (timeMs: number): DelayAction => ({
-	type: 'delay',
+const baseAction = (timeMs: number): RequestDelayAction => ({
+	type: 'requestDelay',
 	enabled: true,
 	timeMs,
 });
@@ -20,14 +19,14 @@ describe('DelayActionEditor — entrada numérica', () => {
 		const onChange = vi.fn();
 		render(<DelayActionEditor action={baseAction(0)} onChange={onChange} />);
 		fireEvent.change(screen.getByTestId('delay-action-time-input'), { target: { value: '750' } });
-		expect(onChange).toHaveBeenCalledWith({ type: 'delay', enabled: true, timeMs: 750 });
+		expect(onChange).toHaveBeenCalledWith({ type: 'requestDelay', enabled: true, timeMs: 750 });
 	});
 
 	it('aceita 0 como valor válido', () => {
 		const onChange = vi.fn();
 		render(<DelayActionEditor action={baseAction(1000)} onChange={onChange} />);
 		fireEvent.change(screen.getByTestId('delay-action-time-input'), { target: { value: '0' } });
-		expect(onChange).toHaveBeenCalledWith({ type: 'delay', enabled: true, timeMs: 0 });
+		expect(onChange).toHaveBeenCalledWith({ type: 'requestDelay', enabled: true, timeMs: 0 });
 	});
 });
 
@@ -83,7 +82,7 @@ describe('DelayActionEditor — presets clicáveis', () => {
 		const onChange = vi.fn();
 		render(<DelayActionEditor action={baseAction(1000)} onChange={onChange} />);
 		fireEvent.click(screen.getByTestId('delay-action-preset-3000'));
-		expect(onChange).toHaveBeenCalledWith({ type: 'delay', enabled: true, timeMs: 3000 });
+		expect(onChange).toHaveBeenCalledWith({ type: 'requestDelay', enabled: true, timeMs: 3000 });
 	});
 
 	it('preset selecionado é destacado via aria-pressed/data-selected', () => {
@@ -104,7 +103,7 @@ describe('DelayActionEditor — presets clicáveis', () => {
 		expect(screen.getByTestId('delay-action-error')).toBeInTheDocument();
 		fireEvent.click(screen.getByTestId('delay-action-preset-500'));
 		expect(screen.queryByTestId('delay-action-error')).toBeNull();
-		expect(onChange).toHaveBeenLastCalledWith({ type: 'delay', enabled: true, timeMs: 500 });
+		expect(onChange).toHaveBeenLastCalledWith({ type: 'requestDelay', enabled: true, timeMs: 500 });
 	});
 });
 

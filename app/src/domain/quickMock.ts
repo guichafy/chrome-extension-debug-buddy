@@ -1,11 +1,12 @@
 import type { InterceptedResponse } from '@/types/intercepted';
 import type {
-	ActionType,
 	Action,
+	ActionType,
 	HeaderMatcher,
 	Matcher,
 	MockAction,
 	RuleDraft,
+	RuleStage,
 } from '@/types/rules';
 
 export interface QuickMockHeaderSelection {
@@ -31,11 +32,28 @@ export type BuildRuleDraftResult =
 	| { ok: true; draft: RuleDraft }
 	| { ok: false; error: QuickMockError };
 
-const NAME_PREFIX_BY_TYPE: Record<ActionType, string> = {
+// Subset de ActionType que o Quick Mock oferece como ponto de partida ao
+// transformar uma request real em regra. Não inclui `requestModify`/
+// `responseModify`/`block` — esses são criados manualmente via wizard.
+export type QuickMockActionType = 'mock' | 'breakpoint' | 'transform' | 'requestDelay';
+
+const NAME_PREFIX_BY_TYPE: Record<QuickMockActionType, string> = {
 	mock: 'Mock',
 	breakpoint: 'Breakpoint',
 	transform: 'Transform',
-	delay: 'Latência',
+	requestDelay: 'Latência',
+};
+
+// Stage natural de cada tipo no fluxo Quick Mock. Mock substitui a resposta
+// (Response stage é o uso mais comum a partir de uma request capturada — o
+// usuário viu o body real e quer reusar como mock). Transform precisa do
+// body real (Response). Breakpoint pós-rede também faz sentido como default
+// quando o usuário pega uma request existente. RequestDelay é o único pré-rede.
+const STAGE_BY_TYPE: Record<QuickMockActionType, RuleStage> = {
+	mock: 'response',
+	breakpoint: 'response',
+	transform: 'response',
+	requestDelay: 'request',
 };
 
 function urlPattern(rawUrl: string, includeQueryString: boolean): string {
@@ -67,7 +85,7 @@ function buildMockAction(request: InterceptedResponse): MockAction {
 	};
 }
 
-function buildActionForType(type: ActionType, request: InterceptedResponse): Action {
+function buildActionForType(type: QuickMockActionType, request: InterceptedResponse): Action {
 	switch (type) {
 		case 'mock':
 			return buildMockAction(request);
@@ -75,13 +93,19 @@ function buildActionForType(type: ActionType, request: InterceptedResponse): Act
 			return { type: 'breakpoint', enabled: true, description: '' };
 		case 'transform':
 			return { type: 'transform', enabled: true, mode: 'declarative', operations: [] };
-		case 'delay':
-			return { type: 'delay', enabled: true, timeMs: 1000 };
+		case 'requestDelay':
+			return { type: 'requestDelay', enabled: true, timeMs: 1000 };
 		default: {
 			const exhaustive: never = type;
 			throw new Error(`Tipo de ação não suportado: ${String(exhaustive)}`);
 		}
 	}
+}
+
+function isQuickMockActionType(type: ActionType): type is QuickMockActionType {
+	return (
+		type === 'mock' || type === 'breakpoint' || type === 'transform' || type === 'requestDelay'
+	);
 }
 
 export function buildRuleDraftFromRequest(
@@ -100,6 +124,15 @@ export function buildRuleDraftFromRequest(
 			error: {
 				code: 'method_missing',
 				message: 'Não é possível criar regra sem o método HTTP original.',
+			},
+		};
+	}
+	if (!isQuickMockActionType(options.type)) {
+		return {
+			ok: false,
+			error: {
+				code: 'method_missing',
+				message: `Quick Mock não suporta o tipo de ação '${options.type}'.`,
 			},
 		};
 	}
@@ -132,12 +165,14 @@ export function buildRuleDraftFromRequest(
 	}
 
 	const action = buildActionForType(options.type, request);
+	const stage = STAGE_BY_TYPE[options.type];
 
 	const draft: RuleDraft = {
 		name: `${NAME_PREFIX_BY_TYPE[options.type]} para ${pattern}`,
 		enabled: true,
+		stage,
 		matchers,
-		action,
+		actions: [action],
 	};
 
 	return { ok: true, draft };

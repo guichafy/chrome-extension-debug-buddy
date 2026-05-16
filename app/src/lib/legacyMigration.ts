@@ -1,4 +1,4 @@
-import type { Rule } from '../types/rules';
+import type { Action, Rule } from '../types/rules';
 import type { MockConfig, UrlPattern } from '../types/legacy';
 
 /**
@@ -25,29 +25,17 @@ export interface MigrationOutput {
 }
 
 /**
- * Renomeia in-place o tipo legado `modify` para `transform` em uma regra.
- * Decisão de design (US-001): a migração é destrutiva — não há leitura dupla
- * em runtime nem backup deste valor (diferente de legacy_backup_v1).
+ * Phase 1 (dual-stage): a renomeação `modify` → `transform` foi feita há
+ * muito; manter o helper como no-op preserva o contrato público enquanto a
+ * Phase 9 cuida do wipe v1→v2 (breaking change). Retornamos as regras como
+ * vieram, sem tentar inferir transforms.
  */
-function renameLegacyModifyAction(rule: Rule): Rule {
-	const action = rule.action as { type: string } & Rule['action'];
-	if (action.type !== ('modify' as string)) return rule;
-	return {
-		...rule,
-		action: { ...action, type: 'transform' } as Rule['action'],
-	};
+function ensureRuleShape(rule: Rule): Rule {
+	return rule;
 }
 
 export function renameModifyToTransform(rules: Rule[]): { rules: Rule[]; renamed: number } {
-	let renamed = 0;
-	const out = rules.map((r) => {
-		if ((r.action as { type: string }).type === 'modify') {
-			renamed += 1;
-			return renameLegacyModifyAction(r);
-		}
-		return r;
-	});
-	return { rules: out, renamed };
+	return { rules, renamed: 0 };
 }
 
 /**
@@ -56,17 +44,17 @@ export function renameModifyToTransform(rules: Rule[]): { rules: Rule[]; renamed
  *
  * Esta função NÃO toca em chrome.storage — recebe entrada e devolve saída.
  * O runner em runLegacyMigration() lida com I/O e idempotência.
+ *
+ * Phase 1 (dual-stage): regras geradas a partir de urlPatterns/mocks legados
+ * (v0.x) nascem no schema v2 (`stage` + `actions[]`). Breakpoints e mocks
+ * vão para `stage='response'` (comportamento histórico).
  */
 export function convertLegacyStorage(
 	input: MigrationInput,
 	now: number = Date.now(),
 	idGenerator: () => string = () => crypto.randomUUID(),
 ): MigrationOutput {
-	const rawExisting = input.rules ?? [];
-	const existingHadModify = rawExisting.some(
-		(r) => (r.action as { type: string }).type === 'modify',
-	);
-	const existingRules = rawExisting.map(renameLegacyModifyAction);
+	const existingRules = (input.rules ?? []).map(ensureRuleShape);
 	const newRules: Rule[] = [];
 
 	const legacyUrlPatterns = input.urlPatterns ?? [];
@@ -81,11 +69,12 @@ export function convertLegacyStorage(
 			id: idGenerator(),
 			name: pattern,
 			enabled,
+			stage: 'response',
 			matchers: [
 				{ type: 'url', enabled: true, pattern, isRegex },
 				...(method ? [{ type: 'method' as const, enabled: true, method }] : []),
 			],
-			action: { type: 'breakpoint', enabled: true },
+			actions: [{ type: 'breakpoint', enabled: true }],
 			createdAt: now,
 			updatedAt: now,
 		});
@@ -96,7 +85,7 @@ export function convertLegacyStorage(
 		if (!mock.urlPattern) continue;
 		const headers = mock.headers ?? {};
 		const contentType = headers['Content-Type'] ?? headers['content-type'];
-		const action: Rule['action'] = {
+		const action: Action = {
 			type: 'mock',
 			enabled: true,
 			status: mock.status,
@@ -108,11 +97,12 @@ export function convertLegacyStorage(
 			id: idGenerator(),
 			name: mock.urlPattern,
 			enabled: mock.enabled !== false,
+			stage: 'response',
 			matchers: [
 				{ type: 'url', enabled: true, pattern: mock.urlPattern, isRegex: false },
 				...(mock.method ? [{ type: 'method' as const, enabled: true, method: mock.method }] : []),
 			],
-			action,
+			actions: [action],
 			createdAt: mock.createdAt ?? now,
 			updatedAt: now,
 		});
@@ -120,8 +110,7 @@ export function convertLegacyStorage(
 
 	return {
 		rules: [...existingRules, ...newRules],
-		hadLegacyData:
-			legacyUrlPatterns.length > 0 || legacyMocks.length > 0 || existingHadModify,
+		hadLegacyData: legacyUrlPatterns.length > 0 || legacyMocks.length > 0,
 	};
 }
 
@@ -222,35 +211,19 @@ export async function runEnabledBackfillMigration(): Promise<{
 }
 
 /**
- * Runner stateful para a renomeação de `modify` → `transform` (US-001).
- * Rodado independentemente da `runLegacyMigration` para cobrir usuários que
- * já migraram do schema antigo mas ainda têm regras com `type: 'modify'`.
- * Idempotente via `modify_to_transform_migrated_at`.
+ * No-op em Phase 1 (dual-stage): a migração `modify` → `transform` foi feita
+ * há muito e o schema v2 não tem mais `Rule.action`. Mantemos o runner com
+ * mesma assinatura para não quebrar callers existentes (Phase 9 removerá).
  */
 export async function runModifyToTransformMigration(): Promise<{
 	migrated: boolean;
 	reason?: string;
 	renamed?: number;
 }> {
-	const stored = await chrome.storage.local.get(['rules', 'modify_to_transform_migrated_at']);
-
+	const stored = await chrome.storage.local.get(['modify_to_transform_migrated_at']);
 	if (stored.modify_to_transform_migrated_at) {
 		return { migrated: false, reason: 'already_migrated' };
 	}
-
-	const rules: Rule[] = Array.isArray(stored.rules) ? stored.rules : [];
-	const { rules: nextRules, renamed } = renameModifyToTransform(rules);
-
-	if (renamed === 0) {
-		await chrome.storage.local.set({ modify_to_transform_migrated_at: Date.now() });
-		return { migrated: false, reason: 'no_modify_rules' };
-	}
-
-	await chrome.storage.local.set({
-		rules: nextRules,
-		modify_to_transform_migrated_at: Date.now(),
-	});
-
-	console.log(`[legacyMigration] Renamed ${renamed} modify → transform rules.`);
-	return { migrated: true, renamed };
+	await chrome.storage.local.set({ modify_to_transform_migrated_at: Date.now() });
+	return { migrated: false, reason: 'noop_in_v2_schema' };
 }

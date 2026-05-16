@@ -132,7 +132,7 @@ describe('RequestInspector', () => {
 		['mock', 'Mock'],
 		['breakpoint', 'Breakpoint'],
 		['transform', 'Transform'],
-		['delay', 'Latência'],
+		['requestDelay', 'Latência'],
 	] as const)('item "%s" do dropdown chama onCreateRule com type=%s', async (type, label) => {
 		const onCreateRule = vi.fn();
 		render(
@@ -206,18 +206,21 @@ describe('RequestInspector', () => {
 			id: 'r-mock',
 			name: 'Mock teste',
 			enabled: true,
+			stage: 'response',
 			matchers: [
 				{ type: 'url', enabled: true, pattern: 'api.example.com/users', isRegex: false },
 				{ type: 'method', enabled: true, method: 'GET' },
 			],
-			action: {
-				type: 'mock',
-				enabled: true,
-				status: 503,
-				statusPhrase: 'Service Unavailable',
-				headers: {},
-				body: '{"err":"x"}',
-			},
+			actions: [
+				{
+					type: 'mock',
+					enabled: true,
+					status: 503,
+					statusPhrase: 'Service Unavailable',
+					headers: {},
+					body: '{"err":"x"}',
+				},
+			],
 			createdAt: 1,
 			updatedAt: 1,
 		} as any;
@@ -249,15 +252,18 @@ describe('RequestInspector', () => {
 			id: 'r-bp',
 			name: 'Pausar autenticação',
 			enabled: true,
+			stage: 'response',
 			matchers: [
 				{ type: 'url', enabled: true, pattern: 'api.example.com/users', isRegex: false },
 				{ type: 'method', enabled: true, method: 'GET' },
 			],
-			action: {
-				type: 'breakpoint',
-				enabled: true,
-				description: 'Verificar token de autenticação antes de continuar',
-			},
+			actions: [
+				{
+					type: 'breakpoint',
+					enabled: true,
+					description: 'Verificar token de autenticação antes de continuar',
+				},
+			],
 			createdAt: 1,
 			updatedAt: 1,
 		} as any;
@@ -281,11 +287,12 @@ describe('RequestInspector', () => {
 			id: 'r-bp',
 			name: 'Sem descrição',
 			enabled: true,
+			stage: 'response',
 			matchers: [
 				{ type: 'url', enabled: true, pattern: 'api.example.com/users', isRegex: false },
 				{ type: 'method', enabled: true, method: 'GET' },
 			],
-			action: { type: 'breakpoint', enabled: true },
+			actions: [{ type: 'breakpoint', enabled: true }],
 			createdAt: 1,
 			updatedAt: 1,
 		} as any;
@@ -305,11 +312,12 @@ describe('RequestInspector', () => {
 			id: 'r-bp',
 			name: 'Com descrição',
 			enabled: true,
+			stage: 'response',
 			matchers: [
 				{ type: 'url', enabled: true, pattern: 'api.example.com/users', isRegex: false },
 				{ type: 'method', enabled: true, method: 'GET' },
 			],
-			action: { type: 'breakpoint', enabled: true, description: 'desc' },
+			actions: [{ type: 'breakpoint', enabled: true, description: 'desc' }],
 			createdAt: 1,
 			updatedAt: 1,
 		} as any;

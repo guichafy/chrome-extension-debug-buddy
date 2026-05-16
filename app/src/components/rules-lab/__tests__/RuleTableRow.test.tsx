@@ -8,11 +8,12 @@ const baseRule: Rule = {
 	id: 'r1',
 	name: 'Pokemon',
 	enabled: true,
+	stage: 'response',
 	matchers: [
 		{ type: 'url', enabled: true, pattern: '.*kalos', isRegex: true },
 		{ type: 'method', enabled: true, method: 'GET' },
 	],
-	action: { type: 'mock', enabled: true, status: 500, headers: {} },
+	actions: [{ type: 'mock', enabled: true, status: 500, headers: {} }],
 	createdAt: 0,
 	updatedAt: Date.parse('2026-04-29T12:00:00Z'),
 };

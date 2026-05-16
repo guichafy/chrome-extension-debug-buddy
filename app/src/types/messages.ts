@@ -19,12 +19,21 @@ export type MessageAction =
 	| 'stopDebugging'
 	| 'getDebuggingStatus'
 	| 'getPendingResponses'
+	// Phase 5 (dual-stage): fila unificada substitui pendingResponses.
+	// Mantemos as duas durante a transição; getPendingResponses some quando
+	// Phase 5 portar todos os consumidores.
+	| 'getPendingInterceptions'
 	| 'getAllRequests'
 	| 'clearAllRequests'
 	| 'getResponseDetails'
 	| 'approveResponse'
 	| 'approveResponseWithEdit'
+	// Phase 5: aprovação genérica que funciona para Request e Response stages.
+	| 'approveInterception'
+	| 'approveInterceptionWithEdit'
 	| 'newPendingResponse'
+	// Phase 5: notificação genérica de interceptação pendente (qualquer stage).
+	| 'newPendingInterception'
 	| 'newRequest'
 	| 'requestUpdated'
 	| 'selectTargetTab'

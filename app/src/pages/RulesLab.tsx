@@ -22,11 +22,14 @@ interface SaveToastState {
 	previousRules: Rule[];
 }
 
-const VALID_ACTION_TYPES: ReadonlySet<ActionType> = new Set([
+const VALID_ACTION_TYPES: ReadonlySet<ActionType> = new Set<ActionType>([
 	'mock',
-	'delay',
+	'requestDelay',
 	'transform',
 	'breakpoint',
+	'requestModify',
+	'responseModify',
+	'block',
 ]);
 const VALID_SORTS: ReadonlySet<RulesSortOption> = new Set([
 	'priority_asc',
@@ -137,12 +140,18 @@ function RulesLab() {
 	const actionCounts = useMemo<Record<ActionType, number>>(() => {
 		const acc: Record<ActionType, number> = {
 			mock: 0,
-			delay: 0,
+			requestDelay: 0,
 			transform: 0,
 			breakpoint: 0,
+			requestModify: 0,
+			responseModify: 0,
+			block: 0,
 		};
+		// Phase 1 (compat): conta pela primeira action (head) do chain.
+		// Phase 4 contará por TODOS os tipos do array quando chain estiver visível.
 		for (const rule of rules) {
-			acc[rule.action.type] += 1;
+			const head = rule.actions[0];
+			if (head) acc[head.type] += 1;
 		}
 		return acc;
 	}, [rules]);
@@ -172,7 +181,7 @@ function RulesLab() {
 		const hasActionFilter = actionFilters.length > 0;
 		const hasMethodFilter = methodFilters.length > 0;
 		const filtered = rules.filter((r) => {
-			if (hasActionFilter && !actionFilters.includes(r.action.type)) return false;
+			if (hasActionFilter && !actionFilters.includes(r.actions[0]?.type)) return false;
 			if (hasMethodFilter) {
 				const ruleMethods = getRuleMethods(r);
 				const intersects = ruleMethods.some((m) => methodFilters.includes(m));
@@ -260,7 +269,7 @@ function RulesLab() {
 			await chrome.storage.local.set({ rules: importedRules });
 		} else {
 			for (const rule of importedRules) {
-				await addRule(rule.name, rule.matchers, rule.action);
+				await addRule(rule.name, rule.matchers, rule.actions[0], rule.stage);
 			}
 		}
 		setImportPreview(null);
@@ -363,7 +372,12 @@ function RulesLab() {
 				}}
 				onSave={async (newRule) => {
 					const previousRules = rules;
-					const created = await addRule(newRule.name, newRule.matchers, newRule.action);
+					const created = await addRule(
+						newRule.name,
+						newRule.matchers,
+						newRule.actions[0],
+						newRule.stage,
+					);
 					if (created) {
 						setIsCreating(false);
 						setSaveToast({

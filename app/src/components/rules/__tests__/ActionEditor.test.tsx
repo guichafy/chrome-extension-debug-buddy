@@ -1,4 +1,3 @@
-import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ActionEditor } from '../ActionEditor';
 import type { BreakpointAction, MockAction } from '@/types/rules';
@@ -48,25 +47,9 @@ describe('ActionEditor', () => {
 		});
 	});
 
-	it('atualiza latencia fixa em ms', async () => {
-		const onChange = vi.fn();
-		const action: MockAction = {
-			type: 'mock',
-			enabled: true,
-			status: 200,
-			headers: {},
-			latency: { mode: 'fixed', delayMs: 100 },
-		};
-
-		render(<ActionEditor action={action} onChange={onChange} />);
-		await selectTab('Latência');
-		fireEvent.change(screen.getByDisplayValue('100'), { target: { value: '250' } });
-
-		expect(onChange).toHaveBeenCalledWith({
-			...action,
-			latency: { mode: 'fixed', delayMs: 250 },
-		});
-	});
+	// Teste de "atualiza latência fixa" removido: MockAction não tem mais campo
+	// `latency` no schema v2. A latência agora vive em `actions: [requestDelay,
+	// mock]` composto na regra; cobertura migrou para presets/templates.
 
 	describe('ação Breakpoint', () => {
 		it('renderiza apenas descrição opcional + texto explicativo (sem outros campos)', () => {

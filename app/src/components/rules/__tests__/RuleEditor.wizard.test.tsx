@@ -7,11 +7,12 @@ const baseRule: Rule = {
 	id: 'r1',
 	name: 'API mockada',
 	enabled: true,
+	stage: 'response',
 	matchers: [
 		{ type: 'url', enabled: true, pattern: '/api/users', isRegex: false },
 		{ type: 'method', enabled: true, method: 'GET' },
 	],
-	action: { type: 'mock', enabled: true, status: 200, headers: {} },
+	actions: [{ type: 'mock', enabled: true, status: 200, headers: {} }],
 	createdAt: 0,
 	updatedAt: 0,
 };
@@ -242,14 +243,14 @@ describe('RuleEditor wizard', () => {
 				name: 'API atualizada',
 				enabled: true,
 				matchers: baseRule.matchers,
-				action: baseRule.action,
+				actions: baseRule.actions,
 			}),
 		);
 	});
 });
 
 describe('RuleEditor wizard — step Tipo (cards)', () => {
-	test('renderiza 4 cards (mock, transform, delay, breakpoint) com descrições corretas', () => {
+	test('renderiza 4 cards (mock, transform, requestDelay, breakpoint) com descrições corretas', () => {
 		render(<RuleEditor open mode="edit" rule={baseRule} onOpenChange={vi.fn()} onSave={vi.fn()} />);
 
 		const group = screen.getByTestId('rule-wizard-type-cards');
@@ -259,7 +260,7 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 		expect(within(group).getByTestId('rule-wizard-type-card-transform')).toHaveTextContent(
 			'Chama o servidor e aplica modificações na resposta.',
 		);
-		expect(within(group).getByTestId('rule-wizard-type-card-delay')).toHaveTextContent(
+		expect(within(group).getByTestId('rule-wizard-type-card-requestDelay')).toHaveTextContent(
 			'Atrasa a resposta antes de devolver ao cliente.',
 		);
 		expect(within(group).getByTestId('rule-wizard-type-card-breakpoint')).toHaveTextContent(
@@ -277,7 +278,7 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 			within(mockCard).getByTestId('rule-wizard-type-card-mock-selected-badge'),
 		).toBeInTheDocument();
 
-		const delayCard = screen.getByTestId('rule-wizard-type-card-delay');
+		const delayCard = screen.getByTestId('rule-wizard-type-card-requestDelay');
 		expect(delayCard).toHaveAttribute('data-selected', 'false');
 		expect(delayCard).toHaveAttribute('aria-pressed', 'false');
 	});
@@ -291,8 +292,8 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 			'true',
 		);
 
-		fireEvent.click(screen.getByTestId('rule-wizard-type-card-delay'));
-		expect(screen.getByTestId('rule-wizard-type-card-delay')).toHaveAttribute(
+		fireEvent.click(screen.getByTestId('rule-wizard-type-card-requestDelay'));
+		expect(screen.getByTestId('rule-wizard-type-card-requestDelay')).toHaveAttribute(
 			'data-selected',
 			'true',
 		);
@@ -336,12 +337,12 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 		);
 	});
 
-	test('em modo create trocar para delay produz action.timeMs default no payload salvo', async () => {
+	test('em modo create trocar para requestDelay produz action.timeMs default no payload salvo', async () => {
 		const onSave = vi.fn().mockResolvedValue(true);
 		render(<RuleEditor open mode="create" onOpenChange={vi.fn()} onSave={onSave} />);
 		fireEvent.click(screen.getByTestId('preset-blank'));
 
-		fireEvent.click(screen.getByTestId('rule-wizard-type-card-delay'));
+		fireEvent.click(screen.getByTestId('rule-wizard-type-card-requestDelay'));
 
 		// Avança para Matcher e preenche URL
 		fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
@@ -356,7 +357,7 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 
 		expect(onSave).toHaveBeenCalledTimes(1);
 		const payload = onSave.mock.calls[0][0];
-		expect(payload.action).toEqual({ type: 'delay', enabled: true, timeMs: 1000 });
+		expect(payload.actions).toEqual([{ type: 'requestDelay', enabled: true, timeMs: 1000 }]);
 	});
 
 	describe('RuleEditor — skipTypeStep', () => {
@@ -369,11 +370,12 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 					initialDraft={{
 						name: 'Mock teste',
 						enabled: true,
+						stage: 'response',
 						matchers: [
 							{ type: 'url', enabled: true, pattern: '/api', isRegex: false },
 							{ type: 'method', enabled: true, method: 'GET' },
 						],
-						action: { type: 'mock', enabled: true, status: 200, headers: {} },
+						actions: [{ type: 'mock', enabled: true, status: 200, headers: {} }],
 					}}
 					onOpenChange={vi.fn()}
 					onSave={vi.fn()}
@@ -399,11 +401,12 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 					initialDraft={{
 						name: 'Mock teste',
 						enabled: true,
+						stage: 'response',
 						matchers: [
 							{ type: 'url', enabled: true, pattern: '/api', isRegex: false },
 							{ type: 'method', enabled: true, method: 'GET' },
 						],
-						action: { type: 'mock', enabled: true, status: 200, headers: {} },
+						actions: [{ type: 'mock', enabled: true, status: 200, headers: {} }],
 					}}
 					onOpenChange={vi.fn()}
 					onSave={vi.fn()}
@@ -425,11 +428,12 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 					initialDraft={{
 						name: 'Custom name',
 						enabled: true,
+						stage: 'response',
 						matchers: [
 							{ type: 'url', enabled: true, pattern: 'api.example.com/x', isRegex: false },
 							{ type: 'method', enabled: true, method: 'POST' },
 						],
-						action: { type: 'breakpoint', enabled: true, description: '' },
+						actions: [{ type: 'breakpoint', enabled: true, description: '' }],
 					}}
 					onOpenChange={vi.fn()}
 					onSave={onSave}
@@ -450,11 +454,12 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 					initialDraft={{
 						name: 'Test',
 						enabled: true,
+						stage: 'response',
 						matchers: [
 							{ type: 'url', enabled: true, pattern: '/api', isRegex: false },
 							{ type: 'method', enabled: true, method: 'GET' },
 						],
-						action: { type: 'mock', enabled: true, status: 200, headers: {} },
+						actions: [{ type: 'mock', enabled: true, status: 200, headers: {} }],
 					}}
 					headerMatcherSource={{
 						requestHeaders: { 'x-custom': 'foo' },
@@ -477,11 +482,12 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 					initialDraft={{
 						name: 'Mock para api.example.com',
 						enabled: true,
+						stage: 'response',
 						matchers: [
 							{ type: 'url', enabled: true, pattern: 'api.example.com', isRegex: false },
 							{ type: 'method', enabled: true, method: 'GET' },
 						],
-						action: { type: 'mock', enabled: true, status: 200, headers: {} },
+						actions: [{ type: 'mock', enabled: true, status: 200, headers: {} }],
 					}}
 					onOpenChange={vi.fn()}
 					onSave={vi.fn()}
@@ -494,15 +500,16 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 		});
 
 		test('campo Nome NÃO aparece no passo Matcher quando skipTypeStep=false (default)', () => {
-			const baseRule = {
+			const baseRule: Rule = {
 				id: 'r1',
 				name: 'Existing',
 				enabled: true,
+				stage: 'response',
 				matchers: [
 					{ type: 'url' as const, enabled: true, pattern: '/api', isRegex: false },
 					{ type: 'method' as const, enabled: true, method: 'GET' },
 				],
-				action: { type: 'mock' as const, enabled: true, status: 200, headers: {} },
+				actions: [{ type: 'mock' as const, enabled: true, status: 200, headers: {} }],
 				createdAt: 0,
 				updatedAt: 0,
 			};
@@ -529,11 +536,12 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 					initialDraft={{
 						name: 'Test',
 						enabled: true,
+						stage: 'response',
 						matchers: [
 							{ type: 'url', enabled: true, pattern: '/api', isRegex: false },
 							{ type: 'method', enabled: true, method: 'GET' },
 						],
-						action: { type: 'mock', enabled: true, status: 200, headers: {} },
+						actions: [{ type: 'mock', enabled: true, status: 200, headers: {} }],
 					}}
 					onOpenChange={vi.fn()}
 					onSave={vi.fn()}
@@ -546,11 +554,12 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 			const baseDraft = {
 				name: 'Mock teste',
 				enabled: true,
+				stage: 'response' as const,
 				matchers: [
 					{ type: 'url' as const, enabled: true, pattern: '/api', isRegex: false },
 					{ type: 'method' as const, enabled: true, method: 'GET' },
 				],
-				action: { type: 'mock' as const, enabled: true, status: 200, headers: {} },
+				actions: [{ type: 'mock' as const, enabled: true, status: 200, headers: {} }],
 			};
 			const { rerender } = render(
 				<RuleEditor
@@ -584,15 +593,16 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 		});
 
 		test('mudança de identidade do rule (mode=edit) NÃO reseta o step do wizard', () => {
-			const baseRule = {
+			const baseRule: Rule = {
 				id: 'r1',
 				name: 'Existing',
 				enabled: true,
+				stage: 'response',
 				matchers: [
 					{ type: 'url' as const, enabled: true, pattern: '/api', isRegex: false },
 					{ type: 'method' as const, enabled: true, method: 'GET' },
 				],
-				action: { type: 'mock' as const, enabled: true, status: 200, headers: {} },
+				actions: [{ type: 'mock' as const, enabled: true, status: 200, headers: {} }],
 				createdAt: 0,
 				updatedAt: 0,
 			};
@@ -621,11 +631,12 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 			const draft = {
 				name: 'Mock teste',
 				enabled: true,
+				stage: 'response' as const,
 				matchers: [
 					{ type: 'url' as const, enabled: true, pattern: '/api', isRegex: false },
 					{ type: 'method' as const, enabled: true, method: 'GET' },
 				],
-				action: { type: 'mock' as const, enabled: true, status: 200, headers: {} },
+				actions: [{ type: 'mock' as const, enabled: true, status: 200, headers: {} }],
 			};
 			const { rerender } = render(
 				<RuleEditor
@@ -671,7 +682,7 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 			['mock' as const, 'Mock'],
 			['breakpoint' as const, 'Breakpoint'],
 			['transform' as const, 'Transform'],
-			['delay' as const, 'Latência'],
+			['requestDelay' as const, 'Latência'],
 		])('passo Ação exibe badge "Configurando ação %s" para o tipo selecionado', (type, label) => {
 			const action =
 				type === 'mock'
@@ -685,7 +696,8 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 									mode: 'declarative' as const,
 									operations: [],
 								}
-							: { type: 'delay' as const, enabled: true, timeMs: 1000 };
+							: { type: 'requestDelay' as const, enabled: true, timeMs: 1000 };
+			const stage: 'request' | 'response' = type === 'requestDelay' ? 'request' : 'response';
 			render(
 				<RuleEditor
 					open
@@ -694,11 +706,12 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 					initialDraft={{
 						name: 'Test',
 						enabled: true,
+						stage,
 						matchers: [
 							{ type: 'url' as const, enabled: true, pattern: '/api', isRegex: false },
 							{ type: 'method' as const, enabled: true, method: 'GET' },
 						],
-						action,
+						actions: [action],
 					}}
 					onOpenChange={vi.fn()}
 					onSave={vi.fn()}
@@ -712,12 +725,13 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 		});
 
 		test('badge do tipo aparece também no fluxo padrão (mode=edit, sem skipTypeStep)', () => {
-			const baseRule = {
+			const baseRule: Rule = {
 				id: 'r1',
 				name: 'Existing',
 				enabled: true,
+				stage: 'response',
 				matchers: [{ type: 'url' as const, enabled: true, pattern: '/api', isRegex: false }],
-				action: { type: 'breakpoint' as const, enabled: true, description: '' },
+				actions: [{ type: 'breakpoint' as const, enabled: true, description: '' }],
 				createdAt: 0,
 				updatedAt: 0,
 			};

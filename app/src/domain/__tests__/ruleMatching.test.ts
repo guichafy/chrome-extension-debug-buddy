@@ -6,8 +6,9 @@ const baseRule = (overrides: Partial<Rule>): Rule => ({
 	id: 'rule-1',
 	name: 'rule',
 	enabled: true,
+	stage: 'response',
 	matchers: [{ type: 'url', enabled: true, pattern: '/api/users', isRegex: false }],
-	action: { type: 'breakpoint', enabled: true },
+	actions: [{ type: 'breakpoint', enabled: true }],
 	createdAt: 1,
 	updatedAt: 1,
 	...overrides,
@@ -16,12 +17,14 @@ const baseRule = (overrides: Partial<Rule>): Rule => ({
 describe('findMatchingRuleAction', () => {
 	test('retorna mock mantendo body ausente quando a action nao define body', () => {
 		const rule = baseRule({
-			action: {
-				type: 'mock',
-				enabled: true,
-				status: 204,
-				headers: {},
-			},
+			actions: [
+				{
+					type: 'mock',
+					enabled: true,
+					status: 204,
+					headers: {},
+				},
+			],
 		});
 
 		const match = findMatchingRuleAction([rule], {
@@ -30,18 +33,21 @@ describe('findMatchingRuleAction', () => {
 			headers: {},
 		});
 
-		expect(match).toEqual({ type: 'mock', rule, action: rule.action });
+		expect(match).toEqual({ type: 'mock', rule, action: rule.actions[0] });
 		expect(match?.type).toBe('mock');
 		expect(match && 'body' in match.action).toBe(false);
 	});
 
-	test('retorna delay quando a regra de Latência casa (DelayAction agora consumido)', () => {
+	test('retorna requestDelay quando a regra de Latência casa', () => {
 		const rule = baseRule({
-			action: {
-				type: 'delay',
-				enabled: true,
-				timeMs: 1500,
-			},
+			stage: 'request',
+			actions: [
+				{
+					type: 'requestDelay',
+					enabled: true,
+					timeMs: 1500,
+				},
+			],
 		});
 
 		const match = findMatchingRuleAction([rule], {
@@ -50,17 +56,19 @@ describe('findMatchingRuleAction', () => {
 			headers: {},
 		});
 
-		expect(match).toEqual({ type: 'delay', rule, action: rule.action });
+		expect(match).toEqual({ type: 'requestDelay', rule, action: rule.actions[0] });
 	});
 
 	test('retorna transform quando a regra casa (regressão: antes era pulado)', () => {
 		const rule = baseRule({
-			action: {
-				type: 'transform',
-				enabled: true,
-				mode: 'declarative',
-				operations: [{ id: 'op1', type: 'replace', path: '$.x', value: '"y"' }],
-			},
+			actions: [
+				{
+					type: 'transform',
+					enabled: true,
+					mode: 'declarative',
+					operations: [{ id: 'op1', type: 'replace', path: '$.x', value: '"y"' }],
+				},
+			],
 		});
 
 		const match = findMatchingRuleAction([rule], {
@@ -69,7 +77,7 @@ describe('findMatchingRuleAction', () => {
 			headers: {},
 		});
 
-		expect(match).toEqual({ type: 'transform', rule, action: rule.action });
+		expect(match).toEqual({ type: 'transform', rule, action: rule.actions[0] });
 	});
 
 	test('corresponde metodo ANY sem fabricar metodo ausente', () => {
@@ -78,7 +86,7 @@ describe('findMatchingRuleAction', () => {
 				{ type: 'url', enabled: true, pattern: '/api', isRegex: false },
 				{ type: 'method', enabled: true, method: 'ANY' },
 			],
-			action: { type: 'breakpoint', enabled: true },
+			actions: [{ type: 'breakpoint', enabled: true }],
 		});
 
 		expect(
@@ -87,7 +95,7 @@ describe('findMatchingRuleAction', () => {
 				method: 'OPTIONS',
 				headers: {},
 			}),
-		).toEqual({ type: 'breakpoint', rule, action: rule.action });
+		).toEqual({ type: 'breakpoint', rule, action: rule.actions[0] });
 	});
 
 	test('usa request headers reais para matcher de header', () => {
@@ -102,7 +110,7 @@ describe('findMatchingRuleAction', () => {
 					value: 'Bearer token',
 				},
 			],
-			action: { type: 'breakpoint', enabled: true },
+			actions: [{ type: 'breakpoint', enabled: true }],
 		});
 
 		expect(
@@ -130,7 +138,7 @@ describe('findMatchingRuleAction', () => {
 			}),
 		).toBeUndefined();
 		expect(
-			findMatchingRuleAction([baseRule({ action: { type: 'breakpoint', enabled: false } })], {
+			findMatchingRuleAction([baseRule({ actions: [{ type: 'breakpoint', enabled: false }] })], {
 				url: 'https://example.test/api/users',
 				method: 'GET',
 				headers: {},
@@ -143,12 +151,12 @@ describe('findMatchingRuleAction', () => {
 			const first = baseRule({
 				id: 'first',
 				name: 'first',
-				action: { type: 'mock', enabled: true, status: 200, headers: {} },
+				actions: [{ type: 'mock', enabled: true, status: 200, headers: {} }],
 			});
 			const second = baseRule({
 				id: 'second',
 				name: 'second',
-				action: { type: 'mock', enabled: true, status: 500, headers: {} },
+				actions: [{ type: 'mock', enabled: true, status: 500, headers: {} }],
 			});
 
 			const match = findMatchingRuleAction([first, second], {
@@ -165,11 +173,11 @@ describe('findMatchingRuleAction', () => {
 		test('regra mock antes de breakpoint: mock vence mesmo com breakpoint casando depois', () => {
 			const mockRule = baseRule({
 				id: 'mock-rule',
-				action: { type: 'mock', enabled: true, status: 418, headers: {} },
+				actions: [{ type: 'mock', enabled: true, status: 418, headers: {} }],
 			});
 			const breakpointRule = baseRule({
 				id: 'breakpoint-rule',
-				action: { type: 'breakpoint', enabled: true },
+				actions: [{ type: 'breakpoint', enabled: true }],
 			});
 
 			const match = findMatchingRuleAction([mockRule, breakpointRule], {
@@ -185,11 +193,11 @@ describe('findMatchingRuleAction', () => {
 		test('regra breakpoint antes de mock: breakpoint vence mesmo com mock casando depois', () => {
 			const breakpointRule = baseRule({
 				id: 'breakpoint-rule',
-				action: { type: 'breakpoint', enabled: true },
+				actions: [{ type: 'breakpoint', enabled: true }],
 			});
 			const mockRule = baseRule({
 				id: 'mock-rule',
-				action: { type: 'mock', enabled: true, status: 500, headers: {} },
+				actions: [{ type: 'mock', enabled: true, status: 500, headers: {} }],
 			});
 
 			const match = findMatchingRuleAction([breakpointRule, mockRule], {
@@ -205,11 +213,11 @@ describe('findMatchingRuleAction', () => {
 		test('reordenar o array muda quem vence sem alterar nada nas matchers', () => {
 			const ruleA = baseRule({
 				id: 'rule-a',
-				action: { type: 'mock', enabled: true, status: 200, headers: {} },
+				actions: [{ type: 'mock', enabled: true, status: 200, headers: {} }],
 			});
 			const ruleB = baseRule({
 				id: 'rule-b',
-				action: { type: 'mock', enabled: true, status: 500, headers: {} },
+				actions: [{ type: 'mock', enabled: true, status: 500, headers: {} }],
 			});
 
 			expect(
@@ -233,11 +241,11 @@ describe('findMatchingRuleAction', () => {
 			const disabledFirst = baseRule({
 				id: 'disabled-first',
 				enabled: false,
-				action: { type: 'mock', enabled: true, status: 200, headers: {} },
+				actions: [{ type: 'mock', enabled: true, status: 200, headers: {} }],
 			});
 			const enabledSecond = baseRule({
 				id: 'enabled-second',
-				action: { type: 'mock', enabled: true, status: 500, headers: {} },
+				actions: [{ type: 'mock', enabled: true, status: 500, headers: {} }],
 			});
 
 			const match = findMatchingRuleAction([disabledFirst, enabledSecond], {

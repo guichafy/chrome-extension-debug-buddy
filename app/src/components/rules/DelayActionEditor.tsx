@@ -4,11 +4,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LucideIcon } from '@/components/ui/lucide-icon';
 import { cn } from '@/lib/utils';
-import type { DelayAction } from '@/types/rules';
+import type { RequestDelayAction } from '@/types/rules';
 
 interface DelayActionEditorProps {
-	action: DelayAction;
-	onChange: (action: DelayAction) => void;
+	action: RequestDelayAction;
+	onChange: (action: RequestDelayAction) => void;
 }
 
 interface DelayPreset {

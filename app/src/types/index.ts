@@ -6,6 +6,7 @@ export type { MessageAction, Message, MessageResponse } from './messages';
 export type { AppliedType, InterceptedResponse, ResponseModifications } from './intercepted';
 export type {
 	Rule,
+	RuleStage,
 	Action,
 	ActionType,
 	Matcher,
@@ -17,8 +18,12 @@ export type {
 	HeaderMatcher,
 	BodyMatcher,
 	MockAction,
-	MockLatency,
-	DelayAction,
+	RequestDelayAction,
+	RequestModifyAction,
+	ResponseModifyAction,
+	BlockAction,
+	BlockErrorReason,
+	HeaderOps,
 	TransformAction,
 	TransformOperation,
 	TransformOperationType,

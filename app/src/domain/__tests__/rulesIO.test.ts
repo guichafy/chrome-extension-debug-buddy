@@ -6,26 +6,27 @@ const sampleRule: Rule = {
 	id: 'r1',
 	name: 'Mock A',
 	enabled: true,
+	stage: 'response',
 	matchers: [{ type: 'url', enabled: true, pattern: 'api/x', isRegex: false }],
-	action: { type: 'mock', enabled: true, status: 200, headers: {} },
+	actions: [{ type: 'mock', enabled: true, status: 200, headers: {} }],
 	createdAt: 1,
 	updatedAt: 1,
 };
 
 describe('serializeRules', () => {
-	test('exporta envelope com schemaVersion e rules', () => {
+	test('exporta envelope com schemaVersion v2 e rules', () => {
 		const json = serializeRules([sampleRule]);
 		const parsed = JSON.parse(json);
 		expect(parsed).toMatchObject({
-			schemaVersion: 1,
+			schemaVersion: 2,
 			rules: [sampleRule],
 		});
 	});
 });
 
 describe('validateRuleImport', () => {
-	test('aceita JSON válido', () => {
-		const result = validateRuleImport({ schemaVersion: 1, rules: [sampleRule] });
+	test('aceita JSON válido (schemaVersion 2)', () => {
+		const result = validateRuleImport({ schemaVersion: 2, rules: [sampleRule] });
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
 		expect(result.rules).toHaveLength(1);
@@ -43,14 +44,19 @@ describe('validateRuleImport', () => {
 		expect(result.error).toMatch(/schemaVersion/);
 	});
 
+	test('rejeita schemaVersion v1 (legado pré-dual-stage)', () => {
+		const result = validateRuleImport({ schemaVersion: 1, rules: [sampleRule] });
+		expect(result.ok).toBe(false);
+	});
+
 	test('rejeita rules não-array', () => {
-		const result = validateRuleImport({ schemaVersion: 1, rules: 'foo' });
+		const result = validateRuleImport({ schemaVersion: 2, rules: 'foo' });
 		expect(result.ok).toBe(false);
 	});
 
 	test('rejeita regra sem matchers', () => {
 		const broken = { ...sampleRule, matchers: undefined };
-		const result = validateRuleImport({ schemaVersion: 1, rules: [broken] });
+		const result = validateRuleImport({ schemaVersion: 2, rules: [broken] });
 		expect(result.ok).toBe(false);
 		if (result.ok) return;
 		expect(result.error).toMatch(/matchers/);
@@ -59,9 +65,9 @@ describe('validateRuleImport', () => {
 	test('rejeita action.type fora do conjunto', () => {
 		const broken = {
 			...sampleRule,
-			action: { ...sampleRule.action, type: 'desconhecida' },
+			actions: [{ ...sampleRule.actions[0], type: 'desconhecida' }],
 		};
-		const result = validateRuleImport({ schemaVersion: 1, rules: [broken] });
+		const result = validateRuleImport({ schemaVersion: 2, rules: [broken] });
 		expect(result.ok).toBe(false);
 	});
 

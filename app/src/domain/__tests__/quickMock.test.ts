@@ -31,7 +31,7 @@ const baseOptions = (overrides: Partial<BuildRuleDraftOptions> = {}): BuildRuleD
 
 describe('buildRuleDraftFromRequest — matchers compartilhados', () => {
 	test('gera matchers de URL (host+pathname) e método para todos os types', () => {
-		for (const type of ['mock', 'breakpoint', 'transform', 'delay'] as const) {
+		for (const type of ['mock', 'breakpoint', 'transform', 'requestDelay'] as const) {
 			const result = buildRuleDraftFromRequest(baseRequest(), baseOptions({ type }));
 			expect(result.ok).toBe(true);
 			if (!result.ok) return;
@@ -92,7 +92,7 @@ describe('buildRuleDraftFromRequest — type=mock', () => {
 	test('action mock reusa status, headers, body e mimeType reais', () => {
 		const result = buildRuleDraftFromRequest(baseRequest(), baseOptions({ type: 'mock' }));
 		if (!result.ok) throw new Error('esperava ok');
-		expect(result.draft.action).toMatchObject({
+		expect(result.draft.actions[0]).toMatchObject({
 			type: 'mock',
 			enabled: true,
 			status: 200,
@@ -117,7 +117,7 @@ describe('buildRuleDraftFromRequest — type=mock', () => {
 		const result = buildRuleDraftFromRequest(req, baseOptions({ type: 'mock' }));
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
-		expect('body' in result.draft.action).toBe(false);
+		expect('body' in result.draft.actions[0]).toBe(false);
 	});
 
 	test('preserva body vazio capturado', () => {
@@ -127,7 +127,7 @@ describe('buildRuleDraftFromRequest — type=mock', () => {
 		});
 		const result = buildRuleDraftFromRequest(req, baseOptions({ type: 'mock' }));
 		if (!result.ok) throw new Error('esperava ok');
-		expect(result.draft.action).toMatchObject({ type: 'mock', body: '' });
+		expect(result.draft.actions[0]).toMatchObject({ type: 'mock', body: '' });
 	});
 });
 
@@ -135,7 +135,7 @@ describe('buildRuleDraftFromRequest — type=breakpoint', () => {
 	test('action breakpoint default sem descrição, prefixo de nome correto', () => {
 		const result = buildRuleDraftFromRequest(baseRequest(), baseOptions({ type: 'breakpoint' }));
 		if (!result.ok) throw new Error('esperava ok');
-		expect(result.draft.action).toEqual({ type: 'breakpoint', enabled: true, description: '' });
+		expect(result.draft.actions[0]).toEqual({ type: 'breakpoint', enabled: true, description: '' });
 		expect(result.draft.name).toBe('Breakpoint para api.example.com/users');
 	});
 });
@@ -144,7 +144,7 @@ describe('buildRuleDraftFromRequest — type=transform', () => {
 	test('action transform default modo declarative com operations vazias', () => {
 		const result = buildRuleDraftFromRequest(baseRequest(), baseOptions({ type: 'transform' }));
 		if (!result.ok) throw new Error('esperava ok');
-		expect(result.draft.action).toEqual({
+		expect(result.draft.actions[0]).toEqual({
 			type: 'transform',
 			enabled: true,
 			mode: 'declarative',
@@ -154,11 +154,11 @@ describe('buildRuleDraftFromRequest — type=transform', () => {
 	});
 });
 
-describe('buildRuleDraftFromRequest — type=delay', () => {
-	test('action delay default 1000ms, prefixo de nome "Latência"', () => {
-		const result = buildRuleDraftFromRequest(baseRequest(), baseOptions({ type: 'delay' }));
+describe('buildRuleDraftFromRequest — type=requestDelay', () => {
+	test('action requestDelay default 1000ms, prefixo de nome "Latência"', () => {
+		const result = buildRuleDraftFromRequest(baseRequest(), baseOptions({ type: 'requestDelay' }));
 		if (!result.ok) throw new Error('esperava ok');
-		expect(result.draft.action).toEqual({ type: 'delay', enabled: true, timeMs: 1000 });
+		expect(result.draft.actions[0]).toEqual({ type: 'requestDelay', enabled: true, timeMs: 1000 });
 		expect(result.draft.name).toBe('Latência para api.example.com/users');
 	});
 });

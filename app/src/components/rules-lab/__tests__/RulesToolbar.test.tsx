@@ -6,9 +6,12 @@ import { type RulesSortOption, RulesToolbar } from '../RulesToolbar';
 function defaults() {
 	const actionCounts: Record<ActionType, number> = {
 		mock: 3,
-		delay: 1,
+		requestDelay: 1,
 		transform: 0,
 		breakpoint: 1,
+		requestModify: 0,
+		responseModify: 0,
+		block: 0,
 	};
 	const methodCounts: Record<string, number> = {
 		GET: 2,
@@ -39,7 +42,7 @@ describe('RulesToolbar', () => {
 		render(<RulesToolbar {...props} />);
 		expect(screen.getByTestId('filter-chip-type-mock')).toHaveTextContent(/Mock\s*3/);
 		expect(screen.getByTestId('filter-chip-type-transform')).toHaveTextContent(/Transform\s*0/);
-		expect(screen.getByTestId('filter-chip-type-delay')).toHaveTextContent(/Latência\s*1/);
+		expect(screen.getByTestId('filter-chip-type-requestDelay')).toHaveTextContent(/Latência\s*1/);
 		expect(screen.getByTestId('filter-chip-type-breakpoint')).toHaveTextContent(/Breakpoint\s*1/);
 	});
 
@@ -61,17 +64,17 @@ describe('RulesToolbar', () => {
 	});
 
 	test('clicar chip de tipo já ativo remove da seleção', () => {
-		const props = { ...defaults(), actionFilters: ['mock', 'delay'] as ActionType[] };
+		const props = { ...defaults(), actionFilters: ['mock', 'requestDelay'] as ActionType[] };
 		render(<RulesToolbar {...props} />);
 		fireEvent.click(screen.getByTestId('filter-chip-type-mock'));
-		expect(props.onActionFiltersChange).toHaveBeenCalledWith(['delay']);
+		expect(props.onActionFiltersChange).toHaveBeenCalledWith(['requestDelay']);
 	});
 
 	test('multi-seleção de tipo: clicar 2 chips diferentes acumula no array', () => {
 		const props = { ...defaults(), actionFilters: ['mock'] as ActionType[] };
 		render(<RulesToolbar {...props} />);
-		fireEvent.click(screen.getByTestId('filter-chip-type-delay'));
-		expect(props.onActionFiltersChange).toHaveBeenCalledWith(['mock', 'delay']);
+		fireEvent.click(screen.getByTestId('filter-chip-type-requestDelay'));
+		expect(props.onActionFiltersChange).toHaveBeenCalledWith(['mock', 'requestDelay']);
 	});
 
 	test('clicar chip de método adiciona em onMethodFiltersChange', () => {
@@ -92,7 +95,10 @@ describe('RulesToolbar', () => {
 		const props = { ...defaults(), actionFilters: ['mock'] as ActionType[] };
 		render(<RulesToolbar {...props} />);
 		expect(screen.getByTestId('filter-chip-type-mock')).toHaveAttribute('aria-pressed', 'true');
-		expect(screen.getByTestId('filter-chip-type-delay')).toHaveAttribute('aria-pressed', 'false');
+		expect(screen.getByTestId('filter-chip-type-requestDelay')).toHaveAttribute(
+			'aria-pressed',
+			'false',
+		);
 	});
 
 	test('digitar na busca chama onSearchChange', () => {

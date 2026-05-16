@@ -1,18 +1,18 @@
 import type {
 	Action,
 	BreakpointAction,
-	DelayAction,
 	Matcher,
 	MockAction,
+	RequestDelayAction,
 	RuleDraft,
+	RuleStage,
 	TransformAction,
 	UrlMatcher,
 } from '@/types/rules';
 import { PRESETS } from './rulePresets';
 
 // Identificadores estáveis para os templates curados oferecidos no welcome do
-// wizard. Cobrem os 4 tipos de regra (mock, delay, transform, breakpoint)
-// conforme PRD US-011.
+// wizard. Cobrem os 4 tipos clássicos (mock, delay, transform, breakpoint).
 export type RuleTemplateId =
 	| 'mock_500'
 	| 'mock_404'
@@ -27,25 +27,33 @@ export interface TemplateSpec {
 	id: RuleTemplateId;
 	name: string;
 	description: string;
-	action: Action;
+	stage: RuleStage;
+	actions: Action[];
 }
 
-const mockSpec = (
+const mockTemplate = (
 	id: RuleTemplateId,
 	presetKey: keyof typeof PRESETS,
 	override?: Partial<MockAction>,
 ): TemplateSpec => {
 	const preset = PRESETS[presetKey];
+	const merged = preset.actions.map((a): Action => {
+		if (a.type === 'mock' && override) {
+			return { ...a, ...override };
+		}
+		return a;
+	});
 	return {
 		id,
 		name: preset.name,
 		description: preset.description,
-		action: { ...preset.action, ...override } as MockAction,
+		stage: preset.stage,
+		actions: merged,
 	};
 };
 
-const delayAction = (timeMs: number): DelayAction => ({
-	type: 'delay',
+const requestDelayAction = (timeMs: number): RequestDelayAction => ({
+	type: 'requestDelay',
 	enabled: true,
 	timeMs,
 });
@@ -78,39 +86,43 @@ const breakpointAction = (description: string): BreakpointAction => ({
 });
 
 export const TEMPLATES: Record<RuleTemplateId, TemplateSpec> = {
-	mock_500: mockSpec('mock_500', 'http_error_500'),
-	mock_404: mockSpec('mock_404', 'http_error_404'),
-	mock_401: mockSpec('mock_401', 'http_error_401'),
-	mock_empty: mockSpec('mock_empty', 'empty_response'),
+	mock_500: mockTemplate('mock_500', 'http_error_500'),
+	mock_404: mockTemplate('mock_404', 'http_error_404'),
+	mock_401: mockTemplate('mock_401', 'http_error_401'),
+	mock_empty: mockTemplate('mock_empty', 'empty_response'),
 	delay_3s: {
 		id: 'delay_3s',
 		name: 'Atrasar resposta em 3s',
 		description:
 			'Chama o servidor normalmente e segura a resposta por 3000ms antes de devolvê-la ao cliente.',
-		action: delayAction(3000),
+		stage: 'request',
+		actions: [requestDelayAction(3000)],
 	},
 	transform_cors_header: {
 		id: 'transform_cors_header',
 		name: 'Adicionar header CORS Access-Control-Allow-Origin: *',
 		description:
 			'Chama o servidor e injeta o cabeçalho CORS na resposta para permitir requisições cross-origin durante o debug.',
-		action: transformAddHeaderAction({ 'access-control-allow-origin': '*' }),
+		stage: 'response',
+		actions: [transformAddHeaderAction({ 'access-control-allow-origin': '*' })],
 	},
 	transform_remove_id: {
 		id: 'transform_remove_id',
 		name: 'Remover campo id da resposta JSON',
 		description:
 			'Chama o servidor e remove o campo $.id do body JSON da resposta, útil para testar como o cliente reage à ausência do identificador.',
-		action: transformRemoveJsonPathAction('$.id'),
+		stage: 'response',
+		actions: [transformRemoveJsonPathAction('$.id')],
 	},
 	breakpoint_manual: {
 		id: 'breakpoint_manual',
 		name: 'Pausar para inspeção/edição manual',
 		description:
 			'Pausa a requisição assim que casar e abre o dialog para você inspecionar e editar a resposta antes de prosseguir.',
-		action: breakpointAction(
-			'Pausa para inspeção e edição manual da resposta antes de prosseguir.',
-		),
+		stage: 'response',
+		actions: [
+			breakpointAction('Pausa para inspeção e edição manual da resposta antes de prosseguir.'),
+		],
 	},
 };
 
@@ -145,10 +157,6 @@ export const TEMPLATE_GROUPS: TemplateGroup[] = [
 	},
 ];
 
-// Constrói um RuleDraft pré-preenchido a partir do template. Mesma forma do
-// `createPresetRule`: matcher de URL placeholder (vazio + disabled) seguido de
-// matcher de método ANY. O componente que aplica o template é responsável por
-// reabilitar o matcher de URL quando o usuário entra no editor.
 export function createTemplateRule(
 	templateId: RuleTemplateId,
 	baseMatcher?: UrlMatcher,
@@ -165,22 +173,38 @@ export function createTemplateRule(
 	return {
 		name: spec.name,
 		enabled: true,
+		stage: spec.stage,
 		matchers,
-		action: cloneAction(spec.action),
+		actions: spec.actions.map((a) => cloneAction(a)),
 	};
 }
 
-// Clone defensivo: garante que o consumer não muta o spec original.
 function cloneAction(action: Action): Action {
 	switch (action.type) {
 		case 'mock':
+			return { ...action, headers: { ...action.headers } };
+		case 'requestDelay':
+			return { ...action };
+		case 'requestModify':
 			return {
 				...action,
-				headers: { ...action.headers },
-				...(action.latency ? { latency: { ...action.latency } } : {}),
+				...(action.setHeaders ? { setHeaders: { ...action.setHeaders } } : {}),
+				...(action.addHeaders ? { addHeaders: { ...action.addHeaders } } : {}),
+				...(action.removeHeaders ? { removeHeaders: [...action.removeHeaders] } : {}),
+				...(action.bodyOperations
+					? { bodyOperations: action.bodyOperations.map((op) => ({ ...op })) }
+					: {}),
 			};
-		case 'delay':
-			return { ...action };
+		case 'responseModify':
+			return {
+				...action,
+				...(action.setHeaders ? { setHeaders: { ...action.setHeaders } } : {}),
+				...(action.addHeaders ? { addHeaders: { ...action.addHeaders } } : {}),
+				...(action.removeHeaders ? { removeHeaders: [...action.removeHeaders] } : {}),
+				...(action.bodyOperations
+					? { bodyOperations: action.bodyOperations.map((op) => ({ ...op })) }
+					: {}),
+			};
 		case 'transform':
 			return {
 				...action,
@@ -188,6 +212,8 @@ function cloneAction(action: Action): Action {
 				...(action.removeHeaders ? { removeHeaders: [...action.removeHeaders] } : {}),
 				...(action.operations ? { operations: action.operations.map((op) => ({ ...op })) } : {}),
 			};
+		case 'block':
+			return { ...action };
 		case 'breakpoint':
 			return { ...action };
 		default: {

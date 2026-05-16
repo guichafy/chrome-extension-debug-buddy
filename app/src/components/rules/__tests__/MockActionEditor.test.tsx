@@ -185,23 +185,7 @@ describe('MockActionEditor — body com JSON', () => {
 	});
 });
 
-describe('MockActionEditor — latência', () => {
-	it('atualiza latência fixa em ms', async () => {
-		const onChange = vi.fn();
-		render(
-			<MockActionEditor
-				action={baseAction({ latency: { mode: 'fixed', delayMs: 100 } })}
-				onChange={onChange}
-			/>,
-		);
-		await selectTab('Latência');
-		fireEvent.change(screen.getByTestId('mock-action-latency-delay'), {
-			target: { value: '250' },
-		});
-		expect(onChange).toHaveBeenCalledWith(
-			expect.objectContaining({
-				latency: { mode: 'fixed', delayMs: 250 },
-			}),
-		);
-	});
-});
+// describe('MockActionEditor — latência') foi removido: MockAction não tem mais
+// campo `latency` no schema v2 — latência agora é composta como
+// `actions: [requestDelay, mock]` na regra. Teste de composição reside em
+// presets/templates.
