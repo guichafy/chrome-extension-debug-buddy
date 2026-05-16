@@ -1,4 +1,5 @@
-import type { Action, Matcher, Rule } from '../types/rules';
+import type { Action, Matcher, Rule, RuleStage } from '../types/rules';
+import { isMatcherValidForStage, isTerminalAction } from '../types/rules';
 import { getHeaderValue } from './http';
 
 export interface RequestMatchInput {
@@ -8,11 +9,9 @@ export interface RequestMatchInput {
 	body?: string;
 }
 
-// Forma "head" mantida para Phase 1 (compat layer). Em Phase 2 será substituída
-// por `MatchedRuleChain` (chain ordenada com TODAS as actions da regra). Aqui
-// continuamos retornando apenas a primeira `action` do array `rule.actions`
-// para preservar o comportamento de "primeira que casa vence" do engine
-// antigo, enquanto os consumidores migram.
+// Forma "head" mantida para Phase 1/2 (compat layer). Phase 3 vai migrar todos
+// os call-sites do background para o pipeline baseado em `findMatchingRulesChain`
+// e este tipo deixa de existir.
 export type MatchedRuleAction =
 	| {
 			type: 'mock';
@@ -50,6 +49,16 @@ export type MatchedRuleAction =
 			action: Extract<Action, { type: 'block' }>;
 	  };
 
+// Resultado de `findMatchingRulesChain`: lista ordenada (na ordem do array
+// `rules`) das regras que casaram o input no stage em questão. Cada item
+// carrega o subconjunto de `actions` da regra que está habilitado (matchers
+// já passaram). O caller decide como achatar/cortar o chain — ver
+// `flattenChainActions` em `domain/intercepted.ts`.
+export interface MatchedRule {
+	rule: Rule;
+	actions: Action[];
+}
+
 // Converte um padrão com wildcards `*` para uma RegExp ancorada-em-trecho que
 // pode ser testada contra a URL. Apenas `*` é tratado como meta-caractere; os
 // demais são escapados literalmente.
@@ -69,7 +78,17 @@ function methodMatcherCasaInput(matcherMethod: string | string[], inputMethod: s
 	return matcherMethod === 'ANY' || matcherMethod === inputMethod;
 }
 
-function singleMatcherMatches(matcher: Matcher, input: RequestMatchInput): boolean {
+// Phase 2: matching stage-aware. Em stage='request' o matcher `header` só
+// avalia `headerType='request'` (response headers ainda não chegaram); em
+// stage='response' ambos `request` e `response` são avaliáveis (a engine
+// passa o conjunto correto via `input.headers`). Matcher `body` casa contra
+// `input.body` — o caller injeta o body correto do estágio (postData em
+// request, response body em response).
+function singleMatcherMatches(
+	matcher: Matcher,
+	input: RequestMatchInput,
+	stage: RuleStage,
+): boolean {
 	if (!matcher.enabled) return true;
 
 	switch (matcher.type) {
@@ -93,10 +112,11 @@ function singleMatcherMatches(matcher: Matcher, input: RequestMatchInput): boole
 
 		case 'header':
 			if (!matcher.name || !matcher.value || !matcher.headerType) return false;
-			// Phase 1 (compat): matcher de header de response ainda passa direto
-			// como antes. Em Phase 2 ele só será permitido em regras
-			// `stage='response'` e o engine validará no carregamento.
-			if (matcher.headerType !== 'request') return true;
+			// Em stage='request' não há response headers ainda — qualquer matcher
+			// que mira em headerType='response' falha (não casa). Em stage='response'
+			// o engine recebe `input.headers` já mesclado/contextualizado pelo
+			// caller (Phase 3 garante). Tratamento simétrico para 'request'.
+			if (matcher.headerType === 'response' && stage !== 'response') return false;
 			return getHeaderValue(input.headers, matcher.name) === matcher.value;
 
 		case 'body':
@@ -115,8 +135,35 @@ function singleMatcherMatches(matcher: Matcher, input: RequestMatchInput): boole
 	}
 }
 
-function matcherMatches(rule: Rule, input: RequestMatchInput): boolean {
-	return rule.matchers.every((matcher) => singleMatcherMatches(matcher, input));
+function matcherMatches(rule: Rule, input: RequestMatchInput, stage: RuleStage): boolean {
+	return rule.matchers.every((matcher) => singleMatcherMatches(matcher, input, stage));
+}
+
+// Resultado de validação cruzada matcher × stage. Usado pela UI (Phase 4) para
+// bloquear matchers inválidos no editor, e pelo engine no carregamento de
+// regras para rejeitar configurações inconsistentes vindas de import legado.
+export type MatcherValidationResult =
+	| { ok: true }
+	| { ok: false; errors: Array<{ matcher: Matcher; reason: string }> };
+
+export function validateMatchersForStage(
+	matchers: Matcher[],
+	stage: RuleStage,
+): MatcherValidationResult {
+	const errors: Array<{ matcher: Matcher; reason: string }> = [];
+	for (const matcher of matchers) {
+		if (isMatcherValidForStage(matcher, stage)) continue;
+		// O único caso de invalidação hoje é header.headerType='response' em
+		// regras request. Estendemos `reason` para mensagens específicas em
+		// futuras invalidações.
+		errors.push({
+			matcher,
+			reason: `Matcher inválido para stage='${stage}': ${matcher.type}${
+				matcher.type === 'header' ? ` (headerType='${matcher.headerType}')` : ''
+			}.`,
+		});
+	}
+	return errors.length === 0 ? { ok: true } : { ok: false, errors };
 }
 
 // Retorna pass/reason por matcher para alimentar o painel de preview do
@@ -153,6 +200,7 @@ function describeMatcher(matcher: Matcher): string {
 export function explainMatchers(
 	matchers: Matcher[],
 	input: RequestMatchInput,
+	stage: RuleStage = 'response',
 ): MatchersExplanation {
 	if (matchers.length === 0) {
 		return { overall: false, checks: [] };
@@ -161,7 +209,7 @@ export function explainMatchers(
 		if (!matcher.enabled) {
 			return { matcher, pass: true, reason: `${describeMatcher(matcher)} (desabilitado)` };
 		}
-		const pass = singleMatcherMatches(matcher, input);
+		const pass = singleMatcherMatches(matcher, input, stage);
 		const description = describeMatcher(matcher);
 		if (matcher.type === 'url' && matcher.pattern.length === 0) {
 			return { matcher, pass: false, reason: `${description}: padrão vazio` };
@@ -202,20 +250,55 @@ function buildMatchedFromHead(rule: Rule, head: Action): MatchedRuleAction {
 	}
 }
 
-// Phase 1 (compat): retorna a primeira regra cuja matcher casa, expondo a
-// PRIMEIRA action do array `rule.actions` como `MatchedRuleAction`. Phase 2
-// vai substituir essa função por `findMatchingRulesChain` que retorna a chain
-// ordenada de todas as regras casadas por stage, e o engine executará todas.
+// Compat layer (Phase 1/2): retorna a primeira regra cuja matcher casa,
+// expondo a PRIMEIRA action habilitada como `MatchedRuleAction`. Itera
+// ignorando stage (`'response'` por default) para preservar comportamento
+// histórico até Phase 3 migrar os call-sites do background.
 export function findMatchingRuleAction(
 	rules: Rule[],
 	input: RequestMatchInput,
 ): MatchedRuleAction | undefined {
 	for (const rule of rules) {
 		if (!rule.enabled) continue;
-		if (!matcherMatches(rule, input)) continue;
+		const stage: RuleStage = rule.stage ?? 'response';
+		if (!matcherMatches(rule, input, stage)) continue;
 		const head = rule.actions.find((a) => a.enabled);
 		if (!head) continue;
 		return buildMatchedFromHead(rule, head);
 	}
 	return undefined;
+}
+
+// Phase 2: novo entrypoint do matching. Itera as regras do storage na ordem
+// definida pelo usuário (drag-drop na UI = ordem no array), filtra:
+//   1. Regras com `enabled: false` são puladas.
+//   2. Regras de stage diferente são puladas.
+//   3. Matchers inválidos para o stage (header de response em stage=request)
+//      fazem a regra como um todo falhar — engine não tenta carregar regra
+//      inválida (Phase 4 validará na UI; aqui agimos defensivamente).
+//   4. `matcherMatches` valida que todos os matchers habilitados casam.
+// Retorna a chain ORDENADA de regras casadas — quem executa decide quando
+// cortar pelo primeiro terminal (`flattenChainActions`).
+export function findMatchingRulesChain(
+	rules: Rule[],
+	stage: RuleStage,
+	input: RequestMatchInput,
+): MatchedRule[] {
+	const chain: MatchedRule[] = [];
+	for (const rule of rules) {
+		if (!rule.enabled) continue;
+		if (rule.stage !== stage) continue;
+		const validation = validateMatchersForStage(rule.matchers, stage);
+		if (!validation.ok) continue;
+		if (!matcherMatches(rule, input, stage)) continue;
+		const enabledActions = rule.actions.filter((a) => a.enabled);
+		if (enabledActions.length === 0) continue;
+		chain.push({ rule, actions: enabledActions });
+		// Se a última action habilitada desta regra é terminal, o chain corta
+		// aqui — nenhuma regra subsequente executa. A validação do schema
+		// (Phase 4) garante que terminal só aparece na última posição.
+		const lastAction = enabledActions[enabledActions.length - 1];
+		if (isTerminalAction(lastAction)) break;
+	}
+	return chain;
 }
