@@ -7,8 +7,9 @@ const baseRule: Rule = {
 	id: 'r1',
 	name: 'Existing',
 	enabled: true,
+	stage: 'response',
 	matchers: [{ type: 'url', enabled: true, pattern: '/api', isRegex: false }],
-	action: { type: 'mock', enabled: true, status: 200, headers: {} },
+	actions: [{ type: 'mock', enabled: true, status: 200, headers: {} }],
 	createdAt: 0,
 	updatedAt: 0,
 };

@@ -6,7 +6,18 @@ import type { LucideIconName } from '@/components/ui/lucide-icon';
 // mesma requisição. Vai do mais "intrusivo" (Breakpoint pausa o fluxo)
 // para o mais leve (Proxy = sem regra). Usada também para o sort interno
 // da função abaixo.
-const APPLIED_TYPE_ORDER: AppliedType[] = ['breakpoint', 'mock', 'transform', 'latency', 'proxy'];
+const APPLIED_TYPE_ORDER: AppliedType[] = [
+	'breakpoint',
+	'requestBreakpoint',
+	'responseBreakpoint',
+	'block',
+	'mock',
+	'transform',
+	'requestModify',
+	'responseModify',
+	'latency',
+	'proxy',
+];
 
 const APPLIED_TYPE_RANK: Record<AppliedType, number> = APPLIED_TYPE_ORDER.reduce(
 	(acc, t, idx) => {
@@ -79,6 +90,36 @@ const APPLIED_TYPE_BADGE_META: Record<AppliedType, AppliedTypeBadgeMeta> = {
 	latency: {
 		label: APPLIED_TYPE_LABELS.latency,
 		iconName: 'timer',
+		variant: 'secondary',
+		colorClass: 'bg-warning/10 border-warning/40 text-warning',
+	},
+	block: {
+		label: APPLIED_TYPE_LABELS.block,
+		iconName: 'x-circle',
+		variant: 'destructive',
+		colorClass: 'bg-destructive/10 border-destructive/40 text-destructive',
+	},
+	requestModify: {
+		label: APPLIED_TYPE_LABELS.requestModify,
+		iconName: 'edit',
+		variant: 'secondary',
+		colorClass: 'bg-info/10 border-info/40 text-info',
+	},
+	responseModify: {
+		label: APPLIED_TYPE_LABELS.responseModify,
+		iconName: 'edit',
+		variant: 'secondary',
+		colorClass: 'bg-info/10 border-info/40 text-info',
+	},
+	requestBreakpoint: {
+		label: APPLIED_TYPE_LABELS.requestBreakpoint,
+		iconName: 'octagon-alert',
+		variant: 'secondary',
+		colorClass: 'bg-warning/10 border-warning/40 text-warning',
+	},
+	responseBreakpoint: {
+		label: APPLIED_TYPE_LABELS.responseBreakpoint,
+		iconName: 'octagon-alert',
 		variant: 'secondary',
 		colorClass: 'bg-warning/10 border-warning/40 text-warning',
 	},

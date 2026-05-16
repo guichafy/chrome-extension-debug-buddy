@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Action, Matcher, Rule } from '@/types/rules';
+import type { Action, Matcher, Rule, RuleStage } from '@/types/rules';
 
 export function useRules() {
 	const [rules, setRules] = useState<Rule[]>([]);
@@ -19,17 +19,25 @@ export function useRules() {
 		}
 	}, []);
 
-	// Adicionar uma nova regra
+	// Adicionar uma nova regra. Stage default = 'response' preserva
+	// comportamento histórico para callers que ainda não setam stage; Phase 4
+	// expõe stage como campo de UI no editor.
 	const addRule = useCallback(
-		async (name: string, matchers: Matcher[], action: Action): Promise<Rule | null> => {
+		async (
+			name: string,
+			matchers: Matcher[],
+			action: Action,
+			stage: RuleStage = 'response',
+		): Promise<Rule | null> => {
 			try {
 				const now = Date.now();
 				const newRule: Rule = {
 					id: uuidv4(),
 					name,
 					enabled: true,
+					stage,
 					matchers,
-					action,
+					actions: [action],
 					createdAt: now,
 					updatedAt: now,
 				};
@@ -94,14 +102,15 @@ export function useRules() {
 				// entre original e cópia em estado in-memory antes do round-trip
 				// via chrome.storage (que serializa para JSON).
 				const clonedMatchers: Matcher[] = JSON.parse(JSON.stringify(source.matchers));
-				const clonedAction: Action = JSON.parse(JSON.stringify(source.action));
+				const clonedActions: Action[] = JSON.parse(JSON.stringify(source.actions));
 
 				const cloned: Rule = {
 					id: uuidv4(),
 					name: `${source.name} (cópia)`,
 					enabled: false,
+					stage: source.stage,
 					matchers: clonedMatchers,
-					action: clonedAction,
+					actions: clonedActions,
 					createdAt: now,
 					updatedAt: now,
 				};

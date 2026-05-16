@@ -1,4 +1,14 @@
-import type { MockLatency } from '../types/rules';
+// Helpers de latência. No schema dual-stage, latência stand-alone é expressa
+// como a ação `requestDelay`; o conceito "mock com latência" passou a ser uma
+// composição `[requestDelay, mock]` no array `Rule.actions`. Este módulo
+// retém apenas o helper `wait` e o tipo legado `MockLatency` para uso em
+// presets/templates que ainda materializam o `requestDelay` a partir de uma
+// faixa configurável. O resolver `resolveMockLatencyMs` continua útil para
+// emitir o `timeMs` final do `requestDelay`.
+
+export type MockLatency =
+	| { mode: 'fixed'; delayMs: number }
+	| { mode: 'range'; minMs: number; maxMs: number };
 
 function assertInteger(name: string, value: number): void {
 	if (!Number.isInteger(value)) {

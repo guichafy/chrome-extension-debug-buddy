@@ -10,8 +10,9 @@ const existingRule = {
 	id: 'r1',
 	name: 'Existing rule',
 	enabled: true,
+	stage: 'response' as const,
 	matchers: [{ type: 'url', enabled: true, pattern: 'api/x', isRegex: false }],
-	action: { type: 'mock', enabled: true, status: 200, headers: {} },
+	actions: [{ type: 'mock', enabled: true, status: 200, headers: {} }],
 	createdAt: 1,
 	updatedAt: 1,
 };
@@ -109,11 +110,12 @@ describe('RulesLab — busca e filtros (US-004)', () => {
 		id: 'r-mock',
 		name: 'Mock login',
 		enabled: true,
+		stage: 'response' as const,
 		matchers: [
 			{ type: 'method' as const, enabled: true, method: 'POST' },
 			{ type: 'url' as const, enabled: true, pattern: '/api/login', isRegex: false },
 		],
-		action: { type: 'mock' as const, enabled: true, status: 401, headers: {} },
+		actions: [{ type: 'mock' as const, enabled: true, status: 401, headers: {} }],
 		createdAt: 1,
 		updatedAt: 1,
 	};
@@ -121,11 +123,12 @@ describe('RulesLab — busca e filtros (US-004)', () => {
 		id: 'r-delay',
 		name: 'Delay search',
 		enabled: true,
+		stage: 'request' as const,
 		matchers: [
 			{ type: 'method' as const, enabled: true, method: 'GET' },
 			{ type: 'url' as const, enabled: true, pattern: '/api/search', isRegex: false },
 		],
-		action: { type: 'delay' as const, enabled: true, timeMs: 500 },
+		actions: [{ type: 'requestDelay' as const, enabled: true, timeMs: 500 }],
 		createdAt: 2,
 		updatedAt: 2,
 	};
@@ -133,8 +136,9 @@ describe('RulesLab — busca e filtros (US-004)', () => {
 		id: 'r-transform',
 		name: 'Transform CORS',
 		enabled: true,
+		stage: 'response' as const,
 		matchers: [{ type: 'url' as const, enabled: true, pattern: '/api/*', isRegex: false }],
-		action: { type: 'transform' as const, enabled: true, mode: 'declarative' as const },
+		actions: [{ type: 'transform' as const, enabled: true, mode: 'declarative' as const }],
 		createdAt: 3,
 		updatedAt: 3,
 	};
@@ -142,11 +146,12 @@ describe('RulesLab — busca e filtros (US-004)', () => {
 		id: 'r-breakpoint',
 		name: 'Breakpoint admin',
 		enabled: true,
+		stage: 'response' as const,
 		matchers: [
 			{ type: 'method' as const, enabled: true, method: ['DELETE', 'PUT'] },
 			{ type: 'url' as const, enabled: true, pattern: '/admin', isRegex: false },
 		],
-		action: { type: 'breakpoint' as const, enabled: true },
+		actions: [{ type: 'breakpoint' as const, enabled: true }],
 		createdAt: 4,
 		updatedAt: 4,
 	};
@@ -198,7 +203,7 @@ describe('RulesLab — busca e filtros (US-004)', () => {
 	test('filtro por tipo (multi-seleção): mock + delay', () => {
 		renderLab();
 		fireEvent.click(screen.getByTestId('filter-chip-type-mock'));
-		fireEvent.click(screen.getByTestId('filter-chip-type-delay'));
+		fireEvent.click(screen.getByTestId('filter-chip-type-requestDelay'));
 		expect(screen.getByText('Mock login')).toBeInTheDocument();
 		expect(screen.getByText('Delay search')).toBeInTheDocument();
 		expect(screen.queryByText('Transform CORS')).not.toBeInTheDocument();
@@ -228,7 +233,7 @@ describe('RulesLab — busca e filtros (US-004)', () => {
 	test('filtros e busca combinam (AND)', () => {
 		renderLab();
 		fireEvent.click(screen.getByTestId('filter-chip-type-mock'));
-		fireEvent.click(screen.getByTestId('filter-chip-type-delay'));
+		fireEvent.click(screen.getByTestId('filter-chip-type-requestDelay'));
 		fireEvent.change(screen.getByLabelText('Buscar regras'), { target: { value: '/api/login' } });
 		expect(screen.getByText('Mock login')).toBeInTheDocument();
 		expect(screen.queryByText('Delay search')).not.toBeInTheDocument();
@@ -271,7 +276,7 @@ describe('RulesLab — busca e filtros (US-004)', () => {
 	test('contagens dos chips de tipo refletem rules', () => {
 		renderLab();
 		expect(screen.getByTestId('filter-chip-type-mock')).toHaveTextContent(/Mock\s*1/);
-		expect(screen.getByTestId('filter-chip-type-delay')).toHaveTextContent(/Latência\s*1/);
+		expect(screen.getByTestId('filter-chip-type-requestDelay')).toHaveTextContent(/Latência\s*1/);
 		expect(screen.getByTestId('filter-chip-type-transform')).toHaveTextContent(/Transform\s*1/);
 		expect(screen.getByTestId('filter-chip-type-breakpoint')).toHaveTextContent(/Breakpoint\s*1/);
 	});

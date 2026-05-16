@@ -10,7 +10,7 @@ import {
 describe('getActionVisuals', () => {
 	test.each([
 		['mock', 'server-crash'],
-		['delay', 'timer'],
+		['requestDelay', 'timer'],
 		['transform', 'file-edit'],
 		['breakpoint', 'octagon-alert'],
 	])('retorna ícone certo para action %s', (type, iconName) => {
@@ -25,31 +25,15 @@ describe('getActionVisuals', () => {
 });
 
 describe('getActionSummary', () => {
-	test('mock com latência fixa inclui delay no resumo', () => {
-		const summary = getActionSummary({
-			type: 'mock',
-			enabled: true,
-			status: 200,
-			statusPhrase: 'OK',
-			headers: {},
-			latency: { mode: 'fixed', delayMs: 1500 },
-		});
-		expect(summary).toContain('1500ms');
-	});
+	// Testes de "mock com latência (fixa|range)" removidos: MockAction não tem
+	// mais campo `latency` no schema v2 — a latência agora vive em
+	// `actions: [requestDelay, mock]` composto pela regra. O resumo isolado da
+	// ação mock não inclui delay nessa nova representação.
 
-	test('mock com latência range inclui faixa no resumo', () => {
-		const summary = getActionSummary({
-			type: 'mock',
-			enabled: true,
-			status: 200,
-			headers: {},
-			latency: { mode: 'range', minMs: 200, maxMs: 800 },
-		});
-		expect(summary).toContain('200–800ms');
-	});
-
-	test('delay action devolve "Atrasar Xms"', () => {
-		expect(getActionSummary({ type: 'delay', enabled: true, timeMs: 750 })).toBe('Atrasar 750ms');
+	test('requestDelay action devolve "Atrasar Xms"', () => {
+		expect(getActionSummary({ type: 'requestDelay', enabled: true, timeMs: 750 })).toBe(
+			'Atrasar 750ms',
+		);
 	});
 
 	test('transform com operações declarativas mostra contagem', () => {
@@ -165,8 +149,9 @@ describe('getRuleMethods', () => {
 			id: 'r1',
 			name: 'rule',
 			enabled: true,
+			stage: 'response',
 			matchers,
-			action: { type: 'mock', enabled: true, status: 200, headers: {} },
+			actions: [{ type: 'mock', enabled: true, status: 200, headers: {} }],
 			createdAt: 1,
 			updatedAt: 1,
 		};
@@ -202,11 +187,17 @@ function buildAction(type: Action['type']): Action {
 	switch (type) {
 		case 'mock':
 			return { type: 'mock', enabled: true, status: 200, headers: {} };
-		case 'delay':
-			return { type: 'delay', enabled: true, timeMs: 100 };
+		case 'requestDelay':
+			return { type: 'requestDelay', enabled: true, timeMs: 100 };
 		case 'transform':
 			return { type: 'transform', enabled: true };
 		case 'breakpoint':
 			return { type: 'breakpoint', enabled: true };
+		case 'requestModify':
+			return { type: 'requestModify', enabled: true };
+		case 'responseModify':
+			return { type: 'responseModify', enabled: true };
+		case 'block':
+			return { type: 'block', enabled: true, errorReason: 'Failed' };
 	}
 }

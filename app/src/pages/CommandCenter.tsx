@@ -22,11 +22,11 @@ import {
 	AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-const VALID_RULE_TYPES: ReadonlySet<ActionType> = new Set([
+const VALID_RULE_TYPES: ReadonlySet<ActionType> = new Set<ActionType>([
 	'mock',
 	'breakpoint',
 	'transform',
-	'delay',
+	'requestDelay',
 ]);
 
 const isActionType = (value: string | null): value is ActionType =>
@@ -180,7 +180,12 @@ const CommandCenter: React.FC = () => {
 	const handleCreateRuleSave = async (
 		newRule: Omit<Rule, 'id' | 'createdAt' | 'updatedAt'>,
 	): Promise<boolean> => {
-		const created = await addRule(newRule.name, newRule.matchers, newRule.action);
+		const created = await addRule(
+			newRule.name,
+			newRule.matchers,
+			newRule.actions[0],
+			newRule.stage,
+		);
 		if (created) {
 			setRecentRuleId(created.id);
 			closeCreateRule();

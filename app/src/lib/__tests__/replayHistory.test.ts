@@ -20,18 +20,21 @@ const rule: Rule = {
 	id: 'r1',
 	name: 'Mock para api.example.com/x',
 	enabled: true,
+	stage: 'response',
 	matchers: [
 		{ type: 'url', enabled: true, pattern: 'api.example.com/x', isRegex: false },
 		{ type: 'method', enabled: true, method: 'GET' },
 	],
-	action: {
-		type: 'mock',
-		enabled: true,
-		status: 500,
-		statusPhrase: 'Internal Server Error',
-		headers: {},
-		body: '{"error":"boom"}',
-	},
+	actions: [
+		{
+			type: 'mock',
+			enabled: true,
+			status: 500,
+			statusPhrase: 'Internal Server Error',
+			headers: {},
+			body: '{"error":"boom"}',
+		},
+	],
 	createdAt: 1,
 	updatedAt: 1,
 };

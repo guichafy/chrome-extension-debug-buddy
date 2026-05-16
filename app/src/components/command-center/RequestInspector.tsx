@@ -135,7 +135,7 @@ export function RequestInspector({
 							</Button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end">
-							{(['mock', 'breakpoint', 'transform', 'delay'] as const).map((type) => {
+							{(['mock', 'breakpoint', 'transform', 'requestDelay'] as const).map((type) => {
 								const action: Action =
 									type === 'mock'
 										? { type: 'mock', enabled: true, status: 200, headers: {} }
@@ -143,7 +143,7 @@ export function RequestInspector({
 											? { type: 'breakpoint', enabled: true }
 											: type === 'transform'
 												? { type: 'transform', enabled: true, mode: 'declarative', operations: [] }
-												: { type: 'delay', enabled: true, timeMs: 1000 };
+												: { type: 'requestDelay', enabled: true, timeMs: 1000 };
 								const v = getActionVisuals(action);
 								return (
 									<DropdownMenuItem

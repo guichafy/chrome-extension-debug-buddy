@@ -26,7 +26,7 @@ import { LucideIcon } from '@/components/ui/lucide-icon';
 import { cn } from '@/lib/utils';
 import { createTemplateRule } from '@/domain/ruleTemplates';
 import type { RuleTemplateId } from '@/domain/ruleTemplates';
-import { Action, Matcher, Rule, RuleDraft } from '@/types/rules';
+import type { Action, Matcher, Rule, RuleDraft, RuleStage } from '@/types/rules';
 import {
 	getActionSummary,
 	getActionVisuals,
@@ -81,26 +81,31 @@ const STEP_META: Record<WizardStep, { label: string; description: string }> = {
 	},
 };
 
-const ACTION_TYPE_DESCRIPTION: Record<Action['type'], string> = {
+// Phase 1 (compat): o wizard atual lida só com os 4 tipos clássicos; os novos
+// `requestModify`/`responseModify`/`block` ficam para Phase 4 (UI dual-stage).
+// `delay` foi renomeado para `requestDelay` no schema.
+type LegacyEditableType = 'mock' | 'transform' | 'requestDelay' | 'breakpoint';
+
+const ACTION_TYPE_DESCRIPTION: Record<LegacyEditableType, string> = {
 	mock: 'Não chama o servidor — retorna a resposta mockada.',
 	transform: 'Chama o servidor e aplica modificações na resposta.',
-	delay: 'Atrasa a resposta antes de devolver ao cliente.',
+	requestDelay: 'Atrasa a resposta antes de devolver ao cliente.',
 	breakpoint: 'Pausa antes de responder e permite editar a resposta em voo.',
 };
 
-const ACTION_TYPE_ORDER: ReadonlyArray<Action['type']> = [
+const ACTION_TYPE_ORDER: ReadonlyArray<LegacyEditableType> = [
 	'breakpoint',
 	'mock',
 	'transform',
-	'delay',
+	'requestDelay',
 ];
 
-const createDefaultActionForType = (type: Action['type']): Action => {
+const createDefaultActionForType = (type: LegacyEditableType): Action => {
 	switch (type) {
 		case 'mock':
 			return { type: 'mock', enabled: true, status: 200, headers: {} };
-		case 'delay':
-			return { type: 'delay', enabled: true, timeMs: 1000 };
+		case 'requestDelay':
+			return { type: 'requestDelay', enabled: true, timeMs: 1000 };
 		case 'transform':
 			return { type: 'transform', enabled: true, mode: 'declarative', operations: [] };
 		case 'breakpoint':
@@ -155,7 +160,13 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 	const [cameFromWelcome, setCameFromWelcome] = useState(false);
 	const [name, setName] = useState(rule?.name || 'Nova Regra');
 	const [matchers, setMatchers] = useState<Matcher[]>(rule?.matchers ?? DEFAULT_MATCHERS);
-	const [action, setAction] = useState<Action>(rule?.action ?? DEFAULT_ACTION);
+	// Phase 1 (compat): wizard ainda edita 1 action por regra. Phase 4 introduz
+	// edição de chain. O state `action` é a HEAD do `rule.actions`; ao salvar,
+	// embrulhamos em `actions: [action]`.
+	const [action, setAction] = useState<Action>(rule?.actions[0] ?? DEFAULT_ACTION);
+	// Phase 4 expõe stage no editor; em Phase 1 mantemos default 'response'
+	// (comportamento histórico) e propagamos no save.
+	const [stage] = useState<RuleStage>(rule?.stage ?? 'response');
 	const [enabled, setEnabled] = useState(rule?.enabled !== false);
 	const [step, setStep] = useState<WizardStep>(skipTypeStep ? 'matcher' : 'type');
 	const [maxStepIndexReached, setMaxStepIndexReached] = useState(0);
@@ -229,7 +240,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 		if (mode === 'edit' && rule) {
 			setName(rule.name);
 			setMatchers(rule.matchers);
-			setAction(rule.action);
+			setAction(rule.actions[0]);
 			setEnabled(rule.enabled);
 			setView('editor');
 			setCameFromWelcome(false);
@@ -240,7 +251,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 					name: rule.name,
 					enabled: rule.enabled,
 					matchers: rule.matchers,
-					action: rule.action,
+					action: rule.actions[0],
 				}),
 			);
 			setShowCancelConfirm(false);
@@ -250,13 +261,20 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 			if (initialDraft) {
 				setName(initialDraft.name);
 				setMatchers(initialDraft.matchers);
-				setAction(initialDraft.action);
+				setAction(initialDraft.actions[0]);
 				setEnabled(initialDraft.enabled);
 				setView('editor');
 				setCameFromWelcome(false);
 				setStep(skipTypeStep ? 'matcher' : 'type');
 				setMaxStepIndexReached(0);
-				setInitialSnapshot(snapshot(initialDraft));
+				setInitialSnapshot(
+					snapshot({
+						name: initialDraft.name,
+						enabled: initialDraft.enabled,
+						matchers: initialDraft.matchers,
+						action: initialDraft.actions[0],
+					}),
+				);
 				setShowCancelConfirm(false);
 				return;
 			}
@@ -294,7 +312,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 			name: draft.name,
 			enabled: draft.enabled,
 			matchers: matchersForEditing,
-			action: draft.action,
+			action: draft.actions[0],
 		});
 	};
 
@@ -368,8 +386,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 			const success = await onSave({
 				name: name.trim(),
 				enabled,
+				stage,
 				matchers,
-				action,
+				actions: [action],
 			});
 			if (success) {
 				setInitialSnapshot(snapshot({ name, enabled, matchers, action }));
@@ -411,7 +430,10 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
 	const visuals = getActionVisuals(action);
 
-	const handleSelectType = (target: Action['type']) => {
+	// Phase 1 (compat): handler aceita apenas os tipos editáveis pelo wizard
+	// atual (mock/transform/requestDelay/breakpoint). Os tipos novos
+	// (requestModify/responseModify/block) só entram em Phase 4 via UI dedicada.
+	const handleSelectType = (target: LegacyEditableType) => {
 		if (mode === 'edit') return;
 		if (action.type === target) return;
 		setAction(createDefaultActionForType(target));
@@ -669,11 +691,11 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
 		const beforeMatcherSummary = getMatcherSummary(rule.matchers);
 		const afterMatcherSummary = getMatcherSummary(matchers);
-		const beforeActionSummary = getActionSummary(rule.action);
+		const beforeActionSummary = getActionSummary(rule.actions[0]);
 		const afterActionSummary = getActionSummary(action);
 
 		const matchersChanged = JSON.stringify(rule.matchers) !== JSON.stringify(matchers);
-		const actionChanged = JSON.stringify(rule.action) !== JSON.stringify(action);
+		const actionChanged = JSON.stringify(rule.actions[0]) !== JSON.stringify(action);
 		const nameChanged = rule.name !== name;
 		const enabledChanged = rule.enabled !== enabled;
 

@@ -8,6 +8,11 @@ export interface RequestMatchInput {
 	body?: string;
 }
 
+// Forma "head" mantida para Phase 1 (compat layer). Em Phase 2 será substituída
+// por `MatchedRuleChain` (chain ordenada com TODAS as actions da regra). Aqui
+// continuamos retornando apenas a primeira `action` do array `rule.actions`
+// para preservar o comportamento de "primeira que casa vence" do engine
+// antigo, enquanto os consumidores migram.
 export type MatchedRuleAction =
 	| {
 			type: 'mock';
@@ -25,14 +30,29 @@ export type MatchedRuleAction =
 			action: Extract<Action, { type: 'transform' }>;
 	  }
 	| {
-			type: 'delay';
+			type: 'requestDelay';
 			rule: Rule;
-			action: Extract<Action, { type: 'delay' }>;
+			action: Extract<Action, { type: 'requestDelay' }>;
+	  }
+	| {
+			type: 'requestModify';
+			rule: Rule;
+			action: Extract<Action, { type: 'requestModify' }>;
+	  }
+	| {
+			type: 'responseModify';
+			rule: Rule;
+			action: Extract<Action, { type: 'responseModify' }>;
+	  }
+	| {
+			type: 'block';
+			rule: Rule;
+			action: Extract<Action, { type: 'block' }>;
 	  };
 
-// Converte um padrao com wildcards `*` para uma RegExp ancorada-em-trecho que
-// pode ser testada contra a URL. Apenas `*` e tratado como meta-caractere; os
-// demais sao escapados literalmente.
+// Converte um padrão com wildcards `*` para uma RegExp ancorada-em-trecho que
+// pode ser testada contra a URL. Apenas `*` é tratado como meta-caractere; os
+// demais são escapados literalmente.
 function wildcardToRegex(pattern: string): RegExp {
 	const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
 	const withWildcard = escaped.replace(/\*/g, '.*');
@@ -73,6 +93,9 @@ function singleMatcherMatches(matcher: Matcher, input: RequestMatchInput): boole
 
 		case 'header':
 			if (!matcher.name || !matcher.value || !matcher.headerType) return false;
+			// Phase 1 (compat): matcher de header de response ainda passa direto
+			// como antes. Em Phase 2 ele só será permitido em regras
+			// `stage='response'` e o engine validará no carregamento.
 			if (matcher.headerType !== 'request') return true;
 			return getHeaderValue(input.headers, matcher.name) === matcher.value;
 
@@ -160,37 +183,39 @@ export function explainMatchers(
 	return { overall, checks };
 }
 
-// Prioridade de matching: itera as regras na ordem do array `rules` e devolve
-// a PRIMEIRA cuja matcher casa o request — "primeira que casa vence". A ordem
-// do array reflete a ordem definida pelo usuario na UI (drag-and-drop em
-// `RulesList`/`chrome.storage.local.rules`); o background mantem essa mesma
-// ordem porque o storage e um array. Regras com `enabled === false` ou
-// `action.enabled === false` sao puladas como se nao existissem (nao bloqueiam
-// regras subsequentes).
+function buildMatchedFromHead(rule: Rule, head: Action): MatchedRuleAction {
+	switch (head.type) {
+		case 'mock':
+			return { type: 'mock', rule, action: head };
+		case 'breakpoint':
+			return { type: 'breakpoint', rule, action: head };
+		case 'transform':
+			return { type: 'transform', rule, action: head };
+		case 'requestDelay':
+			return { type: 'requestDelay', rule, action: head };
+		case 'requestModify':
+			return { type: 'requestModify', rule, action: head };
+		case 'responseModify':
+			return { type: 'responseModify', rule, action: head };
+		case 'block':
+			return { type: 'block', rule, action: head };
+	}
+}
+
+// Phase 1 (compat): retorna a primeira regra cuja matcher casa, expondo a
+// PRIMEIRA action do array `rule.actions` como `MatchedRuleAction`. Phase 2
+// vai substituir essa função por `findMatchingRulesChain` que retorna a chain
+// ordenada de todas as regras casadas por stage, e o engine executará todas.
 export function findMatchingRuleAction(
 	rules: Rule[],
 	input: RequestMatchInput,
 ): MatchedRuleAction | undefined {
 	for (const rule of rules) {
-		if (!rule.enabled || !rule.action.enabled) continue;
+		if (!rule.enabled) continue;
 		if (!matcherMatches(rule, input)) continue;
-
-		if (rule.action.type === 'mock') {
-			return { type: 'mock', rule, action: rule.action };
-		}
-
-		if (rule.action.type === 'breakpoint') {
-			return { type: 'breakpoint', rule, action: rule.action };
-		}
-
-		if (rule.action.type === 'transform') {
-			return { type: 'transform', rule, action: rule.action };
-		}
-
-		if (rule.action.type === 'delay') {
-			return { type: 'delay', rule, action: rule.action };
-		}
+		const head = rule.actions.find((a) => a.enabled);
+		if (!head) continue;
+		return buildMatchedFromHead(rule, head);
 	}
-
 	return undefined;
 }

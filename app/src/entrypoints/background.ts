@@ -56,7 +56,7 @@ import {
 	requestHeadersToRecord,
 	validateMockBody,
 } from '@/domain/http';
-import { resolveMockLatencyMs, wait } from '@/domain/mockLatency';
+import { wait } from '@/domain/mockLatency';
 import { findMatchingRuleAction } from '@/domain/ruleMatching';
 import { applyTransformToBody } from '@/domain/transformExecutor';
 import { COMPILED_CATALOG } from '@/lib/insights/catalog';
@@ -345,24 +345,22 @@ export function applyPrivacyGate(url: string, config: RedactionConfig | null): b
 
 type RequestStageDecision =
 	| { handled: false }
-	| { handled: true; kind: 'mock' }
-	| { handled: true; kind: 'delay'; timeMs: number };
+	| { handled: true; kind: 'requestDelay'; timeMs: number };
 
 /**
  * Decide se o Request stage deve interceptar a request antes dela sair pra
- * rede. Mock+latency precisa ser aplicado aqui (DevTools só conta o delay
- * se o fulfillRequest for no Request stage). Delay standalone idem.
+ * rede. Phase 1: trata apenas `requestDelay` (latência standalone). Em
+ * Phase 3, esta função será substituída pelo pipeline `executeChain` que
+ * itera todas as actions da regra no stage atual, incluindo requestModify,
+ * block, mock (composição mock+delay) e breakpoint pré-envio.
  *
  * Função pura — não dispara side-effects. O caller orquestra o efeito.
  */
 export function processRequestStage(
 	matchedAction: MatchedRuleAction | undefined,
 ): RequestStageDecision {
-	if (matchedAction?.type === 'mock' && matchedAction.action.latency) {
-		return { handled: true, kind: 'mock' };
-	}
-	if (matchedAction?.type === 'delay') {
-		return { handled: true, kind: 'delay', timeMs: matchedAction.action.timeMs };
+	if (matchedAction?.type === 'requestDelay') {
+		return { handled: true, kind: 'requestDelay', timeMs: matchedAction.action.timeMs };
 	}
 	return { handled: false };
 }
@@ -2501,21 +2499,26 @@ function debuggerEventListener(
 }
 
 // Mapeia o `MatchedRuleAction` retornado pelo matcher para a lista de tipos
-// que serão exibidos na coluna "Tipo" do histórico. `mock`/`transform` são
-// derivados nos próprios `applyMockResponse`/`applyTransformResponse` (que
-// têm acesso a metadados extras como `latency`); aqui tratamos os casos de
-// pass-through e capture failure no Response stage.
+// exibidos na coluna "Tipo" do histórico. Phase 1: cobre os 7 tipos do schema
+// dual-stage; Phase 3 expandirá para chains compostas (ex.: requestModify +
+// mock → ['requestModify', 'mock']). Não tratamos composições aqui ainda.
 function deriveAppliedTypesFromMatch(match: MatchedRuleAction | undefined): AppliedType[] {
 	if (!match) return ['proxy'];
 	switch (match.type) {
 		case 'breakpoint':
 			return ['breakpoint'];
-		case 'delay':
+		case 'requestDelay':
 			return ['latency'];
 		case 'mock':
-			return match.action.latency ? ['mock', 'latency'] : ['mock'];
+			return ['mock'];
 		case 'transform':
 			return ['transform'];
+		case 'requestModify':
+			return ['requestModify'];
+		case 'responseModify':
+			return ['responseModify'];
+		case 'block':
+			return ['block'];
 	}
 }
 
@@ -2565,32 +2568,14 @@ async function handleRequestPaused(params: any): Promise<void> {
 
 		const decision = processRequestStage(matchedAction);
 		if (decision.handled) {
-			if (decision.kind === 'mock') {
-				console.log(`Aplicando mock com latência via Request stage: ${url}`);
-				// Não haverá Network.loadingFinished para esta request — descarta o tracker.
-				timingTracker.discardByNetworkId(networkId);
-				// matchedAction deve ser mock+latency aqui (decision.kind === 'mock')
-				if (matchedAction?.type !== 'mock') {
-					throw new Error('processRequestStage retornou kind=mock mas matchedAction não é mock');
-				}
-				await applyMockResponse(requestId, matchedAction.action, {
-					url,
-					method,
-					requestHeaders,
-					postData,
-					responseStatusCode: 0,
-					responseStatusText: '',
-					responseHeaders: [],
-					resourceType,
-				});
-				return;
-			}
-			// decision.kind === 'delay'
-			// DelayAction (Latência standalone): aguarda no Request stage para que o
-			// Chrome DevTools contabilize o atraso na coluna "Time" do Network panel
-			// (mesma técnica do mock+latência). Após o wait, libera a request — ela
-			// ainda passará pelo Response stage normalmente.
-			console.log(`Aplicando delay de ${decision.timeMs}ms via Request stage: ${url}`);
+			// decision.kind === 'requestDelay'
+			// Phase 1: latência standalone via ação `requestDelay`. Aguarda no
+			// Request stage para que o Chrome DevTools contabilize o atraso na
+			// coluna "Time" do Network panel. Após o wait, libera a request —
+			// ela ainda passará pelo Response stage normalmente. Phase 3 trará
+			// o pipeline completo (block, requestModify, mock no Request stage,
+			// breakpoint pré-envio).
+			console.log(`Aplicando requestDelay de ${decision.timeMs}ms: ${url}`);
 			await wait(decision.timeMs);
 			await continueRequest(requestId);
 			return;
@@ -2736,7 +2721,7 @@ async function handleRequestPaused(params: any): Promise<void> {
 
 	const willIntercept = matchedAction?.type === 'breakpoint';
 	const appliedTypes = deriveAppliedTypesFromMatch(matchedAction);
-	const delayMs = matchedAction?.type === 'delay' ? matchedAction.action.timeMs : undefined;
+	const delayMs = matchedAction?.type === 'requestDelay' ? matchedAction.action.timeMs : undefined;
 	const persistedRequest: InterceptedResponse = willIntercept
 		? { ...responseObj, isWaiting: true, appliedTypes }
 		: {
@@ -2843,11 +2828,12 @@ async function applyMockResponse(
 
 		const headerArray = headersRecordToArray(responseHeaders);
 		const bodyValidation = validateMockBody(originalRequest.method, mock.status, mock.body);
-		const latencyMs = resolveMockLatencyMs(mock.latency);
-		// Mocks com `latency` são roteados para o Request stage (ver handleRequestPaused),
-		// onde o `await wait(latencyMs)` ocorre antes do Fetch.fulfillRequest e é refletido
-		// pelo Chrome DevTools na coluna "Time".
-		await wait(latencyMs);
+		// Phase 1: Mock perdeu o campo `latency`. Composições `mock + delay`
+		// agora são expressas como duas actions no array `rule.actions`
+		// (`[requestDelay, mock]`). Em Phase 3 o pipeline `executeChain` aplicará
+		// o `requestDelay` ANTES de invocar `applyMockResponse`, então aqui
+		// continuamos sem `wait`.
+		const latencyMs = 0;
 
 		// Obter o texto do status para o código
 		const statusPhrase = getHttpStatusPhrase(mock.status, mock.statusPhrase);

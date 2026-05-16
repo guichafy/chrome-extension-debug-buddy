@@ -8,8 +8,9 @@ function makeRule(id: string): Rule {
 		id,
 		name: id,
 		enabled: true,
+		stage: 'response',
 		matchers: [{ type: 'url', enabled: true, pattern: id, isRegex: false }],
-		action: { type: 'mock', enabled: true, status: 200, headers: {} },
+		actions: [{ type: 'mock', enabled: true, status: 200, headers: {} }],
 		createdAt: 0,
 		updatedAt: 0,
 	};
@@ -35,8 +36,9 @@ describe('useRules — chrome.storage.onChanged subscription', () => {
 				id: 'rX',
 				name: 'X',
 				enabled: true,
+				stage: 'response',
 				matchers: [{ type: 'url', enabled: true, pattern: 'a', isRegex: false }],
-				action: { type: 'mock', enabled: true, status: 200, headers: {} },
+				actions: [{ type: 'mock', enabled: true, status: 200, headers: {} }],
 				createdAt: 1,
 				updatedAt: 1,
 			},
@@ -153,7 +155,7 @@ describe('useRules — duplicateRule', () => {
 		expect(copy.name).toBe('a (cópia)');
 		expect(copy.enabled).toBe(false);
 		expect(copy.matchers).toEqual(initial[0].matchers);
-		expect(copy.action).toEqual(initial[0].action);
+		expect(copy.actions).toEqual(initial[0].actions);
 	});
 
 	test('insere a cópia imediatamente após a regra original', async () => {

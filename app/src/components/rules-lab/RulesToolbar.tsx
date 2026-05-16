@@ -39,9 +39,12 @@ interface RulesToolbarProps {
 
 const ACTION_FILTER_OPTIONS: { id: ActionType; label: string }[] = [
 	{ id: 'mock', label: 'Mock' },
-	{ id: 'delay', label: 'Latência' },
+	{ id: 'requestDelay', label: 'Latência' },
 	{ id: 'transform', label: 'Transform' },
 	{ id: 'breakpoint', label: 'Breakpoint' },
+	{ id: 'requestModify', label: 'Modify req' },
+	{ id: 'responseModify', label: 'Modify res' },
+	{ id: 'block', label: 'Block' },
 ];
 
 const SORT_LABELS: Record<RulesSortOption, string> = {

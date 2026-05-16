@@ -19,7 +19,7 @@ export function getActionVisuals(action: Action): ActionVisuals {
 				textClass: 'text-violet-300',
 				borderClass: 'border-violet-500/30',
 			};
-		case 'delay':
+		case 'requestDelay':
 			return {
 				iconName: 'timer',
 				label: 'Latência',
@@ -43,6 +43,30 @@ export function getActionVisuals(action: Action): ActionVisuals {
 				textClass: 'text-rose-300',
 				borderClass: 'border-rose-500/30',
 			};
+		case 'requestModify':
+			return {
+				iconName: 'edit',
+				label: 'Modify req',
+				bgClass: 'bg-info/10',
+				textClass: 'text-info',
+				borderClass: 'border-info/30',
+			};
+		case 'responseModify':
+			return {
+				iconName: 'edit',
+				label: 'Modify res',
+				bgClass: 'bg-info/10',
+				textClass: 'text-info',
+				borderClass: 'border-info/30',
+			};
+		case 'block':
+			return {
+				iconName: 'x-circle',
+				label: 'Block',
+				bgClass: 'bg-destructive/10',
+				textClass: 'text-destructive',
+				borderClass: 'border-destructive/30',
+			};
 		default: {
 			const exhaustive: never = action;
 			throw new Error(`Tipo de ação não suportado: ${(exhaustive as { type: string }).type}`);
@@ -54,14 +78,9 @@ export function getActionSummary(action: Action): string {
 	switch (action.type) {
 		case 'mock': {
 			const phrase = action.statusPhrase ? ` ${action.statusPhrase}` : '';
-			const latency = action.latency
-				? action.latency.mode === 'fixed'
-					? ` · ${action.latency.delayMs}ms`
-					: ` · ${action.latency.minMs}–${action.latency.maxMs}ms`
-				: '';
-			return `Mock ${action.status}${phrase}${latency}`;
+			return `Mock ${action.status}${phrase}`;
 		}
-		case 'delay':
+		case 'requestDelay':
 			return `Atrasar ${action.timeMs}ms`;
 		case 'transform': {
 			if (action.mode === 'advanced') {
@@ -76,6 +95,12 @@ export function getActionSummary(action: Action): string {
 		}
 		case 'breakpoint':
 			return action.description ? `Breakpoint — ${action.description}` : 'Breakpoint';
+		case 'requestModify':
+			return 'Modificar request';
+		case 'responseModify':
+			return 'Modificar response';
+		case 'block':
+			return `Bloquear (${action.errorReason})`;
 		default: {
 			const exhaustive: never = action;
 			throw new Error(`Tipo de ação não suportado: ${(exhaustive as { type: string }).type}`);

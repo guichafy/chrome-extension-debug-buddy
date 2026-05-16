@@ -71,4 +71,9 @@ export const APPLIED_TYPE_LABELS: Record<AppliedType, string> = {
 	transform: 'Transform',
 	breakpoint: 'Breakpoint',
 	latency: 'Latência',
+	block: 'Bloqueio',
+	requestModify: 'Modificada (req)',
+	responseModify: 'Modificada (res)',
+	requestBreakpoint: 'Breakpoint req',
+	responseBreakpoint: 'Breakpoint res',
 };
