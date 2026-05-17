@@ -5,13 +5,20 @@ import { Button } from '@/components/ui/button';
 import { LucideIcon } from '@/components/ui/lucide-icon';
 import { Switch } from '@/components/ui/switch';
 import { TableCell, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { Rule } from '@/types/rules';
-import { getActionSummary, getActionVisuals, getMatcherSummary } from './ruleVisuals';
+import {
+	getActionSummary,
+	getActionVisuals,
+	getMatcherSummary,
+	getStageVisuals,
+} from './ruleVisuals';
 
 interface RuleTableRowProps {
 	rule: Rule;
 	order: number;
+	isUnreachable?: boolean;
 	onEdit: (rule: Rule) => void;
 	onRemove: (id: string) => void;
 	onDuplicate: (rule: Rule) => void;
@@ -35,6 +42,7 @@ const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
 export function RuleTableRow({
 	rule,
 	order,
+	isUnreachable = false,
 	onEdit,
 	onRemove,
 	onDuplicate,
@@ -51,6 +59,7 @@ export function RuleTableRow({
 	// actions na mesma regra.
 	const headAction = rule.actions[0];
 	const visuals = getActionVisuals(headAction);
+	const stageVisuals = getStageVisuals(rule.stage);
 	const matchSummary = getMatcherSummary(rule.matchers);
 	const thenSummary = getActionSummary(headAction);
 	const updatedAt = dateFormatter.format(new Date(rule.updatedAt));
@@ -121,11 +130,13 @@ export function RuleTableRow({
 			className={cn(
 				'group transition-opacity',
 				!rule.enabled && 'opacity-50',
+				isUnreachable && rule.enabled && 'bg-warning/5',
 				isDragging && 'opacity-30',
 				dropPosition === 'before' && 'border-t-2 border-t-primary',
 				dropPosition === 'after' && 'border-b-2 border-b-primary',
 			)}
 			data-testid={`rule-row-${rule.id}`}
+			data-unreachable={isUnreachable || undefined}
 			draggable={canReorder}
 			onDragStart={canReorder ? handleDragStart : undefined}
 			onDragOver={canReorder ? handleDragOver : undefined}
@@ -156,6 +167,42 @@ export function RuleTableRow({
 					aria-label={rule.enabled ? 'Pausar regra' : 'Ativar regra'}
 					data-testid={`rule-toggle-${rule.id}`}
 				/>
+			</TableCell>
+			<TableCell className="w-32 py-2">
+				<div className="flex items-center gap-1.5">
+					<Badge
+						variant="outline"
+						className={cn(
+							'gap-1.5 border px-2 py-0.5 text-[11px] font-medium',
+							stageVisuals.bgClass,
+							stageVisuals.textClass,
+							stageVisuals.borderClass,
+						)}
+						data-testid={`rule-stage-badge-${rule.id}`}
+					>
+						<LucideIcon name={stageVisuals.iconName} className="h-3 w-3" />
+						{stageVisuals.label}
+					</Badge>
+					{isUnreachable && (
+						<TooltipProvider delayDuration={200}>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<span
+										className="inline-flex items-center text-warning"
+										data-testid={`rule-unreachable-indicator-${rule.id}`}
+										aria-label="Regra inalcançável"
+									>
+										<LucideIcon name="alert-triangle" className="h-3.5 w-3.5" />
+									</span>
+								</TooltipTrigger>
+								<TooltipContent side="top" className="max-w-[260px] text-xs">
+									Inalcançável: uma regra terminal do mesmo stage acima sempre executa antes desta.
+									Ajuste a ordem ou os matchers para que esta regra seja exercitada.
+								</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
+					)}
+				</div>
 			</TableCell>
 			<TableCell className="w-32 py-2">
 				<Badge

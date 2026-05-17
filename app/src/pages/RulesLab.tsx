@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import RuleEditor from '@/components/rules/RuleEditor';
 import { RulesEmptyState } from '@/components/rules-lab/RulesEmptyState';
 import { RulesImportDialog, type ImportStrategy } from '@/components/rules-lab/RulesImportDialog';
-import { RulesList } from '@/components/rules-lab/RulesList';
+import { RulesList, type StageFilter } from '@/components/rules-lab/RulesList';
 import { RulesPageHeader } from '@/components/rules-lab/RulesPageHeader';
 import { RuleSaveToast } from '@/components/rules-lab/RuleSaveToast';
 import { getRuleMethods } from '@/components/rules-lab/ruleVisuals';
@@ -15,6 +15,7 @@ import {
 } from '@/components/rules-lab/RulesToolbar';
 import { useRules } from '@/hooks/useRules';
 import { serializeRules, validateRuleImport } from '@/domain/rulesIO';
+import { findUnreachableRuleIds } from '@/domain/ruleReachability';
 import type { ActionType, Rule } from '@/types/rules';
 
 interface SaveToastState {
@@ -39,6 +40,11 @@ const VALID_SORTS: ReadonlySet<RulesSortOption> = new Set([
 	'status_active_first',
 ]);
 const VALID_METHODS: ReadonlySet<string> = new Set(METHOD_FILTER_OPTIONS);
+const VALID_STAGE_FILTERS: ReadonlySet<StageFilter> = new Set<StageFilter>([
+	'all',
+	'request',
+	'response',
+]);
 
 const FILTERS_STORAGE_KEY = 'debug-buddy.rules-filters';
 
@@ -47,6 +53,7 @@ interface PersistedFilters {
 	actionFilters: ActionType[];
 	methodFilters: string[];
 	sort: RulesSortOption;
+	stageFilter: StageFilter;
 }
 
 function loadPersistedFilters(): Partial<PersistedFilters> {
@@ -71,6 +78,12 @@ function loadPersistedFilters(): Partial<PersistedFilters> {
 		}
 		if (typeof candidate.sort === 'string' && VALID_SORTS.has(candidate.sort as RulesSortOption)) {
 			result.sort = candidate.sort as RulesSortOption;
+		}
+		if (
+			typeof candidate.stageFilter === 'string' &&
+			VALID_STAGE_FILTERS.has(candidate.stageFilter as StageFilter)
+		) {
+			result.stageFilter = candidate.stageFilter as StageFilter;
 		}
 		return result;
 	} catch {
@@ -110,6 +123,9 @@ function RulesLab() {
 		persistedRef.current.methodFilters ?? [],
 	);
 	const [sort, setSort] = useState<RulesSortOption>(persistedRef.current.sort ?? 'priority_asc');
+	const [stageFilter, setStageFilter] = useState<StageFilter>(
+		persistedRef.current.stageFilter ?? 'all',
+	);
 	const [importPreview, setImportPreview] = useState<Rule[] | null>(null);
 	const [importError, setImportError] = useState<string | null>(null);
 	const [saveToast, setSaveToast] = useState<SaveToastState | null>(null);
@@ -117,8 +133,8 @@ function RulesLab() {
 	const [searchParams] = useSearchParams();
 
 	useEffect(() => {
-		savePersistedFilters({ search, actionFilters, methodFilters, sort });
-	}, [search, actionFilters, methodFilters, sort]);
+		savePersistedFilters({ search, actionFilters, methodFilters, sort, stageFilter });
+	}, [search, actionFilters, methodFilters, sort, stageFilter]);
 
 	const dismissSaveToast = useCallback(() => setSaveToast(null), []);
 
@@ -176,11 +192,18 @@ function RulesLab() {
 		return map;
 	}, [rules]);
 
+	// Phase 6: calcula IDs de regras inalcançáveis a partir do array GLOBAL —
+	// nunca do `visibleRules` filtrado, senão um filtro escondendo a regra
+	// terminal acima da alvo enganaria a heurística.
+	const unreachableIds = useMemo(() => findUnreachableRuleIds(rules), [rules]);
+
 	const visibleRules = useMemo(() => {
 		const term = search.trim().toLowerCase();
 		const hasActionFilter = actionFilters.length > 0;
 		const hasMethodFilter = methodFilters.length > 0;
+		const hasStageFilter = stageFilter !== 'all';
 		const filtered = rules.filter((r) => {
+			if (hasStageFilter && r.stage !== stageFilter) return false;
 			if (hasActionFilter && !actionFilters.includes(r.actions[0]?.type)) return false;
 			if (hasMethodFilter) {
 				const ruleMethods = getRuleMethods(r);
@@ -216,11 +239,12 @@ function RulesLab() {
 				break;
 		}
 		return sorted;
-	}, [rules, search, actionFilters, methodFilters, sort]);
+	}, [rules, search, actionFilters, methodFilters, sort, stageFilter]);
 
 	// Drag-and-drop só é seguro quando a ordem visível casa com a ordem do array
 	// `rules` — ou seja, sem busca/filtro e ordenação por prioridade.
 	const canReorder =
+		stageFilter === 'all' &&
 		sort === 'priority_asc' &&
 		search.trim() === '' &&
 		actionFilters.length === 0 &&
@@ -308,6 +332,8 @@ function RulesLab() {
 							onActionFiltersChange={setActionFilters}
 							methodFilters={methodFilters}
 							onMethodFiltersChange={setMethodFilters}
+							stageFilterActive={stageFilter !== 'all'}
+							onClearStageFilter={() => setStageFilter('all')}
 							sort={sort}
 							onSortChange={setSort}
 							actionCounts={actionCounts}
@@ -318,6 +344,9 @@ function RulesLab() {
 							rules={visibleRules}
 							totalCount={rules.length}
 							orderById={orderById}
+							unreachableIds={unreachableIds}
+							stageFilter={stageFilter}
+							onStageFilterChange={setStageFilter}
 							onEdit={(rule) => setEditingRule(rule)}
 							onRemove={removeRule}
 							onDuplicate={handleDuplicate}

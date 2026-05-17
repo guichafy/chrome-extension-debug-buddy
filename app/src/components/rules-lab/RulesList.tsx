@@ -1,16 +1,30 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import {
+	DropdownMenu,
+	DropdownMenuCheckboxItem,
+	DropdownMenuContent,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { LucideIcon } from '@/components/ui/lucide-icon';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { Rule } from '@/types/rules';
+import { cn } from '@/lib/utils';
+import type { Rule, RuleStage } from '@/types/rules';
 import { RuleTableRow } from './RuleTableRow';
 
 const PAGE_SIZE = 10;
+
+export type StageFilter = 'all' | RuleStage;
 
 interface RulesListProps {
 	rules: Rule[];
 	totalCount: number;
 	orderById: Map<string, number>;
+	unreachableIds?: ReadonlySet<string>;
+	stageFilter?: StageFilter;
+	onStageFilterChange?: (value: StageFilter) => void;
 	onEdit: (rule: Rule) => void;
 	onRemove: (id: string) => void;
 	onDuplicate: (rule: Rule) => void;
@@ -20,10 +34,15 @@ interface RulesListProps {
 	onMove?: (id: string, direction: 'up' | 'down') => void;
 }
 
+const EMPTY_UNREACHABLE: ReadonlySet<string> = new Set();
+
 export function RulesList({
 	rules,
 	totalCount,
 	orderById,
+	unreachableIds = EMPTY_UNREACHABLE,
+	stageFilter = 'all',
+	onStageFilterChange,
 	onEdit,
 	onRemove,
 	onDuplicate,
@@ -47,6 +66,8 @@ export function RulesList({
 		return rules.slice(start, start + PAGE_SIZE);
 	}, [rules, page]);
 
+	const stageFilterActive = stageFilter !== 'all';
+
 	if (rules.length === 0) {
 		return (
 			<div className="px-6 py-10 text-center text-sm text-muted-foreground">
@@ -58,6 +79,10 @@ export function RulesList({
 	const showingFrom = page * PAGE_SIZE + 1;
 	const showingTo = Math.min(rules.length, page * PAGE_SIZE + visible.length);
 	const showPagination = rules.length > PAGE_SIZE;
+
+	const handleStageSelect = (value: StageFilter) => {
+		onStageFilterChange?.(value);
+	};
 
 	return (
 		<div className="flex flex-col">
@@ -78,6 +103,65 @@ export function RulesList({
 						</TableHead>
 						<TableHead className="h-9 w-16 text-[11px] font-medium uppercase tracking-wide">
 							Status
+						</TableHead>
+						<TableHead className="h-9 w-32 text-[11px] font-medium uppercase tracking-wide">
+							<div className="flex items-center gap-1">
+								<span>Stage</span>
+								<DropdownMenu>
+									<DropdownMenuTrigger asChild>
+										<Button
+											type="button"
+											variant="ghost"
+											size="icon"
+											className={cn('h-5 w-5', stageFilterActive && 'text-primary')}
+											aria-label="Filtrar por stage"
+											data-testid="stage-filter-trigger"
+											data-active={stageFilterActive || undefined}
+										>
+											<LucideIcon name="filter" className="h-3 w-3" />
+										</Button>
+									</DropdownMenuTrigger>
+									<DropdownMenuContent align="start" className="w-40">
+										<DropdownMenuLabel className="text-[11px] uppercase tracking-wide text-muted-foreground">
+											Stage
+										</DropdownMenuLabel>
+										<DropdownMenuSeparator />
+										<DropdownMenuCheckboxItem
+											checked={stageFilter === 'all'}
+											onSelect={(event) => {
+												event.preventDefault();
+												handleStageSelect('all');
+											}}
+											className="text-xs"
+											data-testid="stage-filter-option-all"
+										>
+											Todos
+										</DropdownMenuCheckboxItem>
+										<DropdownMenuCheckboxItem
+											checked={stageFilter === 'request'}
+											onSelect={(event) => {
+												event.preventDefault();
+												handleStageSelect('request');
+											}}
+											className="text-xs"
+											data-testid="stage-filter-option-request"
+										>
+											Request
+										</DropdownMenuCheckboxItem>
+										<DropdownMenuCheckboxItem
+											checked={stageFilter === 'response'}
+											onSelect={(event) => {
+												event.preventDefault();
+												handleStageSelect('response');
+											}}
+											className="text-xs"
+											data-testid="stage-filter-option-response"
+										>
+											Response
+										</DropdownMenuCheckboxItem>
+									</DropdownMenuContent>
+								</DropdownMenu>
+							</div>
 						</TableHead>
 						<TableHead className="h-9 w-32 text-[11px] font-medium uppercase tracking-wide">
 							Tipo
@@ -102,6 +186,7 @@ export function RulesList({
 							key={rule.id}
 							rule={rule}
 							order={orderById.get(rule.id) ?? 0}
+							isUnreachable={unreachableIds.has(rule.id)}
 							onEdit={onEdit}
 							onRemove={onRemove}
 							onDuplicate={onDuplicate}

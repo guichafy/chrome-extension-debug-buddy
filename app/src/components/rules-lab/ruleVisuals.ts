@@ -1,5 +1,5 @@
 import type { LucideIconName } from '@/components/ui/lucide-icon';
-import type { Action, Matcher, Rule } from '@/types/rules';
+import type { Action, Matcher, Rule, RuleStage } from '@/types/rules';
 
 export interface ActionVisuals {
 	iconName: LucideIconName;
@@ -7,6 +7,36 @@ export interface ActionVisuals {
 	bgClass: string;
 	textClass: string;
 	borderClass: string;
+}
+
+export interface StageVisuals {
+	iconName: LucideIconName;
+	label: string;
+	bgClass: string;
+	textClass: string;
+	borderClass: string;
+}
+
+// Phase 6: badge de stage. Azul=request (a regra age antes da rede), verde=
+// response (age depois da resposta chegar). Tokens de design system mantêm
+// consistência com `lib/statusBadge.ts`.
+export function getStageVisuals(stage: RuleStage): StageVisuals {
+	if (stage === 'request') {
+		return {
+			iconName: 'upload',
+			label: 'Request',
+			bgClass: 'bg-info/15',
+			textClass: 'text-info',
+			borderClass: 'border-info/40',
+		};
+	}
+	return {
+		iconName: 'download',
+		label: 'Response',
+		bgClass: 'bg-success/15',
+		textClass: 'text-success',
+		borderClass: 'border-success/40',
+	};
 }
 
 export function getActionVisuals(action: Action): ActionVisuals {

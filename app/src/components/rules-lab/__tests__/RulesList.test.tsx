@@ -1,4 +1,5 @@
 import { createEvent, fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, test, vi } from 'vitest';
 import type { Rule } from '@/types/rules';
 import { RulesList } from '../RulesList';
@@ -45,6 +46,7 @@ describe('RulesList', () => {
 		expect(table).toBeInTheDocument();
 		expect(within(table).getByText('Ordem')).toBeInTheDocument();
 		expect(within(table).getByText('Status')).toBeInTheDocument();
+		expect(within(table).getByText('Stage')).toBeInTheDocument();
 		expect(within(table).getByText('Tipo')).toBeInTheDocument();
 		expect(within(table).getByText('Matcher')).toBeInTheDocument();
 		expect(within(table).getByText('Ação')).toBeInTheDocument();
@@ -360,5 +362,93 @@ describe('RulesList', () => {
 		expect(screen.getByText('Regra 11')).toBeInTheDocument();
 		expect(screen.getByText('Regra 12')).toBeInTheDocument();
 		expect(screen.queryByText('Regra 1')).not.toBeInTheDocument();
+	});
+
+	describe('Phase 6 — coluna Stage, filtro e indicador inalcançável', () => {
+		test('badge de Stage aparece na linha com label correto para cada stage', () => {
+			const rules = [makeRule(1, { stage: 'request' }), makeRule(2, { stage: 'response' })];
+			render(
+				<RulesList rules={rules} totalCount={2} orderById={makeOrderById(rules)} {...callbacks} />,
+			);
+			expect(screen.getByTestId('rule-stage-badge-r1')).toHaveTextContent('Request');
+			expect(screen.getByTestId('rule-stage-badge-r2')).toHaveTextContent('Response');
+		});
+
+		test('dropdown de filtro do header chama onStageFilterChange ao selecionar Request', async () => {
+			const rules = [makeRule(1), makeRule(2)];
+			const onStageFilterChange = vi.fn();
+			const user = userEvent.setup();
+			render(
+				<RulesList
+					rules={rules}
+					totalCount={2}
+					orderById={makeOrderById(rules)}
+					{...callbacks}
+					stageFilter="all"
+					onStageFilterChange={onStageFilterChange}
+				/>,
+			);
+
+			await user.click(screen.getByTestId('stage-filter-trigger'));
+			const option = await screen.findByTestId('stage-filter-option-request');
+			await user.click(option);
+			expect(onStageFilterChange).toHaveBeenCalledWith('request');
+		});
+
+		test('trigger do filtro fica marcado como ativo quando stageFilter ≠ "all"', () => {
+			const rules = [makeRule(1)];
+			render(
+				<RulesList
+					rules={rules}
+					totalCount={1}
+					orderById={makeOrderById(rules)}
+					{...callbacks}
+					stageFilter="response"
+					onStageFilterChange={vi.fn()}
+				/>,
+			);
+			expect(screen.getByTestId('stage-filter-trigger')).toHaveAttribute('data-active', 'true');
+		});
+
+		test('regra em unreachableIds renderiza indicador de inalcançável + data-unreachable', () => {
+			const rules = [makeRule(1), makeRule(2), makeRule(3)];
+			render(
+				<RulesList
+					rules={rules}
+					totalCount={3}
+					orderById={makeOrderById(rules)}
+					{...callbacks}
+					unreachableIds={new Set(['r2'])}
+				/>,
+			);
+			expect(screen.getByTestId('rule-unreachable-indicator-r2')).toBeInTheDocument();
+			expect(screen.queryByTestId('rule-unreachable-indicator-r1')).not.toBeInTheDocument();
+			expect(screen.queryByTestId('rule-unreachable-indicator-r3')).not.toBeInTheDocument();
+			expect(screen.getByTestId('rule-row-r2')).toHaveAttribute('data-unreachable', 'true');
+			expect(screen.getByTestId('rule-row-r1')).not.toHaveAttribute('data-unreachable');
+		});
+
+		test('snapshot estrutural: lista com regras dos dois stages + uma inalcançável', () => {
+			const rules: Rule[] = [
+				makeRule(1, { stage: 'request' }),
+				makeRule(2, { stage: 'response' }),
+				makeRule(3, { stage: 'response' }),
+			];
+			const { container } = render(
+				<RulesList
+					rules={rules}
+					totalCount={3}
+					orderById={makeOrderById(rules)}
+					{...callbacks}
+					unreachableIds={new Set(['r3'])}
+				/>,
+			);
+
+			expect(screen.getByTestId('rule-stage-badge-r1')).toHaveTextContent('Request');
+			expect(screen.getByTestId('rule-stage-badge-r2')).toHaveTextContent('Response');
+			expect(screen.getByTestId('rule-stage-badge-r3')).toHaveTextContent('Response');
+			expect(screen.getByTestId('rule-unreachable-indicator-r3')).toBeInTheDocument();
+			expect(container.querySelectorAll('[data-unreachable="true"]')).toHaveLength(1);
+		});
 	});
 });
