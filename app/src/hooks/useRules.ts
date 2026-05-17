@@ -226,11 +226,9 @@ export function useRules() {
 		[rules],
 	);
 
-	// Carregar regras ao montar o componente. A migração de dados legados
-	// (urlPatterns/mocks) é responsabilidade do background — ver
-	// app/src/lib/legacyMigration.ts.
-	// Também subscreve chrome.storage.onChanged para refletir escritas externas
-	// (ex: importação de regras feita pelo Rules Lab) sem precisar recarregar.
+	// Carregar regras ao montar o componente e subscrever chrome.storage.onChanged
+	// para refletir escritas externas (ex: importação de regras feita pelo Rules
+	// Lab) sem precisar recarregar.
 	useEffect(() => {
 		loadRules();
 
