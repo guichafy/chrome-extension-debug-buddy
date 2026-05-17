@@ -30,6 +30,8 @@ interface RulesToolbarProps {
 	onActionFiltersChange: (value: ActionType[]) => void;
 	methodFilters: string[];
 	onMethodFiltersChange: (value: string[]) => void;
+	stageFilterActive?: boolean;
+	onClearStageFilter?: () => void;
 	sort: RulesSortOption;
 	onSortChange: (value: RulesSortOption) => void;
 	actionCounts: Record<ActionType, number>;
@@ -103,6 +105,8 @@ export function RulesToolbar({
 	onActionFiltersChange,
 	methodFilters,
 	onMethodFiltersChange,
+	stageFilterActive = false,
+	onClearStageFilter,
 	sort,
 	onSortChange,
 	actionCounts,
@@ -110,12 +114,16 @@ export function RulesToolbar({
 	totalCount,
 }: RulesToolbarProps) {
 	const hasActiveFilters =
-		actionFilters.length > 0 || methodFilters.length > 0 || search.trim().length > 0;
+		actionFilters.length > 0 ||
+		methodFilters.length > 0 ||
+		search.trim().length > 0 ||
+		stageFilterActive;
 
 	const handleClear = () => {
 		onSearchChange('');
 		onActionFiltersChange([]);
 		onMethodFiltersChange([]);
+		onClearStageFilter?.();
 	};
 
 	return (
