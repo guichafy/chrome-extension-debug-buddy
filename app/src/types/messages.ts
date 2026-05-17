@@ -141,6 +141,11 @@ export interface MessageResponse {
 	error?: string;
 	isDebugging?: boolean;
 	pendingResponses?: Record<string, InterceptedResponse>;
+	// Phase 3 (dual-stage): fila unificada de interceptações pendentes. Cobre
+	// ambos os stages (Request e Response). Consumida pelo hook
+	// `usePendingInterceptions` (Phase 5). Mantemos `pendingResponses`
+	// paralelo durante a transição.
+	pendingInterceptions?: Record<string, import('@/lib/interceptionPipeline').PendingInterception>;
 	allRequests?: Record<string, InterceptedResponse>;
 	response?: InterceptedResponse;
 	mocks?: MockConfig[];

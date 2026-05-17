@@ -250,18 +250,22 @@ function buildMatchedFromHead(rule: Rule, head: Action): MatchedRuleAction {
 	}
 }
 
-// Compat layer (Phase 1/2): retorna a primeira regra cuja matcher casa,
-// expondo a PRIMEIRA action habilitada como `MatchedRuleAction`. Itera
-// ignorando stage (`'response'` por default) para preservar comportamento
-// histórico até Phase 3 migrar os call-sites do background.
+// Compat layer (Phase 1/2/3): retorna a primeira regra cuja matcher casa,
+// expondo a PRIMEIRA action habilitada como `MatchedRuleAction`. Quando o
+// caller passa `stage`, filtra `rule.stage === stage` — evita que regras
+// stage='request' contaminem o Response stage (e vice-versa) no Phase 3,
+// onde a integração pipeline/legacy ainda coexiste. Sem `stage`, mantém o
+// comportamento histórico (Phase 1/2) de iterar todas as regras.
 export function findMatchingRuleAction(
 	rules: Rule[],
 	input: RequestMatchInput,
+	stage?: RuleStage,
 ): MatchedRuleAction | undefined {
 	for (const rule of rules) {
 		if (!rule.enabled) continue;
-		const stage: RuleStage = rule.stage ?? 'response';
-		if (!matcherMatches(rule, input, stage)) continue;
+		const ruleStage: RuleStage = rule.stage ?? 'response';
+		if (stage !== undefined && ruleStage !== stage) continue;
+		if (!matcherMatches(rule, input, ruleStage)) continue;
 		const head = rule.actions.find((a) => a.enabled);
 		if (!head) continue;
 		return buildMatchedFromHead(rule, head);

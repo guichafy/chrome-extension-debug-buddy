@@ -57,8 +57,15 @@ import {
 	validateMockBody,
 } from '@/domain/http';
 import { wait } from '@/domain/mockLatency';
-import { findMatchingRuleAction } from '@/domain/ruleMatching';
+import { findMatchingRuleAction, findMatchingRulesChain } from '@/domain/ruleMatching';
+import { processStageChain } from '@/domain/intercepted';
 import { applyTransformToBody } from '@/domain/transformExecutor';
+import {
+	executeChain,
+	type ExecutionContext,
+	type PendingInterception,
+	type RequestSnapshot,
+} from '@/lib/interceptionPipeline';
 import { COMPILED_CATALOG } from '@/lib/insights/catalog';
 import { extractBackgroundSignals } from '@/lib/insights/bgSignals';
 import { mergeHits } from '@/lib/insights/mergeHits';
@@ -126,6 +133,11 @@ let isDebugging = false;
 let attachedTabId: number | null = null;
 let rules: Rule[] = [];
 let pendingResponses: Record<string, InterceptedResponse> = {}; // Store intercepted responses
+// Phase 3 (dual-stage): fila unificada de interceptações pendentes. Cobre
+// ambos os stages (Request e Response) — populada pelos appliers
+// applyRequestBreakpoint/applyResponseBreakpoint via createPipelineContext.
+// Phase 5 substituirá `pendingResponses` por esta fila no consumo da UI.
+const pendingInterceptions: Map<string, PendingInterception> = new Map();
 let allRequests: Record<string, InterceptedResponse> = {}; // Store all requests
 // Variáveis globais para rastrear abas
 let interceptorTabId: number | null = null;
@@ -341,28 +353,6 @@ async function handleLogEntry(
 export function applyPrivacyGate(url: string, config: RedactionConfig | null): boolean {
 	if (!config) return false;
 	return shouldIgnoreUrl(url, config);
-}
-
-type RequestStageDecision =
-	| { handled: false }
-	| { handled: true; kind: 'requestDelay'; timeMs: number };
-
-/**
- * Decide se o Request stage deve interceptar a request antes dela sair pra
- * rede. Phase 1: trata apenas `requestDelay` (latência standalone). Em
- * Phase 3, esta função será substituída pelo pipeline `executeChain` que
- * itera todas as actions da regra no stage atual, incluindo requestModify,
- * block, mock (composição mock+delay) e breakpoint pré-envio.
- *
- * Função pura — não dispara side-effects. O caller orquestra o efeito.
- */
-export function processRequestStage(
-	matchedAction: MatchedRuleAction | undefined,
-): RequestStageDecision {
-	if (matchedAction?.type === 'requestDelay') {
-		return { handled: true, kind: 'requestDelay', timeMs: matchedAction.action.timeMs };
-	}
-	return { handled: false };
 }
 
 interface ResponseSnapshotInput {
@@ -1250,6 +1240,15 @@ const handleGetPendingResponses: ActionHandler = (_message, _sender, sendRespons
 	return false; // Indicates we've responded synchronously
 };
 
+const handleGetPendingInterceptions: ActionHandler = (_message, _sender, sendResponse) => {
+	const entries: Record<string, PendingInterception> = {};
+	for (const [requestId, entry] of pendingInterceptions) {
+		entries[requestId] = entry;
+	}
+	sendResponse({ pendingInterceptions: entries });
+	return false;
+};
+
 const handleGetAllRequests: ActionHandler = (_message, _sender, sendResponse) => {
 	sendResponse({ allRequests });
 	return false; // Indicates we've responded synchronously
@@ -1845,6 +1844,7 @@ const messageHandlers: Partial<Record<import('@/types/messages').MessageAction, 
 	stopDebugging: handleStopDebugging,
 	getDebuggingStatus: handleGetDebuggingStatus,
 	getPendingResponses: handleGetPendingResponses,
+	getPendingInterceptions: handleGetPendingInterceptions,
 	getAllRequests: handleGetAllRequests,
 	getResponseDetails: handleGetResponseDetails,
 	selectTargetTab: handleSelectTargetTab,
@@ -2522,6 +2522,97 @@ function deriveAppliedTypesFromMatch(match: MatchedRuleAction | undefined): Appl
 	}
 }
 
+// Phase 3: contexto injetado nos appliers do pipeline. Encapsula CDP wrapper,
+// wait, e enfileiramento da fila pendingInterceptions (com broadcast pra UI).
+function createPipelineContext(): ExecutionContext {
+	return {
+		sendDebuggerCommand: (method, paramsArg) => sendDebuggerCommand(method, paramsArg),
+		wait,
+		enqueuePendingInterception: (entry) => {
+			pendingInterceptions.set(entry.requestId, entry);
+			// Broadcast pra UI consumir via getPendingInterceptions / newPendingInterception.
+			// Phase 5 conecta o hub `PendingInterceptionDialog` a este broadcast.
+			chrome.runtime
+				.sendMessage({
+					action: 'newPendingInterception',
+					requestId: entry.requestId,
+				})
+				.catch(() => {
+					// Sem listener mounted é cenário comum (UI fechada) — não escalamos
+					// no console pra manter o ruído baixo.
+				});
+		},
+	};
+}
+
+// Helper: builda InterceptedResponse pra terminais do Request stage (mock e
+// block) — ambos curto-circuitam a rede, então persistimos aqui (Response
+// stage nunca vai ver o requestId).
+interface RequestTerminalPersistInput {
+	url: string;
+	method: string;
+	resourceType: string;
+	requestHeaders: Record<string, string>;
+	postData: string | undefined;
+}
+
+function buildRequestMockResponse(
+	input: RequestTerminalPersistInput,
+	mock: { status: number; statusPhrase: string; headers: Record<string, string>; body?: string },
+	startedAt: number,
+): InterceptedResponse {
+	const mimeType = getOptionalMimeTypeFromHeaders(mock.headers);
+	const out: InterceptedResponse = {
+		url: input.url,
+		method: input.method,
+		status: mock.status,
+		statusText: mock.statusPhrase,
+		headers: mock.headers,
+		...(mimeType !== undefined ? { mimeType } : {}),
+		type: 'mock',
+		timestamp: Date.now(),
+		isMocked: true,
+		request: {
+			headers: input.requestHeaders,
+			...(input.postData !== undefined ? { postData: input.postData } : {}),
+		},
+		response: {
+			headers: mock.headers,
+			...(mock.body !== undefined ? { body: mock.body } : {}),
+		},
+		mockLatencyMs: 0,
+		appliedTypes: ['mock'],
+		duration: Date.now() - startedAt,
+		durationSource: 'mock',
+	};
+	if (mock.body !== undefined) out.body = mock.body;
+	return out;
+}
+
+function buildRequestBlockResponse(
+	input: RequestTerminalPersistInput,
+	errorReason: string,
+): InterceptedResponse {
+	return {
+		url: input.url,
+		method: input.method,
+		// Sem HTTP status — a conexão nem foi tentada. 0 é o convencional
+		// pra "request bloqueado/abortado pré-envio".
+		status: 0,
+		statusText: errorReason,
+		headers: {},
+		type: input.resourceType,
+		timestamp: Date.now(),
+		request: {
+			headers: input.requestHeaders,
+			...(input.postData !== undefined ? { postData: input.postData } : {}),
+		},
+		response: { headers: {} },
+		captureError: `Bloqueado pela regra (${errorReason}).`,
+		appliedTypes: ['block'],
+	};
+}
+
 // Handle paused request
 async function handleRequestPaused(params: any): Promise<void> {
 	const {
@@ -2560,30 +2651,91 @@ async function handleRequestPaused(params: any): Promise<void> {
 	const postData = typeof request.postData === 'string' ? request.postData : undefined;
 
 	if (!isResponseStage) {
-		const matchedAction = findMatchingRuleAction(rules, {
+		// Phase 3: pipeline stage-aware substitui o `processRequestStage` legado.
+		// `findMatchingRulesChain` retorna a chain ordenada de regras stage='request'
+		// que casam; `processStageChain` achata em `PlannedAction[]` cortando no
+		// primeiro terminal; `executeChain` itera o plan executando cada applier.
+		const requestStageChain = findMatchingRulesChain(rules, 'request', {
 			url,
 			method,
 			headers: requestHeaders,
+			...(postData !== undefined ? { body: postData } : {}),
 		});
+		const { actions: plan } = processStageChain(requestStageChain);
 
-		const decision = processRequestStage(matchedAction);
-		if (decision.handled) {
-			// decision.kind === 'requestDelay'
-			// Phase 1: latência standalone via ação `requestDelay`. Aguarda no
-			// Request stage para que o Chrome DevTools contabilize o atraso na
-			// coluna "Time" do Network panel. Após o wait, libera a request —
-			// ela ainda passará pelo Response stage normalmente. Phase 3 trará
-			// o pipeline completo (block, requestModify, mock no Request stage,
-			// breakpoint pré-envio).
-			console.log(`Aplicando requestDelay de ${decision.timeMs}ms: ${url}`);
-			await wait(decision.timeMs);
+		if (plan.length === 0) {
+			// Pass-through: nenhuma regra stage='request' casou. Deixa a request
+			// seguir normalmente — o Response stage poderá interceptá-la depois.
 			await continueRequest(requestId);
 			return;
 		}
 
-		// Demais casos (sem mock ou mock sem latência): deixa a request seguir normalmente.
-		// O Response stage irá interceptá-la depois.
-		await continueRequest(requestId);
+		const initialRequestSnapshot: RequestSnapshot = {
+			url,
+			method,
+			headers: requestHeaders,
+			...(postData !== undefined ? { postData } : {}),
+		};
+		const pipelineCtx = createPipelineContext();
+		const startedAt = Date.now();
+		const result = await executeChain(
+			plan,
+			requestId,
+			'request',
+			{ request: initialRequestSnapshot },
+			pipelineCtx,
+		);
+
+		// Persistência por tipo de terminal:
+		// - mock/block: curto-circuitaram a rede; Response stage nunca verá esta
+		//   request, então gravamos aqui.
+		// - breakpoint: pendingInterceptions já populado pelo applier; UI resolve
+		//   via approve. Não persistimos snapshot final aqui (Phase 5 o fará).
+		// - sem terminal mas cdpReleased: requestModify/requestDelay continuaram a
+		//   request — Response stage vai capturar e persistir normalmente.
+		// - sem terminal sem cdpReleased (chain só com modifiers que não emitiram
+		//   continue por algum motivo): não esperado, mas defensivo: continueRequest.
+		if (result.terminated && result.terminalKind === 'mock' && result.responseSnapshot) {
+			const persisted = buildRequestMockResponse(
+				{
+					url,
+					method,
+					resourceType,
+					requestHeaders,
+					postData,
+				},
+				result.responseSnapshot,
+				startedAt,
+			);
+			applyPrivacyToInterceptedResponse(persisted);
+			await persistRequest(requestId, persisted);
+			timingTracker.discardByNetworkId(networkId);
+			if (attachedTabId !== null) {
+				emitNetworkEventForSession(attachedTabId, requestId, persisted).catch((err) => {
+					console.warn('[session] emitNetworkEventForSession (request-mock) falhou:', err);
+				});
+			}
+		} else if (result.terminated && result.terminalKind === 'block') {
+			const blockAction = plan.find((p) => p.action.type === 'block')?.action;
+			const errorReason =
+				blockAction && blockAction.type === 'block' ? blockAction.errorReason : 'Failed';
+			const persisted = buildRequestBlockResponse(
+				{ url, method, resourceType, requestHeaders, postData },
+				errorReason,
+			);
+			applyPrivacyToInterceptedResponse(persisted);
+			await persistRequest(requestId, persisted);
+			timingTracker.discardByNetworkId(networkId);
+			if (attachedTabId !== null) {
+				emitNetworkEventForSession(attachedTabId, requestId, persisted).catch((err) => {
+					console.warn('[session] emitNetworkEventForSession (request-block) falhou:', err);
+				});
+			}
+		} else if (!result.terminated && !result.cdpReleased) {
+			// Caminho defensivo — não esperado no fluxo normal. Libera a request
+			// pra evitar travar a página.
+			await continueRequest(requestId);
+		}
 		return;
 	}
 
@@ -2606,11 +2758,20 @@ async function handleRequestPaused(params: any): Promise<void> {
 	console.log('Method:', method);
 	console.log('Resource Type:', resourceType);
 
-	const matchedAction = findMatchingRuleAction(rules, {
-		url,
-		method,
-		headers: requestHeaders,
-	});
+	// Phase 3: filtra por stage='response' — evita que regras stage='request'
+	// reapareçam aqui (já foram executadas pelo pipeline no Request stage).
+	// Body matcher fica conservador: o body do response ainda não foi capturado
+	// neste ponto (capturamos depois via getDecodedResponseBody), então passamos
+	// body=undefined e o matcher trata como pass (linha 124 de ruleMatching.ts).
+	const matchedAction = findMatchingRuleAction(
+		rules,
+		{
+			url,
+			method,
+			headers: requestHeaders,
+		},
+		'response',
+	);
 
 	if (matchedAction?.type === 'mock') {
 		console.log(`Applying mock for ${url}`);
