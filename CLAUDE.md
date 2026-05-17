@@ -137,13 +137,11 @@ Exemplo (regra Request stage que injeta header + manda mock):
 }
 ```
 
-`legacyMigration.ts` (Phase 1) converte storage v0 (`urlPatterns`/`mocks`) para `Rule[]` v2 — breakpoints e mocks legados nascem com `stage: 'response'`. Backup do dado pré-migração fica em `chrome.storage.local.legacy_backup_v1` por um release. Phase 9 mostra um banner one-shot ao usuário avisando do breaking change (`DualStageMigrationNotice`).
-
-A UI (`useRules`) é leitora pura; o background é o dono da migração.
+A UI (`useRules`) é leitora pura; o background é dono das escritas em `chrome.storage.local`.
 
 ### 4. Persistence split
 
-- **`chrome.storage.local`** — `rules`, `targetTabInfo`, plus `legacy_migrated_at` (timestamp) and `legacy_backup_v1` (one-release safety net containing the pre-migration `urlPatterns`/`mocks`). The background subscribes to `chrome.storage.onChanged` to keep its in-memory `rules` array in sync (so changes apply without restart).
+- **`chrome.storage.local`** — `rules`, `targetTabInfo`. The background subscribes to `chrome.storage.onChanged` to keep its in-memory `rules` array in sync (so changes apply without restart).
 - **In-memory (background)** — `pendingResponses`, `allRequests`, `isDebugging`, `attachedTabId`. The in-memory `allRequests` is a fast cache; the durable copy is in IndexedDB.
 - **IndexedDB (shared by background and UI)** — `debugger-extension-db` v1, store `requests` (keyPath `id`, indexes on `data.url`/`data.timestamp`/`data.method`/`data.status`). The same `IndexedDBServiceImpl` (`app/src/lib/indexedDB.ts`) is imported by both the service worker and the UI; each context opens its own connection to the same database (IndexedDB allows concurrent connections).
 - **Background is the writer**, frontend is the reader. Two helpers in `background.ts` enforce this:
@@ -171,8 +169,8 @@ When you add a new action, edit `app/src/types/messages.ts` — that file is the
 - `components/ui/` — vendored shadcn-ui primitives. Add new ones via `npm run shadcn:add <name>` (configured in `app/components.json`). Tailwind v4 with config in CSS — `@theme` block in `app/src/styles/globals.css` declares `--color-*` design tokens; `tw-animate-css` provides the Radix-targeted animation utilities (`animate-in/out`, `fade-in-0`, `zoom-in-95`, `slide-in-from-*`).
 - `components/layout/` — `AppSidebar`, `SiteHeader`, `NavMain` (chrome shell shared by both entrypoints).
 - `components/requests/duration.ts` — pure helpers (`formatDuration`, `getDurationColorClass`, `compareDurations`) used by the "Tempo" column. Co-located tests in `__tests__/duration.test.ts`.
-- `lib/` — shared utilities (`indexedDB`, `networkTiming`, `legacyMigration`, `statusBadge`, `helpers`, `utils` — the `cn` shadcn helper). Imported by both background and UI.
-- `types/` — shared type contracts (`messages`, `rules`, `intercepted`, `legacy`).
+- `lib/` — shared utilities (`indexedDB`, `networkTiming`, `statusBadge`, `helpers`, `utils` — the `cn` shadcn helper). Imported by both background and UI.
+- `types/` — shared type contracts (`messages`, `rules`, `intercepted`).
 - `domain/` — pure functions for HTTP semantics, mock latency, rule matching.
 - `styles/globals.css` — Tailwind v4 + design tokens.
 
@@ -232,7 +230,7 @@ npm run e2e:ui             # modo interativo do Playwright
 
 CI: o workflow `e2e` roda em todo PR para `main` e em pushes para `main`. Em falha, baixe o artefato `playwright-report` (HTML report + trace) por 7 dias. Para virar bloqueante, adicionar manualmente o check `e2e` aos required status checks de `main` no GitHub.
 
-Limites desse primeiro corte: cobre **só o Golden Path** com regra de mock; outros tipos (`delay`, `transform`, `breakpoint`), criação de regra via UI, side panel e migração legacy ficam em issues de follow-up.
+Limites desse primeiro corte: cobre **só o Golden Path** com regra de mock; outros tipos (`delay`, `transform`, `breakpoint`), criação de regra via UI e side panel ficam em issues de follow-up.
 
 **Evidência visual**: cada execução verde gera 6 PNGs em `app/e2e/evidence/` (gitignored, regenerada a cada run pelo globalSetup). O workflow `e2e` sobe esses arquivos como artefato `playwright-evidence` (retenção 7 dias) — útil para revisores de PR. O workflow `release` também roda o E2E antes do semantic-release; em sucesso, os 6 PNGs são anexados à GitHub Release publicada via plugin `@semantic-release/github` com label `E2E evidence — golden path (<tag>)`.
 

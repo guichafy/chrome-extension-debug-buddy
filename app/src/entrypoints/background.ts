@@ -1,10 +1,5 @@
 import type { Protocol } from 'devtools-protocol/types/protocol';
 import { indexedDBService } from '@/lib/indexedDB';
-import {
-	runEnabledBackfillMigration,
-	runLegacyMigration,
-	runModifyToTransformMigration,
-} from '@/lib/legacyMigration';
 import { NetworkTimingTracker } from '@/lib/networkTiming';
 import { recorder } from '@/lib/session/recorder';
 import { RecommendationEngine } from '@/lib/session/recommendations/engine';
@@ -949,18 +944,6 @@ const timingTracker = new NetworkTimingTracker(
 // Initialize when the extension is installed or updated
 chrome.runtime.onInstalled.addListener(async (details) => {
 	console.log(`[background] onInstalled: ${details.reason}`);
-	const result = await runLegacyMigration();
-	if (result.migrated) {
-		console.log('[background] Legacy storage migrated to rules format.');
-	}
-	const transformResult = await runModifyToTransformMigration();
-	if (transformResult.migrated) {
-		console.log(`[background] Renamed ${transformResult.renamed} modify rules to transform.`);
-	}
-	const enabledResult = await runEnabledBackfillMigration();
-	if (enabledResult.migrated) {
-		console.log(`[background] Backfilled enabled em ${enabledResult.backfilled} regras.`);
-	}
 	try {
 		const cfg = await getPrivacyConfig();
 		if (cfg.autoPurgeEnabled) {
@@ -972,13 +955,8 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 	}
 });
 
-// Roda a migração também no startup do navegador (extensão já instalada).
-// Idempotente — cada runner checa seu próprio flag antes de agir.
 chrome.runtime.onStartup.addListener(async () => {
 	console.log('[background] onStartup');
-	await runLegacyMigration();
-	await runModifyToTransformMigration();
-	await runEnabledBackfillMigration();
 	try {
 		const cfg = await getPrivacyConfig();
 		if (cfg.autoPurgeEnabled) {

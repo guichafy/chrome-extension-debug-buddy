@@ -3,7 +3,6 @@
 // edite ESTE arquivo e os dois lados (background + UI) recompilam.
 
 import type { InterceptedResponse, ResponseModifications } from './intercepted';
-import type { MockConfig } from './legacy';
 import type { SessionMarker } from './sessionMarker';
 import type {
 	EnvironmentFingerprint,
@@ -166,7 +165,6 @@ export interface MessageResponse {
 	pendingInterceptions?: Record<string, import('@/lib/interceptionPipeline').PendingInterception>;
 	allRequests?: Record<string, InterceptedResponse>;
 	response?: InterceptedResponse;
-	mocks?: MockConfig[];
 	sessionMarker?: SessionMarker;
 	// Session Replay — Phase 1a / 1c / 1d
 	ok?: boolean;
