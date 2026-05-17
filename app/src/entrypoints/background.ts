@@ -56,6 +56,7 @@ import {
 } from '@/domain/http';
 import { wait } from '@/domain/mockLatency';
 import { findMatchingRuleAction, findMatchingRulesChain } from '@/domain/ruleMatching';
+import { findOrphanedRuleIds } from '@/domain/ruleLifecycle';
 import { processStageChain } from '@/domain/intercepted';
 import { applyTransformToBody } from '@/domain/transformExecutor';
 import {
@@ -968,12 +969,52 @@ chrome.runtime.onStartup.addListener(async () => {
 	}
 });
 
+// Quando uma rule é removida ou desabilitada via UI, eventuais interceptações
+// que ela já gerou continuam segurando o request via CDP (Fetch.requestPaused
+// foi disparado antes do delete). Sem este saneamento o request fica órfão
+// indefinidamente: o usuário pensa que "a rule não desligou" porque o dock e
+// o RequestInspector continuam mostrando pending.
+//
+// Liberamos via Fetch.continueRequest (pass-through) — falha no CDP é logada
+// mas não bloqueia, porque o request pode ter expirado antes do saneamento.
+async function resolveOrphanedPendings(prevRules: Rule[], nextRules: Rule[]): Promise<void> {
+	const orphaned = findOrphanedRuleIds(prevRules, nextRules);
+	if (orphaned.size === 0) return;
+
+	const toRelease: string[] = [];
+	for (const [requestId, entry] of pendingInterceptions) {
+		if (entry.ruleId && orphaned.has(entry.ruleId)) {
+			toRelease.push(requestId);
+		}
+	}
+	if (toRelease.length === 0) return;
+
+	for (const requestId of toRelease) {
+		try {
+			await sendDebuggerCommand('Fetch.continueRequest', { requestId });
+		} catch (err) {
+			console.warn(
+				`[storage.onChanged] Fetch.continueRequest falhou para ${requestId} (rule removida/desabilitada): ${getErrorMessage(err)}`,
+			);
+		}
+		pendingInterceptions.delete(requestId);
+		delete pendingResponses[requestId];
+		await patchRequest(requestId, { isWaiting: false });
+	}
+	console.log(
+		`[storage.onChanged] Liberadas ${toRelease.length} pending interceptions órfãs (${orphaned.size} rule(s) removida(s)/desabilitada(s)).`,
+	);
+}
+
 // Listener para mudanças no storage (para atualizar regras em tempo real)
 chrome.storage.onChanged.addListener((changes, namespace) => {
 	if (namespace !== 'local') return;
 	if (changes.rules) {
-		rules = changes.rules.newValue || [];
+		const prevRules: Rule[] = (changes.rules.oldValue as Rule[] | undefined) ?? [];
+		const nextRules: Rule[] = (changes.rules.newValue as Rule[] | undefined) ?? [];
+		rules = nextRules;
 		console.log(`Regras atualizadas: ${rules.length} regras carregadas`);
+		void resolveOrphanedPendings(prevRules, nextRules);
 	}
 	if (changes.privacyConfig) {
 		void reloadPrivacyConfig();
