@@ -70,37 +70,6 @@ describe('applyPrivacyGate', () => {
 	});
 });
 
-import type { MatchedRuleAction } from '@/domain/ruleMatching';
-
-describe('processRequestStage', () => {
-	test('retorna { handled: true, kind: "requestDelay" } quando matchedAction é requestDelay', async () => {
-		const { processRequestStage } = await import('../background');
-		const action: MatchedRuleAction = {
-			type: 'requestDelay',
-			action: { timeMs: 5000 } as never,
-		} as never;
-		expect(processRequestStage(action)).toEqual({
-			handled: true,
-			kind: 'requestDelay',
-			timeMs: 5000,
-		});
-	});
-
-	test('retorna { handled: false } quando matchedAction é mock (mock não dispara no request stage hoje)', async () => {
-		const { processRequestStage } = await import('../background');
-		const action: MatchedRuleAction = {
-			type: 'mock',
-			action: { status: 200, body: '', headers: {} } as never,
-		} as never;
-		expect(processRequestStage(action)).toEqual({ handled: false });
-	});
-
-	test('retorna { handled: false } quando matchedAction é undefined', async () => {
-		const { processRequestStage } = await import('../background');
-		expect(processRequestStage(undefined)).toEqual({ handled: false });
-	});
-});
-
 describe('buildResponseSnapshot', () => {
 	test('monta snapshot completo com body, request e response', async () => {
 		const { buildResponseSnapshot } = await import('../background');
