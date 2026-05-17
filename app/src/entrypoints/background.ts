@@ -39,10 +39,13 @@ import type {
 	AppliedType,
 	InterceptedResponse,
 	MockAction,
+	RequestModificationSnapshot,
 	ResponseModifications,
+	ResponseModificationSnapshot,
 	Rule,
 	TransformAction,
 } from '@/types';
+import { diffRequestSnapshots } from '@/domain/modificationDiff';
 import type { MatchedRuleAction } from '@/domain/ruleMatching';
 import { EMPTY_SESSION_MARKER, type SessionMarker } from '@/types/sessionMarker';
 import {
@@ -138,6 +141,12 @@ let pendingResponses: Record<string, InterceptedResponse> = {}; // Store interce
 // applyRequestBreakpoint/applyResponseBreakpoint via createPipelineContext.
 // Phase 5 substituirá `pendingResponses` por esta fila no consumo da UI.
 const pendingInterceptions: Map<string, PendingInterception> = new Map();
+// Phase 7: snapshots de mudanças que o chain do Request stage aplicou e que
+// PRECISAM ser carregadas até o Response stage (chain modify-only sem
+// terminal). Limpa após o Response stage persistir. Para terminais
+// (mock/block) o snapshot é gravado direto no builder e a entry NÃO entra
+// neste map.
+const pendingRequestModified: Map<string, RequestModificationSnapshot> = new Map();
 let allRequests: Record<string, InterceptedResponse> = {}; // Store all requests
 // Variáveis globais para rastrear abas
 let interceptorTabId: number | null = null;
@@ -2728,10 +2737,11 @@ interface RequestTerminalPersistInput {
 	postData: string | undefined;
 }
 
-function buildRequestMockResponse(
+export function buildRequestMockResponse(
 	input: RequestTerminalPersistInput,
 	mock: { status: number; statusPhrase: string; headers: Record<string, string>; body?: string },
 	startedAt: number,
+	requestModified?: RequestModificationSnapshot,
 ): InterceptedResponse {
 	const mimeType = getOptionalMimeTypeFromHeaders(mock.headers);
 	const out: InterceptedResponse = {
@@ -2753,17 +2763,19 @@ function buildRequestMockResponse(
 			...(mock.body !== undefined ? { body: mock.body } : {}),
 		},
 		mockLatencyMs: 0,
-		appliedTypes: ['mock'],
+		appliedTypes: requestModified ? ['requestModify', 'mock'] : ['mock'],
 		duration: Date.now() - startedAt,
 		durationSource: 'mock',
+		...(requestModified ? { requestModified } : {}),
 	};
 	if (mock.body !== undefined) out.body = mock.body;
 	return out;
 }
 
-function buildRequestBlockResponse(
+export function buildRequestBlockResponse(
 	input: RequestTerminalPersistInput,
 	errorReason: string,
+	requestModified?: RequestModificationSnapshot,
 ): InterceptedResponse {
 	return {
 		url: input.url,
@@ -2781,7 +2793,8 @@ function buildRequestBlockResponse(
 		},
 		response: { headers: {} },
 		captureError: `Bloqueado pela regra (${errorReason}).`,
-		appliedTypes: ['block'],
+		appliedTypes: requestModified ? ['requestModify', 'block'] : ['block'],
+		...(requestModified ? { requestModified } : {}),
 	};
 }
 
@@ -2867,6 +2880,11 @@ async function handleRequestPaused(params: any): Promise<void> {
 		//   request — Response stage vai capturar e persistir normalmente.
 		// - sem terminal sem cdpReleased (chain só com modifiers que não emitiram
 		//   continue por algum motivo): não esperado, mas defensivo: continueRequest.
+		// Phase 7: diff entre snapshot original × modificado por requestModify no
+		// chain. Quando o chain só modifica (sem terminal) a request continua pra
+		// rede e o map carrega o snapshot até o Response stage.
+		const requestModified = diffRequestSnapshots(initialRequestSnapshot, result.requestSnapshot);
+
 		if (result.terminated && result.terminalKind === 'mock' && result.responseSnapshot) {
 			const persisted = buildRequestMockResponse(
 				{
@@ -2878,6 +2896,7 @@ async function handleRequestPaused(params: any): Promise<void> {
 				},
 				result.responseSnapshot,
 				startedAt,
+				requestModified,
 			);
 			applyPrivacyToInterceptedResponse(persisted);
 			await persistRequest(requestId, persisted);
@@ -2894,6 +2913,7 @@ async function handleRequestPaused(params: any): Promise<void> {
 			const persisted = buildRequestBlockResponse(
 				{ url, method, resourceType, requestHeaders, postData },
 				errorReason,
+				requestModified,
 			);
 			applyPrivacyToInterceptedResponse(persisted);
 			await persistRequest(requestId, persisted);
@@ -2907,6 +2927,10 @@ async function handleRequestPaused(params: any): Promise<void> {
 			// Caminho defensivo — não esperado no fluxo normal. Libera a request
 			// pra evitar travar a página.
 			await continueRequest(requestId);
+		} else if (!result.terminated && requestModified) {
+			// Chain continuou pra rede (requestModify/requestDelay). Guarda o
+			// snapshot pra Response stage consumir ao persistir.
+			pendingRequestModified.set(requestId, requestModified);
 		}
 		return;
 	}
@@ -3055,12 +3079,30 @@ async function handleRequestPaused(params: any): Promise<void> {
 	const willIntercept = matchedAction?.type === 'breakpoint';
 	const appliedTypes = deriveAppliedTypesFromMatch(matchedAction);
 	const delayMs = matchedAction?.type === 'requestDelay' ? matchedAction.action.timeMs : undefined;
+	// Phase 7: consome snapshot deixado pelo Request stage (chain modify-only).
+	const requestModifiedFromRequestStage = pendingRequestModified.get(requestId);
+	if (requestModifiedFromRequestStage) {
+		pendingRequestModified.delete(requestId);
+	}
+	const carriedAppliedTypes: AppliedType[] = requestModifiedFromRequestStage
+		? Array.from(new Set<AppliedType>(['requestModify', ...appliedTypes]))
+		: appliedTypes;
 	const persistedRequest: InterceptedResponse = willIntercept
-		? { ...responseObj, isWaiting: true, appliedTypes }
+		? {
+				...responseObj,
+				isWaiting: true,
+				appliedTypes: carriedAppliedTypes,
+				...(requestModifiedFromRequestStage
+					? { requestModified: requestModifiedFromRequestStage }
+					: {}),
+			}
 		: {
 				...responseObj,
-				appliedTypes,
+				appliedTypes: carriedAppliedTypes,
 				...(delayMs !== undefined ? { delayMs } : {}),
+				...(requestModifiedFromRequestStage
+					? { requestModified: requestModifiedFromRequestStage }
+					: {}),
 			};
 
 	applyPrivacyToInterceptedResponse(persistedRequest);
@@ -3442,6 +3484,9 @@ async function applyTransformResponse(
 	}
 
 	const responseHeaderArray = headersRecordToArray(baseResponse.headers);
+	// Phase 7: diff entre body original e body pós-transform → responseModified.
+	const responseModified: ResponseModificationSnapshot | undefined =
+		originalBody !== transformedBody ? { body: transformedBody } : undefined;
 	const fulfilledResponse: InterceptedResponse = {
 		...baseResponse,
 		body: transformedBody,
@@ -3451,6 +3496,7 @@ async function applyTransformResponse(
 		},
 		isTransformed: true,
 		appliedTypes: ['transform'],
+		...(responseModified ? { responseModified } : {}),
 	};
 
 	try {
