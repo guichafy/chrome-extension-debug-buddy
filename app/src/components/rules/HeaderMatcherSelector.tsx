@@ -1,4 +1,3 @@
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { isSensitiveHeader, maskHeaderValue } from '@/domain/sensitiveHeaders';
 import type { HeaderMatcher, Matcher } from '@/types/rules';
@@ -71,16 +70,40 @@ export function HeaderMatcherSelector({ headers, matchers, onChange }: HeaderMat
 		onChange([...matchers, matcher]);
 	};
 
+	const selectedCount = rows.reduce(
+		(acc, row) => (findExistingIndex(matchers, row.headerType, row.name) >= 0 ? acc + 1 : acc),
+		0,
+	);
+
 	return (
 		<div className="space-y-2">
-			<h4 className="text-sm font-medium">Header matchers (opcional)</h4>
+			<div className="flex flex-wrap items-baseline justify-between gap-2">
+				<h4 className="text-sm font-medium">Header matchers (opcional)</h4>
+				<span
+					className="text-xs text-muted-foreground"
+					data-testid="header-matcher-count"
+					aria-live="polite"
+				>
+					{selectedCount > 0
+						? `${selectedCount} marcado${selectedCount > 1 ? 's' : ''} de ${rows.length}`
+						: `${rows.length} disponíve${rows.length > 1 ? 'is' : 'l'}`}
+				</span>
+			</div>
 			<p className="text-xs text-muted-foreground">
 				Marque headers para exigir o mesmo valor na request original. Headers sensíveis ficam
 				mascarados.
 			</p>
-			<ScrollArea className="max-h-72 rounded-md border">
+			{/* Scroll nativo: scrollbar sempre visível em overflow (diferente do Radix
+			    ScrollArea type="hover", que escondia a indicação de "tem mais"). Cap
+			    responsivo via max-h-[40vh] adapta a viewports maiores; min-h-40 garante
+			    pelo menos ~5 linhas visíveis mesmo em modais pequenos. thead sticky
+			    mantém os rótulos das colunas ao rolar. */}
+			<div
+				className="min-h-40 max-h-[40vh] overflow-y-auto rounded-md border"
+				data-testid="header-matcher-scroll"
+			>
 				<table className="w-full text-sm">
-					<thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+					<thead className="sticky top-0 z-10 bg-muted text-xs uppercase text-muted-foreground shadow-[inset_0_-1px_0_var(--border)]">
 						<tr>
 							<th className="px-3 py-2 text-left">Inc.</th>
 							<th className="px-3 py-2 text-left">Tipo</th>
@@ -114,7 +137,7 @@ export function HeaderMatcherSelector({ headers, matchers, onChange }: HeaderMat
 						})}
 					</tbody>
 				</table>
-			</ScrollArea>
+			</div>
 		</div>
 	);
 }
