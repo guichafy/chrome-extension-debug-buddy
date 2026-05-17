@@ -16,6 +16,23 @@
 				.catch((err) => {
 					document.getElementById("users-data").textContent = "ERROR: " + err.message;
 				});
+
+			// Helper exposto para os specs Phase 8 dispararem fetches sob demanda
+			// e ler o resultado completo (status, body, ok, error) via evaluate.
+			window.runFetch = async function (url, opts) {
+				try {
+					const resp = await fetch(url, opts);
+					let body = null;
+					try {
+						body = await resp.text();
+					} catch {
+						body = null;
+					}
+					return { ok: resp.ok, status: resp.status, body };
+				} catch (err) {
+					return { ok: false, status: 0, body: null, error: String(err && err.message) };
+				}
+			};
 		</script>
 	</body>
 </html>

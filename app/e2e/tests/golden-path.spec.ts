@@ -14,17 +14,20 @@ test('Golden Path: regra mocka fetch e request aparece no histórico', async () 
 			id: 'e2e-rule-1',
 			name: 'E2E mock users',
 			enabled: true,
+			stage: 'response',
 			matchers: [
 				{ type: 'url', enabled: true, pattern: '/api/users', isRegex: false },
 				{ type: 'method', enabled: true, method: 'GET' },
 			],
-			action: {
-				type: 'mock',
-				enabled: true,
-				status: 200,
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ users: [{ id: 1, name: 'mocked-user' }] }),
-			},
+			actions: [
+				{
+					type: 'mock',
+					enabled: true,
+					status: 200,
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ users: [{ id: 1, name: 'mocked-user' }] }),
+				},
+			],
 			createdAt: now,
 			updatedAt: now,
 		};
