@@ -17,6 +17,7 @@
     "storage",
     "sidePanel",
     "offscreen",
+    "scripting",
     "webNavigation"
   ],
   "background": {
