@@ -683,7 +683,7 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 			['breakpoint' as const, 'Breakpoint'],
 			['transform' as const, 'Transform'],
 			['requestDelay' as const, 'Latência'],
-		])('passo Ação exibe badge "Configurando ação %s" para o tipo selecionado', (type, label) => {
+		])('passo Ação renderiza chain row para o tipo selecionado %s', (type, label) => {
 			const action =
 				type === 'mock'
 					? { type: 'mock' as const, enabled: true, status: 200, headers: {} }
@@ -719,12 +719,14 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 			);
 			// Avança Matcher → Ação
 			fireEvent.click(screen.getByRole('button', { name: /Próximo/ }));
-			const banner = screen.getByText(/Configurando ação/).closest('div');
-			expect(banner).toBeInTheDocument();
-			expect(within(banner as HTMLElement).getByText(label)).toBeInTheDocument();
+			const chain = screen.getByTestId('action-chain-editor');
+			expect(chain).toHaveAttribute('data-stage', stage);
+			const row = within(chain).getByTestId('action-chain-row-0');
+			expect(row).toHaveAttribute('data-action-type', type);
+			expect(within(row).getByText(new RegExp(`1\\. ${label}`))).toBeInTheDocument();
 		});
 
-		test('badge do tipo aparece também no fluxo padrão (mode=edit, sem skipTypeStep)', () => {
+		test('chain editor aparece também no fluxo padrão (mode=edit, sem skipTypeStep)', () => {
 			const baseRule: Rule = {
 				id: 'r1',
 				name: 'Existing',
@@ -739,9 +741,11 @@ describe('RuleEditor wizard — step Tipo (cards)', () => {
 				<RuleEditor open mode="edit" rule={baseRule} onOpenChange={vi.fn()} onSave={vi.fn()} />,
 			);
 			fireEvent.click(screen.getByTestId('rule-wizard-step-action'));
-			const banner = screen.getByText(/Configurando ação/).closest('div');
-			expect(banner).toBeInTheDocument();
-			expect(within(banner as HTMLElement).getByText('Breakpoint')).toBeInTheDocument();
+			const chain = screen.getByTestId('action-chain-editor');
+			expect(chain).toBeInTheDocument();
+			const row = within(chain).getByTestId('action-chain-row-0');
+			expect(row).toHaveAttribute('data-action-type', 'breakpoint');
+			expect(within(row).getByText(/1\. Breakpoint/)).toBeInTheDocument();
 		});
 	});
 });
