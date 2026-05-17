@@ -1437,6 +1437,7 @@ const handleApproveResponseWithEdit: ActionHandler = (message, sender, sendRespo
 		try {
 			await applyEditedResponse(requestId, { status, headers, body });
 			delete pendingResponses[requestId];
+			pendingInterceptions.delete(requestId);
 			patchRequest(requestId, {
 				isWaiting: false,
 				editedAtRuntime: true,
@@ -1451,6 +1452,172 @@ const handleApproveResponseWithEdit: ActionHandler = (message, sender, sendRespo
 			console.error(`Erro ao aplicar edição one-shot em ${requestId}:`, error);
 			return { success: false, error: getErrorMessage(error) };
 		}
+	})(message, sender, sendResponse);
+};
+
+// ─── Phase 5: handlers unificados de PendingInterception ──────────────────────
+//
+// Os três handlers abaixo substituem (a longo prazo) os pares legados
+// approveResponse/approveResponseWithEdit/ignoreResponse. Durante a transição
+// eles convivem — `approveInterception*` sempre limpa as duas filas (legacy
+// `pendingResponses` + nova `pendingInterceptions`) e usa o CDP command correto
+// por stage:
+//   - Request stage : Fetch.continueRequest (sem args = pass-through; com mods
+//                     = url/method/headers/postData)
+//   - Response stage: Fetch.continueRequest sem args (pass-through original);
+//                     com mods = Fetch.fulfillRequest com status/headers/body
+//   - cancel        : Fetch.failRequest com errorReason='Aborted' em ambos
+//
+// Falhas do CDP propagam — nenhum `try/catch` engole erro silenciosamente.
+
+function buildContinueRequestParams(
+	requestId: string,
+	entry: PendingInterception,
+	edit: Pick<
+		NonNullable<import('@/types/messages').Message['interceptionEdit']>,
+		'url' | 'method' | 'headers' | 'postData'
+	>,
+): Record<string, unknown> {
+	const params: Record<string, unknown> = { requestId };
+	if (edit.url !== undefined && edit.url !== entry.url) {
+		params.url = edit.url;
+	}
+	if (edit.method !== undefined && edit.method !== entry.method) {
+		params.method = edit.method;
+	}
+	if (edit.postData !== undefined && edit.postData !== entry.request.postData) {
+		params.postData = edit.postData;
+	}
+	if (edit.headers !== undefined) {
+		const sameKeys =
+			Object.keys(edit.headers).length === Object.keys(entry.request.headers).length &&
+			Object.keys(edit.headers).every((k) => edit.headers?.[k] === entry.request.headers[k]);
+		if (!sameKeys) {
+			params.headers = headersRecordToArray(edit.headers);
+		}
+	}
+	return params;
+}
+
+const handleApproveInterception: ActionHandler = (message, sender, sendResponse) => {
+	return runAsyncHandler(async (msg) => {
+		const requestId = msg.requestId;
+		if (!requestId) {
+			return { success: false, error: 'requestId obrigatório' };
+		}
+		const entry = pendingInterceptions.get(requestId);
+		if (!entry) {
+			return { success: false, error: 'Interception not found' };
+		}
+
+		if (entry.stage === 'request') {
+			// Sem mods em Request stage = pass-through (continueRequest sem args
+			// extras). Modificações via approveInterceptionWithEdit.
+			await sendDebuggerCommand('Fetch.continueRequest', { requestId });
+		} else {
+			// Response stage sem mods: deixa a resposta original fluir.
+			await sendDebuggerCommand('Fetch.continueRequest', { requestId });
+		}
+
+		pendingInterceptions.delete(requestId);
+		delete pendingResponses[requestId];
+		patchRequest(requestId, { isWaiting: false });
+		return { success: true };
+	})(message, sender, sendResponse);
+};
+
+const handleApproveInterceptionWithEdit: ActionHandler = (message, sender, sendResponse) => {
+	return runAsyncHandler(async (msg) => {
+		const requestId = msg.requestId;
+		if (!requestId) {
+			return { success: false, error: 'requestId obrigatório' };
+		}
+		const entry = pendingInterceptions.get(requestId);
+		if (!entry) {
+			return { success: false, error: 'Interception not found' };
+		}
+		const edit = msg.interceptionEdit;
+		if (!edit) {
+			return { success: false, error: 'interceptionEdit obrigatório' };
+		}
+
+		if (entry.stage === 'request') {
+			// Em Request stage modificamos via continueRequest com payload. O CDP
+			// aceita campos opcionais — só enviamos os que realmente mudaram.
+			const params = buildContinueRequestParams(requestId, entry, edit);
+			await sendDebuggerCommand('Fetch.continueRequest', params);
+			const updates: Partial<InterceptedResponse> = { isWaiting: false, editedAtRuntime: true };
+			if (edit.url !== undefined && edit.url !== entry.url) updates.url = edit.url;
+			if (edit.method !== undefined) updates.method = edit.method;
+			if (edit.headers !== undefined) {
+				updates.request = {
+					headers: edit.headers,
+					...(edit.postData !== undefined ? { postData: edit.postData } : {}),
+				};
+			} else if (edit.postData !== undefined) {
+				updates.request = {
+					headers: entry.request.headers,
+					postData: edit.postData,
+				};
+			}
+			pendingInterceptions.delete(requestId);
+			delete pendingResponses[requestId];
+			patchRequest(requestId, updates);
+			return { success: true };
+		}
+
+		// Response stage: fulfillRequest com status/headers/body.
+		const status = edit.status;
+		const headers = edit.headers;
+		const body = edit.body;
+		if (typeof status !== 'number') {
+			return { success: false, error: 'status obrigatório em edição de Response stage' };
+		}
+		if (!headers) {
+			return { success: false, error: 'headers obrigatórios em edição de Response stage' };
+		}
+		if (typeof body !== 'string') {
+			return { success: false, error: 'body obrigatório em edição de Response stage' };
+		}
+		await applyEditedResponse(requestId, { status, headers, body });
+		pendingInterceptions.delete(requestId);
+		delete pendingResponses[requestId];
+		patchRequest(requestId, {
+			isWaiting: false,
+			editedAtRuntime: true,
+			status,
+			statusText: getHttpStatusPhrase(status),
+			headers,
+			body,
+			response: { headers, body },
+		});
+		return { success: true };
+	})(message, sender, sendResponse);
+};
+
+const handleCancelInterception: ActionHandler = (message, sender, sendResponse) => {
+	return runAsyncHandler(async (msg) => {
+		const requestId = msg.requestId;
+		if (!requestId) {
+			return { success: false, error: 'requestId obrigatório' };
+		}
+		const entry = pendingInterceptions.get(requestId);
+		if (!entry) {
+			return { success: false, error: 'Interception not found' };
+		}
+		// failRequest aborta o request com erro de rede. Funciona em ambos os
+		// stages — pré-envio (request stage) ou após resposta (response stage).
+		await sendDebuggerCommand('Fetch.failRequest', {
+			requestId,
+			errorReason: 'Aborted',
+		});
+		pendingInterceptions.delete(requestId);
+		delete pendingResponses[requestId];
+		patchRequest(requestId, {
+			isWaiting: false,
+			captureError: 'cancelado pelo usuário (failRequest: Aborted)',
+		});
+		return { success: true };
 	})(message, sender, sendResponse);
 };
 
@@ -1853,6 +2020,9 @@ const messageHandlers: Partial<Record<import('@/types/messages').MessageAction, 
 	getSessionMarker: handleGetSessionMarker,
 	approveResponse: handleApproveResponse,
 	approveResponseWithEdit: handleApproveResponseWithEdit,
+	approveInterception: handleApproveInterception,
+	approveInterceptionWithEdit: handleApproveInterceptionWithEdit,
+	cancelInterception: handleCancelInterception,
 	startRecording: handleStartRecording,
 	stopRecording: handleStopRecording,
 	pageDetected: handlePageDetected,
@@ -2530,12 +2700,14 @@ function createPipelineContext(): ExecutionContext {
 		wait,
 		enqueuePendingInterception: (entry) => {
 			pendingInterceptions.set(entry.requestId, entry);
-			// Broadcast pra UI consumir via getPendingInterceptions / newPendingInterception.
-			// Phase 5 conecta o hub `PendingInterceptionDialog` a este broadcast.
+			// Phase 5: broadcast carrega a entry inteira pra UI mergear no estado
+			// sem precisar de round-trip por `getPendingInterceptions`. Mantemos
+			// `requestId` no top-level pra compat com listeners que só leem ele.
 			chrome.runtime
 				.sendMessage({
 					action: 'newPendingInterception',
 					requestId: entry.requestId,
+					interception: entry,
 				})
 				.catch(() => {
 					// Sem listener mounted é cenário comum (UI fechada) — não escalamos
@@ -2912,6 +3084,39 @@ async function handleRequestPaused(params: any): Promise<void> {
 		}
 		console.log(`Intercepting response for ${url}`);
 		pendingResponses[requestId] = persistedRequest;
+		// Phase 5: também enfileira na fila unificada `pendingInterceptions` para
+		// que o novo `PendingInterceptionDialog` consuma response-stage breakpoints
+		// pela mesma rota das outras stages. Mantemos `pendingResponses` populado
+		// porque `handleApproveResponse`/`handleApproveResponseWithEdit` legados
+		// ainda dependem dele durante a transição.
+		const responseBreakpointEntry: PendingInterception = {
+			stage: 'response',
+			requestId,
+			ruleId: matchedAction?.rule.id ?? '',
+			...(matchedAction?.action.type === 'breakpoint' && matchedAction.action.description
+				? { description: matchedAction.action.description }
+				: {}),
+			url,
+			method,
+			request: {
+				headers: requestHeaders,
+				...(postData !== undefined ? { postData } : {}),
+			},
+			response: {
+				status: responseStatusCode,
+				statusPhrase: statusText,
+				headers: responseHeadersRecord,
+				...(body !== undefined ? { body } : {}),
+			},
+		};
+		pendingInterceptions.set(requestId, responseBreakpointEntry);
+		chrome.runtime
+			.sendMessage({
+				action: 'newPendingInterception',
+				requestId,
+				interception: responseBreakpointEntry,
+			})
+			.catch(() => {});
 		chrome.runtime.sendMessage({
 			action: 'newPendingResponse',
 			requestId,

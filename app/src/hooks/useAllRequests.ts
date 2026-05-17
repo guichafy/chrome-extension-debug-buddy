@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { InterceptedResponse } from './useResponses';
+import { InterceptedResponse } from '@/types/intercepted';
 import { indexedDBService } from '@/lib/indexedDB';
 import type { Filter } from '@/types/filters';
 import { buildFilterGroups, matchesFilterGroups } from '@/lib/filterMatching';

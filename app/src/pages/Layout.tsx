@@ -7,7 +7,7 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDebugging } from '../hooks/useDebugging';
 import { useAllRequests } from '../hooks/useAllRequests';
-import { useResponses } from '../hooks/useResponses';
+import { usePendingInterceptions } from '../hooks/usePendingInterceptions';
 import { useRules } from '../hooks/useRules';
 import { useRequestSelection } from '../hooks/useRequestSelection';
 import { useSessionMarker } from '../hooks/useSessionMarker';
@@ -35,7 +35,7 @@ const Layout: React.FC = () => {
 	// instanciados duplicadamente por CommandCenter. As rotas filhas consomem
 	// o estado via useOutletContext (ver useAppOutlet em types/outletContext.ts).
 	const allRequestsState = useAllRequests();
-	const responsesState = useResponses();
+	const pendingState = usePendingInterceptions();
 	const rulesState = useRules();
 	const selectionState = useRequestSelection(allRequestsState.filteredRequests);
 
@@ -84,11 +84,11 @@ const Layout: React.FC = () => {
 			filters: allRequestsState.filters,
 			setFilters: allRequestsState.setFilters,
 			clearAllRequests: allRequestsState.clearAllRequests,
-			pendingResponses: responsesState.pendingResponses,
-			approveResponse: responsesState.approveResponse,
-			approveResponseWithEdit: responsesState.approveResponseWithEdit,
-			ignoreResponse: responsesState.ignoreResponse,
-			ignoreAllPending: responsesState.ignoreAllPending,
+			pendingInterceptions: pendingState.pendingInterceptions,
+			approveInterception: pendingState.approveInterception,
+			approveInterceptionWithEdit: pendingState.approveInterceptionWithEdit,
+			cancelInterception: pendingState.cancelInterception,
+			ignoreAllPending: pendingState.ignoreAllPending,
 			rules: rulesState.rules,
 		}),
 		[
@@ -100,11 +100,11 @@ const Layout: React.FC = () => {
 			allRequestsState.filters,
 			allRequestsState.setFilters,
 			allRequestsState.clearAllRequests,
-			responsesState.pendingResponses,
-			responsesState.approveResponse,
-			responsesState.approveResponseWithEdit,
-			responsesState.ignoreResponse,
-			responsesState.ignoreAllPending,
+			pendingState.pendingInterceptions,
+			pendingState.approveInterception,
+			pendingState.approveInterceptionWithEdit,
+			pendingState.cancelInterception,
+			pendingState.ignoreAllPending,
 			rulesState.rules,
 		],
 	);
@@ -114,17 +114,16 @@ const Layout: React.FC = () => {
 
 	// Derivação do alvo do Dock — mesma fórmula que vivia em CommandCenter:
 	// "selectedId se for pendente, senão primeiro pendente". Promovida para o
-	// Layout porque o Dock agora é global.
+	// Layout porque o Dock agora é global. PendingInterception não tem campo
+	// `timestamp` — usamos a ordem de inserção do Record (Object.keys preserva
+	// insertion order em modern V8) que reflete a chegada das interceptações.
 	const { pendingIdsOrdered, pendingCount, dockTargetIndex, hasSelectedPending, nextPendingUrl } =
 		useMemo(() => {
-			const entries = Object.entries(responsesState.pendingResponses).sort(
-				(a, b) => (a[1]?.timestamp ?? 0) - (b[1]?.timestamp ?? 0),
-			);
-			const ids = entries.map(([id]) => id);
+			const ids = Object.keys(pendingState.pendingInterceptions);
 			const manualIdx = selectionState.selectedId ? ids.indexOf(selectionState.selectedId) : -1;
 			const targetIndex = manualIdx >= 0 ? manualIdx : ids.length > 0 ? 0 : null;
 			const targetId = targetIndex !== null ? ids[targetIndex] : undefined;
-			const url = targetId ? (responsesState.pendingResponses[targetId]?.url ?? null) : null;
+			const url = targetId ? (pendingState.pendingInterceptions[targetId]?.url ?? null) : null;
 			return {
 				pendingIdsOrdered: ids,
 				pendingCount: ids.length,
@@ -132,22 +131,26 @@ const Layout: React.FC = () => {
 				hasSelectedPending: targetIndex !== null,
 				nextPendingUrl: url,
 			};
-		}, [responsesState.pendingResponses, selectionState.selectedId]);
+		}, [pendingState.pendingInterceptions, selectionState.selectedId]);
 
 	const dockTargetId =
 		hasSelectedPending && selectionState.selectedId
 			? selectionState.selectedId
 			: pendingIdsOrdered[0];
 
+	// No modelo dual-stage não há ação "ignorar" separada — aprovar sem
+	// modificações libera o request via Fetch.continueRequest no Request stage
+	// ou continueRequest pass-through no Response stage. As duas hotkeys
+	// históricas (A/I) caem no mesmo `approveInterception` por consistência.
 	const approveNext = useCallback(async () => {
 		if (!dockTargetId) return;
-		await responsesState.approveResponse(dockTargetId, {});
-	}, [dockTargetId, responsesState.approveResponse]);
+		await pendingState.approveInterception(dockTargetId);
+	}, [dockTargetId, pendingState.approveInterception]);
 
 	const ignoreCurrent = useCallback(async () => {
 		if (!dockTargetId) return;
-		await responsesState.ignoreResponse(dockTargetId);
-	}, [dockTargetId, responsesState.ignoreResponse]);
+		await pendingState.approveInterception(dockTargetId);
+	}, [dockTargetId, pendingState.approveInterception]);
 
 	// Editar / Criar Mock: navegam para /command-center com query param. Quando
 	// já estamos lá, react-router só atualiza search params (sem unmount).
@@ -164,11 +167,11 @@ const Layout: React.FC = () => {
 	}, [dockTargetId, navigate]);
 
 	const handleIgnoreAll = useCallback(async () => {
-		const { succeeded, failed } = await responsesState.ignoreAllPending();
+		const { succeeded, failed } = await pendingState.ignoreAllPending();
 		if (failed.length === 0) return;
 		const detail = failed.map((f) => `- ${f.requestId}: ${f.error}`).join('\n');
 		alert(`${succeeded} ignorada(s) com sucesso, ${failed.length} falha(s):\n${detail}`);
-	}, [responsesState.ignoreAllPending]);
+	}, [pendingState.ignoreAllPending]);
 
 	const navigateNext = useCallback(() => {
 		if (pendingIdsOrdered.length === 0) return;

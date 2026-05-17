@@ -5,9 +5,20 @@ import { useLocation } from 'react-router-dom';
 import CommandCenterPage from '../CommandCenter';
 import { renderWithLayout } from '@/test/renderWithLayout';
 import type { Filter } from '@/types/filters';
-import type { InterceptedResponse } from '@/types/intercepted';
+import type { PendingInterception } from '@/lib/interceptionPipeline';
 
-function pendingResponse(overrides: Partial<InterceptedResponse> = {}): InterceptedResponse {
+function interceptedResponse(
+	overrides: Partial<{
+		url: string;
+		method: string;
+		status: number;
+		statusText: string;
+		headers: Record<string, string>;
+		type: string;
+		timestamp: number;
+		isWaiting: boolean;
+	}> = {},
+) {
 	return {
 		url: 'https://api.example.com/users/42',
 		method: 'GET',
@@ -21,14 +32,28 @@ function pendingResponse(overrides: Partial<InterceptedResponse> = {}): Intercep
 	};
 }
 
+function pendingInterception(overrides: Partial<PendingInterception> = {}): PendingInterception {
+	return {
+		stage: 'response',
+		requestId: overrides.requestId ?? 'req',
+		ruleId: '',
+		url: 'https://api.example.com/users/42',
+		method: 'GET',
+		request: { headers: {} },
+		response: { status: 0, statusPhrase: '', headers: {} },
+		...overrides,
+	};
+}
+
 // `vi.hoisted` permite que o factory do `vi.mock` (também hoisted) leia uma
 // referência mutável definida no escopo do arquivo. Isso é o que permite
 // alterar `pendingResponses` por teste sem reescrever o módulo inteiro.
-const responseStubs = vi.hoisted(() => ({
-	pendingResponses: {} as Record<string, unknown>,
-	approveResponse: vi.fn(),
-	approveResponseWithEdit: vi.fn(),
-	ignoreResponse: vi.fn(),
+const interceptionStubs = vi.hoisted(() => ({
+	pendingInterceptions: {} as Record<string, unknown>,
+	filteredRequests: {} as Record<string, unknown>,
+	approveInterception: vi.fn(),
+	approveInterceptionWithEdit: vi.fn(),
+	cancelInterception: vi.fn(),
 	ignoreAllPending: vi.fn(),
 }));
 
@@ -38,7 +63,7 @@ vi.mock('@/hooks/useAllRequests', () => ({
 	useAllRequests: () => {
 		const [filters, setFilters] = React.useState<Filter[]>([]);
 		return {
-			filteredRequests: {},
+			filteredRequests: interceptionStubs.filteredRequests,
 			filters,
 			setFilters,
 			clearAllRequests: vi.fn().mockResolvedValue(true),
@@ -46,27 +71,22 @@ vi.mock('@/hooks/useAllRequests', () => ({
 	},
 }));
 
-vi.mock('@/hooks/useResponses', () => ({
-	// `useState` no mock para que `ignoreAllPending` realmente esvazie o mapa
-	// entre renders — assim conseguimos testar que o Dock desmonta após o
-	// clique. O vi.fn de `responseStubs.ignoreAllPending` segue rastreando
-	// chamadas; o wrapper só adiciona o setState local para espelhar o que o
-	// hook real produziria via broadcasts `requestUpdated` do background.
-	useResponses: () => {
+vi.mock('@/hooks/usePendingInterceptions', () => ({
+	usePendingInterceptions: () => {
 		const [pending, setPending] = React.useState<Record<string, unknown>>(
-			() => responseStubs.pendingResponses,
+			() => interceptionStubs.pendingInterceptions,
 		);
 		return {
-			approveResponse: responseStubs.approveResponse,
-			approveResponseWithEdit: responseStubs.approveResponseWithEdit,
-			ignoreResponse: responseStubs.ignoreResponse,
+			approveInterception: interceptionStubs.approveInterception,
+			approveInterceptionWithEdit: interceptionStubs.approveInterceptionWithEdit,
+			cancelInterception: interceptionStubs.cancelInterception,
 			ignoreAllPending: async () => {
-				responseStubs.ignoreAllPending();
+				interceptionStubs.ignoreAllPending();
 				const ids = Object.keys(pending);
 				setPending({});
 				return { succeeded: ids.length, failed: [] };
 			},
-			pendingResponses: pending,
+			pendingInterceptions: pending,
 		};
 	},
 }));
@@ -136,19 +156,19 @@ vi.mock('@/components/rules/RuleEditor', () => ({
 	),
 }));
 
-vi.mock('@/components/command-center/EditResponseSheet', () => ({
-	EditResponseSheet: ({
-		request,
+vi.mock('@/components/command-center/PendingInterceptionDialog', () => ({
+	PendingInterceptionDialog: ({
+		entry,
 		onOpenChange,
 	}: {
-		request: { url: string };
+		entry: { url: string };
 		onOpenChange: (open: boolean) => void;
 	}) => (
-		<div data-testid="edit-response-sheet">
-			<div data-testid="edit-response-context-url">{request.url}</div>
+		<div data-testid="pending-interception-dialog">
+			<div data-testid="edit-response-context-url">{entry.url}</div>
 			<button
 				type="button"
-				data-testid="edit-response-sheet-close"
+				data-testid="pending-interception-dialog-close"
 				onClick={() => onOpenChange(false)}
 			>
 				close
@@ -215,11 +235,12 @@ function renderAt(initial: string) {
 beforeEach(() => {
 	vi.mocked(chrome.runtime.sendMessage).mockResolvedValue(undefined as any);
 	vi.mocked(chrome.storage.local.get).mockResolvedValue({ rules: [] } as any);
-	responseStubs.pendingResponses = {};
-	responseStubs.approveResponse.mockResolvedValue(true);
-	responseStubs.approveResponseWithEdit.mockResolvedValue(true);
-	responseStubs.ignoreResponse.mockResolvedValue(true);
-	responseStubs.ignoreAllPending.mockResolvedValue({ succeeded: 0, failed: [] });
+	interceptionStubs.pendingInterceptions = {};
+	interceptionStubs.filteredRequests = {};
+	interceptionStubs.approveInterception.mockResolvedValue(true);
+	interceptionStubs.approveInterceptionWithEdit.mockResolvedValue(true);
+	interceptionStubs.approveInterception.mockResolvedValue(true);
+	interceptionStubs.ignoreAllPending.mockResolvedValue({ succeeded: 0, failed: [] });
 });
 
 afterEach(() => {
@@ -274,13 +295,13 @@ describe('CommandCenter — sincronização de filtros via URL', () => {
 
 describe('CommandCenter — hidratação de ?edit / ?createRule', () => {
 	test('?edit=<id> presente no mount abre o EditResponseSheet com a request alvo', async () => {
-		responseStubs.pendingResponses = {
-			'r-edit-1': pendingResponse({ url: 'https://api.example.com/edit-target', timestamp: 1 }),
+		interceptionStubs.pendingInterceptions = {
+			'r-edit-1': pendingInterception({ url: 'https://api.example.com/edit-target' }),
 		};
 		renderAt('/command-center?edit=r-edit-1');
 
 		await waitFor(() => {
-			expect(screen.getByTestId('edit-response-sheet')).toBeInTheDocument();
+			expect(screen.getByTestId('pending-interception-dialog')).toBeInTheDocument();
 			expect(screen.getByTestId('edit-response-context-url')).toHaveTextContent(
 				'https://api.example.com/edit-target',
 			);
@@ -288,8 +309,8 @@ describe('CommandCenter — hidratação de ?edit / ?createRule', () => {
 	});
 
 	test('?createRule=<id>&type=mock presente no mount abre o RuleEditor', async () => {
-		responseStubs.pendingResponses = {
-			'r-mock-1': pendingResponse({ url: 'https://api.example.com/mock-target', timestamp: 1 }),
+		interceptionStubs.filteredRequests = {
+			'r-mock-1': interceptedResponse({ url: 'https://api.example.com/mock-target' }),
 		};
 		renderAt('/command-center?createRule=r-mock-1&type=mock');
 
@@ -299,45 +320,46 @@ describe('CommandCenter — hidratação de ?edit / ?createRule', () => {
 	});
 
 	test('?edit com id inválido (não está em pendingResponses) limpa o param sem abrir sheet', async () => {
-		responseStubs.pendingResponses = {};
+		interceptionStubs.pendingInterceptions = {};
+		interceptionStubs.filteredRequests = {};
 		renderAt('/command-center?edit=does-not-exist');
 
 		await waitFor(() => {
-			expect(screen.queryByTestId('edit-response-sheet')).toBeNull();
+			expect(screen.queryByTestId('pending-interception-dialog')).toBeNull();
 			const params = new URLSearchParams(locationProbe.search);
 			expect(params.has('edit')).toBe(false);
 		});
 	});
 
 	test('fechar EditResponseSheet remove o param ?edit da URL', async () => {
-		responseStubs.pendingResponses = {
-			'r-1': pendingResponse({ url: 'https://api.example.com/x', timestamp: 1 }),
+		interceptionStubs.pendingInterceptions = {
+			'r-1': pendingInterception({ url: 'https://api.example.com/x' }),
 		};
 		renderAt('/command-center?edit=r-1');
 
 		await waitFor(() => {
-			expect(screen.getByTestId('edit-response-sheet')).toBeInTheDocument();
+			expect(screen.getByTestId('pending-interception-dialog')).toBeInTheDocument();
 		});
 
-		fireEvent.click(screen.getByTestId('edit-response-sheet-close'));
+		fireEvent.click(screen.getByTestId('pending-interception-dialog-close'));
 
 		await waitFor(() => {
-			expect(screen.queryByTestId('edit-response-sheet')).toBeNull();
+			expect(screen.queryByTestId('pending-interception-dialog')).toBeNull();
 			const params = new URLSearchParams(locationProbe.search);
 			expect(params.has('edit')).toBe(false);
 		});
 	});
 
 	test('?edit e ?createRule são mutuamente exclusivos — edit tem precedência', async () => {
-		responseStubs.pendingResponses = {
-			'r-1': pendingResponse({ url: 'https://api.example.com/x', timestamp: 1 }),
+		interceptionStubs.pendingInterceptions = {
+			'r-1': pendingInterception({ url: 'https://api.example.com/x' }),
 		};
 		renderAt('/command-center?edit=r-1&createRule=r-1&type=mock');
 
 		await waitFor(() => {
 			// edit tem precedência se ambos chegam juntos; createRule/type são
 			// silenciosamente removidos para não confundir.
-			expect(screen.getByTestId('edit-response-sheet')).toBeInTheDocument();
+			expect(screen.getByTestId('pending-interception-dialog')).toBeInTheDocument();
 			expect(screen.queryByTestId('rule-editor')).toBeNull();
 			const params = new URLSearchParams(locationProbe.search);
 			expect(params.has('createRule')).toBe(false);
@@ -346,8 +368,8 @@ describe('CommandCenter — hidratação de ?edit / ?createRule', () => {
 	});
 
 	test('?createRule com type inválido limpa ambos os params e não abre o RuleEditor', async () => {
-		responseStubs.pendingResponses = {
-			'r-mock-1': pendingResponse({ url: 'https://api.example.com/mock-target', timestamp: 1 }),
+		interceptionStubs.filteredRequests = {
+			'r-mock-1': interceptedResponse({ url: 'https://api.example.com/mock-target' }),
 		};
 		renderAt('/command-center?createRule=r-mock-1&type=invalid');
 
@@ -360,8 +382,8 @@ describe('CommandCenter — hidratação de ?edit / ?createRule', () => {
 	});
 
 	test('?createRule sem type limpa ambos os params e não abre o RuleEditor', async () => {
-		responseStubs.pendingResponses = {
-			'r-mock-1': pendingResponse({ url: 'https://api.example.com/mock-target', timestamp: 1 }),
+		interceptionStubs.filteredRequests = {
+			'r-mock-1': interceptedResponse({ url: 'https://api.example.com/mock-target' }),
 		};
 		renderAt('/command-center?createRule=r-mock-1');
 
@@ -374,8 +396,8 @@ describe('CommandCenter — hidratação de ?edit / ?createRule', () => {
 	});
 
 	test('fechar RuleEditor (onOpenChange(false)) remove createRule e type da URL', async () => {
-		responseStubs.pendingResponses = {
-			'r-mock-1': pendingResponse({ url: 'https://api.example.com/mock-target', timestamp: 1 }),
+		interceptionStubs.filteredRequests = {
+			'r-mock-1': interceptedResponse({ url: 'https://api.example.com/mock-target' }),
 		};
 		renderAt('/command-center?createRule=r-mock-1&type=mock');
 
