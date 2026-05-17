@@ -88,4 +88,34 @@ describe('HeaderMatcherSelector', () => {
 		);
 		expect(screen.getByText(/nenhum header capturado/i)).toBeInTheDocument();
 	});
+
+	test('container scroll usa overflow-y-auto + max-h responsivo (sem ScrollArea Radix)', () => {
+		// Regression UX: tabela cortava sem indicação porque Radix ScrollArea
+		// type="hover" escondia a scrollbar até hover. Trocamos para scroll
+		// nativo, que mostra scrollbar sempre em overflow.
+		render(<HeaderMatcherSelector headers={baseHeaders} matchers={[]} onChange={vi.fn()} />);
+		const scrollContainer = screen.getByTestId('header-matcher-scroll');
+		expect(scrollContainer.className).toMatch(/overflow-y-auto/);
+		expect(scrollContainer.className).toMatch(/max-h-\[40vh\]/);
+	});
+
+	test('mostra contagem total de headers disponíveis', () => {
+		render(<HeaderMatcherSelector headers={baseHeaders} matchers={[]} onChange={vi.fn()} />);
+		// baseHeaders tem 4 entradas (2 request + 2 response)
+		expect(screen.getByTestId('header-matcher-count')).toHaveTextContent('4 disponíveis');
+	});
+
+	test('contagem reflete headers marcados', () => {
+		const matchers: Matcher[] = [
+			{
+				type: 'header',
+				enabled: true,
+				headerType: 'response',
+				name: 'content-type',
+				value: 'application/json',
+			},
+		];
+		render(<HeaderMatcherSelector headers={baseHeaders} matchers={matchers} onChange={vi.fn()} />);
+		expect(screen.getByTestId('header-matcher-count')).toHaveTextContent('1 marcado de 4');
+	});
 });
