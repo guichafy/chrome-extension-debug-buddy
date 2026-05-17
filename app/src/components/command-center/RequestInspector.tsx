@@ -17,6 +17,7 @@ import { buildReplayView } from '@/lib/replayHistory';
 import { getActionVisuals } from '@/components/rules-lab/ruleVisuals';
 import { cn } from '@/lib/utils';
 import { BodyViewer } from './BodyViewer';
+import { ModificationsView } from './ModificationsView';
 
 interface RequestInspectorProps {
 	request: InterceptedResponse | null;
@@ -53,6 +54,7 @@ export function RequestInspector({
 	const requestHeaders = request.request?.headers ?? {};
 	const responseBody = request.response?.body ?? request.body;
 	const isPending = request.isWaiting === true;
+	const hasModifications = Boolean(request.requestModified || request.responseModified);
 
 	// Quando o request foi pausado por uma regra breakpoint, localizamos a regra
 	// que casou para exibir sua descrição logo no topo do inspector. Sem fallback
@@ -211,10 +213,15 @@ export function RequestInspector({
 			)}
 
 			<Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
-				<TabsList className="mx-4 grid grid-cols-3">
+				<TabsList className={cn('mx-4 grid', hasModifications ? 'grid-cols-4' : 'grid-cols-3')}>
 					<TabsTrigger value="overview">Overview</TabsTrigger>
 					<TabsTrigger value="request">Request</TabsTrigger>
 					<TabsTrigger value="response">Response</TabsTrigger>
+					{hasModifications && (
+						<TabsTrigger value="modifications" data-testid="tab-modifications">
+							Modificações
+						</TabsTrigger>
+					)}
 				</TabsList>
 
 				<ScrollArea className="flex-1 px-4 py-3">
@@ -274,6 +281,12 @@ export function RequestInspector({
 						{/* comparação inline com mock atual */}
 						<MockComparison request={request} rules={rules} />
 					</TabsContent>
+
+					{hasModifications && (
+						<TabsContent value="modifications" className="space-y-3">
+							<ModificationsView request={request} />
+						</TabsContent>
+					)}
 				</ScrollArea>
 			</Tabs>
 		</aside>

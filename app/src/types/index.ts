@@ -3,7 +3,13 @@
 // dedicados (messages.ts, intercepted.ts, rules.ts) são a fonte de verdade.
 
 export type { MessageAction, Message, MessageResponse } from './messages';
-export type { AppliedType, InterceptedResponse, ResponseModifications } from './intercepted';
+export type {
+	AppliedType,
+	InterceptedResponse,
+	RequestModificationSnapshot,
+	ResponseModificationSnapshot,
+	ResponseModifications,
+} from './intercepted';
 export type {
 	Rule,
 	RuleStage,

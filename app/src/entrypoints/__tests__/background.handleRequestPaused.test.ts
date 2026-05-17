@@ -114,3 +114,60 @@ describe('buildResponseSnapshot', () => {
 		expect(snap.body).toBeUndefined();
 	});
 });
+
+describe('Phase 7 — requestModified em terminais do Request stage', () => {
+	test('buildRequestMockResponse SEM requestModified gera appliedTypes=[mock] e sem snapshot', async () => {
+		const { buildRequestMockResponse } = await import('../background');
+		const out = buildRequestMockResponse(
+			{
+				url: 'https://api.test/users',
+				method: 'GET',
+				resourceType: 'xhr',
+				requestHeaders: { accept: 'application/json' },
+				postData: undefined,
+			},
+			{ status: 200, statusPhrase: 'OK', headers: {}, body: '[]' },
+			Date.now(),
+		);
+		expect(out.requestModified).toBeUndefined();
+		expect(out.appliedTypes).toEqual(['mock']);
+	});
+
+	test('buildRequestMockResponse COM requestModified anexa snapshot + appliedTypes inclui requestModify', async () => {
+		const { buildRequestMockResponse } = await import('../background');
+		const out = buildRequestMockResponse(
+			{
+				url: 'https://api.test/users',
+				method: 'GET',
+				resourceType: 'xhr',
+				requestHeaders: { accept: 'application/json' },
+				postData: undefined,
+			},
+			{ status: 200, statusPhrase: 'OK', headers: {}, body: '[]' },
+			Date.now(),
+			{ headers: { accept: 'application/json', 'x-injected': '1' } },
+		);
+		expect(out.requestModified).toEqual({
+			headers: { accept: 'application/json', 'x-injected': '1' },
+		});
+		expect(out.appliedTypes).toEqual(['requestModify', 'mock']);
+	});
+
+	test('buildRequestBlockResponse COM requestModified anexa snapshot + appliedTypes inclui requestModify', async () => {
+		const { buildRequestBlockResponse } = await import('../background');
+		const out = buildRequestBlockResponse(
+			{
+				url: 'https://api.test/users',
+				method: 'POST',
+				resourceType: 'xhr',
+				requestHeaders: { accept: 'application/json' },
+				postData: '{"old":true}',
+			},
+			'Failed',
+			{ postData: '{"new":true}' },
+		);
+		expect(out.requestModified).toEqual({ postData: '{"new":true}' });
+		expect(out.appliedTypes).toEqual(['requestModify', 'block']);
+		expect(out.status).toBe(0);
+	});
+});
