@@ -23,16 +23,25 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LucideIcon } from '@/components/ui/lucide-icon';
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { createTemplateRule } from '@/domain/ruleTemplates';
 import type { RuleTemplateId } from '@/domain/ruleTemplates';
+import { filterActionsForStage } from '@/domain/actionDefaults';
 import type { Action, Matcher, Rule, RuleDraft, RuleStage } from '@/types/rules';
+import { isActionValidForStage } from '@/types/rules';
 import {
 	getActionSummary,
 	getActionVisuals,
 	getMatcherSummary,
 } from '@/components/rules-lab/ruleVisuals';
-import { ActionEditor } from './ActionEditor';
+import { ActionChainEditor } from './ActionChainEditor';
 import { HeaderMatcherSelector, type HeaderMatcherSource } from './HeaderMatcherSelector';
 import { PresetWelcome } from './PresetWelcome';
 import { UnifiedMatcherEditor } from './UnifiedMatcherEditor';
@@ -132,11 +141,22 @@ const DEFAULT_ACTION: Action = {
 interface DraftSnapshot {
 	name: string;
 	enabled: boolean;
+	stage: RuleStage;
 	matchers: Matcher[];
-	action: Action;
+	actions: Action[];
 }
 
 const snapshot = (s: DraftSnapshot): string => JSON.stringify(s);
+
+// Defaults stage-aware para o seed inicial das ações quando o usuário troca o
+// stage e perde todas as actions válidas. Em Request stage, default é
+// requestDelay (não-terminal, mais didático que mock); em Response, mock.
+function defaultFirstActionForStage(stage: RuleStage): Action {
+	if (stage === 'request') {
+		return { type: 'requestDelay', enabled: true, timeMs: 1000 };
+	}
+	return { type: 'mock', enabled: true, status: 200, headers: {} };
+}
 
 interface FieldError {
 	id: string;
@@ -160,13 +180,11 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 	const [cameFromWelcome, setCameFromWelcome] = useState(false);
 	const [name, setName] = useState(rule?.name || 'Nova Regra');
 	const [matchers, setMatchers] = useState<Matcher[]>(rule?.matchers ?? DEFAULT_MATCHERS);
-	// Phase 1 (compat): wizard ainda edita 1 action por regra. Phase 4 introduz
-	// edição de chain. O state `action` é a HEAD do `rule.actions`; ao salvar,
-	// embrulhamos em `actions: [action]`.
-	const [action, setAction] = useState<Action>(rule?.actions[0] ?? DEFAULT_ACTION);
-	// Phase 4 expõe stage no editor; em Phase 1 mantemos default 'response'
-	// (comportamento histórico) e propagamos no save.
-	const [stage] = useState<RuleStage>(rule?.stage ?? 'response');
+	// Phase 4: editor opera sobre `actions: Action[]` (chain). O Tipo step
+	// continua usando o tipo da PRIMEIRA action como indicador visual, mas o
+	// chain editor no step Ação pode adicionar/reordenar/remover actions.
+	const [actions, setActions] = useState<Action[]>(rule?.actions ?? [DEFAULT_ACTION]);
+	const [stage, setStage] = useState<RuleStage>(rule?.stage ?? 'response');
 	const [enabled, setEnabled] = useState(rule?.enabled !== false);
 	const [step, setStep] = useState<WizardStep>(skipTypeStep ? 'matcher' : 'type');
 	const [maxStepIndexReached, setMaxStepIndexReached] = useState(0);
@@ -175,9 +193,21 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 	const [isSaving, setIsSaving] = useState(false);
 	const initSessionRef = useRef(false);
 
+	// `action` (singular) representa a primeira action habilitada e válida ou,
+	// em fallback, a primeira posição. Usado por type cards, summary e diff.
+	const action: Action = actions[0] ?? DEFAULT_ACTION;
+	const setAction = (next: Action) => {
+		setActions((prev) => {
+			if (prev.length === 0) return [next];
+			const copy = [...prev];
+			copy[0] = next;
+			return copy;
+		});
+	};
+
 	const currentDraftKey = useMemo(
-		() => snapshot({ name, enabled, matchers, action }),
-		[name, enabled, matchers, action],
+		() => snapshot({ name, enabled, stage, matchers, actions }),
+		[name, enabled, stage, matchers, actions],
 	);
 	const hasUnsavedChanges = useMemo(() => {
 		if (view !== 'editor') return false;
@@ -240,7 +270,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 		if (mode === 'edit' && rule) {
 			setName(rule.name);
 			setMatchers(rule.matchers);
-			setAction(rule.actions[0]);
+			setActions(rule.actions);
+			setStage(rule.stage);
 			setEnabled(rule.enabled);
 			setView('editor');
 			setCameFromWelcome(false);
@@ -250,8 +281,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 				snapshot({
 					name: rule.name,
 					enabled: rule.enabled,
+					stage: rule.stage,
 					matchers: rule.matchers,
-					action: rule.actions[0],
+					actions: rule.actions,
 				}),
 			);
 			setShowCancelConfirm(false);
@@ -261,7 +293,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 			if (initialDraft) {
 				setName(initialDraft.name);
 				setMatchers(initialDraft.matchers);
-				setAction(initialDraft.actions[0]);
+				setActions(initialDraft.actions);
+				setStage(initialDraft.stage);
 				setEnabled(initialDraft.enabled);
 				setView('editor');
 				setCameFromWelcome(false);
@@ -271,8 +304,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 					snapshot({
 						name: initialDraft.name,
 						enabled: initialDraft.enabled,
+						stage: initialDraft.stage,
 						matchers: initialDraft.matchers,
-						action: initialDraft.actions[0],
+						actions: initialDraft.actions,
 					}),
 				);
 				setShowCancelConfirm(false);
@@ -280,7 +314,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 			}
 			setName('Nova Regra');
 			setMatchers(DEFAULT_MATCHERS);
-			setAction(DEFAULT_ACTION);
+			setActions([DEFAULT_ACTION]);
+			setStage('response');
 			setEnabled(true);
 			setView(skipTypeStep ? 'editor' : 'welcome');
 			setCameFromWelcome(false);
@@ -294,7 +329,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 	const beginEditingFromDraft = (draft: DraftSnapshot) => {
 		setName(draft.name);
 		setMatchers(draft.matchers);
-		setAction(draft.action);
+		setActions(draft.actions);
+		setStage(draft.stage);
 		setEnabled(draft.enabled);
 		setStep('type');
 		setMaxStepIndexReached(0);
@@ -311,8 +347,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 		beginEditingFromDraft({
 			name: draft.name,
 			enabled: draft.enabled,
+			stage: draft.stage,
 			matchers: matchersForEditing,
-			action: draft.actions[0],
+			actions: draft.actions,
 		});
 	};
 
@@ -320,8 +357,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 		beginEditingFromDraft({
 			name: 'Nova Regra',
 			enabled: true,
+			stage: 'response',
 			matchers: DEFAULT_MATCHERS,
-			action: DEFAULT_ACTION,
+			actions: [DEFAULT_ACTION],
 		});
 	};
 
@@ -388,10 +426,10 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 				enabled,
 				stage,
 				matchers,
-				actions: [action],
+				actions,
 			});
 			if (success) {
-				setInitialSnapshot(snapshot({ name, enabled, matchers, action }));
+				setInitialSnapshot(snapshot({ name, enabled, stage, matchers, actions }));
 				closeDialog();
 			}
 		} finally {
@@ -430,13 +468,34 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
 	const visuals = getActionVisuals(action);
 
-	// Phase 1 (compat): handler aceita apenas os tipos editáveis pelo wizard
-	// atual (mock/transform/requestDelay/breakpoint). Os tipos novos
-	// (requestModify/responseModify/block) só entram em Phase 4 via UI dedicada.
+	// Type step: substitui (apenas) a primeira action pelo template do tipo
+	// selecionado. Demais actions da chain permanecem (filtradas pelo stage).
+	// Se o tipo escolhido só é válido no stage oposto, alinhamos o stage
+	// automaticamente — ex.: requestDelay só roda em Request stage.
 	const handleSelectType = (target: LegacyEditableType) => {
 		if (mode === 'edit') return;
 		if (action.type === target) return;
-		setAction(createDefaultActionForType(target));
+		const newAction = createDefaultActionForType(target);
+		const validInCurrent = isActionValidForStage(newAction.type, stage);
+		if (!validInCurrent) {
+			const newStage: RuleStage = stage === 'request' ? 'response' : 'request';
+			const surviving = filterActionsForStage(actions, newStage);
+			const others = surviving.length > 0 ? surviving.slice(1) : [];
+			setStage(newStage);
+			setActions([newAction, ...others]);
+			return;
+		}
+		setAction(newAction);
+	};
+
+	// Troca o stage filtrando actions inválidas e re-seedando se ficar vazio.
+	// Em edit mode o seletor é bloqueado — não chega aqui via UI.
+	const handleStageChange = (next: RuleStage) => {
+		if (next === stage) return;
+		const surviving = filterActionsForStage(actions, next);
+		const seeded = surviving.length > 0 ? surviving : [defaultFirstActionForStage(next)];
+		setStage(next);
+		setActions(seeded);
 	};
 
 	const renderTypeStep = () => {
@@ -454,12 +513,48 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 					/>
 				</div>
 
+				<fieldset className="space-y-2" data-testid="rule-wizard-stage">
+					<legend className="text-sm font-medium">Estágio (stage)</legend>
+					<p className="text-xs text-muted-foreground">
+						<strong>Request</strong> roda antes da requisição sair pra rede;{' '}
+						<strong>Response</strong> roda depois que o servidor responde. Cada regra opera em um
+						único stage — para agir nos dois, crie duas regras.
+					</p>
+					<Select
+						value={stage}
+						onValueChange={(value) => handleStageChange(value as RuleStage)}
+						disabled={isLocked}
+					>
+						<SelectTrigger
+							id="rule-wizard-stage-trigger"
+							className="w-full max-w-xs"
+							data-testid="rule-wizard-stage-trigger"
+						>
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="request" data-testid="rule-wizard-stage-option-request">
+								Request — antes do envio
+							</SelectItem>
+							<SelectItem value="response" data-testid="rule-wizard-stage-option-response">
+								Response — depois do retorno
+							</SelectItem>
+						</SelectContent>
+					</Select>
+					{isLocked && (
+						<p className="text-xs text-muted-foreground" data-testid="rule-wizard-stage-locked">
+							Em edição o stage não pode ser alterado — actions e matchers dependem dele. Para
+							trocar, crie uma nova regra.
+						</p>
+					)}
+				</fieldset>
+
 				<fieldset className="space-y-2" data-testid="rule-wizard-type-cards">
 					<legend className="text-sm font-medium">Tipo de regra</legend>
 					<p className="text-xs text-muted-foreground">
 						{isLocked
 							? 'Em edição, o tipo não pode ser alterado — para mudar o tipo, crie uma nova regra.'
-							: 'Escolha o comportamento da regra. Você pode trocar livremente até salvar.'}
+							: 'Escolha o comportamento inicial. O passo "Ação" permite encadear mais actions depois.'}
 					</p>
 					<div className="grid gap-3 sm:grid-cols-2">
 						{ACTION_TYPE_ORDER.map((t) => {
@@ -561,7 +656,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 					mostra em tempo real se a regra casaria uma URL de teste.
 				</p>
 			</div>
-			<UnifiedMatcherEditor matchers={matchers} onChange={setMatchers} />
+			<UnifiedMatcherEditor matchers={matchers} onChange={setMatchers} stage={stage} />
 			{headerMatcherSource && (
 				<HeaderMatcherSelector
 					headers={headerMatcherSource}
@@ -585,15 +680,21 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 					<LucideIcon name={visuals.iconName} className="h-4 w-4" />
 				</span>
 				<div className="text-sm">
-					<span className="text-muted-foreground">Configurando ação </span>
-					<strong>{visuals.label}</strong>
+					<span className="text-muted-foreground">Chain de actions ({actions.length}) — </span>
+					<strong>Stage: {stage === 'request' ? 'Request' : 'Response'}</strong>
 				</div>
 			</div>
-			<h3 className="mb-2 text-lg font-medium">Ação</h3>
+			<h3 className="mb-2 text-lg font-medium">Ações da regra</h3>
 			<p className="mb-4 text-sm text-muted-foreground">
-				Defina a ação a ser executada quando a requisição corresponder às condições de match.
+				As actions executam em ordem. Uma action terminal (Mock, Block, Breakpoint) interrompe a
+				chain — actions após ela ficam inalcançáveis.
 			</p>
-			<ActionEditor action={action} onChange={setAction} samplePayload={samplePayload} />
+			<ActionChainEditor
+				actions={actions}
+				stage={stage}
+				onChange={setActions}
+				samplePayload={samplePayload}
+			/>
 		</div>
 	);
 

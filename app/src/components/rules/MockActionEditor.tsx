@@ -7,11 +7,15 @@ import { LucideIcon } from '@/components/ui/lucide-icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import type { MockAction } from '@/types/rules';
+import type { MockAction, RuleStage } from '@/types/rules';
 
 interface MockActionEditorProps {
 	action: MockAction;
 	onChange: (action: MockAction) => void;
+	// Stage da regra onde o mock vai rodar. Define a explicação exibida:
+	// em `request` o mock é um fulfillRequest pré-rede (servidor não é chamado);
+	// em `response` substitui a resposta após o servidor responder.
+	stage?: RuleStage;
 }
 
 interface StatusPreset {
@@ -50,7 +54,7 @@ const validateJson = (raw: string): JsonValidation => {
 	}
 };
 
-export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onChange }) => {
+export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onChange, stage }) => {
 	const [activeTab, setActiveTab] = useState<string>('response');
 	const [headerName, setHeaderName] = useState('');
 	const [headerValue, setHeaderValue] = useState('');
@@ -203,8 +207,27 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 		);
 	};
 
+	const stageBanner = stage ? (
+		<div
+			className="rounded-md border border-violet-200 bg-violet-50 p-3 text-xs dark:border-violet-900/40 dark:bg-violet-950/30"
+			data-testid="mock-action-stage-banner"
+			data-stage={stage}
+		>
+			<div className="flex items-center gap-2 font-medium text-violet-900 dark:text-violet-100">
+				<LucideIcon name="server-crash" className="h-4 w-4" />
+				{stage === 'request' ? 'Mock pré-rede' : 'Mock pós-rede'}
+			</div>
+			<p className="mt-1 text-violet-900/90 dark:text-violet-100/80">
+				{stage === 'request'
+					? 'O servidor NÃO será chamado. A resposta abaixo é entregue diretamente ao cliente via fulfillRequest.'
+					: 'O servidor responde normalmente, mas a resposta é substituída pelo mock antes de chegar ao browser.'}
+			</p>
+		</div>
+	) : null;
+
 	return (
 		<div className="space-y-4" data-testid="mock-action-editor">
+			{stageBanner}
 			<Tabs value={activeTab} onValueChange={setActiveTab}>
 				<TabsList className="w-full mb-4">
 					<TabsTrigger value="response" className="flex-1">

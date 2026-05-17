@@ -12,7 +12,15 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import type { HeaderMatcher, BodyMatcher, Matcher, MethodMatcher, UrlMatcher } from '@/types/rules';
+import type {
+	HeaderMatcher,
+	BodyMatcher,
+	Matcher,
+	MethodMatcher,
+	RuleStage,
+	UrlMatcher,
+} from '@/types/rules';
+import { isMatcherValidForStage } from '@/types/rules';
 import { explainMatchers } from '@/domain/ruleMatching';
 import { MatcherEditor } from './MatcherEditor';
 
@@ -23,6 +31,11 @@ type HttpMethod = (typeof HTTP_METHODS)[number];
 interface UnifiedMatcherEditorProps {
 	matchers: Matcher[];
 	onChange: (matchers: Matcher[]) => void;
+	// Stage da regra. Em `request` o matcher body fala em `postData`; em
+	// `response`, no corpo retornado pelo servidor. Header matchers com
+	// `headerType='response'` só fazem sentido em `response` — em `request`
+	// renderizamos badge de aviso e desabilitamos a troca pra response.
+	stage?: RuleStage;
 }
 
 interface UnifiedView {
@@ -113,6 +126,7 @@ function removeOther(matchers: Matcher[], otherIndexInOthers: number): Matcher[]
 export const UnifiedMatcherEditor: React.FC<UnifiedMatcherEditorProps> = ({
 	matchers,
 	onChange,
+	stage,
 }) => {
 	const view = useMemo(() => buildUnifiedView(matchers), [matchers]);
 	const { url, method, others } = view;
@@ -172,7 +186,10 @@ export const UnifiedMatcherEditor: React.FC<UnifiedMatcherEditorProps> = ({
 				enabled: true,
 				name: '',
 				value: '',
-				headerType: 'request',
+				// Em stage='response' default fica `response` (alvo mais comum nesse
+				// estágio); caso contrário sempre `request` (único válido em request
+				// stage e default razoável quando stage não foi informado).
+				headerType: stage === 'response' ? 'response' : 'request',
 			} satisfies HeaderMatcher;
 		} else {
 			next = {
@@ -184,6 +201,10 @@ export const UnifiedMatcherEditor: React.FC<UnifiedMatcherEditorProps> = ({
 		}
 		onChange([...matchers, next]);
 	};
+
+	const invalidHeaderMatcherCount = matchers.filter(
+		(m) => !isMatcherValidForStage(m, stage ?? 'response'),
+	).length;
 
 	const updateOther = (otherIdx: number, updated: Matcher) => {
 		onChange(commitOther(matchers, otherIdx, updated));
@@ -319,6 +340,18 @@ export const UnifiedMatcherEditor: React.FC<UnifiedMatcherEditorProps> = ({
 						<div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
 							Matchers avançados
 						</div>
+						{invalidHeaderMatcherCount > 0 && (
+							<p
+								className="rounded border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-300"
+								data-testid="unified-matchers-stage-warning"
+								role="alert"
+							>
+								{invalidHeaderMatcherCount === 1
+									? '1 matcher é inválido para este stage.'
+									: `${invalidHeaderMatcherCount} matchers são inválidos para este stage.`}{' '}
+								Ajuste o headerType ou mude o stage da regra.
+							</p>
+						)}
 						{others.map((m, idx) => (
 							<div key={`${m.type}-${idx}`} className="rounded-lg border bg-card p-3">
 								<MatcherEditor
@@ -326,6 +359,7 @@ export const UnifiedMatcherEditor: React.FC<UnifiedMatcherEditorProps> = ({
 									onChange={(updated) => updateOther(idx, updated)}
 									onRemove={() => removeOtherAt(idx)}
 									canRemove={true}
+									stage={stage}
 								/>
 							</div>
 						))}

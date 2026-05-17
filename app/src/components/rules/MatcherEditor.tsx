@@ -11,13 +11,24 @@ import {
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { LucideIcon } from '@/components/ui/lucide-icon';
-import { Matcher, UrlMatcher, MethodMatcher, HeaderMatcher, BodyMatcher } from '@/types/rules';
+import {
+	Matcher,
+	UrlMatcher,
+	MethodMatcher,
+	HeaderMatcher,
+	BodyMatcher,
+	RuleStage,
+} from '@/types/rules';
 
 interface MatcherEditorProps {
 	matcher: Matcher;
 	onChange: (matcher: Matcher) => void;
 	onRemove: () => void;
 	canRemove: boolean;
+	// Stage da regra que contém esse matcher. Usado para bloquear
+	// `header.headerType='response'` em regras `stage='request'` (não há
+	// resposta antes do envio) e ajustar labels do body matcher.
+	stage?: RuleStage;
 }
 
 export const MatcherEditor: React.FC<MatcherEditorProps> = ({
@@ -25,6 +36,7 @@ export const MatcherEditor: React.FC<MatcherEditorProps> = ({
 	onChange,
 	onRemove,
 	canRemove,
+	stage,
 }) => {
 	// Renderizar editor específico para cada tipo de matcher
 	const renderMatcherEditor = () => {
@@ -124,110 +136,138 @@ export const MatcherEditor: React.FC<MatcherEditorProps> = ({
 	};
 
 	// Editor para matcher de header
-	const renderHeaderMatcherEditor = (headerMatcher: HeaderMatcher) => (
-		<div className="space-y-2">
-			<div className="flex items-center justify-between">
-				<Label className="font-medium">Header</Label>
-				<Select
-					value={headerMatcher.headerType}
-					onValueChange={(value: 'request' | 'response') => {
-						onChange({
-							...headerMatcher,
-							headerType: value,
-						});
-					}}
-				>
-					<SelectTrigger className="w-[180px]">
-						<SelectValue placeholder="Tipo de Header" />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="request">Request</SelectItem>
-						<SelectItem value="response">Response</SelectItem>
-					</SelectContent>
-				</Select>
-			</div>
-			<div className="grid grid-cols-2 gap-2">
-				<div>
-					<Label className="text-sm">Nome</Label>
-					<Input
-						value={headerMatcher.name}
-						onChange={(e) => {
+	const renderHeaderMatcherEditor = (headerMatcher: HeaderMatcher) => {
+		const stageBlocksResponse = stage === 'request';
+		const invalidForStage = stageBlocksResponse && headerMatcher.headerType === 'response';
+		return (
+			<div className="space-y-2">
+				<div className="flex items-center justify-between">
+					<Label className="font-medium">Header</Label>
+					<Select
+						value={headerMatcher.headerType}
+						onValueChange={(value: 'request' | 'response') => {
+							if (stageBlocksResponse && value === 'response') return;
 							onChange({
 								...headerMatcher,
-								name: e.target.value,
+								headerType: value,
 							});
 						}}
-						placeholder="Content-Type"
-					/>
+					>
+						<SelectTrigger className="w-[180px]" data-testid="header-matcher-type-trigger">
+							<SelectValue placeholder="Tipo de Header" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="request">Request</SelectItem>
+							<SelectItem
+								value="response"
+								disabled={stageBlocksResponse}
+								data-testid="header-matcher-type-response-option"
+							>
+								Response{stageBlocksResponse ? ' (indisponível em request stage)' : ''}
+							</SelectItem>
+						</SelectContent>
+					</Select>
 				</div>
+				{invalidForStage && (
+					<p
+						className="rounded border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-300"
+						data-testid="header-matcher-stage-warning"
+						role="alert"
+					>
+						Este matcher casa headers de resposta, mas a regra está no estágio Request — onde a
+						resposta ainda não existe. Troque para Request ou mude o stage da regra.
+					</p>
+				)}
+				<div className="grid grid-cols-2 gap-2">
+					<div>
+						<Label className="text-sm">Nome</Label>
+						<Input
+							value={headerMatcher.name}
+							onChange={(e) => {
+								onChange({
+									...headerMatcher,
+									name: e.target.value,
+								});
+							}}
+							placeholder="Content-Type"
+						/>
+					</div>
+					<div>
+						<Label className="text-sm">Valor</Label>
+						<Input
+							value={headerMatcher.value}
+							onChange={(e) => {
+								onChange({
+									...headerMatcher,
+									value: e.target.value,
+								});
+							}}
+							placeholder="application/json"
+						/>
+					</div>
+				</div>
+			</div>
+		);
+	};
+
+	// Editor para matcher de body. Em `stage='response'` casamos contra o corpo
+	// retornado pelo servidor; em `stage='request'` (ou stage indefinido) contra
+	// o `postData` enviado pelo cliente. O label muda pra deixar o alvo óbvio.
+	const renderBodyMatcherEditor = (bodyMatcher: BodyMatcher) => {
+		const bodyLabel = stage === 'response' ? 'Corpo da resposta' : 'Corpo da requisição (postData)';
+		return (
+			<div className="space-y-2">
+				<div className="flex items-center justify-between">
+					<Label className="font-medium" data-testid="body-matcher-label">
+						{bodyLabel}
+					</Label>
+					<div className="flex items-center space-x-2">
+						<Checkbox
+							id={`body-regex-${bodyMatcher.pattern}`}
+							checked={bodyMatcher.isRegex}
+							onCheckedChange={(checked) => {
+								onChange({
+									...bodyMatcher,
+									isRegex: checked === true,
+								});
+							}}
+						/>
+						<Label htmlFor={`body-regex-${bodyMatcher.pattern}`} className="text-sm">
+							Usar Regex
+						</Label>
+					</div>
+				</div>
+				<Input
+					value={bodyMatcher.pattern}
+					onChange={(e) => {
+						onChange({
+							...bodyMatcher,
+							pattern: e.target.value,
+						});
+					}}
+					placeholder={bodyMatcher.isRegex ? '"id":\\s*\\d+' : '"id": 123'}
+				/>
+				{bodyMatcher.isRegex && (
+					<p className="text-xs text-muted-foreground">
+						Use expressões regulares para encontrar padrões no corpo da requisição.
+					</p>
+				)}
 				<div>
-					<Label className="text-sm">Valor</Label>
+					<Label className="text-sm">Content-Type (opcional)</Label>
 					<Input
-						value={headerMatcher.value}
+						value={bodyMatcher.contentType || ''}
 						onChange={(e) => {
 							onChange({
-								...headerMatcher,
-								value: e.target.value,
+								...bodyMatcher,
+								contentType: e.target.value,
 							});
 						}}
 						placeholder="application/json"
 					/>
 				</div>
 			</div>
-		</div>
-	);
-
-	// Editor para matcher de body
-	const renderBodyMatcherEditor = (bodyMatcher: BodyMatcher) => (
-		<div className="space-y-2">
-			<div className="flex items-center justify-between">
-				<Label className="font-medium">Body</Label>
-				<div className="flex items-center space-x-2">
-					<Checkbox
-						id={`body-regex-${bodyMatcher.pattern}`}
-						checked={bodyMatcher.isRegex}
-						onCheckedChange={(checked) => {
-							onChange({
-								...bodyMatcher,
-								isRegex: checked === true,
-							});
-						}}
-					/>
-					<Label htmlFor={`body-regex-${bodyMatcher.pattern}`} className="text-sm">
-						Usar Regex
-					</Label>
-				</div>
-			</div>
-			<Input
-				value={bodyMatcher.pattern}
-				onChange={(e) => {
-					onChange({
-						...bodyMatcher,
-						pattern: e.target.value,
-					});
-				}}
-				placeholder={bodyMatcher.isRegex ? '"id":\\s*\\d+' : '"id": 123'}
-			/>
-			{bodyMatcher.isRegex && (
-				<p className="text-xs text-muted-foreground">
-					Use expressões regulares para encontrar padrões no corpo da requisição.
-				</p>
-			)}
-			<div>
-				<Label className="text-sm">Content-Type (opcional)</Label>
-				<Input
-					value={bodyMatcher.contentType || ''}
-					onChange={(e) => {
-						onChange({
-							...bodyMatcher,
-							contentType: e.target.value,
-						});
-					}}
-					placeholder="application/json"
-				/>
-			</div>
-		</div>
-	);
+		);
+	};
 
 	return (
 		<div>

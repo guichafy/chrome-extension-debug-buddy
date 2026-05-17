@@ -3,18 +3,31 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type {
 	Action,
+	BlockAction,
 	BreakpointAction,
 	MockAction,
 	RequestDelayAction,
+	RequestModifyAction,
+	ResponseModifyAction,
+	RuleStage,
 	TransformAction,
 } from '@/types/rules';
 import { TransformActionEditor } from './TransformActionEditor';
 import { DelayActionEditor } from './DelayActionEditor';
 import { MockActionEditor } from './MockActionEditor';
+import { BlockActionEditor } from './BlockActionEditor';
+import { RequestModifyActionEditor } from './RequestModifyActionEditor';
+import { ResponseModifyActionEditor } from './ResponseModifyActionEditor';
 
 interface ActionEditorProps {
 	action: Action;
 	onChange: (action: Action) => void;
+	/**
+	 * Stage da regra onde esta action vai rodar. Usado pelos editores que
+	 * mudam mensagem/banner por estágio (`MockActionEditor`). Default
+	 * mantém compatibilidade com o wizard legado (stage='response').
+	 */
+	stage?: RuleStage;
 	/**
 	 * Body capturado da response que originou a regra (quando aplicável).
 	 * Repassado ao TransformActionEditor para popular o painel de preview com
@@ -23,23 +36,16 @@ interface ActionEditorProps {
 	samplePayload?: string;
 }
 
-// Editores para os novos tipos `requestModify`/`responseModify`/`block` ainda
-// não existem em Phase 1 — serão entregues em Phase 4. Renderizamos placeholder
-// para manter o UI funcional enquanto schema/engine recebem suporte.
-function PlaceholderEditor({ kind }: { kind: string }) {
-	return (
-		<div className="rounded-md border border-dashed border-muted-foreground/30 p-4 text-sm text-muted-foreground">
-			Editor de <strong>{kind}</strong> será implementado em Phase 4 (UI dual-stage).
-		</div>
-	);
-}
-
-export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange, samplePayload }) => {
-	// Renderizar editor específico para cada tipo de ação
+export const ActionEditor: React.FC<ActionEditorProps> = ({
+	action,
+	onChange,
+	stage,
+	samplePayload,
+}) => {
 	const renderActionEditor = () => {
 		switch (action.type) {
 			case 'mock':
-				return <MockActionEditor action={action as MockAction} onChange={onChange} />;
+				return <MockActionEditor action={action as MockAction} onChange={onChange} stage={stage} />;
 			case 'requestDelay':
 				return <DelayActionEditor action={action as RequestDelayAction} onChange={onChange} />;
 			case 'transform':
@@ -53,17 +59,20 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({ action, onChange, sa
 			case 'breakpoint':
 				return renderBreakpointActionEditor(action as BreakpointAction);
 			case 'requestModify':
-				return <PlaceholderEditor kind="Request Modify" />;
+				return (
+					<RequestModifyActionEditor action={action as RequestModifyAction} onChange={onChange} />
+				);
 			case 'responseModify':
-				return <PlaceholderEditor kind="Response Modify" />;
+				return (
+					<ResponseModifyActionEditor action={action as ResponseModifyAction} onChange={onChange} />
+				);
 			case 'block':
-				return <PlaceholderEditor kind="Block / Fail Request" />;
+				return <BlockActionEditor action={action as BlockAction} onChange={onChange} />;
 			default:
 				return null;
 		}
 	};
 
-	// Editor para ação de breakpoint
 	const renderBreakpointActionEditor = (breakpointAction: BreakpointAction) => (
 		<div className="space-y-4" data-testid="breakpoint-action-editor">
 			<div>
