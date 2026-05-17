@@ -2,6 +2,7 @@ import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'reac
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { SelectTabDialog } from '../components/select-tab/SelectTabDialog';
 import { AppSidebar } from '../components/layout/AppSidebar';
+import { DualStageMigrationNotice } from '../components/layout/DualStageMigrationNotice';
 import { SiteHeader } from '../components/layout/SiteHeader';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -234,6 +235,7 @@ const Layout: React.FC = () => {
 					onStopDebugging={() => stopDebugging()}
 					metrics={metrics}
 				/>
+				<DualStageMigrationNotice />
 				<div className="main-content-container flex-1 min-h-0 min-w-0 overflow-hidden">
 					<Suspense fallback={<RouteFallback />}>
 						<Outlet context={outletContext} />

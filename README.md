@@ -27,19 +27,61 @@ responses received by the application.
 ## Features
 
 - Target tab selection for the application being debugged.
+- **Dual-stage interception**: rules act on `request` stage (before the request
+  reaches the network) or `response` stage (after the server replied). Each
+  rule carries an ordered `actions` chain.
 - Response interception through `chrome.debugger` and the Chrome DevTools
   Protocol.
 - Rules with URL, HTTP method, header, and body matching.
-- Mock actions that respond with custom status, headers, body, content-type, and
-  latency.
+- Action chain: `requestModify`, `requestDelay`, `responseModify`, `transform`
+  plus the terminal actions `mock`, `block`, and `breakpoint`.
 - Response pause for inspection before continuing navigation.
 - Status, headers, and body editing before releasing an intercepted response.
 - Request history for observed, intercepted, mocked, pending, and failed
   captures.
+- **Modifications diff** in the inspector: when a rule rewrote request or
+  response, the "Modificações" tab shows original × modified side by side.
 - Mock creation from real captured responses.
 - Dedicated tab UI and Chrome Side Panel support.
 - Local persistence for rules and history through `chrome.storage.local` and
   IndexedDB.
+
+### Dual-stage rule example
+
+```json
+{
+  "id": "00000000-0000-0000-0000-000000000001",
+  "name": "Inject auth header and mock /api/users",
+  "enabled": true,
+  "stage": "request",
+  "matchers": [
+    { "type": "url", "enabled": true, "pattern": "/api/users", "isRegex": false }
+  ],
+  "actions": [
+    {
+      "type": "requestModify",
+      "enabled": true,
+      "addHeaders": { "Authorization": "Bearer test-token" }
+    },
+    {
+      "type": "mock",
+      "enabled": true,
+      "status": 200,
+      "headers": { "Content-Type": "application/json" },
+      "body": "{\"users\":[]}"
+    }
+  ],
+  "createdAt": 1715000000000,
+  "updatedAt": 1715000000000
+}
+```
+
+`stage: "request"` makes the chain run before the browser sends the request, so
+`requestModify` rewrites headers, then the terminal `mock` short-circuits the
+network. Use `stage: "response"` for rules that act on the server's response
+(e.g. force a 503, mutate body via `transform`). Terminal actions
+(`mock`/`block`/`breakpoint`) end the chain — any action after them is
+unreachable.
 
 ## How it works
 
