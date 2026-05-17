@@ -1,6 +1,8 @@
 import { useOutletContext } from 'react-router-dom';
 import type { Filter } from '@/types/filters';
-import type { InterceptedResponse, ResponseModifications } from '@/types/intercepted';
+import type { InterceptedResponse } from '@/types/intercepted';
+import type { PendingInterception } from '@/lib/interceptionPipeline';
+import type { InterceptionEditPayload } from '@/hooks/usePendingInterceptions';
 import type { Rule } from '@/types/rules';
 
 // Estado e callbacks instanciados pelo Layout e disponibilizados para todas
@@ -19,14 +21,16 @@ export interface AppOutletContext {
 	setFilters: (filters: Filter[]) => void;
 	clearAllRequests: () => Promise<boolean>;
 
-	// Pendentes (substitui as chamadas que CommandCenter fazia direto a useResponses)
-	pendingResponses: Record<string, InterceptedResponse>;
-	approveResponse: (id: string, modifications: ResponseModifications) => Promise<boolean>;
-	approveResponseWithEdit: (
+	// Phase 5: fila unificada de pendentes (Request + Response stages). Substitui
+	// o par legado pendingResponses/approveResponse/approveResponseWithEdit/
+	// ignoreResponse exposto até Phase 4.
+	pendingInterceptions: Record<string, PendingInterception>;
+	approveInterception: (id: string) => Promise<boolean>;
+	approveInterceptionWithEdit: (
 		id: string,
-		payload: { status: number; headers: Record<string, string>; body: string },
+		payload: InterceptionEditPayload,
 	) => Promise<{ success: boolean; error?: string }>;
-	ignoreResponse: (id: string) => Promise<boolean>;
+	cancelInterception: (id: string) => Promise<boolean>;
 	ignoreAllPending: () => Promise<{
 		succeeded: number;
 		failed: Array<{ requestId: string; error: string }>;

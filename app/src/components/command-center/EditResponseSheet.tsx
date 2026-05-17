@@ -13,12 +13,27 @@ import {
 	SheetTitle,
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
-import type { InterceptedResponse } from '@/types/intercepted';
+// Phase 5: EditResponseSheet aceita qualquer fonte que descreva a response
+// pendente — `InterceptedResponse` (uso legado via `useResponses`) ou um
+// snapshot adaptado de `PendingInterception` (novo hub via
+// `usePendingInterceptions`). A forma narrow abaixo lista só os campos que o
+// editor de fato lê, evitando placeholders fictícios (timestamp/type) quando
+// a fonte é pipeline-driven.
+export interface EditResponseSheetRequest {
+	url: string;
+	method?: string;
+	status: number;
+	statusText?: string;
+	headers?: Record<string, string>;
+	body?: string;
+	response?: { headers: Record<string, string>; body?: string };
+	bodyUnavailableReason?: string;
+}
 
 interface EditResponseSheetProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	request: InterceptedResponse;
+	request: EditResponseSheetRequest;
 	requestId: string;
 	/**
 	 * Envia a edição para o background. Retorna `{ success: true }` em caso de
@@ -60,7 +75,7 @@ function rowsToHeaders(rows: HeaderRow[]): Record<string, string> {
 	return result;
 }
 
-function pickInitialBody(request: InterceptedResponse): string {
+function pickInitialBody(request: EditResponseSheetRequest): string {
 	const body = request.response?.body ?? request.body;
 	if (typeof body !== 'string') {
 		// Sem body capturado: começa vazio. O usuário verá um aviso explícito
@@ -70,7 +85,7 @@ function pickInitialBody(request: InterceptedResponse): string {
 	return body;
 }
 
-function pickInitialHeaders(request: InterceptedResponse): Record<string, string> {
+function pickInitialHeaders(request: EditResponseSheetRequest): Record<string, string> {
 	return request.response?.headers ?? request.headers ?? {};
 }
 

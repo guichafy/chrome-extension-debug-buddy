@@ -13,7 +13,7 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { InterceptedResponse } from '../../hooks/useResponses';
+import { InterceptedResponse } from '../../types/intercepted';
 import { compareDurations, formatDurationWithMock, getDurationColorClass } from './duration';
 import { getTransferSizeTooltip } from './transferSize';
 import { formatBytes } from '@/components/layout/networkMetricsFormat';

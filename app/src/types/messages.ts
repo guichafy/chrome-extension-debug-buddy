@@ -31,6 +31,9 @@ export type MessageAction =
 	// Phase 5: aprovação genérica que funciona para Request e Response stages.
 	| 'approveInterception'
 	| 'approveInterceptionWithEdit'
+	// Phase 5: cancelamento explícito de interceptação pendente. Sempre roda
+	// Fetch.failRequest com errorReason='Aborted' independentemente do stage.
+	| 'cancelInterception'
 	| 'newPendingResponse'
 	// Phase 5: notificação genérica de interceptação pendente (qualquer stage).
 	| 'newPendingInterception'
@@ -89,6 +92,21 @@ export interface Message {
 	response?: InterceptedResponse;
 	modifications?: ResponseModifications;
 	updates?: Partial<InterceptedResponse>;
+	// Phase 5: entry pendente carregada no broadcast `newPendingInterception`
+	// para evitar round-trip extra de `getPendingInterceptions` na UI.
+	interception?: import('@/lib/interceptionPipeline').PendingInterception;
+	// Phase 5: payload de edição one-shot para `approveInterceptionWithEdit`.
+	// Em Request stage usa url/method/headers/postData (continueRequest);
+	// em Response stage usa status/headers/body (fulfillRequest). Campos
+	// opcionais; quando ausentes o handler valida via stage.
+	interceptionEdit?: {
+		url?: string;
+		method?: string;
+		headers?: Record<string, string>;
+		postData?: string;
+		status?: number;
+		body?: string;
+	};
 	sessionMarker?: SessionMarker;
 	// Session Replay — Phase 1a / 1d
 	sessionId?: string;

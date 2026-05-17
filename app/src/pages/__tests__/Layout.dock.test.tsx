@@ -4,13 +4,13 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import Layout from '../Layout';
 import type { Filter } from '@/types/filters';
-import type { InterceptedResponse } from '@/types/intercepted';
+import type { PendingInterception } from '@/lib/interceptionPipeline';
 
-const responseStubs = vi.hoisted(() => ({
-	pendingResponses: {} as Record<string, unknown>,
-	approveResponse: vi.fn(),
-	approveResponseWithEdit: vi.fn(),
-	ignoreResponse: vi.fn(),
+const interceptionStubs = vi.hoisted(() => ({
+	pendingInterceptions: {} as Record<string, unknown>,
+	approveInterception: vi.fn(),
+	approveInterceptionWithEdit: vi.fn(),
+	cancelInterception: vi.fn(),
 	ignoreAllPending: vi.fn(),
 }));
 
@@ -27,22 +27,22 @@ vi.mock('@/hooks/useAllRequests', () => ({
 	},
 }));
 
-vi.mock('@/hooks/useResponses', () => ({
-	useResponses: () => {
+vi.mock('@/hooks/usePendingInterceptions', () => ({
+	usePendingInterceptions: () => {
 		const [pending, setPending] = React.useState<Record<string, unknown>>(
-			() => responseStubs.pendingResponses,
+			() => interceptionStubs.pendingInterceptions,
 		);
 		return {
-			approveResponse: responseStubs.approveResponse,
-			approveResponseWithEdit: responseStubs.approveResponseWithEdit,
-			ignoreResponse: responseStubs.ignoreResponse,
+			approveInterception: interceptionStubs.approveInterception,
+			approveInterceptionWithEdit: interceptionStubs.approveInterceptionWithEdit,
+			cancelInterception: interceptionStubs.cancelInterception,
 			ignoreAllPending: async () => {
-				responseStubs.ignoreAllPending();
+				interceptionStubs.ignoreAllPending();
 				const ids = Object.keys(pending);
 				setPending({});
 				return { succeeded: ids.length, failed: [] };
 			},
-			pendingResponses: pending,
+			pendingInterceptions: pending,
 		};
 	},
 }));
@@ -121,42 +121,41 @@ function renderAt(initial: string) {
 beforeEach(() => {
 	vi.mocked(chrome.runtime.sendMessage).mockResolvedValue(undefined as any);
 	vi.mocked(chrome.storage.local.get).mockResolvedValue({ rules: [] } as any);
-	responseStubs.pendingResponses = {};
-	responseStubs.approveResponse.mockResolvedValue(true);
-	responseStubs.approveResponseWithEdit.mockResolvedValue(true);
-	responseStubs.ignoreResponse.mockResolvedValue(true);
-	responseStubs.ignoreAllPending.mockResolvedValue({ succeeded: 0, failed: [] });
+	interceptionStubs.pendingInterceptions = {};
+	interceptionStubs.approveInterception.mockResolvedValue(true);
+	interceptionStubs.approveInterceptionWithEdit.mockResolvedValue({ success: true });
+	interceptionStubs.cancelInterception.mockResolvedValue(true);
+	interceptionStubs.ignoreAllPending.mockResolvedValue({ succeeded: 0, failed: [] });
 });
 
 afterEach(() => {
 	vi.clearAllMocks();
 });
 
-function pendingResponse(overrides: Partial<InterceptedResponse> = {}): InterceptedResponse {
+function pendingInterception(overrides: Partial<PendingInterception> = {}): PendingInterception {
 	return {
+		stage: 'response',
+		requestId: overrides.requestId ?? 'req',
+		ruleId: '',
 		url: 'https://api.example.com/users/42',
 		method: 'GET',
-		status: 0,
-		statusText: '',
-		headers: {},
-		type: 'XHR',
-		timestamp: 1,
-		isWaiting: true,
+		request: { headers: {} },
+		response: { status: 0, statusPhrase: '', headers: {} },
 		...overrides,
 	};
 }
 
 describe('Layout — PendingActionDock global', () => {
 	test('Dock não monta quando não há pausadas', () => {
-		responseStubs.pendingResponses = {};
+		interceptionStubs.pendingInterceptions = {};
 		renderAt('/command-center');
 		expect(screen.queryByTestId('pending-action-dock')).toBeNull();
 	});
 
 	test('Dock mostra contador, URL da próxima pausada e ações quando há pausadas (em /command-center)', () => {
-		responseStubs.pendingResponses = {
-			r1: pendingResponse({ url: 'https://api.example.com/users/1', timestamp: 1 }),
-			r2: pendingResponse({ url: 'https://api.example.com/users/2', timestamp: 2 }),
+		interceptionStubs.pendingInterceptions = {
+			r1: pendingInterception({ url: 'https://api.example.com/users/1' }),
+			r2: pendingInterception({ url: 'https://api.example.com/users/2' }),
 		};
 		renderAt('/command-center');
 		expect(screen.getByTestId('pending-action-dock')).toBeInTheDocument();
@@ -167,21 +166,21 @@ describe('Layout — PendingActionDock global', () => {
 	});
 
 	test('clique em "Ignorar todos" chama ignoreAllPending sem confirmação intermediária', async () => {
-		responseStubs.pendingResponses = {
-			r1: pendingResponse({ url: 'https://api.example.com/users/1', timestamp: 1 }),
-			r2: pendingResponse({ url: 'https://api.example.com/users/2', timestamp: 2 }),
+		interceptionStubs.pendingInterceptions = {
+			r1: pendingInterception({ url: 'https://api.example.com/users/1' }),
+			r2: pendingInterception({ url: 'https://api.example.com/users/2' }),
 		};
 		renderAt('/command-center');
 
 		fireEvent.click(screen.getByTestId('pending-action-dock-ignore-all'));
 
 		expect(screen.queryByRole('alertdialog')).toBeNull();
-		expect(responseStubs.ignoreAllPending).toHaveBeenCalledTimes(1);
+		expect(interceptionStubs.ignoreAllPending).toHaveBeenCalledTimes(1);
 	});
 
 	test('após ignorar todos, pendingResponses fica vazio e o Dock desmonta', async () => {
-		responseStubs.pendingResponses = {
-			r1: pendingResponse({ url: 'https://api.example.com/users/1', timestamp: 1 }),
+		interceptionStubs.pendingInterceptions = {
+			r1: pendingInterception({ url: 'https://api.example.com/users/1' }),
 		};
 		renderAt('/command-center');
 
@@ -197,8 +196,8 @@ describe('Layout — PendingActionDock global', () => {
 
 describe('Layout — Dock cross-route', () => {
 	test('Dock aparece em /rules-lab quando há pausadas', () => {
-		responseStubs.pendingResponses = {
-			r1: pendingResponse({ url: 'https://api.example.com/cross-route', timestamp: 1 }),
+		interceptionStubs.pendingInterceptions = {
+			r1: pendingInterception({ url: 'https://api.example.com/cross-route' }),
 		};
 		renderAt('/rules-lab');
 		expect(screen.getByTestId('pending-action-dock')).toBeInTheDocument();
@@ -208,8 +207,8 @@ describe('Layout — Dock cross-route', () => {
 	});
 
 	test('clique em "Editar" partindo de /rules-lab navega para /command-center?edit=<id>', async () => {
-		responseStubs.pendingResponses = {
-			'r-rl-edit': pendingResponse({ url: 'https://api.example.com/from-rules-lab', timestamp: 1 }),
+		interceptionStubs.pendingInterceptions = {
+			'r-rl-edit': pendingInterception({ url: 'https://api.example.com/from-rules-lab' }),
 		};
 		renderAt('/rules-lab');
 
@@ -223,8 +222,8 @@ describe('Layout — Dock cross-route', () => {
 	});
 
 	test('clique em "Criar Mock" partindo de /rules-lab navega para /command-center?createRule=<id>&type=mock', async () => {
-		responseStubs.pendingResponses = {
-			'r-rl-mock': pendingResponse({ url: 'https://api.example.com/mock-from-rl', timestamp: 1 }),
+		interceptionStubs.pendingInterceptions = {
+			'r-rl-mock': pendingInterception({ url: 'https://api.example.com/mock-from-rl' }),
 		};
 		renderAt('/rules-lab');
 
@@ -239,8 +238,8 @@ describe('Layout — Dock cross-route', () => {
 	});
 
 	test('clique em "Ver pausadas" partindo de /rules-lab navega para /command-center', async () => {
-		responseStubs.pendingResponses = {
-			r1: pendingResponse({ url: 'https://api.example.com/x', timestamp: 1 }),
+		interceptionStubs.pendingInterceptions = {
+			r1: pendingInterception({ url: 'https://api.example.com/x' }),
 		};
 		renderAt('/rules-lab');
 
@@ -252,36 +251,36 @@ describe('Layout — Dock cross-route', () => {
 	});
 
 	test('hotkey "A" partindo de /rules-lab aprova a primeira pausada', async () => {
-		responseStubs.pendingResponses = {
-			'r-hk-1': pendingResponse({ url: 'https://api.example.com/a', timestamp: 1 }),
-			'r-hk-2': pendingResponse({ url: 'https://api.example.com/b', timestamp: 2 }),
+		interceptionStubs.pendingInterceptions = {
+			'r-hk-1': pendingInterception({ url: 'https://api.example.com/a' }),
+			'r-hk-2': pendingInterception({ url: 'https://api.example.com/b' }),
 		};
 		renderAt('/rules-lab');
 
 		fireEvent.keyDown(window, { key: 'a' });
 
 		await waitFor(() => {
-			expect(responseStubs.approveResponse).toHaveBeenCalledWith('r-hk-1', {});
+			expect(interceptionStubs.approveInterception).toHaveBeenCalledWith('r-hk-1');
 		});
 	});
 
 	test('hotkey "I" partindo de /rules-lab ignora a primeira pausada', async () => {
-		responseStubs.pendingResponses = {
-			'r-hk-3': pendingResponse({ url: 'https://api.example.com/c', timestamp: 1 }),
+		interceptionStubs.pendingInterceptions = {
+			'r-hk-3': pendingInterception({ url: 'https://api.example.com/c' }),
 		};
 		renderAt('/rules-lab');
 
 		fireEvent.keyDown(window, { key: 'i' });
 
 		await waitFor(() => {
-			expect(responseStubs.ignoreResponse).toHaveBeenCalledWith('r-hk-3');
+			expect(interceptionStubs.approveInterception).toHaveBeenCalledWith('r-hk-3');
 		});
 	});
 
 	test('hotkey "J" com 2+ pausadas avança o ponteiro do Dock', async () => {
-		responseStubs.pendingResponses = {
-			'r-j-1': pendingResponse({ url: 'https://api.example.com/first', timestamp: 1 }),
-			'r-j-2': pendingResponse({ url: 'https://api.example.com/second', timestamp: 2 }),
+		interceptionStubs.pendingInterceptions = {
+			'r-j-1': pendingInterception({ url: 'https://api.example.com/first' }),
+			'r-j-2': pendingInterception({ url: 'https://api.example.com/second' }),
 		};
 		renderAt('/rules-lab');
 
@@ -299,9 +298,9 @@ describe('Layout — Dock cross-route', () => {
 	});
 
 	test('hotkey "K" com 2+ pausadas volta o ponteiro do Dock', async () => {
-		responseStubs.pendingResponses = {
-			'r-k-1': pendingResponse({ url: 'https://api.example.com/alpha', timestamp: 1 }),
-			'r-k-2': pendingResponse({ url: 'https://api.example.com/beta', timestamp: 2 }),
+		interceptionStubs.pendingInterceptions = {
+			'r-k-1': pendingInterception({ url: 'https://api.example.com/alpha' }),
+			'r-k-2': pendingInterception({ url: 'https://api.example.com/beta' }),
 		};
 		renderAt('/rules-lab');
 
@@ -321,8 +320,8 @@ describe('Layout — Dock cross-route', () => {
 	});
 
 	test('hotkey "J" com apenas 1 pausada não muda nada (navEnabled=false)', () => {
-		responseStubs.pendingResponses = {
-			'r-only-1': pendingResponse({ url: 'https://api.example.com/only', timestamp: 1 }),
+		interceptionStubs.pendingInterceptions = {
+			'r-only-1': pendingInterception({ url: 'https://api.example.com/only' }),
 		};
 		renderAt('/rules-lab');
 

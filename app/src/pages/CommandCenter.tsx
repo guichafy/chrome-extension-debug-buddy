@@ -7,7 +7,7 @@ import { useRules } from '@/hooks/useRules';
 import { RequestTimeline } from '@/components/command-center/RequestTimeline';
 import { RequestInspector } from '@/components/command-center/RequestInspector';
 import RuleEditor from '@/components/rules/RuleEditor';
-import { EditResponseSheet } from '@/components/command-center/EditResponseSheet';
+import { PendingInterceptionDialog } from '@/components/command-center/PendingInterceptionDialog';
 import { buildRuleDraftFromRequest } from '@/domain/quickMock';
 import { cn } from '@/lib/utils';
 import { filtersEqualUrl, parseFiltersFromUrl, serializeFiltersToUrl } from '@/lib/filterUrl';
@@ -41,8 +41,10 @@ const CommandCenter: React.FC = () => {
 		filters,
 		setFilters,
 		clearAllRequests,
-		approveResponseWithEdit,
-		pendingResponses,
+		pendingInterceptions,
+		approveInterception,
+		approveInterceptionWithEdit,
+		cancelInterception,
 		rules,
 		selectedId,
 		selected,
@@ -94,9 +96,14 @@ const CommandCenter: React.FC = () => {
 	const createRuleTargetId = !editParam && createRuleParam ? createRuleParam : null;
 	const createRuleType = isActionType(createRuleTypeParam) ? createRuleTypeParam : null;
 
-	const editTarget = editSheetTargetId ? (pendingResponses[editSheetTargetId] ?? null) : null;
+	// editTarget aponta para a entry da fila unificada de pendentes (Phase 5).
+	// createRuleTarget continua puxando de `filteredRequests` (snapshot do
+	// IndexedDB) — basta que `persistRequest` no background tenha rodado antes
+	// do enqueue, o que é garantido em ambos os caminhos (request-stage chain e
+	// response-stage legacy breakpoint).
+	const editTarget = editSheetTargetId ? (pendingInterceptions[editSheetTargetId] ?? null) : null;
 	const createRuleTarget = createRuleTargetId
-		? (filteredRequests[createRuleTargetId] ?? pendingResponses[createRuleTargetId] ?? null)
+		? (filteredRequests[createRuleTargetId] ?? null)
 		: null;
 
 	useEffect(() => {
@@ -292,14 +299,15 @@ const CommandCenter: React.FC = () => {
 			)}
 
 			{editTarget && editSheetTargetId && (
-				<EditResponseSheet
+				<PendingInterceptionDialog
 					open
 					onOpenChange={(open) => {
 						if (!open) closeEditSheet();
 					}}
-					request={editTarget}
-					requestId={editSheetTargetId}
-					onSubmit={approveResponseWithEdit}
+					entry={editTarget}
+					onApprove={approveInterception}
+					onApproveWithEdit={approveInterceptionWithEdit}
+					onCancel={cancelInterception}
 				/>
 			)}
 
