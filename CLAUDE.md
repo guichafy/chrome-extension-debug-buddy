@@ -64,17 +64,33 @@ Four moving parts you must understand before changing anything substantial:
 
 The debugger only attaches to `targetTabId`. Closing `interceptorTabId` automatically stops debugging (`chrome.tabs.onRemoved` listener). Don't conflate the two — most bugs in this area come from messaging the wrong tab.
 
-### 2. Interception flow
+### 2. Interception flow (dual-stage, Phase 1–9)
 
-`startDebugging()` calls `chrome.debugger.attach({tabId}, '1.3')` and enables both `Network.enable` (for timing capture) and `Fetch.enable` with `patterns: [{urlPattern: '*', requestStage: 'Response'}]` — meaning **every** request is paused at the response stage. The `Fetch.requestPaused` event then runs `handleRequestPaused`, which:
+`startDebugging()` calls `chrome.debugger.attach({tabId}, '1.3')` and enables `Network.enable` (timing) plus `Fetch.enable` with **two** intercept patterns: `requestStage: 'Request'` (before the request leaves the browser) and `requestStage: 'Response'` (after the server replied). Cada `Fetch.requestPaused` cai num dos dois caminhos pelo presença/ausência de `responseStatusCode`.
 
-1. Checks for mocks (`checkForMock`) → if matched, calls `Fetch.fulfillRequest` with the mock and stops.
-2. Checks breakpoint rules (`checkForBreakpoint`) — informational; flow continues.
-3. Always calls `Fetch.getResponseBody`, builds an `InterceptedResponse`, and stores it in the in-memory `allRequests` map.
-4. If `shouldInterceptUrl` matches → adds to `pendingResponses` with `isWaiting: true`, notifies the UI via `chrome.runtime.sendMessage({action: 'newPendingResponse', ...})`. The UI shows a dialog; user approves/modifies/ignores → background calls `Fetch.fulfillRequest` (with mods) or `Fetch.continueRequest`.
-5. Otherwise → `Fetch.continueRequest` and notifies the UI to persist the request to IndexedDB.
+**Request stage** (`responseStatusCode === undefined`):
 
-`stopDebugging()` continues all pending requests before detaching. Anything left in `pendingResponses` would hang the page otherwise.
+1. `findMatchingRulesChain(rules, 'request', input)` retorna a chain ordenada de regras com `stage === 'request'` que casam o input. Chain corta no primeiro terminal (`mock`/`block`/`breakpoint`).
+2. `executeChain(plan, requestId, 'request', { request: initialSnapshot }, ctx)` itera cada `Action`:
+   - `requestModify` → reescreve url/method/headers/body via `applyHeaderOps`/`applyBodyOperations`.
+   - `requestDelay` → `await wait(timeMs)`.
+   - `block` (terminal) → `Fetch.failRequest`.
+   - `mock` (terminal) → `Fetch.fulfillRequest` curto-circuita a rede.
+   - `breakpoint` (terminal) → enfileira em `pendingInterceptions` (UI mostra EditRequestSheet).
+3. Phase 7: ao final, `diffRequestSnapshots(initial, result.requestSnapshot)` gera `RequestModificationSnapshot` quando a chain mexeu em algo. Para terminais mock/block o snapshot é anexado direto ao `InterceptedResponse`; para chain modify-only que continua para a rede, o snapshot vai pro Map `pendingRequestModified` e é consumido no Response stage.
+4. Pass-through (sem regras stage='request' casadas, ou só modifiers) → `Fetch.continueRequest` (com mods aplicados).
+
+**Response stage** (`responseStatusCode` é número):
+
+1. `findMatchingRuleAction(rules, input, 'response')` localiza a primeira regra stage='response' que casa (engine legacy ainda usado para mock/transform/breakpoint do Response stage — migração pra `executeChain` planejada).
+2. `Fetch.getResponseBody` captura o corpo; `buildResponseSnapshot` monta o `InterceptedResponse`.
+3. Para `mock` → `applyMockResponse` (Fetch.fulfillRequest com mock; descarta o body original).
+4. Para `transform` → `applyTransformResponse` aplica o script/operations e Fetch.fulfillRequest com body modificado. Phase 7: `responseModified` é populado comparando body antes×depois.
+5. Para `breakpoint` → marca `isWaiting: true` e enfileira em `pendingInterceptions` (UI mostra EditResponseSheet).
+6. Sem regra casando → `Fetch.continueRequest` pass-through.
+7. Phase 7: se `pendingRequestModified` tem entry para o requestId, consome e anexa `requestModified` ao `InterceptedResponse` persistido.
+
+`stopDebugging()` continua todas as requests pendentes antes de detach. Qualquer coisa deixada em `pendingInterceptions` travaria a página.
 
 ### 2a. Real-time duration capture
 
@@ -84,11 +100,46 @@ The debugger only attaches to `targetTabId`. Closing `interceptorTabId` automati
 
 The tracker filters Network events to a 4-event allowlist (`requestWillBeSent`/`responseReceived`/`loadingFinished`/`loadingFailed`) and caps internal entries at 2000 (FIFO eviction) to bound memory in long debugging sessions.
 
-### 3. Single rule format
+### 3. Rule schema (dual-stage)
 
-The codebase uses a single rule schema (`Rule[]` from `app/src/types/rules.ts`). Earlier versions had separate `urlPatterns`/`mocks` storage keys; those are migrated one-shot at extension install/update via `app/src/lib/legacyMigration.ts` and removed from runtime code paths. A backup is kept at `chrome.storage.local.legacy_backup_v1` for one release as a safety net.
+`Rule[]` em `app/src/types/rules.ts` carrega o schema v2 dual-stage:
 
-`Rule.action.type` is one of `'mock' | 'delay' | 'modify' | 'breakpoint'`. On UI mount, `useRules` is a pure reader — the background owns migration; the UI only adds/updates/deletes rules through `chrome.storage.local` writes.
+```ts
+interface Rule {
+  id: string;
+  name: string;
+  enabled: boolean;
+  stage: 'request' | 'response';     // Phase 1 — qual ponto do CDP interceptar
+  matchers: Matcher[];               // URL/method/header/body
+  actions: Action[];                 // Phase 1 — chain ordenada de ações
+  createdAt: number;
+  updatedAt: number;
+}
+```
+
+`Action.type` ∈ `'requestModify' | 'responseModify' | 'requestDelay' | 'transform' | 'mock' | 'block' | 'breakpoint'`. **Ações terminais** (`mock`, `block`, `breakpoint`) interrompem a chain — só podem aparecer na última posição (validado em Phase 4). Cada `Action.type` é válida em um ou ambos os stages — ver `REQUEST_STAGE_ACTIONS`/`RESPONSE_STAGE_ACTIONS` em `types/rules.ts`.
+
+Exemplo (regra Request stage que injeta header + manda mock):
+
+```json
+{
+  "id": "uuid",
+  "name": "Mock /api/users com bearer",
+  "enabled": true,
+  "stage": "request",
+  "matchers": [
+    { "type": "url", "enabled": true, "pattern": "/api/users", "isRegex": false }
+  ],
+  "actions": [
+    { "type": "requestModify", "enabled": true, "addHeaders": { "Authorization": "Bearer x" } },
+    { "type": "mock", "enabled": true, "status": 200, "headers": {}, "body": "[]" }
+  ]
+}
+```
+
+`legacyMigration.ts` (Phase 1) converte storage v0 (`urlPatterns`/`mocks`) para `Rule[]` v2 — breakpoints e mocks legados nascem com `stage: 'response'`. Backup do dado pré-migração fica em `chrome.storage.local.legacy_backup_v1` por um release. Phase 9 mostra um banner one-shot ao usuário avisando do breaking change (`DualStageMigrationNotice`).
+
+A UI (`useRules`) é leitora pura; o background é o dono da migração.
 
 ### 4. Persistence split
 

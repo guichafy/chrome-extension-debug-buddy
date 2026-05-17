@@ -29,18 +29,59 @@ controla as respostas que chegam à aplicação.
 ## Funcionalidades
 
 - Seleção da aba alvo que será depurada pela extensão.
+- **Interceptação dual-stage**: regras atuam no stage `request` (antes do
+  envio à rede) ou `response` (depois que o servidor responde). Cada regra
+  carrega uma chain ordenada de `actions`.
 - Interceptação de respostas via `chrome.debugger` e Chrome DevTools Protocol.
 - Regras com match por URL, método HTTP, headers e body.
-- Ações de mock para responder com status, headers, body, content-type e latência
-  definidos manualmente.
+- Chain de ações: `requestModify`, `requestDelay`, `responseModify`,
+  `transform` e as terminais `mock`, `block`, `breakpoint`.
 - Pausa de respostas para inspeção antes de continuar a navegação.
 - Edição de status, headers e body antes de liberar uma resposta interceptada.
 - Histórico de requisições capturadas, incluindo respostas observadas,
   interceptadas, mockadas, pendentes e com falha de captura.
+- **Diff de modificações** no inspector: quando uma regra reescreveu request
+  ou response, a aba "Modificações" mostra original × modificado lado a lado.
 - Criação de mocks a partir de respostas reais capturadas.
 - Interface em aba dedicada ou no Chrome Side Panel.
 - Persistência local de regras e histórico usando `chrome.storage.local` e
   IndexedDB.
+
+### Exemplo de regra dual-stage
+
+```json
+{
+  "id": "00000000-0000-0000-0000-000000000001",
+  "name": "Injeta auth e mocka /api/users",
+  "enabled": true,
+  "stage": "request",
+  "matchers": [
+    { "type": "url", "enabled": true, "pattern": "/api/users", "isRegex": false }
+  ],
+  "actions": [
+    {
+      "type": "requestModify",
+      "enabled": true,
+      "addHeaders": { "Authorization": "Bearer test-token" }
+    },
+    {
+      "type": "mock",
+      "enabled": true,
+      "status": 200,
+      "headers": { "Content-Type": "application/json" },
+      "body": "{\"users\":[]}"
+    }
+  ],
+  "createdAt": 1715000000000,
+  "updatedAt": 1715000000000
+}
+```
+
+Com `stage: "request"`, a chain roda antes do envio: `requestModify` ajusta o
+header e a terminal `mock` curto-circuita a rede. Use `stage: "response"` em
+regras que atuam sobre a resposta do servidor (ex.: forçar 503, mutar body via
+`transform`). Ações terminais (`mock`/`block`/`breakpoint`) encerram a chain
+— qualquer ação depois delas é inalcançável.
 
 ## Como funciona
 
