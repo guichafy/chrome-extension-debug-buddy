@@ -1,4 +1,5 @@
 import type { Protocol } from 'devtools-protocol/types/protocol';
+import { ensureContentScriptsInjected } from '@/lib/contentScriptInjection';
 import { indexedDBService } from '@/lib/indexedDB';
 import { NetworkTimingTracker } from '@/lib/networkTiming';
 import { recorder } from '@/lib/session/recorder';
@@ -1960,6 +1961,14 @@ const handleSetRecordingLive: ActionHandler = (message, sender, sendResponse) =>
 			// Reusa fluxo de auto-start: chama tryAutoStartRecording. Mas essa
 			// função respeita recordingDisabled — antes de chamar, garante flag=false.
 			await setRecordingDisabled(false);
+			// Mesma justificativa de startDebugging: se a interceptação iniciou ANTES
+			// da extensão (raro mas possível em dev/reload), content scripts podem
+			// não estar injetados. Best-effort — falha é tratada por tryAutoStartRecording.
+			try {
+				await ensureContentScriptsInjected(targetTabId);
+			} catch (err) {
+				console.warn('[session] ensureContentScriptsInjected (setRecordingLive) falhou:', err);
+			}
 			await tryAutoStartRecording(targetTabId);
 			const created = await recorder.getActiveByTab(targetTabId);
 			return { ok: true, sessionId: created?.id };
@@ -2480,6 +2489,18 @@ async function startDebugging(specificTabId: number | null = null): Promise<bool
 		// Live Insights: nova sessão = snapshot zerado. Detections/recomendações
 		// passam a acumular por host até o próximo startDebugging.
 		clearLiveSnapshot(tabId);
+
+		// Garante que probe-main / probe-bridge / rrweb-recorder estão injetados
+		// na tab. Necessário porque tabs criadas antes da extensão instalar/atualizar
+		// não recebem auto-injection do manifest — sem isso, sendMessage abaixo
+		// falha e a sessão de gravação nasce zumbi (sem rrweb events).
+		// Não-fatal: se a tab está em URL proibida (chrome://) ou foi fechada,
+		// logamos e seguimos — tryAutoStartRecording fará seu próprio rollback.
+		try {
+			await ensureContentScriptsInjected(tabId);
+		} catch (err) {
+			console.warn('[session] ensureContentScriptsInjected falhou:', err);
+		}
 
 		// --- Acoplamento gravação ↔ interceptação (Bug 1) ---
 		// Default: ao iniciar interceptação, iniciamos uma sessão de gravação.
