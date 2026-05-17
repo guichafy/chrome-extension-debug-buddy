@@ -147,8 +147,14 @@ vi.mock('@/components/command-center/RequestInspector', () => ({
 
 vi.mock('@/components/rules/RuleEditor', () => ({
 	__esModule: true,
-	default: ({ onOpenChange }: { onOpenChange?: (open: boolean) => void }) => (
-		<div data-testid="rule-editor">
+	default: ({
+		onOpenChange,
+		skipTypeStep,
+	}: {
+		onOpenChange?: (open: boolean) => void;
+		skipTypeStep?: boolean;
+	}) => (
+		<div data-testid="rule-editor" data-skip-type-step={skipTypeStep ? 'true' : 'false'}>
 			<button type="button" data-testid="rule-editor-close" onClick={() => onOpenChange?.(false)}>
 				close
 			</button>
@@ -316,6 +322,22 @@ describe('CommandCenter — hidratação de ?edit / ?createRule', () => {
 
 		await waitFor(() => {
 			expect(screen.getByTestId('rule-editor')).toBeInTheDocument();
+		});
+	});
+
+	test('Quick Mock NÃO passa skipTypeStep — usuário precisa do step Tipo pra editar Stage', async () => {
+		// Regression: skipTypeStep escondia o passo Tipo, que é onde mora o
+		// seletor de Stage. Como quickMock força STAGE_BY_TYPE (mock/breakpoint/
+		// transform → response), o usuário ficava sem alternativa quando queria
+		// uma regra Request-stage. Fix iguala UX ao Rules Lab: passo Tipo
+		// sempre visível, com Stage e tipo pré-preenchidos editáveis.
+		interceptionStubs.filteredRequests = {
+			'r-mock-1': interceptedResponse({ url: 'https://api.example.com/mock-target' }),
+		};
+		renderAt('/command-center?createRule=r-mock-1&type=mock');
+
+		await waitFor(() => {
+			expect(screen.getByTestId('rule-editor')).toHaveAttribute('data-skip-type-step', 'false');
 		});
 	});
 

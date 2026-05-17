@@ -12,6 +12,10 @@ const interceptionStubs = vi.hoisted(() => ({
 	approveInterceptionWithEdit: vi.fn(),
 	cancelInterception: vi.fn(),
 	ignoreAllPending: vi.fn(),
+	// Permite forçar `selectedId` antes do mount do Layout pra reproduzir o cenário
+	// "request comum selecionada + pendente chegando". O hook real só seta
+	// selectedId via click no timeline, que está stubado nesta suíte.
+	initialSelectedId: null as string | null,
 }));
 
 vi.mock('@/hooks/useAllRequests', () => ({
@@ -49,6 +53,20 @@ vi.mock('@/hooks/usePendingInterceptions', () => ({
 
 vi.mock('@/hooks/useRules', () => ({
 	useRules: () => ({ rules: [] }),
+}));
+
+vi.mock('@/hooks/useRequestSelection', () => ({
+	useRequestSelection: () => {
+		const [selectedId, setSelectedId] = React.useState<string | null>(
+			() => interceptionStubs.initialSelectedId,
+		);
+		return {
+			selectedId,
+			selected: null,
+			select: (id: string) => setSelectedId(id),
+			clear: () => setSelectedId(null),
+		};
+	},
 }));
 
 vi.mock('@/components/layout/AppSidebar', () => ({ AppSidebar: () => null }));
@@ -122,6 +140,7 @@ beforeEach(() => {
 	vi.mocked(chrome.runtime.sendMessage).mockResolvedValue(undefined as any);
 	vi.mocked(chrome.storage.local.get).mockResolvedValue({ rules: [] } as any);
 	interceptionStubs.pendingInterceptions = {};
+	interceptionStubs.initialSelectedId = null;
 	interceptionStubs.approveInterception.mockResolvedValue(true);
 	interceptionStubs.approveInterceptionWithEdit.mockResolvedValue({ success: true });
 	interceptionStubs.cancelInterception.mockResolvedValue(true);
@@ -329,5 +348,59 @@ describe('Layout — Dock cross-route', () => {
 		expect(screen.getByTestId('pending-action-dock-next-url')).toHaveTextContent(
 			'https://api.example.com/only',
 		);
+	});
+});
+
+describe('Layout — Dock target quando selection é não-pendente', () => {
+	test('selectedId é uma request não-pendente: "Editar" navega pra primeira pendente, não pro selectedId', async () => {
+		// Reproduz Bug 1: inspector aberto com request comum + pendente chegando.
+		// Antes do fix, o Dock usava selectionState.selectedId como dockTargetId
+		// porque hasSelectedPending era true sempre que existia qualquer pendente.
+		// Resultado: navegava pra ?edit=<id-comum>, CommandCenter não encontrava
+		// a entry em pendingInterceptions e auto-clearava o param.
+		interceptionStubs.initialSelectedId = 'common-req-id';
+		interceptionStubs.pendingInterceptions = {
+			'pending-1': pendingInterception({ url: 'https://api.example.com/pending-one' }),
+		};
+		renderAt('/command-center');
+
+		fireEvent.click(screen.getByTestId('pending-action-dock-edit-next'));
+
+		await waitFor(() => {
+			const params = new URLSearchParams(locationProbe.search);
+			expect(params.get('edit')).toBe('pending-1');
+		});
+	});
+
+	test('selectedId não-pendente: indicador "i/N" do Dock não aparece', () => {
+		interceptionStubs.initialSelectedId = 'common-req-id';
+		interceptionStubs.pendingInterceptions = {
+			'pending-1': pendingInterception({ url: 'https://api.example.com/p1' }),
+			'pending-2': pendingInterception({ url: 'https://api.example.com/p2' }),
+		};
+		renderAt('/command-center');
+
+		// O contador continua aparecendo, mas o "i / N" da posição não, porque
+		// nenhuma pendente está literalmente selecionada.
+		expect(screen.getByTestId('pending-action-dock-counter')).toHaveTextContent('2 pausadas');
+		expect(screen.queryByTestId('pending-action-dock-position')).toBeNull();
+	});
+
+	test('selectedId é uma pendente: Dock usa selectedId como alvo e mostra "i/N"', async () => {
+		interceptionStubs.initialSelectedId = 'pending-2';
+		interceptionStubs.pendingInterceptions = {
+			'pending-1': pendingInterception({ url: 'https://api.example.com/p1' }),
+			'pending-2': pendingInterception({ url: 'https://api.example.com/p2' }),
+		};
+		renderAt('/command-center');
+
+		expect(screen.getByTestId('pending-action-dock-position')).toHaveTextContent('2 / 2');
+
+		fireEvent.click(screen.getByTestId('pending-action-dock-edit-next'));
+
+		await waitFor(() => {
+			const params = new URLSearchParams(locationProbe.search);
+			expect(params.get('edit')).toBe('pending-2');
+		});
 	});
 });

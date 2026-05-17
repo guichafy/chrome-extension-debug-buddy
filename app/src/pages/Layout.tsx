@@ -118,6 +118,14 @@ const Layout: React.FC = () => {
 	// Layout porque o Dock agora é global. PendingInterception não tem campo
 	// `timestamp` — usamos a ordem de inserção do Record (Object.keys preserva
 	// insertion order em modern V8) que reflete a chegada das interceptações.
+	//
+	// `hasSelectedPending` traduz literalmente "a request selecionada está na
+	// fila de pendentes". Tem que ser derivado de `manualIdx >= 0`, e não de
+	// `targetIndex !== null`: o último também é true quando há pendentes mas a
+	// seleção é uma request comum (manualIdx === -1, targetIndex cai pro 0).
+	// Confundir os dois leva o Dock a navegar pra `?edit=<id-da-selecionada>`
+	// (não-pendente), e o CommandCenter remove o param automaticamente porque
+	// não encontra a entry em `pendingInterceptions`.
 	const { pendingIdsOrdered, pendingCount, dockTargetIndex, hasSelectedPending, nextPendingUrl } =
 		useMemo(() => {
 			const ids = Object.keys(pendingState.pendingInterceptions);
@@ -129,15 +137,14 @@ const Layout: React.FC = () => {
 				pendingIdsOrdered: ids,
 				pendingCount: ids.length,
 				dockTargetIndex: targetIndex,
-				hasSelectedPending: targetIndex !== null,
+				hasSelectedPending: manualIdx >= 0,
 				nextPendingUrl: url,
 			};
 		}, [pendingState.pendingInterceptions, selectionState.selectedId]);
 
-	const dockTargetId =
-		hasSelectedPending && selectionState.selectedId
-			? selectionState.selectedId
-			: pendingIdsOrdered[0];
+	const dockTargetId = hasSelectedPending
+		? (selectionState.selectedId ?? pendingIdsOrdered[0])
+		: pendingIdsOrdered[0];
 
 	// No modelo dual-stage não há ação "ignorar" separada — aprovar sem
 	// modificações libera o request via Fetch.continueRequest no Request stage

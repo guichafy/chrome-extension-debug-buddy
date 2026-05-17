@@ -259,7 +259,6 @@ const CommandCenter: React.FC = () => {
 				<RuleEditor
 					open
 					mode="create"
-					skipTypeStep
 					initialDraft={draftResult.draft}
 					headerMatcherSource={headerMatcherSource}
 					samplePayload={samplePayload}
