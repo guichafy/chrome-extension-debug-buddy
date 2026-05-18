@@ -199,3 +199,27 @@ describe('ActionChainEditor — empty state', () => {
 		expect(screen.getByTestId('action-chain-terminal-badge-0')).toBeInTheDocument();
 	});
 });
+
+describe('ActionChainEditor — response stage single-action cap', () => {
+	test('com 1 modifier não-terminal em response, "Adicionar" fica desabilitado', () => {
+		render(
+			<ActionChainEditor actions={[responseModifyAction]} stage="response" onChange={vi.fn()} />,
+		);
+		expect(screen.getByTestId('action-chain-add-trigger')).toBeDisabled();
+		expect(screen.getByTestId('action-chain-add-disabled-reason')).toHaveTextContent(
+			/Chain com múltiplas actions em stage=response ainda não é suportada/,
+		);
+	});
+
+	test('em request stage o cap não se aplica', () => {
+		render(
+			<ActionChainEditor actions={[requestModifyAction]} stage="request" onChange={vi.fn()} />,
+		);
+		expect(screen.getByTestId('action-chain-add-trigger')).not.toBeDisabled();
+	});
+
+	test('chain vazia em response permite adicionar a 1ª action', () => {
+		render(<ActionChainEditor actions={[]} stage="response" onChange={vi.fn()} />);
+		expect(screen.getByTestId('action-chain-add-trigger')).not.toBeDisabled();
+	});
+});

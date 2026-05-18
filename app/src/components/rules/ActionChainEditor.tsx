@@ -39,6 +39,13 @@ export const ActionChainEditor: React.FC<ActionChainEditorProps> = ({
 	const terminalIndex = findTerminalIndex(actions);
 	const hasTerminal = terminalIndex >= 0;
 	const validTypes = availableActionTypesForStage(stage);
+	// Response stage ainda roda no engine legado single-action — chains response
+	// não executam todas as actions. Travamos no 1ª action habilitada enquanto
+	// a migração para `executeChain` no Response stage não rola (epic dual-stage,
+	// follow-up pós-Phase 9). Contamos só as habilitadas pra manter consistência
+	// com findTerminalIndex acima — uma action pausada não trava nada.
+	const enabledCount = actions.filter((a) => a.enabled).length;
+	const responseChainCapped = stage === 'response' && enabledCount >= 1;
 
 	const commit = (next: Action[]) => onChange(next);
 
@@ -197,9 +204,13 @@ export const ActionChainEditor: React.FC<ActionChainEditorProps> = ({
 		);
 	};
 
-	const addDisabledReason = hasTerminal
-		? `A chain já é terminada por "${getActionVisuals(actions[terminalIndex]).label}". Remova-a antes de adicionar novas actions.`
-		: null;
+	let addDisabledReason: string | null = null;
+	if (hasTerminal) {
+		addDisabledReason = `A chain já é terminada por "${getActionVisuals(actions[terminalIndex]).label}". Remova-a antes de adicionar novas actions.`;
+	} else if (responseChainCapped) {
+		addDisabledReason =
+			'Chain com múltiplas actions em stage=response ainda não é suportada — o engine atual executa só a primeira. Remova esta action para trocar por outra.';
+	}
 
 	return (
 		<div className="space-y-3" data-testid="action-chain-editor" data-stage={stage}>
@@ -221,7 +232,7 @@ export const ActionChainEditor: React.FC<ActionChainEditorProps> = ({
 							type="button"
 							variant="outline"
 							size="sm"
-							disabled={hasTerminal}
+							disabled={hasTerminal || responseChainCapped}
 							data-testid="action-chain-add-trigger"
 						>
 							<LucideIcon name="plus" className="mr-1 h-4 w-4" />

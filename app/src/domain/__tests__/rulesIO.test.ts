@@ -75,3 +75,100 @@ describe('validateRuleImport', () => {
 		expect(validateRuleImport('not an object').ok).toBe(false);
 	});
 });
+
+describe('validateRuleImport — invariantes da chain', () => {
+	test('rejeita action incompatível com o stage (block em response)', () => {
+		const broken: Rule = {
+			...sampleRule,
+			stage: 'response',
+			actions: [{ type: 'block', enabled: true, errorReason: 'Failed' }],
+		};
+		const result = validateRuleImport({ schemaVersion: 2, rules: [broken] });
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error).toMatch(/'block'.*não é válida.*'response'/);
+	});
+
+	test('rejeita action incompatível com o stage (transform em request)', () => {
+		const broken: Rule = {
+			...sampleRule,
+			stage: 'request',
+			actions: [{ type: 'transform', enabled: true, mode: 'declarative', operations: [] }],
+		};
+		const result = validateRuleImport({ schemaVersion: 2, rules: [broken] });
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error).toMatch(/'transform'.*não é válida.*'request'/);
+	});
+
+	test('rejeita chain com 2 actions terminais', () => {
+		const broken: Rule = {
+			...sampleRule,
+			stage: 'request',
+			actions: [
+				{ type: 'block', enabled: true, errorReason: 'Failed' },
+				{ type: 'mock', enabled: true, status: 200, headers: {} },
+			],
+		};
+		const result = validateRuleImport({ schemaVersion: 2, rules: [broken] });
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error).toMatch(/2 actions terminais/);
+	});
+
+	test('rejeita terminal antes da última posição', () => {
+		const broken: Rule = {
+			...sampleRule,
+			stage: 'request',
+			actions: [
+				{ type: 'block', enabled: true, errorReason: 'Failed' },
+				{ type: 'requestDelay', enabled: true, timeMs: 100 },
+			],
+		};
+		const result = validateRuleImport({ schemaVersion: 2, rules: [broken] });
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error).toMatch(/terminal.*última/);
+	});
+
+	test('rejeita chain response com 2+ actions (limite temporário até executeChain do Response stage)', () => {
+		const broken: Rule = {
+			...sampleRule,
+			stage: 'response',
+			actions: [
+				{ type: 'responseModify', enabled: true },
+				{ type: 'mock', enabled: true, status: 200, headers: {} },
+			],
+		};
+		const result = validateRuleImport({ schemaVersion: 2, rules: [broken] });
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error).toMatch(/2\+ actions em stage=response/);
+	});
+
+	test('aceita chain request com modifier + terminal na última posição', () => {
+		const rule: Rule = {
+			...sampleRule,
+			stage: 'request',
+			actions: [
+				{ type: 'requestDelay', enabled: true, timeMs: 100 },
+				{ type: 'mock', enabled: true, status: 200, headers: {} },
+			],
+		};
+		const result = validateRuleImport({ schemaVersion: 2, rules: [rule] });
+		expect(result.ok).toBe(true);
+	});
+
+	test('aceita chain só com modificadores (sem terminal)', () => {
+		const rule: Rule = {
+			...sampleRule,
+			stage: 'request',
+			actions: [
+				{ type: 'requestModify', enabled: true, addHeaders: { 'X-Foo': 'bar' } },
+				{ type: 'requestDelay', enabled: true, timeMs: 100 },
+			],
+		};
+		const result = validateRuleImport({ schemaVersion: 2, rules: [rule] });
+		expect(result.ok).toBe(true);
+	});
+});

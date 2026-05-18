@@ -1,4 +1,5 @@
 import type { Action, ActionType, Matcher, MatcherType, Rule, RuleStage } from '@/types/rules';
+import { isActionValidForStage, isTerminalAction } from '@/types/rules';
 
 // Breaking change v2: schema dual-stage. Regras antigas (`schemaVersion: 1`,
 // formato `{action, ...}` sem `stage`/`actions`) não são mais aceitas — a UI
@@ -77,9 +78,73 @@ function validateRule(value: unknown): { ok: true; rule: Rule } | { ok: false; e
 	if (!value.actions.every(validateAction)) {
 		return { ok: false, error: 'action inválida na regra' };
 	}
+	const stage = value.stage as RuleStage;
+	const actions = value.actions as Action[];
+	const chainCheck = validateChainInvariants(actions, stage);
+	if (!chainCheck.ok) return chainCheck;
 	if (typeof value.createdAt !== 'number') return { ok: false, error: 'createdAt ausente' };
 	if (typeof value.updatedAt !== 'number') return { ok: false, error: 'updatedAt ausente' };
 	return { ok: true, rule: value as unknown as Rule };
+}
+
+// Invariantes da chain — checados no import para falhar cedo em vez de salvar
+// uma regra que nunca casa ou comporta-se mal em runtime. A UI (ActionChainEditor)
+// aplica os mesmos limites; aqui é o gate para JSON cru ou storage adulterado.
+//
+// Hoje:
+// 1. Cada action precisa ser válida no stage da regra (REQUEST/RESPONSE_STAGE_ACTIONS).
+// 2. No máximo UMA action terminal (mock/block/breakpoint) por chain.
+// 3. Se há terminal, ela tem que ser a última.
+// 4. stage='response' com 2+ actions é rejeitado — Response stage ainda roda
+//    no engine legado (`findMatchingRuleAction`, single-action), então
+//    chains response não executam. Limite cai quando o pipeline `executeChain`
+//    cobrir o Response stage (epic dual-stage, fase pós-Phase 9).
+function validateChainInvariants(
+	actions: Action[],
+	stage: RuleStage,
+): { ok: true } | { ok: false; error: string } {
+	for (const action of actions) {
+		if (!isActionValidForStage(action.type, stage)) {
+			return {
+				ok: false,
+				error: `action '${action.type}' não é válida em stage '${stage}'`,
+			};
+		}
+	}
+
+	const terminalIndices: number[] = [];
+	actions.forEach((action, index) => {
+		if (isTerminalAction(action)) terminalIndices.push(index);
+	});
+	if (terminalIndices.length > 1) {
+		return {
+			ok: false,
+			error: `chain com ${terminalIndices.length} actions terminais (máx 1)`,
+		};
+	}
+	if (terminalIndices.length === 1 && terminalIndices[0] !== actions.length - 1) {
+		return {
+			ok: false,
+			error: 'action terminal precisa ser a última da chain',
+		};
+	}
+
+	if (stage === 'response') {
+		// Consistente com o cap da UI (ActionChainEditor): contamos só as
+		// habilitadas. Uma action `enabled: false` é tratada como pausada e
+		// não cria pressão sobre o engine legado single-action do Response stage.
+		const enabledCount = actions.filter((a) => a.enabled).length;
+		if (enabledCount > 1) {
+			return {
+				ok: false,
+				error:
+					'chain com 2+ actions em stage=response ainda não é suportada ' +
+					'(Response stage roda no engine single-action; aguardando migração para executeChain)',
+			};
+		}
+	}
+
+	return { ok: true };
 }
 
 export function validateRuleImport(value: unknown): RulesImportResult {
