@@ -2484,6 +2484,12 @@ async function startDebugging(specificTabId: number | null = null): Promise<bool
 		isDebugging = true;
 		attachedTabId = tabId;
 		pendingResponses = {};
+		// Phase 5/7: Maps de pendências dual-stage. Limpar aqui evita que entries
+		// órfãs de uma sessão anterior contaminem a nova (ex.: usuário fez stop
+		// com breakpoint pendente, reabriu — a UI continuaria mostrando aquela
+		// pending mesmo que o CDP já tenha liberado a request no detach).
+		pendingInterceptions.clear();
+		pendingRequestModified.clear();
 		timingTracker.reset();
 		recommendationEngine.reset();
 		// Live Insights: nova sessão = snapshot zerado. Detections/recomendações
@@ -2556,8 +2562,15 @@ async function stopDebugging(): Promise<boolean> {
 	}
 
 	try {
-		// Continue any pending requests before disabling
-		const pendingRequestIds = Object.keys(pendingResponses);
+		// Continue any pending requests before disabling. Cobrimos os dois Maps:
+		// `pendingResponses` (response-stage breakpoints legados + entradas
+		// duplicadas da fila unificada) e `pendingInterceptions` (request-stage
+		// breakpoints — não duplicados em `pendingResponses`). Union via Set evita
+		// double-continue do mesmo requestId.
+		const pendingRequestIds = new Set<string>([
+			...Object.keys(pendingResponses),
+			...pendingInterceptions.keys(),
+		]);
 		for (const requestId of pendingRequestIds) {
 			try {
 				await continueRequest(requestId);
@@ -2629,6 +2642,11 @@ async function stopDebugging(): Promise<boolean> {
 		isDebugging = false;
 		attachedTabId = null;
 		pendingResponses = {};
+		// Phase 5/7: limpa as filas dual-stage no detach. O loop acima já chamou
+		// `continueRequest` em cada entry, então o CDP-side está consistente.
+		// Zeramos aqui pra evitar UI mostrando pendings órfãs no próximo start.
+		pendingInterceptions.clear();
+		pendingRequestModified.clear();
 		// Cancela timers pendentes — qualquer patchRequest após detach cairia em
 		// allRequests undefined.
 		for (const t of pendingTimingTimers.values()) clearTimeout(t);
@@ -2964,9 +2982,17 @@ async function handleRequestPaused(params: any): Promise<void> {
 				});
 			}
 		} else if (!result.terminated && !result.cdpReleased) {
-			// Caminho defensivo — não esperado no fluxo normal. Libera a request
-			// pra evitar travar a página.
-			await continueRequest(requestId);
+			// Estado inválido do pipeline: chain casou (plan.length > 0) mas
+			// executeChain retornou sem terminal nem release de CDP — não é o
+			// fluxo normal. Em vez de fabricar pass-through silencioso (que
+			// esconderia o bug — vide CLAUDE.md "no fallbacks"), lançamos erro.
+			// O outer catch em debuggerEventListener fail-requesta com
+			// errorReason='Failed' (visível na UI) e loga o stack.
+			throw new Error(
+				`executeChain inválido para ${requestId}: terminated=false, cdpReleased=false. ` +
+					`Plan length=${plan.length}, terminalKind=${result.terminalKind}. ` +
+					'Suspeita: applier ignorou contrato de release.',
+			);
 		} else if (!result.terminated && requestModified) {
 			// Chain continuou pra rede (requestModify/requestDelay). Guarda o
 			// snapshot pra Response stage consumir ao persistir.
