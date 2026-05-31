@@ -1,3 +1,29 @@
+## [0.13.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.12.0...v0.13.0) (2026-05-31)
+
+### Features
+
+* **intercept:** pendingInterceptions unificada + EditRequestSheet (Phase 5) ([bc10e78](https://github.com/guichafy/chrome-extension-debug-buddy/commit/bc10e788f232e03fbabb435ed941fb634d3a8f66))
+* **intercept:** requestModified/responseModified + diff no inspector (Phase 7) ([669437d](https://github.com/guichafy/chrome-extension-debug-buddy/commit/669437db112196eded328933a4d02b0dfa92eb51))
+* **rules:** coluna Stage com filtro e indicador inalcançável (Phase 6) ([2d8b1b1](https://github.com/guichafy/chrome-extension-debug-buddy/commit/2d8b1b18b7ed6d3fce581625139bafe794b0a57b))
+* **rules:** editor de regras stage-aware com chain ordenada (Phase 4) ([ae1be0e](https://github.com/guichafy/chrome-extension-debug-buddy/commit/ae1be0e4ae40b7225cd914f4bc63cd9a593510ce))
+* **rules:** engine de matching stage-aware + chain ordenada (Phase 2) ([4d9a7cb](https://github.com/guichafy/chrome-extension-debug-buddy/commit/4d9a7cb6ebae884064ce945d9eaccbb6da594249))
+* **rules:** pipeline executeChain stage-aware com appliers (Phase 3) ([13847e9](https://github.com/guichafy/chrome-extension-debug-buddy/commit/13847e9171785aed169ba9192d8a201ce7bfd51c))
+* **rules:** schema dual-stage Phase 1 (Rule.stage + Rule.actions[]) ([91d39d3](https://github.com/guichafy/chrome-extension-debug-buddy/commit/91d39d32bee85fb8c4385c3f582f3388084fb226))
+* **rules:** valida invariantes da chain no import + cap response single-action ([bfcd8c6](https://github.com/guichafy/chrome-extension-debug-buddy/commit/bfcd8c6be1bb732800e9b53b3b93ca6be739abb6))
+
+### Bug Fixes
+
+* **background:** limpa pending dual-stage no start/stop + falha visível ([8b3f5fe](https://github.com/guichafy/chrome-extension-debug-buddy/commit/8b3f5fe79a56f4a02f967cb083af7b823baa9b9a))
+* **command-center:** dock alvo errado + stage travado no quick mock ([cb287d6](https://github.com/guichafy/chrome-extension-debug-buddy/commit/cb287d6e882b14f075ece7c2083a180af44348c8))
+* **intercept:** libera pending interceptions órfãs ao deletar/desabilitar rule ([ead71e3](https://github.com/guichafy/chrome-extension-debug-buddy/commit/ead71e3497f1c81b4e545fbccd35f598b6589239))
+* **manifest:** host_permissions necessário para chrome.scripting injetar ([d6e09e1](https://github.com/guichafy/chrome-extension-debug-buddy/commit/d6e09e10dc084583ccfdb4442c26e0d322911e97))
+* **rules:** tabela header-matcher cortando sem indicação de scroll ([93b0548](https://github.com/guichafy/chrome-extension-debug-buddy/commit/93b0548eb9dee0963b3d4bc77785eb7cf1892e4f))
+* **session:** injeta content scripts em tabs pré-existentes ([321f112](https://github.com/guichafy/chrome-extension-debug-buddy/commit/321f112cda3e97cefa68b419fdc79a7a2ff8b072))
+
+### Documentation
+
+* **dual-stage:** toast de migração breaking + docs atualizadas (Phase 9) ([3874865](https://github.com/guichafy/chrome-extension-debug-buddy/commit/3874865e880bbef22dd598b2407fb163bb1f0beb))
+
 ## [0.12.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.11.0...v0.12.0) (2026-05-04)
 
 ### Features
