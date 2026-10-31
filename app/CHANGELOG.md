@@ -1,3 +1,15 @@
+## [0.13.1](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.13.0...v0.13.1) (2026-10-31)
+
+### Bug Fixes
+
+* **deps:** corrige alertas do Dependabot (240 de 244) ([3350c68](https://github.com/guichafy/chrome-extension-debug-buddy/commit/3350c6886ffb7ade07f44f82d039f1c547c46f51))
+
+### Documentation
+
+* **readme:** detalha wrappers do probe e corrige data das regras nas screenshots ([184825b](https://github.com/guichafy/chrome-extension-debug-buddy/commit/184825b0e15986f5aa18030992dd0eefba032fb8))
+* **readme:** reescreve README (EN + pt-BR) com screenshots atuais ([cc4d6d0](https://github.com/guichafy/chrome-extension-debug-buddy/commit/cc4d6d00f9ccae741760cff2b719445ba9c5a7a3))
+* **store:** gera assets da Chrome Web Store ([74c46f7](https://github.com/guichafy/chrome-extension-debug-buddy/commit/74c46f7e01782f514f42593b2c332afb2e52ad2e))
+
 ## [0.13.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.12.0...v0.13.0) (2026-05-31)
 
 ### Features

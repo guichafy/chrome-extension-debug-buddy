@@ -1,6 +1,6 @@
 {
   "name": "debug-buddy",
-  "version": "0.13.0",
+  "version": "0.13.1",
   "type": "module",
   "description": "Debug and troubleshoot React, Angular, Vue and other web apps: inspect network calls, replay sessions and reproduce API errors.",
   "main": "background.js",
