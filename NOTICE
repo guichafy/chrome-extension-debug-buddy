@@ -1,0 +1,17 @@
+Debug Buddy
+Copyright (C) 2025-2026 Guilherme Chafy
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, version 3. See the LICENSE file for the full text.
+
+Versions up to and including 0.13.2 were published under the MIT License.
+Starting with the next release, the project is licensed under GPL-3.0.
+
+Third-party data
+----------------
+
+app/src/lib/insights/catalog/ contains technology detection data derived from
+webappanalyzer (https://github.com/enthec/webappanalyzer), licensed under the
+GNU General Public License v3.0. The data was filtered and reformatted by
+app/scripts/build-tech-catalog.ts.

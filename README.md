@@ -233,4 +233,7 @@ draft — see [`app/RELEASING.md`](app/RELEASING.md).
 
 ## License
 
-[MIT](LICENSE).
+[GPL-3.0](LICENSE). The technology detection catalog in
+`app/src/lib/insights/catalog/` is derived from
+[webappanalyzer](https://github.com/enthec/webappanalyzer) (GPL-3.0). See
+[NOTICE](NOTICE) for details.
