@@ -196,7 +196,9 @@ scripts da página inspecionada, para simbolizar stack traces.
 O manifest também declara três content scripts em todas as URLs com
 `document_start`: um probe no mundo `MAIN` da página, uma bridge no mundo
 isolado e o gravador rrweb. Eles ficam ociosos até a interceptação ou a
-gravação ser ligada para aquela aba.
+gravação ser ligada para aquela aba. Depois de ativado, o probe envolve
+`history.pushState`/`replaceState` e o `XMLHttpRequest` daquela página, e esses
+wrappers permanecem até a página ser recarregada.
 
 ## Limitações
 
