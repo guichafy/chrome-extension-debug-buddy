@@ -220,7 +220,7 @@ npm run lint              # Biome
 npm run typecheck         # tsc --noEmit
 npm test                  # Vitest (jsdom)
 npm run e2e               # Playwright against dist/ (run npm run build first)
-npm run docs:screenshots  # regenerate the images in docs/images/
+npm run docs:screenshots  # regenerate docs/images/ and the store assets in docs/store/
 ```
 
 Stack: Manifest V3, Chrome Debugger API / DevTools Protocol, React 19,
@@ -233,4 +233,4 @@ draft — see [`app/RELEASING.md`](app/RELEASING.md).
 
 ## License
 
-MIT (declared in [`app/package.json`](app/package.json)).
+[MIT](LICENSE).
