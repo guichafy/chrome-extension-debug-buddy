@@ -185,13 +185,11 @@ page's scripts, used to symbolicate stack traces.
 | Permission | Why |
 |---|---|
 | `debugger` | Attach to the target tab and control its network through the DevTools Protocol. |
-| `tabs` | List tabs so you can choose the target, and open the UI. |
 | `storage` | Save rules, the target tab, and preferences. |
 | `sidePanel` | Offer the UI docked in Chrome's Side Panel. |
 | `offscreen` | Host the sandbox that runs advanced (script-based) transforms, which a service worker cannot do. |
 | `scripting` | Inject the probe and recorder into tabs that were already open before the extension was installed or updated. |
-| `webNavigation` | Detect navigations in the target tab to refresh technology detection. |
-| `host_permissions: <all_urls>` | Required by `scripting` injection, and to work with whatever app you debug. |
+| `host_permissions: <all_urls>` | Required by `scripting` injection, to read the title and URL of the tabs you can pick as the target, and to work with whatever app you debug. |
 
 The manifest also declares three content scripts on all URLs at
 `document_start`: a probe in the page's `MAIN` world, a bridge in the isolated

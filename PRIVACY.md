@@ -45,7 +45,7 @@ The extension does not contact any Debug Buddy or third-party service. The only 
 
 ## Permissions
 
-Debug Buddy uses the Chrome debugging API (`debugger`) on the tab you select to see its network activity and apply your mocks. While it is attached, Chrome shows a "started debugging this browser" bar on that tab. Other permissions (`tabs`, `storage`, `sidePanel`, `offscreen`, `scripting`, `webNavigation` and access to all sites) are used only to provide the features above on the sites you choose to analyze.
+Debug Buddy uses the Chrome debugging API (`debugger`) on the tab you select to see its network activity and apply your mocks. While it is attached, Chrome shows a "started debugging this browser" bar on that tab. Other permissions (`storage`, `sidePanel`, `offscreen`, `scripting` and access to all sites) are used only to provide the features above on the sites you choose to analyze.
 
 ## Data sharing and sale
 
@@ -101,7 +101,7 @@ A extensão não acessa nenhum serviço do Debug Buddy ou de terceiros. A única
 
 ## Permissões
 
-O Debug Buddy usa a API de depuração do Chrome (`debugger`) na aba que você escolhe para ver a atividade de rede e aplicar seus mocks. Enquanto está anexado, o Chrome exibe nessa aba a barra "começou a depurar este navegador". As demais permissões (`tabs`, `storage`, `sidePanel`, `offscreen`, `scripting`, `webNavigation` e acesso a todos os sites) são usadas só para oferecer os recursos acima nos sites que você escolhe analisar.
+O Debug Buddy usa a API de depuração do Chrome (`debugger`) na aba que você escolhe para ver a atividade de rede e aplicar seus mocks. Enquanto está anexado, o Chrome exibe nessa aba a barra "começou a depurar este navegador". As demais permissões (`storage`, `sidePanel`, `offscreen`, `scripting` e acesso a todos os sites) são usadas só para oferecer os recursos acima nos sites que você escolhe analisar.
 
 ## Compartilhamento e venda de dados
 

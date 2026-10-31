@@ -535,7 +535,7 @@ function broadcastToUI(action: string, payload: Record<string, unknown>): void {
 
 // Cache de top-frame URL por tab. Recommendations regra `mixed-content`
 // precisa saber o origin da página principal — invalidamos a cada
-// onCommitted no top frame.
+// navegação do top frame (tabs.onUpdated com url e Page.frameNavigated).
 const topFrameUrlCache = new Map<number, string>();
 
 async function getTopFrameUrl(tabId: number): Promise<string | null> {
@@ -1127,6 +1127,10 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 // Manter title/url em sincronia conforme o usuário navega na aba alvo.
 // Sem isso, o botão de seleção exibe um título/URL congelados da hora do pick.
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+	// Invalida o cache de top-frame URL (usado pela recomendação mixed-content)
+	// a cada troca de URL, em qualquer tab — inclui navegações feitas enquanto
+	// o debugger não estava anexado.
+	if (changeInfo.url) invalidateTopFrameUrl(tabId);
 	if (tabId !== targetTabId) return;
 
 	let changed = false;
@@ -1149,13 +1153,19 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 	}
 });
 
-// Re-detecção em navegação real: quando o usuário navega na tab alvo (full page load
-// ou SPA que dispara onCommitted), sinaliza o probe para emitir uma nova detection
-// com triggerType='navigation'. O probe já foi re-injetado pelo content_script via
-// document_start; o sendMessage apenas dispara o início do scan.
-chrome.webNavigation.onCommitted.addListener(async (details) => {
-	if (details.frameId !== 0) return; // só top frame — ignora iframes
-	invalidateTopFrameUrl(details.tabId);
+// Re-detecção em navegação real (cross-document) do main frame da tab analisada.
+// Disparado por `Page.frameNavigated` do CDP (ver debuggerEventListener) — só
+// existe enquanto o debugger está anexado, que é exatamente quando há análise e
+// gravação ativas. Navegações same-document (pushState) chegam via probe
+// (`patchHistoryForSpaRouting`), não por aqui. Substitui o antigo listener de
+// chrome.webNavigation.onCommitted, eliminando a permissão `webNavigation`.
+// O probe já foi re-injetado pelo content_script via document_start; o
+// sendMessage apenas dispara o início do scan.
+async function handleTopFrameNavigation(details: {
+	tabId: number;
+	url: string;
+	timeStamp: number;
+}): Promise<void> {
 	// Não resetamos `recommendationEngine` nem `liveSnapshotByTab` aqui: o painel
 	// Live Insights deve acumular insights de todos os hosts visitados durante a
 	// sessão de interceptação. O dedup do engine (ruleId|host|path) já evita
@@ -1199,7 +1209,7 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
 		};
 		await recorder.addEvent(session.id, routeEvent);
 	} catch (err) {
-		console.warn('[session] addEvent route (webNavigation) falhou:', err);
+		console.warn('[session] addEvent route (frameNavigated) falhou:', err);
 	}
 
 	// 3. Re-inicia rrweb no novo documento — content_script é re-injetado pelo Chrome
@@ -1224,7 +1234,7 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
 		}
 		console.warn(`[session] __rrweb_start em navegação inesperado em tab ${details.tabId}:`, err);
 	}
-});
+}
 
 // ─── Handlers do dispatcher (um const por action) ────────────────────────────
 
@@ -2375,7 +2385,7 @@ async function tryAutoStartRecording(tabId: number): Promise<boolean> {
 	// Se NADA iniciou (provavelmente content scripts ausentes), rollback da
 	// sessão para nao travar UI em "Gravando" sem captura — e devolver false
 	// faz startDebugging cair no fallback passivo (probeStartDetection sem
-	// state taps), ainda dando ao usuário Live Insights via webNavigation.
+	// state taps), ainda dando ao usuário Live Insights via Page.frameNavigated.
 	if (!probeStarted && !rrwebStarted) {
 		try {
 			await recorder.stopSession(sessionId);
@@ -2681,6 +2691,14 @@ function debuggerEventListener(
 			};
 			persistSessionMarker();
 			broadcastSessionMarker();
+			invalidateTopFrameUrl(debuggeeId.tabId);
+			handleTopFrameNavigation({
+				tabId: debuggeeId.tabId,
+				url: frame.url,
+				timeStamp: Date.now(),
+			}).catch((err) => {
+				console.warn('[session] handleTopFrameNavigation falhou:', err);
+			});
 		}
 		return;
 	}
