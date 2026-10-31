@@ -1,0 +1,17 @@
+# GitHub Pages (Jekyll) — publica só a política de privacidade em /privacy/.
+# Todo o resto do repositório fica fora do site.
+title: Debug Buddy
+theme: jekyll-theme-primer
+exclude:
+  - app
+  - docs
+  - tasks
+  - AGENTS.md
+  - CLAUDE.md
+  - README.md
+  - README.pt-BR.md
+  - LICENSE
+  - package.json
+  - package-lock.json
+  - skills-lock.json
+  - node_modules
