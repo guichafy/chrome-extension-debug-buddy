@@ -27,7 +27,8 @@
     "typecheck": "tsc --noEmit",
     "package": "node scripts/publish-cws.mjs --dry-run",
     "publish:cws": "node scripts/publish-cws.mjs",
-    "prepare": "cd .. && husky"
+    "prepare": "cd .. && husky",
+    "docs:screenshots": "npm run build && playwright test -c playwright.docs.config.ts"
   },
   "lint-staged": {
     "{src,e2e}/**/*.{ts,tsx,js,jsx,json}": [
