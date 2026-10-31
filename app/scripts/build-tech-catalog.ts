@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 // Build do catálogo de tecnologias do Live Insights.
-// Lê whitelist + repo upstream do webappanalyzer e popula
+// Lê whitelist + repo upstream do webappanalyzer (GPL-3.0, https://github.com/enthec/webappanalyzer) e popula
 // app/src/lib/insights/catalog/ com subset curado.
 
 import fs from 'node:fs';

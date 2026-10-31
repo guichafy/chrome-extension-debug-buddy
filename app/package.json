@@ -42,7 +42,7 @@
     "interceptor"
   ],
   "author": "Chafy Studio",
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.7",
     "@radix-ui/react-avatar": "^1.1.4",
