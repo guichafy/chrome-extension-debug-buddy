@@ -34,9 +34,6 @@ function installChromeStubs() {
 			if (cb) cb({ id: 4242 });
 		},
 	);
-	(chrome as unknown as { webNavigation: unknown }).webNavigation = {
-		onCommitted: noopListener,
-	};
 }
 
 beforeEach(async () => {

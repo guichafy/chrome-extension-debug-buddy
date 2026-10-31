@@ -185,13 +185,11 @@ scripts da página inspecionada, para simbolizar stack traces.
 | Permissão | Por quê |
 |---|---|
 | `debugger` | Anexar à aba alvo e controlar a rede dela pelo DevTools Protocol. |
-| `tabs` | Listar as abas para você escolher a alvo e abrir a interface. |
 | `storage` | Salvar regras, a aba alvo e preferências. |
 | `sidePanel` | Oferecer a interface no Side Panel do Chrome. |
 | `offscreen` | Hospedar o sandbox que roda transforms avançados (via script), algo que o service worker não consegue fazer. |
 | `scripting` | Injetar o probe e o gravador em abas que já estavam abertas antes de a extensão ser instalada ou atualizada. |
-| `webNavigation` | Detectar navegações na aba alvo para atualizar a detecção de tecnologias. |
-| `host_permissions: <all_urls>` | Exigido pela injeção via `scripting` e para funcionar com qualquer aplicação que você depure. |
+| `host_permissions: <all_urls>` | Exigido pela injeção via `scripting`, para ler o título e a URL das abas que você pode escolher como alvo e para funcionar com qualquer aplicação que você depure. |
 
 O manifest também declara três content scripts em todas as URLs com
 `document_start`: um probe no mundo `MAIN` da página, uma bridge no mundo

@@ -102,7 +102,7 @@ function scheduleFlush(): void {
 function startRecording(sessionId: string, opts: StartOpts): void {
 	if (rrwebStopFn && activeSessionId === sessionId) {
 		// Mesma sessão, mesmo documento — start redundante (retry / misfire de
-		// webNavigation). Ignora para não derrubar buffer e perder eventos.
+		// Page.frameNavigated). Ignora para não derrubar buffer e perder eventos.
 		return;
 	}
 	if (rrwebStopFn) {

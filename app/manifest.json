@@ -13,12 +13,10 @@
   },
   "permissions": [
     "debugger",
-    "tabs",
     "storage",
     "sidePanel",
     "offscreen",
-    "scripting",
-    "webNavigation"
+    "scripting"
   ],
   "host_permissions": [
     "<all_urls>"
