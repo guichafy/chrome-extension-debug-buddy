@@ -196,7 +196,9 @@ page's scripts, used to symbolicate stack traces.
 The manifest also declares three content scripts on all URLs at
 `document_start`: a probe in the page's `MAIN` world, a bridge in the isolated
 world, and the rrweb recorder. They stay idle until interception or recording
-is turned on for that tab.
+is turned on for that tab. Once activated, the probe wraps `history.pushState`/
+`replaceState` and `XMLHttpRequest` in that page, and those wrappers remain
+until the page reloads.
 
 ## Limitations
 

@@ -13,7 +13,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const IMAGES_DIR = path.resolve(__dirname, '../../../docs/images');
 const STORE_URL = 'http://localhost:3200/index.html';
 
-const created = Date.UTC(2026, 9, 1);
+const created = new Date(2026, 9, 1, 12).getTime();
 
 function rule(overrides: Partial<Rule> & Pick<Rule, 'id' | 'name' | 'stage'>): Rule {
 	return {
