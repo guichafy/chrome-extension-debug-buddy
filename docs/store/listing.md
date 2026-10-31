@@ -9,13 +9,17 @@ Claims below were checked against the code: technology detection comes from
 the catalog in `app/src/lib/insights/catalog/` (116 technologies), and the
 recommendation rules from `app/src/lib/session/recommendations/`.
 
+**Keyword policy:** do not list framework/library names (React, Angular, Vue.js…)
+anywhere in the summary or description. A submission was rejected for
+"Keyword Spam" (violation *Yellow Argon*, Oct 2026) because of such a list.
+
 ## Summary (manifest `description`, 127/132)
 
-Debug and troubleshoot React, Angular, Vue and other web apps: inspect network calls, replay sessions and reproduce API errors.
+Create API mocks and troubleshoot web apps: inspect network calls, simulate failures, replay sessions and reproduce API errors.
 
 ## Description — English
 
-Debug Buddy is a developer tool to create API mocks and to analyze and troubleshoot web applications — React, Angular, Vue.js, Next.js, Svelte, jQuery or any other framework — right in Chrome, without adding anything to your project or changing your backend.
+Debug Buddy is a developer tool to create API mocks and to analyze and troubleshoot web applications, whatever framework they use, right in Chrome, without adding anything to your project or changing your backend.
 
 When a screen breaks, loads slowly or shows the wrong data, Debug Buddy shows what happened between the browser and your APIs, and lets you reproduce the problem with mocks as many times as you need.
 
@@ -30,7 +34,7 @@ Analyze and troubleshoot:
 • Follow every network call of the tab in real time: method, URL, status, duration and size, with filters by method, status and text.
 • Inspect requests and responses: headers, body and timing.
 • Replay the session: the screen recording synced with a timeline of network calls, console errors and navigations.
-• Discover the page's stack: detection of 100+ technologies such as React, Angular, Vue.js, Next.js and jQuery.
+• Discover the page's stack: detection of 100+ technologies (frameworks, libraries, servers and analytics tools).
 • Get security recommendations (CSP, HSTS, cookies, CORS, mixed content) and performance recommendations (compression, caching, large payloads, unoptimized images).
 • Export and import sessions (.dbsession) to share a problem with your team.
 
@@ -42,7 +46,7 @@ The interface is currently in Portuguese (pt-BR); English is planned.
 
 ## Descrição — Português (Brasil)
 
-O Debug Buddy é uma ferramenta para desenvolvedores criarem mocks de API e analisarem e fazerem troubleshooting de aplicações web — React, Angular, Vue.js, Next.js, Svelte, jQuery ou qualquer outro framework — direto no Chrome, sem adicionar nada ao seu projeto nem mexer no backend.
+O Debug Buddy é uma ferramenta para desenvolvedores criarem mocks de API e analisarem e fazerem troubleshooting de aplicações web, qualquer que seja o framework, direto no Chrome, sem adicionar nada ao seu projeto nem mexer no backend.
 
 Quando uma tela quebra, carrega devagar ou mostra dados errados, o Debug Buddy mostra o que aconteceu entre o navegador e as suas APIs e permite reproduzir o problema com mocks quantas vezes for preciso.
 
@@ -57,7 +61,7 @@ Analise e faça troubleshooting:
 • Acompanhe todas as chamadas de rede da aba em tempo real: método, URL, status, duração e tamanho, com filtros por método, status e texto.
 • Inspecione requisições e respostas: headers, corpo e tempos.
 • Reveja a sessão: a gravação da tela sincronizada com a timeline de chamadas de rede, erros de console e navegações.
-• Descubra a stack da página: detecção de mais de 100 tecnologias, como React, Angular, Vue.js, Next.js e jQuery.
+• Descubra a stack da página: detecção de mais de 100 tecnologias (frameworks, bibliotecas, servidores e ferramentas de analytics).
 • Receba recomendações de segurança (CSP, HSTS, cookies, CORS, mixed content) e de performance (compressão, cache, payloads grandes, imagens não otimizadas).
 • Exporte e importe sessões (.dbsession) para compartilhar um problema com o time.
 

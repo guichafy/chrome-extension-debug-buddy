@@ -1,7 +1,7 @@
 {
   "name": "Debug Buddy",
   "short_name": "DbgBuddy",
-  "description": "Debug and troubleshoot React, Angular, Vue and other web apps: inspect network calls, replay sessions and reproduce API errors.",
+  "description": "Create API mocks and troubleshoot web apps: inspect network calls, simulate failures, replay sessions and reproduce API errors.",
   "version": "0.13.3",
   "manifest_version": 3,
   "icons": {
