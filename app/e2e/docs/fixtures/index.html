@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>Acme Store</title>
+		<style>
+			body { font-family: system-ui, sans-serif; margin: 2rem; color: #1f2937; }
+			h1 { margin-bottom: 0.25rem; }
+			ul { padding-left: 1.25rem; }
+			#log { font-size: 0.85rem; color: #6b7280; }
+		</style>
+	</head>
+	<body>
+		<h1>Acme Store</h1>
+		<p>Página fictícia usada para gerar as screenshots do README.</p>
+		<ul id="products"></ul>
+		<p id="log"></p>
+		<script>
+			const log = (msg) => {
+				document.getElementById('log').textContent += `${msg} · `;
+			};
+
+			async function call(url, opts) {
+				try {
+					const res = await fetch(url, opts);
+					log(`${opts?.method ?? 'GET'} ${url} → ${res.status}`);
+					return res;
+				} catch (err) {
+					log(`${opts?.method ?? 'GET'} ${url} → ${err.message}`);
+					return null;
+				}
+			}
+
+			// Exposto para o spec disparar o tráfego da loja sob demanda.
+			window.loadStore = async function () {
+				const products = await call('/api/products');
+				if (products?.ok) {
+					const data = await products.json();
+					document.getElementById('products').innerHTML = data.products
+						.map((p) => `<li>${p.name} — $${p.price}</li>`)
+						.join('');
+				}
+				await call('/api/profile');
+				await call('/api/cart');
+				await call('/api/orders');
+				await call('/api/recommendations');
+				await call('/api/promo/BLACKFRIDAY');
+				await call('/api/checkout', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ cartId: 'c_1' }),
+				});
+			};
+
+			// Fica pendurado até a UI aprovar o breakpoint.
+			window.checkInventory = () => call('/api/inventory');
+		</script>
+	</body>
+</html>

@@ -7,7 +7,12 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const EXTENSION_PATH = path.resolve(__dirname, '../../dist');
 
-export async function launchExtensionContext(): Promise<BrowserContext> {
+export interface LaunchOptions {
+	viewport?: { width: number; height: number };
+	deviceScaleFactor?: number;
+}
+
+export async function launchExtensionContext(options: LaunchOptions = {}): Promise<BrowserContext> {
 	const userDataDir = await mkdtemp(path.join(os.tmpdir(), 'debug-buddy-e2e-'));
 	// Playwright 1.59 seleciona o binário `chromium-headless-shell` quando
 	// headless: true. Esse binário não consegue carregar extensões — não é
@@ -17,6 +22,7 @@ export async function launchExtensionContext(): Promise<BrowserContext> {
 	// xvfb-run (ou equivalente) em runners Linux sem display nativo.
 	const context = await chromium.launchPersistentContext(userDataDir, {
 		headless: false,
+		...options,
 		args: [
 			`--disable-extensions-except=${EXTENSION_PATH}`,
 			`--load-extension=${EXTENSION_PATH}`,
