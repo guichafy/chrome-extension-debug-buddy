@@ -56,6 +56,7 @@ test('sem "webNavigation": navegação na aba analisada gera evento de rota e si
 		const optionsPage = await attachDebuggerToTarget(context, extId, targetPage);
 
 		const navigatedUrl = `${TARGET_URL}?nav=2`;
+		const navStartedAt = Date.now();
 		await targetPage.goto(navigatedUrl);
 
 		// tabs.onUpdated (sem permissão `tabs`) mantém targetTabInfo atualizado.
@@ -100,6 +101,43 @@ test('sem "webNavigation": navegação na aba analisada gera evento de rota e si
 								};
 							}),
 						navigatedUrl,
+					),
+				{ timeout: 15_000 },
+			)
+			.toBe(true);
+
+		// O rrweb precisa reiniciar no novo documento (mensagem __rrweb_start
+		// enviada a partir de Page.frameNavigated). FullSnapshot (type 2) com
+		// timestamp após a navegação prova que a gravação continuou.
+		await expect
+			.poll(
+				() =>
+					optionsPage.evaluate(
+						(since) =>
+							new Promise<boolean>((resolve, reject) => {
+								const req = indexedDB.open('debugger-extension-db');
+								req.onerror = () => reject(req.error);
+								req.onsuccess = () => {
+									const db = req.result;
+									const getAll = db.transaction('sessions').objectStore('sessions').getAll();
+									getAll.onerror = () => reject(getAll.error);
+									getAll.onsuccess = () => {
+										const sessions = getAll.result as Array<{
+											endedAt: number | null;
+											rrwebEvents?: Array<{ type: number; timestamp: number }>;
+										}>;
+										db.close();
+										resolve(
+											sessions.some(
+												(s) =>
+													s.endedAt === null &&
+													(s.rrwebEvents ?? []).some((e) => e.type === 2 && e.timestamp >= since),
+											),
+										);
+									};
+								};
+							}),
+						navStartedAt,
 					),
 				{ timeout: 15_000 },
 			)
