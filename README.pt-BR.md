@@ -45,10 +45,10 @@ npm run build
 3. Clique no ícone do Debug Buddy na barra do Chrome. A interface abre em uma
    aba própria; ela também fica disponível no Side Panel do Chrome.
 4. No cabeçalho, escolha a **aba alvo** — a aplicação que você quer depurar.
-5. Clique em **Iniciar Interceptação**. O Chrome mostra a barra "começou a
+5. Clique em **Iniciar Análise**. O Chrome mostra a barra "começou a
    depurar este navegador" na aba alvo; isso é esperado.
 6. Use a aplicação normalmente e acompanhe o tráfego no **Command Center**.
-7. Clique em **Parar Interceptação** ao terminar. Qualquer requisição ainda
+7. Clique em **Parar Análise** ao terminar. Qualquer requisição ainda
    pausada é liberada antes de o debugger ser desanexado.
 
 ## Tour pelas funcionalidades
@@ -164,7 +164,7 @@ purge automática após N dias.
 
 1. A interface (aba ou Side Panel) envia comandos ao background service
    worker, que é dono de todo o estado em tempo de execução.
-2. Em **Iniciar Interceptação**, o worker chama `chrome.debugger.attach` na aba
+2. Em **Iniciar Análise**, o worker chama `chrome.debugger.attach` na aba
    alvo e habilita `Network` (timing) e `Fetch` com dois padrões de
    interceptação: o stage `Request` e o stage `Response`.
 3. Cada evento `Fetch.requestPaused` executa as regras que casam naquele stage
@@ -172,7 +172,7 @@ purge automática após N dias.
    (breakpoint).
 4. Toda requisição é gravada no IndexedDB e enviada à interface; a duração
    chega depois pelos eventos de `Network` e é mesclada.
-5. **Parar Interceptação** libera o que ainda estiver pausado e desanexa o
+5. **Parar Análise** libera o que ainda estiver pausado e desanexa o
    debugger.
 
 As regras ficam no `chrome.storage.local`; requisições e sessões ficam no

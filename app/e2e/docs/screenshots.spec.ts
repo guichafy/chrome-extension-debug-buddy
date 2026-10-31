@@ -133,8 +133,8 @@ test('screenshots do README', async () => {
 		await ui.goto(ext('/command-center'));
 		await ui.getByRole('button', { name: /selecionar aba/i }).click();
 		await ui.getByRole('option', { name: /acme store/i }).click();
-		await ui.getByRole('button', { name: /iniciar interceptação/i }).click();
-		await expect(ui.getByRole('button', { name: /parar interceptação/i })).toBeVisible();
+		await ui.getByRole('button', { name: /iniciar análise/i }).click();
+		await expect(ui.getByRole('button', { name: /parar análise/i })).toBeVisible();
 
 		// A gravação de sessão (Session Replay) liga sozinha junto com a
 		// interceptação — só é desligada no fim, antes de abrir o replay.

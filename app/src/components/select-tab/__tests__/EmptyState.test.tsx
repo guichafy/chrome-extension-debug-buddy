@@ -10,7 +10,7 @@ describe('EmptyState', () => {
 
 	it('variant="no-tabs" mostra mensagem padrão', () => {
 		render(<EmptyState variant="no-tabs" />);
-		expect(screen.getByText('Nenhuma aba disponível para interceptação')).toBeInTheDocument();
+		expect(screen.getByText('Nenhuma aba disponível para análise')).toBeInTheDocument();
 	});
 
 	it('variant="no-results" mostra a query e botão "Limpar busca"', () => {

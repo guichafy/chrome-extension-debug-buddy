@@ -104,7 +104,7 @@ describe('SiteHeader Component', () => {
 		const tabButtons = screen.getAllByText('Test Tab');
 		expect(tabButtons.length).toBeGreaterThan(0);
 
-		expect(screen.getByText('Iniciar Interceptação')).toBeTruthy();
+		expect(screen.getByText('Iniciar Análise')).toBeTruthy();
 	});
 
 	test('chama onSelectTabClick quando o botão de selecionar aba é clicado', () => {
@@ -123,20 +123,20 @@ describe('SiteHeader Component', () => {
 		expect(mockProps.onSelectTabClick).toHaveBeenCalledTimes(1);
 	});
 
-	test('chama onStartDebugging quando o botão de iniciar interceptação é clicado', () => {
+	test('chama onStartDebugging quando o botão de iniciar análise é clicado', () => {
 		render(<SiteHeader {...mockProps} />);
 
-		const startButton = screen.getByText('Iniciar Interceptação').closest('button');
+		const startButton = screen.getByText('Iniciar Análise').closest('button');
 		fireEvent.click(startButton!);
 
 		expect(mockProps.onStartDebugging).toHaveBeenCalledTimes(1);
 	});
 
-	test('exibe o botão de parar interceptação quando isDebugging é true', () => {
+	test('exibe o botão de parar análise quando isDebugging é true', () => {
 		render(<SiteHeader {...{ ...mockProps, isDebugging: true }} />);
 
-		expect(screen.getByText('Parar Interceptação')).toBeTruthy();
-		expect(screen.queryByText('Iniciar Interceptação')).toBeNull();
+		expect(screen.getByText('Parar Análise')).toBeTruthy();
+		expect(screen.queryByText('Iniciar Análise')).toBeNull();
 	});
 
 	test('não exibe mais o status de requisições interceptadas no header', () => {
@@ -180,9 +180,9 @@ describe('SiteHeader Component', () => {
 		const alertIcon = document.querySelector('[data-name="alert-triangle"]');
 		expect(alertIcon).not.toBeNull();
 
-		// Botão "Iniciar Interceptação" deve ficar desabilitado para evitar
+		// Botão "Iniciar Análise" deve ficar desabilitado para evitar
 		// tentativa de attach numa aba que já foi fechada.
-		const startButton = screen.getByText('Iniciar Interceptação').closest('button');
+		const startButton = screen.getByText('Iniciar Análise').closest('button');
 		expect(startButton).not.toBeNull();
 		expect((startButton as HTMLButtonElement).disabled).toBe(true);
 
@@ -202,7 +202,7 @@ describe('SiteHeader Component', () => {
 			/>,
 		);
 
-		const startButton = screen.getByText('Iniciar Interceptação').closest('button');
+		const startButton = screen.getByText('Iniciar Análise').closest('button');
 		expect((startButton as HTMLButtonElement).disabled).toBe(true);
 		expect(screen.getByText('Selecionar Aba')).toBeTruthy();
 	});

@@ -45,10 +45,10 @@ npm run build
 3. Click the Debug Buddy toolbar icon. The UI opens in a dedicated tab; it is
    also available docked in Chrome's Side Panel.
 4. In the header, pick the **target tab** — the web app you want to debug.
-5. Click **Iniciar Interceptação** (Start interception). Chrome shows a
+5. Click **Iniciar Análise** (Start analysis). Chrome shows a
    "started debugging this browser" bar on the target tab; that is expected.
 6. Use the app normally and follow the traffic in **Command Center**.
-7. Click **Parar Interceptação** (Stop interception) when you are done. Any
+7. Click **Parar Análise** (Stop analysis) when you are done. Any
    request still paused is released before the debugger detaches.
 
 ## Feature tour
@@ -165,14 +165,14 @@ days.
 
 1. The UI (tab or Side Panel) sends commands to the background service worker,
    which owns all runtime state.
-2. On **Iniciar Interceptação**, the worker calls `chrome.debugger.attach` on
+2. On **Iniciar Análise**, the worker calls `chrome.debugger.attach` on
    the target tab and enables `Network` (timing) and `Fetch` with two intercept
    patterns: the `Request` stage and the `Response` stage.
 3. Each `Fetch.requestPaused` event runs the matching rules for that stage and
    is then continued, fulfilled (mock), failed (block), or held (breakpoint).
 4. Every request is written to IndexedDB and pushed to the UI; durations arrive
    later from `Network` events and are merged in.
-5. **Parar Interceptação** releases anything still paused and detaches the
+5. **Parar Análise** releases anything still paused and detaches the
    debugger.
 
 Rules live in `chrome.storage.local`; requests and sessions live in IndexedDB.
