@@ -1,3 +1,9 @@
+## [0.13.4](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.13.3...v0.13.4) (2026-10-31)
+
+### Bug Fixes
+
+* **store:** remove lista de frameworks da descrição da Chrome Web Store ([9afd7b2](https://github.com/guichafy/chrome-extension-debug-buddy/commit/9afd7b2790a59120420960f16054267ec58b5516))
+
 ## [0.13.3](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.13.2...v0.13.3) (2026-10-31)
 
 ### Bug Fixes
