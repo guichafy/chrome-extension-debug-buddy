@@ -162,7 +162,7 @@ export function SiteHeader({
 							disabled={tabState !== 'available'}
 						>
 							<LucideIcon name="play" className="h-4 w-4" />
-							<span className="hidden sm:inline">Iniciar Interceptação</span>
+							<span className="hidden sm:inline">Iniciar Análise</span>
 						</Button>
 					) : (
 						<Button
@@ -171,7 +171,7 @@ export function SiteHeader({
 							onClick={onStopDebugging}
 						>
 							<LucideIcon name="stop" className="h-4 w-4" />
-							<span className="hidden sm:inline">Parar Interceptação</span>
+							<span className="hidden sm:inline">Parar Análise</span>
 						</Button>
 					)}
 				</div>

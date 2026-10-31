@@ -945,7 +945,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 						</DialogTitle>
 						<DialogDescription>
 							{mode === 'edit'
-								? 'Modifique os detalhes da regra de interceptação.'
+								? 'Modifique os detalhes da regra.'
 								: isWelcome
 									? 'Comece do zero ou escolha um template.'
 									: STEP_META[step].description}

@@ -49,12 +49,12 @@ test('Golden Path: regra mocka fetch e request aparece no histórico', async () 
 		await optionsPage.getByRole('option', { name: /target\.html/i }).click();
 
 		// Inicia interceptação (botão fica habilitado quando a aba é válida).
-		const startButton = optionsPage.getByRole('button', { name: /iniciar interceptação/i });
+		const startButton = optionsPage.getByRole('button', { name: /iniciar análise/i });
 		await expect(startButton).toBeEnabled();
 		await startButton.click();
 
 		// Confirma a transição: o botão muda para "Parar Interceptação".
-		await expect(optionsPage.getByRole('button', { name: /parar interceptação/i })).toBeVisible();
+		await expect(optionsPage.getByRole('button', { name: /parar análise/i })).toBeVisible();
 		await captureEvidence(optionsPage, '04-debugging-active');
 
 		// Recarrega a aba alvo: o fetch agora passa pelo Fetch.requestPaused e é mockado.

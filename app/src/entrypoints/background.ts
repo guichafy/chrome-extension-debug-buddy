@@ -1662,7 +1662,7 @@ const handleStartRecording: ActionHandler = (message, sender, sendResponse) => {
 		const targets = await chrome.debugger.getTargets();
 		const attached = targets.find((t) => t.tabId === tabId && t.attached);
 		if (!attached) {
-			return { ok: false, error: 'Interceptação não está ativa nesta tab' };
+			return { ok: false, error: 'Análise não está ativa nesta tab' };
 		}
 
 		const tab = await chrome.tabs.get(tabId);
@@ -1955,7 +1955,7 @@ const handleSetRecordingLive: ActionHandler = (message, sender, sendResponse) =>
 			if (!isDebugging || attachedTabId !== targetTabId) {
 				return {
 					ok: false,
-					error: 'Interceptação não está ativa nesta tab',
+					error: 'Análise não está ativa nesta tab',
 				};
 			}
 			// Reusa fluxo de auto-start: chama tryAutoStartRecording. Mas essa

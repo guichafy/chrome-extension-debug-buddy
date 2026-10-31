@@ -88,10 +88,10 @@ describe('LiveInsightsPanel', () => {
 		expect(screen.queryByTestId('live-insights-host-picker')).not.toBeInTheDocument();
 	});
 
-	test('mostra banner quando interceptação está desligada', () => {
+	test('mostra banner quando a análise está desligada', () => {
 		render(<LiveInsightsPanel tabId={1} isInterceptionActive={false} />);
 		expect(
-			screen.getByText(/Inicie a interceptação para coletar insights desta página/),
+			screen.getByText(/Inicie a análise para coletar insights desta página/),
 		).toBeInTheDocument();
 	});
 

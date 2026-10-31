@@ -39,7 +39,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 	if (variant === 'no-tabs') {
 		return (
 			<Wrapper>
-				<p className="text-sm text-muted-foreground">Nenhuma aba disponível para interceptação</p>
+				<p className="text-sm text-muted-foreground">Nenhuma aba disponível para análise</p>
 			</Wrapper>
 		);
 	}

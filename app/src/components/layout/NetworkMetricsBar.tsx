@@ -25,7 +25,7 @@ export function NetworkMetricsBar({ session }: NetworkMetricsBarProps) {
 				name="requests"
 				icon="activity"
 				value={`${formatCount(session.totalRequests)} requests`}
-				tooltip="Total de requisições capturadas pela sessão atual de interceptação."
+				tooltip="Total de requisições capturadas pela sessão atual de análise."
 			/>
 			<Separator />
 			<Pill

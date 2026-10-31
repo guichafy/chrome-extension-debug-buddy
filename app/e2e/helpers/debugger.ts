@@ -20,10 +20,10 @@ export async function attachDebuggerToTarget(
 	await optionsPage.getByRole('button', { name: /selecionar aba/i }).click();
 	await optionsPage.getByRole('option', { name: /target\.html/i }).click();
 
-	const startButton = optionsPage.getByRole('button', { name: /iniciar interceptação/i });
+	const startButton = optionsPage.getByRole('button', { name: /iniciar análise/i });
 	await expect(startButton).toBeEnabled();
 	await startButton.click();
-	await expect(optionsPage.getByRole('button', { name: /parar interceptação/i })).toBeVisible();
+	await expect(optionsPage.getByRole('button', { name: /parar análise/i })).toBeVisible();
 
 	// targetPage ganha foco de novo para que requests subsequentes saiam dela.
 	await targetPage.bringToFront();

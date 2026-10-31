@@ -312,7 +312,7 @@ export function LiveInsightsPanel({ tabId, isInterceptionActive, onCountChange }
 
 			{!isInterceptionActive && (
 				<div className="border-b bg-warning/10 px-3 py-2 text-foreground text-xs">
-					Inicie a interceptação para coletar insights desta página.
+					Inicie a análise para coletar insights desta página.
 				</div>
 			)}
 
