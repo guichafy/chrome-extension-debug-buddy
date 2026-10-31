@@ -47,7 +47,7 @@ A extensão *React Developer Tools* do Chrome **não** consegue inspecionar pág
 
 - `npm run build:dev` / `npm run watch:dev` injetam `<script src="http://localhost:8097"></script>` como primeira tag no `<head>` de `options.html` e `sidepanel.html` (sandbox fica de fora — não tem React) e adicionam `content_security_policy.extension_pages: "script-src 'self' http://localhost:8097; object-src 'self'"` ao `dist/manifest.json`. Tudo isso é controlado por `mode === 'development'` em `app/vite.config.mts` — o build de produção continua idêntico (sem CSP custom, sem script remoto), o que é obrigatório para a Chrome Web Store aceitar o pacote.
 - Uso prático:
-  1. Terminal A: `cd app && npm run devtools` — abre a janela standalone.
+  1. Terminal A: `cd app && npm run devtools` — abre a janela standalone (via `npx react-devtools@8.0.0`; não é mais devDependency porque arrastava Electron 23 com dezenas de alertas do Dependabot).
   2. Terminal B: `cd app && npm run watch:dev` — gera `dist/` com a injeção.
   3. `chrome://extensions` → recarregar Debug Buddy → abrir `options.html` ou o side panel. A árvore aparece na janela standalone; se ela diz "Waiting for React to connect..." é porque o `npm run devtools` não está rodando ou o navegador foi aberto antes do bundle terminar de buildar.
 
