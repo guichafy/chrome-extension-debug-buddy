@@ -189,6 +189,10 @@ bd update <id> --claim  # Claim work
 bd close <id>         # Complete work
 ```
 
+### Storage
+
+Beads has **no Dolt remote** in this project — do not run `bd dolt push`/`bd dolt pull`. The embedded Dolt database (`.beads/embeddeddolt/`, gitignored) is a local cache; the versioned source of truth is `.beads/issues.jsonl`, auto-exported by `bd` (`export.auto`) and committed to git like any other file. A fresh clone has no local database (`bd` reports "no beads database found"); rebuild it from the export with `bd init --from-jsonl --prefix chrome-extension-debug-buddy` — without `--prefix`, `bd` derives the prefix from the folder name and new issue IDs come out wrong.
+
 ### Rules
 
 - Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
@@ -207,7 +211,8 @@ bd close <id>         # Complete work
 4. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
    git pull --rebase
-   bd dolt push
+   git add .beads/issues.jsonl   # beads export — git is the only beads remote
+   git commit -m "chore(beads): sync issues"   # only if the export changed
    git push
    git status  # MUST show "up to date with origin"
    ```
