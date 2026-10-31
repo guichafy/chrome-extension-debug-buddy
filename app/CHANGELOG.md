@@ -1,3 +1,13 @@
+## [0.13.3](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.13.2...v0.13.3) (2026-10-31)
+
+### Bug Fixes
+
+* **manifest:** remove as permissões tabs e webNavigation ([#101](https://github.com/guichafy/chrome-extension-debug-buddy/issues/101)) ([b5b89bf](https://github.com/guichafy/chrome-extension-debug-buddy/commit/b5b89bf456691a48b64bd31c879e7e90c87d54b3))
+
+### Documentation
+
+* adiciona política de privacidade para a Chrome Web Store ([#99](https://github.com/guichafy/chrome-extension-debug-buddy/issues/99)) ([0ea5cb1](https://github.com/guichafy/chrome-extension-debug-buddy/commit/0ea5cb1c56136ee595ce3132de07a67a84f269a5))
+
 ## [0.13.2](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.13.1...v0.13.2) (2026-10-31)
 
 ### Bug Fixes
