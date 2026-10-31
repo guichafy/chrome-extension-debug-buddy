@@ -1,3 +1,9 @@
+## [0.13.2](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.13.1...v0.13.2) (2026-10-31)
+
+### Bug Fixes
+
+* **ui:** troca 'Interceptação' por 'Análise' e atualiza listagem da Chrome Web Store ([#98](https://github.com/guichafy/chrome-extension-debug-buddy/issues/98)) ([68d29a5](https://github.com/guichafy/chrome-extension-debug-buddy/commit/68d29a5443735f2af232a5dd102238cfce6466e9))
+
 ## [0.13.1](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.13.0...v0.13.1) (2026-10-31)
 
 ### Bug Fixes
