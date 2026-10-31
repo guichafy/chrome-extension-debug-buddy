@@ -1,53 +1,108 @@
 # Debug Buddy
 
-[English version](README.md)
+[English](README.md)
 
-Debug Buddy é uma Chrome Extension Manifest V3 para desenvolvedores que precisam
-inspecionar requests/responses, interceptar respostas HTTP e alterar o
-comportamento do tráfego direto no navegador.
+Debug Buddy é uma extensão Chrome Manifest V3 que intercepta, modifica, mocka
+e pausa o tráfego HTTP de uma aba do navegador, para você ver como a sua
+aplicação web se comporta quando uma API falha, fica lenta ou muda o contrato —
+sem mexer no backend, no código do frontend ou no ambiente.
 
-Usando a Chrome Debugger API e o domínio `Fetch` do Chrome DevTools Protocol, a
-extensão pausa respostas de rede, exibe o conteúdo capturado e permite modificar
-o que a aplicação recebe para simular cenários de falha sem alterar o backend, o
-frontend ou a infraestrutura do ambiente.
+Ela controla o Chrome DevTools Protocol (domínios `Fetch` e `Network`) via
+`chrome.debugger`, então funciona com qualquer página, framework ou cliente
+HTTP.
+
+![Command Center com tráfego interceptado: checkout bloqueado, carrinho mockado, pedidos com atraso, lista de produtos transformada e respostas 404/500 reais](docs/images/command-center.png)
+
+> A interface está em português (pt-BR). A internacionalização é acompanhada na
+> [#3](https://github.com/guichafy/chrome-extension-debug-buddy/issues/3).
 
 ## Para que serve
 
-Debug Buddy ajuda a testar como uma aplicação se comporta quando uma API:
+Use o Debug Buddy para reproduzir, sob demanda, situações difíceis de obter de
+um backend real:
 
-- retorna erro `500`, `404`, `401` ou qualquer outro status HTTP;
-- demora mais do que o esperado para responder;
-- devolve um body diferente do contrato esperado;
-- muda headers ou content-type;
-- fica indisponível em um fluxo crítico;
-- precisa ser mockada durante o desenvolvimento.
+- um endpoint retorna `500`, `503`, `404`, `401` ou qualquer outro status;
+- uma requisição demora segundos a mais que o normal;
+- o body foge do contrato esperado (campo ausente, tipo errado, valor zerado);
+- uma requisição nunca chega ao servidor (conexão recusada, abortada, offline);
+- um header precisa ser injetado ou removido (token de auth, feature flag);
+- uma API ainda não existe e precisa de mock durante o desenvolvimento;
+- você precisa pausar uma requisição, olhar o conteúdo e decidir o que acontece.
 
-Em vez de editar código de servidor, criar proxies locais ou depender de estados
-difíceis de reproduzir, você escolhe uma aba do Chrome, inicia a interceptação e
-controla as respostas que chegam à aplicação.
+## Início rápido
 
-## Funcionalidades
+Este repositório ainda não aponta para uma página pública na Chrome Web Store,
+então instale a partir do código-fonte:
 
-- Seleção da aba alvo que será depurada pela extensão.
-- **Interceptação dual-stage**: regras atuam no stage `request` (antes do
-  envio à rede) ou `response` (depois que o servidor responde). Cada regra
-  carrega uma chain ordenada de `actions`.
-- Interceptação de respostas via `chrome.debugger` e Chrome DevTools Protocol.
-- Regras com match por URL, método HTTP, headers e body.
-- Chain de ações: `requestModify`, `requestDelay`, `responseModify`,
-  `transform` e as terminais `mock`, `block`, `breakpoint`.
-- Pausa de respostas para inspeção antes de continuar a navegação.
-- Edição de status, headers e body antes de liberar uma resposta interceptada.
-- Histórico de requisições capturadas, incluindo respostas observadas,
-  interceptadas, mockadas, pendentes e com falha de captura.
-- **Diff de modificações** no inspector: quando uma regra reescreveu request
-  ou response, a aba "Modificações" mostra original × modificado lado a lado.
-- Criação de mocks a partir de respostas reais capturadas.
-- Interface em aba dedicada ou no Chrome Side Panel.
-- Persistência local de regras e histórico usando `chrome.storage.local` e
-  IndexedDB.
+```bash
+cd app
+npm install
+npm run build
+```
 
-### Exemplo de regra dual-stage
+1. Abra `chrome://extensions` e ative o **Modo do desenvolvedor**.
+2. Clique em **Carregar sem compactação** e selecione a pasta `app/dist/`.
+3. Clique no ícone do Debug Buddy na barra do Chrome. A interface abre em uma
+   aba própria; ela também fica disponível no Side Panel do Chrome.
+4. No cabeçalho, escolha a **aba alvo** — a aplicação que você quer depurar.
+5. Clique em **Iniciar Interceptação**. O Chrome mostra a barra "começou a
+   depurar este navegador" na aba alvo; isso é esperado.
+6. Use a aplicação normalmente e acompanhe o tráfego no **Command Center**.
+7. Clique em **Parar Interceptação** ao terminar. Qualquer requisição ainda
+   pausada é liberada antes de o debugger ser desanexado.
+
+## Tour pelas funcionalidades
+
+### Command Center — tráfego ao vivo
+
+Toda requisição da aba alvo aparece em uma única tabela com o tipo de
+interceptação (pass-through, mock, modificada, transform, atraso, bloqueio,
+breakpoint), duração, tamanho, método, URL e status. O cabeçalho mostra
+métricas ao vivo (requisições, bytes transferidos, recursos) e a barra de
+filtro aceita `method:`, `status:`, `state:` ou texto livre. O histórico fica
+salvo no IndexedDB, então sobrevive ao fechamento da interface.
+
+Clique em uma linha para abrir o **inspector** com as abas Overview, Request e
+Response, além da aba **Modificações** sempre que uma regra reescreveu a
+request ou a response. **Criar regra** transforma uma captura real em uma
+regra pré-preenchida.
+
+![Inspector aberto em uma requisição mockada](docs/images/request-inspector.png)
+
+### Breakpoints — pausar, inspecionar, decidir
+
+A ação `breakpoint` segura a requisição — antes do envio ou depois que o
+servidor respondeu — até você agir. O dock de pendentes permite **Aprovar**,
+**Editar…** (status, headers e body antes de liberar), **Criar Mock** ou
+ignorar. Atalhos de teclado: <kbd>A</kbd> aprova, <kbd>I</kbd> ignora,
+<kbd>J</kbd>/<kbd>K</kbd> próxima/anterior.
+
+![Dock de ações pendentes com uma requisição pausada para /api/inventory](docs/images/pending-breakpoint.png)
+
+### Rules Lab — regras de interceptação
+
+As regras são ordenadas por prioridade (arraste, ou <kbd>Ctrl/Cmd</kbd> +
+<kbd>↑/↓</kbd>), podem ser pausadas individualmente e filtradas por tipo e
+método HTTP. Cada regra casa por URL (substring ou regex), método, header e
+body, e executa uma **chain ordenada de ações** em um stage:
+
+| Stage | Quando roda | Ações |
+|---|---|---|
+| `request` | antes de a requisição sair do navegador | `requestModify`, `requestDelay`, `mock`, `block`, `breakpoint` |
+| `response` | depois que o servidor respondeu | `responseModify`, `transform`, `mock`, `breakpoint` |
+
+`mock`, `block` e `breakpoint` são **terminais**: encerram a chain, então
+precisam ser a última ação. As regras podem ser exportadas e importadas em
+JSON; a importação valida essas invariantes.
+
+![Rules Lab listando regras de stage request e response](docs/images/rules-lab.png)
+
+O editor de regras passa por **Tipo** (tipo e stage), **Matcher**, **Ação** e
+**Revisar**:
+
+![Editor de regra no passo de ações, editando headers da request](docs/images/rule-editor.png)
+
+#### Exemplo de regra
 
 ```json
 {
@@ -77,108 +132,103 @@ controla as respostas que chegam à aplicação.
 }
 ```
 
-Com `stage: "request"`, a chain roda antes do envio: `requestModify` ajusta o
-header e a terminal `mock` curto-circuita a rede. Use `stage: "response"` em
-regras que atuam sobre a resposta do servidor (ex.: forçar 503, mutar body via
-`transform`). Ações terminais (`mock`/`block`/`breakpoint`) encerram a chain
-— qualquer ação depois delas é inalcançável.
+`requestModify` reescreve os headers e a ação terminal `mock` responde sem
+tocar a rede. Para agir sobre o que o servidor devolveu (forçar um `503`,
+alterar um campo do JSON com `transform`), use `"stage": "response"`.
+
+### Sessões — Session Replay
+
+Com a interceptação ligada, o Debug Buddy grava a aba alvo com
+[rrweb](https://github.com/rrweb-io/rrweb) (até 50 MB ou 10 minutos por
+sessão; o switch **Gravação** no cabeçalho desliga). A página de replay
+reproduz o DOM ao lado de uma timeline com chamadas de rede, erros de console
+e navegações, uma aba **Requisições** e **Recomendações**. As sessões podem ser
+exportadas e importadas como arquivos `.dbsession`; importar uma sessão
+gravada em outra origem pede confirmação antes.
+
+![Replay da loja de demonstração com a timeline de rede e console](docs/images/session-replay.png)
+
+O ícone de atividade ao lado do switch de gravação abre o **Live Insights**: as
+tecnologias detectadas na página alvo e recomendações, atualizadas enquanto
+você navega.
+
+### Privacidade — redação de dados
+
+A página **Privacidade** controla o que é mascarado antes de os dados serem
+salvos: nomes de headers e padrões de valor, padrões de body, saída de
+console, todos os inputs ou seletores CSS escolhidos na gravação do DOM,
+domínios que nunca devem ser gravados, caminhos de usuário em stack traces e
+purge automática após N dias.
 
 ## Como funciona
 
-1. A interface do Debug Buddy abre em uma aba própria ou no Side Panel.
-2. Você escolhe a aba alvo, que é a aplicação web a ser depurada.
-3. Ao iniciar a interceptação, a extensão anexa o debugger à aba alvo.
-4. O background service worker habilita os domínios `Network` e `Fetch`.
-5. Cada resposta pode ser observada, pausada, mockada ou modificada conforme as
-   regras configuradas.
-6. O histórico fica disponível na interface para análise e criação de novos mocks.
+1. A interface (aba ou Side Panel) envia comandos ao background service
+   worker, que é dono de todo o estado em tempo de execução.
+2. Em **Iniciar Interceptação**, o worker chama `chrome.debugger.attach` na aba
+   alvo e habilita `Network` (timing) e `Fetch` com dois padrões de
+   interceptação: o stage `Request` e o stage `Response`.
+3. Cada evento `Fetch.requestPaused` executa as regras que casam naquele stage
+   e depois é continuado, atendido (mock), falhado (block) ou retido
+   (breakpoint).
+4. Toda requisição é gravada no IndexedDB e enviada à interface; a duração
+   chega depois pelos eventos de `Network` e é mesclada.
+5. **Parar Interceptação** libera o que ainda estiver pausado e desanexa o
+   debugger.
 
-O aviso de depuração exibido pelo Chrome na aba alvo é esperado: ele aparece
-porque a extensão usa a permissão `debugger`.
-
-## Como usar
-
-1. Instale e carregue a extensão em modo desenvolvedor.
-2. Clique no ícone do Debug Buddy na barra do Chrome.
-3. Selecione a aba da aplicação que você quer depurar.
-4. Crie regras de interceptação em **Configurações**.
-5. Clique em **Iniciar Interceptação**.
-6. Navegue pela aplicação alvo e acompanhe as requisições em **Histórico**.
-7. Quando uma resposta ficar aguardando ação, inspecione, edite, aprove, ignore
-   ou transforme em mock.
-8. Clique em **Parar Interceptação** ao finalizar.
-
-## Desenvolvimento local
-
-Os comandos do projeto rodam dentro da pasta `app/`.
-
-```bash
-cd app
-npm install
-npm run build
-```
-
-Depois do build:
-
-1. Abra `chrome://extensions`.
-2. Ative o **Modo do desenvolvedor**.
-3. Clique em **Carregar sem compactação**.
-4. Selecione a pasta `app/dist/`.
-
-Durante o desenvolvimento, use o modo watch para reconstruir a extensão ao salvar:
-
-```bash
-cd app
-npm run watch
-```
-
-## Scripts úteis
-
-```bash
-cd app
-npm run dev
-npm run build
-npm run watch
-npm run lint
-npm run lint:fix
-npm run format
-npm run typecheck
-npm test
-npm run test:coverage
-```
-
-## Stack
-
-- Chrome Extension Manifest V3
-- Chrome Debugger API
-- Chrome DevTools Protocol (`Fetch` e `Network`)
-- React 19
-- Vite
-- TypeScript
-- Tailwind CSS
-- shadcn/ui
-- IndexedDB
-- Vitest
-- Biome
+As regras ficam no `chrome.storage.local`; requisições e sessões ficam no
+IndexedDB. Tudo permanece no seu perfil do navegador. As únicas requisições
+que a extensão faz por conta própria buscam source maps `.map` ao lado dos
+scripts da página inspecionada, para simbolizar stack traces.
 
 ## Permissões
 
-A extensão solicita permissões necessárias para atuar como ferramenta de debug:
+| Permissão | Por quê |
+|---|---|
+| `debugger` | Anexar à aba alvo e controlar a rede dela pelo DevTools Protocol. |
+| `tabs` | Listar as abas para você escolher a alvo e abrir a interface. |
+| `storage` | Salvar regras, a aba alvo e preferências. |
+| `sidePanel` | Oferecer a interface no Side Panel do Chrome. |
+| `offscreen` | Hospedar o sandbox que roda transforms avançados (via script), algo que o service worker não consegue fazer. |
+| `scripting` | Injetar o probe e o gravador em abas que já estavam abertas antes de a extensão ser instalada ou atualizada. |
+| `webNavigation` | Detectar navegações na aba alvo para atualizar a detecção de tecnologias. |
+| `host_permissions: <all_urls>` | Exigido pela injeção via `scripting` e para funcionar com qualquer aplicação que você depure. |
 
-- `debugger`: anexar o Chrome Debugger à aba alvo e controlar o fluxo de rede.
-- `tabs`: listar e selecionar a aba que será depurada.
-- `storage`: salvar regras, aba alvo e preferências locais.
-- `sidePanel`: disponibilizar a UI no Chrome Side Panel.
-- `<all_urls>`: permitir interceptação em aplicações e APIs acessadas pela aba alvo.
+O manifest também declara três content scripts em todas as URLs com
+`document_start`: um probe no mundo `MAIN` da página, uma bridge no mundo
+isolado e o gravador rrweb. Eles ficam ociosos até a interceptação ou a
+gravação ser ligada para aquela aba.
 
 ## Limitações
 
-- A interceptação só acontece na aba alvo selecionada.
-- O Chrome exibe um aviso enquanto o debugger está anexado à aba.
-- Algumas respostas podem não ter corpo disponível para captura pelo CDP.
-- Requisições pendentes precisam ser liberadas, mockadas ou continuadas para que a
-  página não fique aguardando indefinidamente.
+- Só a aba alvo selecionada é interceptada.
+- O Chrome exibe uma barra de aviso enquanto o debugger está anexado à aba.
+- Algumas respostas não têm corpo disponível pelo CDP.
+- Uma requisição pausada trava a página até ser aprovada, editada, mockada ou
+  ignorada.
+- Por enquanto, a interface é só em português ([#3](https://github.com/guichafy/chrome-extension-debug-buddy/issues/3)).
+
+## Desenvolvimento
+
+Todos os comandos rodam dentro de `app/`.
+
+```bash
+npm run watch             # reconstrói dist/ ao salvar (depois recarregue a extensão)
+npm run watch:dev         # idem, com bundle de desenvolvimento para o React DevTools
+npm run lint              # Biome
+npm run typecheck         # tsc --noEmit
+npm test                  # Vitest (jsdom)
+npm run e2e               # Playwright contra dist/ (rode npm run build antes)
+npm run docs:screenshots  # regenera as imagens de docs/images/
+```
+
+Stack: Manifest V3, Chrome Debugger API / DevTools Protocol, React 19,
+React Router, Vite, TypeScript, Tailwind CSS v4, shadcn/ui, IndexedDB, rrweb,
+Vitest, Playwright, Biome.
+
+Notas de arquitetura e convenções ficam em [`CLAUDE.md`](CLAUDE.md). Os
+releases são automatizados com semantic-release e enviados à Chrome Web Store
+como rascunho — veja [`app/RELEASING.md`](app/RELEASING.md).
 
 ## Licença
 
-MIT
+MIT (declarada em [`app/package.json`](app/package.json)).

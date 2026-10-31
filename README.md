@@ -1,52 +1,108 @@
 # Debug Buddy
 
-Debug Buddy is a Manifest V3 Chrome Extension for developers who need to inspect
-requests/responses, intercept HTTP responses, and change network behavior
-directly in the browser.
+[Português (Brasil)](README.pt-BR.md)
 
-Using the Chrome Debugger API and the `Fetch` domain from the Chrome DevTools
-Protocol, the extension pauses network responses, displays the captured content,
-and lets you change what the application receives to simulate failure scenarios
-without changing the backend, frontend, or environment infrastructure.
+Debug Buddy is a Manifest V3 Chrome extension that intercepts, modifies, mocks,
+and pauses the HTTP traffic of a browser tab, so you can see how your web app
+behaves when an API fails, slows down, or changes its contract — without
+touching the backend, the frontend code, or the environment.
+
+It drives the Chrome DevTools Protocol (`Fetch` and `Network` domains) through
+`chrome.debugger`, so it works with any page, framework, or HTTP client.
+
+![Command Center showing intercepted traffic: a blocked checkout, a mocked cart, a delayed orders call, a transformed product list, and real 404/500 responses](docs/images/command-center.png)
+
+> The UI is currently in Portuguese (pt-BR). Screen and button names below are
+> written as **pt-BR label** (English meaning). i18n is tracked in
+> [#3](https://github.com/guichafy/chrome-extension-debug-buddy/issues/3).
 
 ## What it is for
 
-Debug Buddy helps you test how an application behaves when an API:
+Use Debug Buddy to reproduce, on demand, situations that are hard to get from
+a real backend:
 
-- returns a `500`, `404`, `401`, or any other HTTP status;
-- takes longer than expected to respond;
-- returns a body that differs from the expected contract;
-- changes headers or content-type;
-- becomes unavailable during a critical flow;
-- needs to be mocked during development.
+- an endpoint returns `500`, `503`, `404`, `401`, or any other status;
+- a request takes seconds longer than usual;
+- the body differs from the expected contract (missing field, wrong type, zeroed value);
+- a request never reaches the server (connection refused, aborted, offline);
+- a header must be injected or removed (auth token, feature flag);
+- an API does not exist yet and needs a mock during development;
+- you need to pause a request, look at it, and decide what happens next.
 
-Instead of editing server code, creating local proxies, or depending on hard to
-reproduce states, you choose a Chrome tab, start interception, and control the
-responses received by the application.
+## Quick start
 
-## Features
+This repository does not link a public Chrome Web Store listing yet, so install
+from source:
 
-- Target tab selection for the application being debugged.
-- **Dual-stage interception**: rules act on `request` stage (before the request
-  reaches the network) or `response` stage (after the server replied). Each
-  rule carries an ordered `actions` chain.
-- Response interception through `chrome.debugger` and the Chrome DevTools
-  Protocol.
-- Rules with URL, HTTP method, header, and body matching.
-- Action chain: `requestModify`, `requestDelay`, `responseModify`, `transform`
-  plus the terminal actions `mock`, `block`, and `breakpoint`.
-- Response pause for inspection before continuing navigation.
-- Status, headers, and body editing before releasing an intercepted response.
-- Request history for observed, intercepted, mocked, pending, and failed
-  captures.
-- **Modifications diff** in the inspector: when a rule rewrote request or
-  response, the "Modificações" tab shows original × modified side by side.
-- Mock creation from real captured responses.
-- Dedicated tab UI and Chrome Side Panel support.
-- Local persistence for rules and history through `chrome.storage.local` and
-  IndexedDB.
+```bash
+cd app
+npm install
+npm run build
+```
 
-### Dual-stage rule example
+1. Open `chrome://extensions` and enable **Developer mode**.
+2. Click **Load unpacked** and select the `app/dist/` folder.
+3. Click the Debug Buddy toolbar icon. The UI opens in a dedicated tab; it is
+   also available docked in Chrome's Side Panel.
+4. In the header, pick the **target tab** — the web app you want to debug.
+5. Click **Iniciar Interceptação** (Start interception). Chrome shows a
+   "started debugging this browser" bar on the target tab; that is expected.
+6. Use the app normally and follow the traffic in **Command Center**.
+7. Click **Parar Interceptação** (Stop interception) when you are done. Any
+   request still paused is released before the debugger detaches.
+
+## Feature tour
+
+### Command Center — live traffic
+
+Every request from the target tab shows up in one table with its interception
+type (pass-through, mock, modified, transform, delay, block, breakpoint),
+duration, size, method, URL, and status. The header shows live metrics
+(requests, bytes transferred, resources) and the filter bar accepts `method:`,
+`status:`, `state:`, or free text. History is persisted in IndexedDB, so it
+survives closing the UI.
+
+Click a row to open the **inspector** with Overview, Request, and Response
+tabs, plus a **Modificações** (Modifications) tab whenever a rule rewrote the
+request or response. **Criar regra** (Create rule) turns a real capture into a
+pre-filled rule.
+
+![Request inspector open on a mocked request](docs/images/request-inspector.png)
+
+### Breakpoints — pause, inspect, decide
+
+A `breakpoint` action holds the request — before it is sent or after the
+server replied — until you act. The pending dock lets you **Aprovar**
+(Approve), **Editar…** (Edit status, headers, and body before releasing),
+**Criar Mock** (Create mock), or ignore it. Keyboard shortcuts: <kbd>A</kbd>
+approve, <kbd>I</kbd> ignore, <kbd>J</kbd>/<kbd>K</kbd> next/previous.
+
+![Pending action dock with a paused request to /api/inventory](docs/images/pending-breakpoint.png)
+
+### Rules Lab — interception rules
+
+Rules are ordered by priority (drag, or <kbd>Ctrl/Cmd</kbd> + <kbd>↑/↓</kbd>),
+can be paused one by one, and can be filtered by type and HTTP method. Each
+rule matches on URL (substring or regex), method, header, and body, and runs
+an ordered **chain of actions** at one stage:
+
+| Stage | Runs | Actions |
+|---|---|---|
+| `request` | before the request leaves the browser | `requestModify`, `requestDelay`, `mock`, `block`, `breakpoint` |
+| `response` | after the server replied | `responseModify`, `transform`, `mock`, `breakpoint` |
+
+`mock`, `block`, and `breakpoint` are **terminal**: they end the chain, so they
+must be the last action. Rules can be exported and imported as JSON; imports
+are validated against these invariants.
+
+![Rules Lab listing request and response stage rules](docs/images/rules-lab.png)
+
+The rule editor walks through **Tipo** (type and stage), **Matcher**,
+**Ação** (actions), and **Revisar** (review):
+
+![Rule editor on the actions step, editing request headers](docs/images/rule-editor.png)
+
+#### Rule example
 
 ```json
 {
@@ -76,121 +132,103 @@ responses received by the application.
 }
 ```
 
-`stage: "request"` makes the chain run before the browser sends the request, so
-`requestModify` rewrites headers, then the terminal `mock` short-circuits the
-network. Use `stage: "response"` for rules that act on the server's response
-(e.g. force a 503, mutate body via `transform`). Terminal actions
-(`mock`/`block`/`breakpoint`) end the chain — any action after them is
-unreachable.
+`requestModify` rewrites the headers, then the terminal `mock` answers without
+hitting the network. To act on what the server sent back (force a `503`, patch
+a JSON field with `transform`), use `"stage": "response"`.
+
+### Sessões — Session Replay
+
+While interception is on, Debug Buddy records the target tab with
+[rrweb](https://github.com/rrweb-io/rrweb) (up to 50 MB or 10 minutes per
+session; the **Gravação** (Recording) switch in the header turns it off). The
+replay page plays the DOM back next to a timeline of network calls, console
+errors, and navigations, a **Requisições** (Requests) tab, and
+**Recomendações** (Recommendations). Sessions can be exported and imported as
+`.dbsession` files; importing one recorded on a different origin asks for
+confirmation first.
+
+![Session replay of the demo store with the network and console timeline](docs/images/session-replay.png)
+
+The activity icon next to the recording switch opens **Live Insights**: the
+technologies detected on the target page and recommendations, updated while
+you navigate.
+
+### Privacidade — redaction
+
+The **Privacidade** (Privacy) page controls what is masked before data is
+stored: header names and value patterns, body patterns, console output, all
+form inputs or chosen CSS selectors in the DOM recording, domains that must
+never be recorded, user paths in stack traces, and automatic purge after N
+days.
 
 ## How it works
 
-1. The Debug Buddy UI opens in a dedicated tab or in the Side Panel.
-2. You choose the target tab, which is the web application being debugged.
-3. When interception starts, the extension attaches the debugger to the target
-   tab.
-4. The background service worker enables the `Network` and `Fetch` domains.
-5. Each response can be observed, paused, mocked, or modified according to the
-   configured rules.
-6. The history remains available in the UI for analysis and new mock creation.
+1. The UI (tab or Side Panel) sends commands to the background service worker,
+   which owns all runtime state.
+2. On **Iniciar Interceptação**, the worker calls `chrome.debugger.attach` on
+   the target tab and enables `Network` (timing) and `Fetch` with two intercept
+   patterns: the `Request` stage and the `Response` stage.
+3. Each `Fetch.requestPaused` event runs the matching rules for that stage and
+   is then continued, fulfilled (mock), failed (block), or held (breakpoint).
+4. Every request is written to IndexedDB and pushed to the UI; durations arrive
+   later from `Network` events and are merged in.
+5. **Parar Interceptação** releases anything still paused and detaches the
+   debugger.
 
-The Chrome debugging warning shown on the target tab is expected: it appears
-because the extension uses the `debugger` permission.
-
-## How to use
-
-1. Install and load the extension in developer mode.
-2. Click the Debug Buddy icon in the Chrome toolbar.
-3. Select the application tab you want to debug.
-4. Create interception rules in **Configurações** (Settings).
-5. Click **Iniciar Interceptação** (Start Interception).
-6. Navigate through the target application and follow requests in **Histórico**
-   (History).
-7. When a response is waiting for action, inspect it, edit it, approve it,
-   ignore it, or turn it into a mock.
-8. Click **Parar Interceptação** (Stop Interception) when you are done.
-
-## Local development
-
-Project commands run from the `app/` folder.
-
-```bash
-cd app
-npm install
-npm run build
-```
-
-After the build:
-
-1. Open `chrome://extensions`.
-2. Enable **Developer mode**.
-3. Click **Load unpacked**.
-4. Select the `app/dist/` folder.
-
-During development, use watch mode to rebuild the extension when files change:
-
-```bash
-cd app
-npm run watch
-```
-
-## Useful scripts
-
-```bash
-cd app
-npm run dev
-npm run build
-npm run watch
-npm run lint
-npm run lint:fix
-npm run format
-npm run typecheck
-npm test
-npm run test:coverage
-```
-
-## Stack
-
-- Chrome Extension Manifest V3
-- Chrome Debugger API
-- Chrome DevTools Protocol (`Fetch` and `Network`)
-- React 19
-- Vite
-- TypeScript
-- Tailwind CSS
-- shadcn/ui
-- IndexedDB
-- Vitest
-- Biome
+Rules live in `chrome.storage.local`; requests and sessions live in IndexedDB.
+Everything stays in your browser profile. The only requests the extension
+makes on its own are fetches of `.map` source maps next to the inspected
+page's scripts, used to symbolicate stack traces.
 
 ## Permissions
 
-The extension requests the permissions it needs to work as a debugging tool:
+| Permission | Why |
+|---|---|
+| `debugger` | Attach to the target tab and control its network through the DevTools Protocol. |
+| `tabs` | List tabs so you can choose the target, and open the UI. |
+| `storage` | Save rules, the target tab, and preferences. |
+| `sidePanel` | Offer the UI docked in Chrome's Side Panel. |
+| `offscreen` | Host the sandbox that runs advanced (script-based) transforms, which a service worker cannot do. |
+| `scripting` | Inject the probe and recorder into tabs that were already open before the extension was installed or updated. |
+| `webNavigation` | Detect navigations in the target tab to refresh technology detection. |
+| `host_permissions: <all_urls>` | Required by `scripting` injection, and to work with whatever app you debug. |
 
-- `debugger`: attach the Chrome Debugger to the target tab and control the
-  network flow.
-- `tabs`: list and select the tab being debugged.
-- `storage`: save rules, target tab information, and local preferences.
-- `sidePanel`: make the UI available in the Chrome Side Panel.
-- `<all_urls>`: allow interception for applications and APIs accessed by the
-  target tab.
+The manifest also declares three content scripts on all URLs at
+`document_start`: a probe in the page's `MAIN` world, a bridge in the isolated
+world, and the rrweb recorder. They stay idle until interception or recording
+is turned on for that tab.
 
 ## Limitations
 
-- Interception only happens in the selected target tab.
-- Chrome shows a warning while the debugger is attached to the tab.
-- Some responses may not have a body available for capture through the CDP.
-- Pending requests must be released, mocked, or continued so the page does not
-  wait indefinitely.
+- Only the selected target tab is intercepted.
+- Chrome shows a warning bar while the debugger is attached to the tab.
+- Some responses have no body available through the CDP.
+- A paused request blocks the page until it is approved, edited, mocked, or
+  ignored.
+- The UI is Portuguese-only for now ([#3](https://github.com/guichafy/chrome-extension-debug-buddy/issues/3)).
 
-## Releasing
+## Development
 
-See [`app/RELEASING.md`](app/RELEASING.md) for the release flow (release-please + Chrome Web Store).
+All commands run from `app/`.
+
+```bash
+npm run watch             # rebuild dist/ on save (then reload the extension)
+npm run watch:dev         # same, with a development bundle for React DevTools
+npm run lint              # Biome
+npm run typecheck         # tsc --noEmit
+npm test                  # Vitest (jsdom)
+npm run e2e               # Playwright against dist/ (run npm run build first)
+npm run docs:screenshots  # regenerate the images in docs/images/
+```
+
+Stack: Manifest V3, Chrome Debugger API / DevTools Protocol, React 19,
+React Router, Vite, TypeScript, Tailwind CSS v4, shadcn/ui, IndexedDB, rrweb,
+Vitest, Playwright, Biome.
+
+Architecture notes and conventions live in [`CLAUDE.md`](CLAUDE.md). Releases
+are automated with semantic-release and uploaded to the Chrome Web Store as a
+draft — see [`app/RELEASING.md`](app/RELEASING.md).
 
 ## License
 
-MIT
-
-## Translations
-
-- [Português (Brasil)](README.pt-BR.md)
+MIT (declared in [`app/package.json`](app/package.json)).
