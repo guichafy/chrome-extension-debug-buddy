@@ -18,6 +18,8 @@ describe('PrivacySettingsPage', () => {
 		expect(screen.getByLabelText(/Redação habilitada/i)).toBeInTheDocument();
 		expect(screen.getByText(/Network — Headers/i)).toBeInTheDocument();
 		expect(screen.getByText(/rrweb \(DOM\/inputs\)/i)).toBeInTheDocument();
+		// Entidades do catálogo viram texto (Trans com shouldUnescape), não tags.
+		expect(screen.getByText('/Users/<user>/…')).toBeInTheDocument();
 	});
 
 	it('salva edição via setPrivacyConfig', async () => {

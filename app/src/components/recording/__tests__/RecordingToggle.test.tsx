@@ -32,7 +32,9 @@ describe('RecordingToggle', () => {
 	test('switch reflete recordingDisabled invertido (UI mostra Gravação ON)', async () => {
 		const mod = await import('@/lib/session/recordingPreference');
 		(
-			mod.getRecordingDisabled as unknown as { mockResolvedValueOnce: (v: boolean) => void }
+			mod.getRecordingDisabled as unknown as {
+				mockResolvedValueOnce: (v: boolean) => void;
+			}
 		).mockResolvedValueOnce(false);
 		render(<RecordingToggle tabId={1} interceptionActive={true} />);
 		await waitFor(() => {
@@ -58,7 +60,9 @@ describe('RecordingToggle', () => {
 		sendMessageMock.mockResolvedValueOnce({ ok: true });
 		const mod = await import('@/lib/session/recordingPreference');
 		(
-			mod.getRecordingDisabled as unknown as { mockResolvedValueOnce: (v: boolean) => void }
+			mod.getRecordingDisabled as unknown as {
+				mockResolvedValueOnce: (v: boolean) => void;
+			}
 		).mockResolvedValueOnce(false);
 
 		render(<RecordingToggle tabId={5} interceptionActive={true} />);
@@ -88,7 +92,9 @@ describe('RecordingToggle', () => {
 		});
 		const mod = await import('@/lib/session/recordingPreference');
 		(
-			mod.getRecordingDisabled as unknown as { mockResolvedValueOnce: (v: boolean) => void }
+			mod.getRecordingDisabled as unknown as {
+				mockResolvedValueOnce: (v: boolean) => void;
+			}
 		).mockResolvedValueOnce(false);
 
 		render(<RecordingToggle tabId={1} interceptionActive={true} />);
@@ -113,7 +119,9 @@ describe('RecordingToggle', () => {
 		});
 		const mod = await import('@/lib/session/recordingPreference');
 		(
-			mod.getRecordingDisabled as unknown as { mockResolvedValueOnce: (v: boolean) => void }
+			mod.getRecordingDisabled as unknown as {
+				mockResolvedValueOnce: (v: boolean) => void;
+			}
 		).mockResolvedValueOnce(false);
 
 		render(<RecordingToggle tabId={1} interceptionActive={true} />);
@@ -125,7 +133,9 @@ describe('RecordingToggle', () => {
 		// Default mock retorna inactiveStatus (active: false).
 		const mod = await import('@/lib/session/recordingPreference');
 		(
-			mod.getRecordingDisabled as unknown as { mockResolvedValueOnce: (v: boolean) => void }
+			mod.getRecordingDisabled as unknown as {
+				mockResolvedValueOnce: (v: boolean) => void;
+			}
 		).mockResolvedValueOnce(false);
 
 		render(<RecordingToggle tabId={1} interceptionActive={false} />);
@@ -140,7 +150,9 @@ describe('RecordingToggle', () => {
 	test('switch fica editavel quando interceptionActive=false (pre-config)', async () => {
 		const mod = await import('@/lib/session/recordingPreference');
 		(
-			mod.getRecordingDisabled as unknown as { mockResolvedValueOnce: (v: boolean) => void }
+			mod.getRecordingDisabled as unknown as {
+				mockResolvedValueOnce: (v: boolean) => void;
+			}
 		).mockResolvedValueOnce(false);
 		render(<RecordingToggle tabId={null} interceptionActive={false} />);
 		const sw = await screen.findByLabelText('Gravação');
@@ -156,7 +168,9 @@ describe('RecordingToggle', () => {
 		sendMessageMock.mockClear();
 		const mod = await import('@/lib/session/recordingPreference');
 		(
-			mod.getRecordingDisabled as unknown as { mockResolvedValueOnce: (v: boolean) => void }
+			mod.getRecordingDisabled as unknown as {
+				mockResolvedValueOnce: (v: boolean) => void;
+			}
 		).mockResolvedValueOnce(false);
 		render(<RecordingToggle tabId={null} interceptionActive={false} />);
 		const sw = await screen.findByLabelText('Gravação');

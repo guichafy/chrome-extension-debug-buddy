@@ -6,7 +6,7 @@
 // mas inválido é erro — lançamos em vez de inventar um idioma (regra
 // no-fallbacks); quem chama decide como expor.
 
-import { isSupportedLanguage, type LanguageCode } from './languages';
+import { type LanguageCode, isSupportedLanguage } from './languages';
 
 export const LANGUAGE_STORAGE_KEY = 'uiLanguage';
 

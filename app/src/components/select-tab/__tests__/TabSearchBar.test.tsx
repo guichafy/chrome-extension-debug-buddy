@@ -1,5 +1,5 @@
+import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
 import { TabSearchBar } from '../TabSearchBar';
 
 vi.mock('../../ui/lucide-icon', () => ({
@@ -18,7 +18,9 @@ describe('TabSearchBar', () => {
 	it('dispara onChange com o novo valor ao digitar', () => {
 		const onChange = vi.fn();
 		render(<TabSearchBar value="" onChange={onChange} />);
-		fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'github' } });
+		fireEvent.change(screen.getByRole('searchbox'), {
+			target: { value: 'github' },
+		});
 		expect(onChange).toHaveBeenCalledWith('github');
 	});
 

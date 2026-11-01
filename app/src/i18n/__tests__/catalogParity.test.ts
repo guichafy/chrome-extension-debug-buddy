@@ -1,7 +1,7 @@
 // Paridade dos catálogos: complementa a checagem do tsc (`Translation<T>`)
 // com o que o sistema de tipos não enxerga — categorias de plural por idioma,
 // variáveis de interpolação e strings vazias.
-import { SUPPORTED_LANGUAGES, type LanguageCode } from '../languages';
+import { type LanguageCode, SUPPORTED_LANGUAGES } from '../languages';
 import en from '../locales/en';
 import ptBR from '../locales/pt-BR';
 import { PLURAL_SUFFIXES } from '../types';
@@ -45,8 +45,11 @@ function group(flat: Map<string, string>): Map<string, Entry> {
 	return out;
 }
 
+// Variáveis `{{nome}}` e tags de componente `<nome>` (usadas pelo <Trans>).
 function placeholders(text: string): string[] {
-	return [...text.matchAll(/\{\{\s*([^}\s,]+)[^}]*\}\}/g)].map((m) => m[1]).sort();
+	const variables = [...text.matchAll(/\{\{\s*([^}\s,]+)[^}]*\}\}/g)].map((m) => m[1]);
+	const tags = [...text.matchAll(/<(\w+)>/g)].map((m) => `<${m[1]}>`);
+	return [...variables, ...tags].sort();
 }
 
 const grouped = Object.fromEntries(
@@ -78,7 +81,11 @@ describe('catálogos de tradução', () => {
 					if (suffixes.join() !== '') problems.push(`${base}: plural só neste idioma`);
 					continue;
 				}
-				if (suffixes.join() !== required.join()) {
+				// `_zero` é opcional em qualquer idioma: o i18next usa a forma quando
+				// count === 0 (ex.: preservar "0 abas", já que o CLDR do pt trata 0
+				// como singular).
+				const withoutZero = suffixes.filter((suffix) => suffix !== 'zero');
+				if (withoutZero.join() !== required.filter((c) => c !== 'zero').join()) {
 					problems.push(`${base}: tem [${suffixes}] mas ${lng} exige [${required}]`);
 				}
 			}

@@ -1,8 +1,9 @@
-import { useRef, useState, type ChangeEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { arrayBufferToBase64 } from '@/lib/session/binaryTransport';
 import { parseDbsession } from '@/lib/session/importer';
+import { type ChangeEvent, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { ImportOriginWarningDialog } from './ImportOriginWarningDialog';
 
 interface Props {
@@ -23,6 +24,7 @@ async function getCurrentTabOrigin(): Promise<string> {
 }
 
 export function ImportButton({ onImported }: Props) {
+	const { t } = useTranslation('sessions');
 	const inputRef = useRef<HTMLInputElement>(null);
 	const navigate = useNavigate();
 	const [pending, setPending] = useState<{
@@ -43,7 +45,7 @@ export function ImportButton({ onImported }: Props) {
 			filename,
 		});
 		if (!res?.ok || !res.sessionId) {
-			window.alert(`Falha ao importar: ${res?.error ?? 'erro desconhecido'}`);
+			window.alert(t('import.failed', { error: res?.error ?? t('import.unknownError') }));
 			return;
 		}
 		onImported?.(res.sessionId);
@@ -66,7 +68,7 @@ export function ImportButton({ onImported }: Props) {
 				return;
 			}
 		} catch (err) {
-			window.alert(`Arquivo inválido: ${String(err)}`);
+			window.alert(t('import.invalidFile', { error: String(err) }));
 			return;
 		}
 		await persist(buf, file.name);
@@ -82,7 +84,7 @@ export function ImportButton({ onImported }: Props) {
 				onChange={(e) => void onChange(e)}
 			/>
 			<Button size="sm" variant="outline" onClick={() => inputRef.current?.click()}>
-				Importar .dbsession
+				{t('import.button')}
 			</Button>
 			{pending && (
 				<ImportOriginWarningDialog

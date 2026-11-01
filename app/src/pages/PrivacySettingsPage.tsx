@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,6 +5,8 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { usePrivacyConfig } from '@/hooks/usePrivacyConfig';
 import type { RedactionConfig } from '@/lib/session/types';
+import { useEffect, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 
 function listToText(list: string[]): string {
 	return list.join('\n');
@@ -19,6 +20,7 @@ function textToList(text: string): string[] {
 }
 
 export function PrivacySettingsPage() {
+	const { t } = useTranslation(['privacy', 'common']);
 	const { config, loading, error, saving, save, purgeNow } = usePrivacyConfig();
 	const [draft, setDraft] = useState<RedactionConfig | null>(null);
 	const [saveMsg, setSaveMsg] = useState<string | null>(null);
@@ -29,14 +31,10 @@ export function PrivacySettingsPage() {
 	}, [config]);
 
 	if (loading) {
-		return (
-			<div className="p-4 text-muted-foreground text-sm">
-				Carregando configuração de privacidade…
-			</div>
-		);
+		return <div className="p-4 text-muted-foreground text-sm">{t('loading')}</div>;
 	}
 	if (error) {
-		return <div className="p-4 text-destructive text-sm">Erro ao carregar: {error}</div>;
+		return <div className="p-4 text-destructive text-sm">{t('loadError', { error })}</div>;
 	}
 	if (!draft) {
 		return null;
@@ -49,7 +47,7 @@ export function PrivacySettingsPage() {
 	const onSave = async () => {
 		setSaveMsg(null);
 		const res = await save(draft);
-		setSaveMsg(res.ok ? 'Configuração salva.' : `Erro: ${res.error ?? 'desconhecido'}`);
+		setSaveMsg(res.ok ? t('saved') : t('error', { error: res.error ?? t('unknownError') }));
 	};
 
 	const onPurge = async () => {
@@ -57,25 +55,22 @@ export function PrivacySettingsPage() {
 		const res = await purgeNow();
 		setPurgeMsg(
 			res.ok
-				? `Removidas ${res.purgedCount ?? 0} sessões antigas.`
-				: `Erro: ${res.error ?? 'desconhecido'}`,
+				? t('purged', { count: res.purgedCount ?? 0 })
+				: t('error', { error: res.error ?? t('unknownError') }),
 		);
 	};
 
 	return (
 		<div className="flex flex-col gap-6 p-4">
 			<header>
-				<h1 className="font-semibold text-xl">Privacidade & Redação</h1>
-				<p className="text-muted-foreground text-sm">
-					Controla o que é mascarado/removido das sessões antes de salvar. Mudanças aplicam-se a
-					gravações futuras.
-				</p>
+				<h1 className="font-semibold text-xl">{t('title')}</h1>
+				<p className="text-muted-foreground text-sm">{t('description')}</p>
 			</header>
 
 			<section className="flex flex-col gap-3 rounded border p-4">
 				<div className="flex items-center justify-between">
 					<Label htmlFor="enabled" className="font-medium">
-						Redação habilitada
+						{t('enabled.label')}
 					</Label>
 					<Switch
 						id="enabled"
@@ -83,17 +78,14 @@ export function PrivacySettingsPage() {
 						onCheckedChange={(v) => update('enabled', v)}
 					/>
 				</div>
-				<p className="text-muted-foreground text-xs">
-					Quando desligada, headers/bodies/console/state são gravados sem filtro. Use só em
-					localhost.
-				</p>
+				<p className="text-muted-foreground text-xs">{t('enabled.hint')}</p>
 			</section>
 
 			<section className="flex flex-col gap-3 rounded border p-4">
-				<h2 className="font-medium text-sm">Network — Headers</h2>
+				<h2 className="font-medium text-sm">{t('headers.title')}</h2>
 				<div className="flex flex-col gap-2">
 					<Label htmlFor="headerKeys" className="text-xs">
-						Chaves de header (uma por linha, case-insensitive)
+						{t('headers.keys')}
 					</Label>
 					<Textarea
 						id="headerKeys"
@@ -104,7 +96,7 @@ export function PrivacySettingsPage() {
 				</div>
 				<div className="flex flex-col gap-2">
 					<Label htmlFor="headerRegex" className="text-xs">
-						Header regex (uma por linha)
+						{t('headers.regex')}
 					</Label>
 					<Textarea
 						id="headerRegex"
@@ -116,10 +108,10 @@ export function PrivacySettingsPage() {
 			</section>
 
 			<section className="flex flex-col gap-3 rounded border p-4">
-				<h2 className="font-medium text-sm">Network — Bodies</h2>
+				<h2 className="font-medium text-sm">{t('bodies.title')}</h2>
 				<div className="flex flex-col gap-2">
 					<Label htmlFor="bodyRegex" className="text-xs">
-						Body regex (uma por linha — JWT, PAN, etc.)
+						{t('bodies.regex')}
 					</Label>
 					<Textarea
 						id="bodyRegex"
@@ -131,9 +123,9 @@ export function PrivacySettingsPage() {
 			</section>
 
 			<section className="flex flex-col gap-3 rounded border p-4">
-				<h2 className="font-medium text-sm">Console</h2>
+				<h2 className="font-medium text-sm">{t('console.title')}</h2>
 				<div className="flex items-center justify-between">
-					<Label htmlFor="consoleEnabled">Mascarar console</Label>
+					<Label htmlFor="consoleEnabled">{t('console.mask')}</Label>
 					<Switch
 						id="consoleEnabled"
 						checked={draft.consoleEnabled}
@@ -142,7 +134,7 @@ export function PrivacySettingsPage() {
 				</div>
 				<div className="flex flex-col gap-2">
 					<Label htmlFor="consoleRegex" className="text-xs">
-						Console regex (uma por linha)
+						{t('console.regex')}
 					</Label>
 					<Textarea
 						id="consoleRegex"
@@ -154,9 +146,9 @@ export function PrivacySettingsPage() {
 			</section>
 
 			<section className="flex flex-col gap-3 rounded border p-4">
-				<h2 className="font-medium text-sm">rrweb (DOM/inputs)</h2>
+				<h2 className="font-medium text-sm">{t('rrweb.title')}</h2>
 				<div className="flex items-center justify-between">
-					<Label htmlFor="maskAllInputs">Mascarar todos os inputs (não só password)</Label>
+					<Label htmlFor="maskAllInputs">{t('rrweb.maskAllInputs')}</Label>
 					<Switch
 						id="maskAllInputs"
 						checked={draft.rrwebMaskAllInputs}
@@ -165,7 +157,7 @@ export function PrivacySettingsPage() {
 				</div>
 				<div className="flex flex-col gap-2">
 					<Label htmlFor="maskTextSelector" className="text-xs">
-						Seletor CSS para mascarar texto
+						{t('rrweb.maskTextSelector')}
 					</Label>
 					<Input
 						id="maskTextSelector"
@@ -176,10 +168,10 @@ export function PrivacySettingsPage() {
 			</section>
 
 			<section className="flex flex-col gap-3 rounded border p-4">
-				<h2 className="font-medium text-sm">URL gate (não gravar)</h2>
+				<h2 className="font-medium text-sm">{t('urlGate.title')}</h2>
 				<div className="flex flex-col gap-2">
 					<Label htmlFor="urlBlacklist" className="text-xs">
-						Domínios bloqueados (glob — ex: <code>*.banco.com.br</code>)
+						<Trans t={t} i18nKey="urlGate.blacklist" components={{ code: <code /> }} />
 					</Label>
 					<Textarea
 						id="urlBlacklist"
@@ -191,11 +183,15 @@ export function PrivacySettingsPage() {
 			</section>
 
 			<section className="flex flex-col gap-3 rounded border p-4">
-				<h2 className="font-medium text-sm">Paths em stack traces</h2>
+				<h2 className="font-medium text-sm">{t('stackPaths.title')}</h2>
 				<div className="flex items-center justify-between">
 					<Label htmlFor="truncateUserPaths">
-						Truncar caminhos de usuário (<code>/Users/foo/…</code> →{' '}
-						<code>/Users/&lt;user&gt;/…</code>)
+						<Trans
+							t={t}
+							i18nKey="stackPaths.truncate"
+							components={{ code: <code /> }}
+							shouldUnescape
+						/>
 					</Label>
 					<Switch
 						id="truncateUserPaths"
@@ -206,9 +202,9 @@ export function PrivacySettingsPage() {
 			</section>
 
 			<section className="flex flex-col gap-3 rounded border p-4">
-				<h2 className="font-medium text-sm">Retenção</h2>
+				<h2 className="font-medium text-sm">{t('retention.title')}</h2>
 				<div className="flex items-center justify-between">
-					<Label htmlFor="autoPurgeEnabled">Purge automática habilitada</Label>
+					<Label htmlFor="autoPurgeEnabled">{t('retention.autoPurge')}</Label>
 					<Switch
 						id="autoPurgeEnabled"
 						checked={draft.autoPurgeEnabled}
@@ -217,7 +213,7 @@ export function PrivacySettingsPage() {
 				</div>
 				<div className="flex flex-col gap-2">
 					<Label htmlFor="autoPurgeRetentionDays" className="text-xs">
-						Reter sessões por (dias)
+						{t('retention.days')}
 					</Label>
 					<Input
 						id="autoPurgeRetentionDays"
@@ -229,7 +225,7 @@ export function PrivacySettingsPage() {
 				</div>
 				<div className="flex items-center gap-3">
 					<Button variant="outline" size="sm" onClick={() => void onPurge()}>
-						Purgar agora
+						{t('retention.purgeNow')}
 					</Button>
 					{purgeMsg && <span className="text-muted-foreground text-xs">{purgeMsg}</span>}
 				</div>
@@ -237,7 +233,7 @@ export function PrivacySettingsPage() {
 
 			<div className="flex items-center gap-3">
 				<Button onClick={() => void onSave()} disabled={saving}>
-					{saving ? 'Salvando…' : 'Salvar'}
+					{saving ? t('saving') : t('common:actions.save')}
 				</Button>
 				{saveMsg && <span className="text-muted-foreground text-sm">{saveMsg}</span>}
 			</div>

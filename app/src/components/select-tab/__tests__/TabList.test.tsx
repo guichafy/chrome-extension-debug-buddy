@@ -1,5 +1,5 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
+import React from 'react';
 import { TabList } from '../TabList';
 import type { Tab } from '../types';
 
@@ -10,9 +10,27 @@ vi.mock('../../ui/lucide-icon', () => ({
 }));
 
 const tabs: Tab[] = [
-	{ id: 10, title: 'A', url: 'https://a.example/', hostname: 'a.example', index: 0 },
-	{ id: 20, title: 'B', url: 'https://b.example/', hostname: 'b.example', index: 1 },
-	{ id: 30, title: 'C', url: 'https://c.example/', hostname: 'c.example', index: 2 },
+	{
+		id: 10,
+		title: 'A',
+		url: 'https://a.example/',
+		hostname: 'a.example',
+		index: 0,
+	},
+	{
+		id: 20,
+		title: 'B',
+		url: 'https://b.example/',
+		hostname: 'b.example',
+		index: 1,
+	},
+	{
+		id: 30,
+		title: 'C',
+		url: 'https://c.example/',
+		hostname: 'c.example',
+		index: 2,
+	},
 ];
 
 describe('TabList', () => {

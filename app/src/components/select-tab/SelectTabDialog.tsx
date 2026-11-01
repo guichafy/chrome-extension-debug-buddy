@@ -1,9 +1,11 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
-import { TabSearchBar } from './TabSearchBar';
 import { DomainChipFilter } from './DomainChipFilter';
-import { TabList } from './TabList';
 import { EmptyState } from './EmptyState';
+import { TabList } from './TabList';
+import { TabSearchBar } from './TabSearchBar';
 import { useFilteredTabs } from './hooks/useFilteredTabs';
 import type { Tab } from './types';
 
@@ -24,6 +26,7 @@ export const SelectTabDialog: React.FC<SelectTabDialogProps> = ({
 	onOpenChange,
 	onSelectTab,
 }) => {
+	const { t } = useTranslation('selectTab');
 	const [query, setQuery] = useState('');
 	const [activeDomain, setActiveDomain] = useState<string | null>(null);
 	const [focusedIndex, setFocusedIndex] = useState(0);
@@ -136,10 +139,8 @@ export const SelectTabDialog: React.FC<SelectTabDialogProps> = ({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="flex max-h-[85vh] w-[90vw] max-w-4xl flex-col gap-0 overflow-hidden p-0">
 				<DialogHeader className="px-6 pb-4 pt-6">
-					<DialogTitle>Selecionar aba para interceptar</DialogTitle>
-					<DialogDescription>
-						Escolha a aba que deseja monitorar as requisições de rede.
-					</DialogDescription>
+					<DialogTitle>{t('title')}</DialogTitle>
+					<DialogDescription>{t('description')}</DialogDescription>
 				</DialogHeader>
 
 				<div className="flex flex-col gap-3 border-y border-border bg-muted/30 px-6 py-4">
@@ -147,7 +148,7 @@ export const SelectTabDialog: React.FC<SelectTabDialogProps> = ({
 						<TabSearchBar value={query} onChange={setQuery} inputRef={inputRef} />
 						{state === 'ready' && (
 							<span className="whitespace-nowrap text-xs text-muted-foreground">
-								{allTabs.length} {allTabs.length === 1 ? 'aba' : 'abas'}
+								{t('tabCount', { count: allTabs.length })}
 							</span>
 						)}
 					</div>
@@ -170,20 +171,23 @@ export const SelectTabDialog: React.FC<SelectTabDialogProps> = ({
 							<kbd className="ml-0.5 rounded border border-border bg-background px-1 font-mono">
 								↓
 							</kbd>{' '}
-							Navegar
+							{t('keyboard.navigate')}
 						</span>
 						<span>
 							<kbd className="rounded border border-border bg-background px-1 font-mono">Enter</kbd>{' '}
-							Selecionar
+							{t('keyboard.select')}
 						</span>
 						<span>
 							<kbd className="rounded border border-border bg-background px-1 font-mono">Esc</kbd>{' '}
-							Fechar
+							{t('keyboard.close')}
 						</span>
 					</span>
 					{state === 'ready' && allTabs.length > 0 && (
 						<span>
-							{filteredTabs.length} de {allTabs.length} abas visíveis
+							{t('visibleTabs', {
+								visible: filteredTabs.length,
+								total: allTabs.length,
+							})}
 						</span>
 					)}
 				</div>

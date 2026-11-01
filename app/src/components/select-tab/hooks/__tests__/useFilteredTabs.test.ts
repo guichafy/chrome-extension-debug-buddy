@@ -1,6 +1,6 @@
-import { renderHook, waitFor, act } from '@testing-library/react';
-import { useFilteredTabs } from '../useFilteredTabs';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { INVALID_HOSTNAME } from '../../types';
+import { useFilteredTabs } from '../useFilteredTabs';
 
 const mockQuery = (tabs: Partial<chrome.tabs.Tab>[]) => {
 	(chrome.tabs.query as any).mockImplementation((_q: any, cb?: any) => {
@@ -41,10 +41,25 @@ describe('useFilteredTabs', () => {
 		mockQuery([
 			{ id: 1, title: 'OK', url: 'https://example.com/', index: 0 },
 			{ id: 2, title: 'Internal', url: 'chrome://settings', index: 1 },
-			{ id: 3, title: 'Ext', url: 'chrome-extension://abc/options.html', index: 2 },
+			{
+				id: 3,
+				title: 'Ext',
+				url: 'chrome-extension://abc/options.html',
+				index: 2,
+			},
 			{ id: 4, title: 'About', url: 'about:blank', index: 3 },
-			{ id: 5, title: 'View', url: 'view-source:https://example.com/', index: 4 },
-			{ id: 6, title: 'DevTools', url: 'devtools://devtools/bundled/inspector.html', index: 5 },
+			{
+				id: 5,
+				title: 'View',
+				url: 'view-source:https://example.com/',
+				index: 4,
+			},
+			{
+				id: 6,
+				title: 'DevTools',
+				url: 'devtools://devtools/bundled/inspector.html',
+				index: 5,
+			},
 			{ id: undefined, title: 'No ID', url: 'https://noid.example/', index: 6 },
 			{ id: 8, title: '', url: 'https://empty-title.example/', index: 7 },
 			{ id: 9, title: 'No URL', url: undefined, index: 8 },
@@ -87,7 +102,12 @@ describe('useFilteredTabs', () => {
 	it('busca é case-insensitive em título E URL', async () => {
 		mockQuery([
 			{ id: 1, title: 'Debug Buddy', url: 'http://localhost:5173/', index: 0 },
-			{ id: 2, title: 'Outra coisa', url: 'https://example.com/debug', index: 1 },
+			{
+				id: 2,
+				title: 'Outra coisa',
+				url: 'https://example.com/debug',
+				index: 1,
+			},
 			{ id: 3, title: 'Sem match', url: 'https://example.com/', index: 2 },
 		]);
 		const { result, rerender } = renderHook(

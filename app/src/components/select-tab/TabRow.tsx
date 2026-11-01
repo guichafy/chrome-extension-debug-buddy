@@ -1,7 +1,8 @@
-import React from 'react';
-import { LucideIcon } from '../ui/lucide-icon';
 import { cn } from '@/lib/utils';
-import type { Tab } from './types';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { LucideIcon } from '../ui/lucide-icon';
+import { INVALID_HOSTNAME, type Tab } from './types';
 
 interface TabRowProps {
 	tab: Tab;
@@ -36,6 +37,7 @@ const Favicon: React.FC<{ tab: Tab }> = ({ tab }) => {
 };
 
 export const TabRow: React.FC<TabRowProps> = ({ tab, isFocused, isCurrent, onSelect }) => {
+	const { t } = useTranslation('selectTab');
 	return (
 		// biome-ignore lint/a11y/useSemanticElements: <div role="option"> is required for the listbox pattern; <option> is only valid inside <select>.
 		// biome-ignore lint/a11y/useFocusableInteractive: Keyboard navigation is handled by the parent listbox via aria-activedescendant; the row is not directly tabbable.
@@ -56,14 +58,14 @@ export const TabRow: React.FC<TabRowProps> = ({ tab, isFocused, isCurrent, onSel
 					<span className="truncate text-sm font-medium text-foreground">{tab.title}</span>
 					{isCurrent && (
 						<span className="flex-shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
-							Atual
+							{t('list.current')}
 						</span>
 					)}
 				</div>
 				<div className="truncate text-xs text-muted-foreground">{tab.url}</div>
 			</div>
 			<span className="flex-shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
-				{tab.hostname}
+				{tab.hostname === INVALID_HOSTNAME ? t('list.invalidUrl') : tab.hostname}
 			</span>
 			<LucideIcon name="chevron-right" className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
 		</div>

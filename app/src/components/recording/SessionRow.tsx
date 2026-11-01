@@ -1,9 +1,11 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { base64ToArrayBuffer } from '@/lib/session/binaryTransport';
 import type { Session } from '@/lib/session/types';
+import type { TFunction } from 'i18next';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { ExportConfirmDialog } from './ExportConfirmDialog';
 
 function formatBytes(bytes: number): string {
@@ -12,8 +14,8 @@ function formatBytes(bytes: number): string {
 	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function formatDuration(ms: number | null): string {
-	if (ms === null) return 'em andamento';
+function formatDuration(ms: number | null, t: TFunction<'sessions'>): string {
+	if (ms === null) return t('row.inProgress');
 	const totalSec = Math.floor(ms / 1000);
 	const mm = String(Math.floor(totalSec / 60)).padStart(2, '0');
 	const ss = String(totalSec % 60).padStart(2, '0');
@@ -26,6 +28,7 @@ interface Props {
 }
 
 export function SessionRow({ session, onDelete }: Props) {
+	const { t, i18n } = useTranslation('sessions');
 	// Estimativa quick — bytes reais persistidos são ~5% maior por overhead IDB.
 	const sizeBytes = JSON.stringify(session).length;
 	const duration = session.endedAt !== null ? session.endedAt - session.startedAt : null;
@@ -53,21 +56,21 @@ export function SessionRow({ session, onDelete }: Props) {
 	return (
 		<div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto] items-center gap-3 border-b px-4 py-2 text-sm">
 			<Badge variant={session.origin === 'recorded' ? 'default' : 'secondary'}>
-				{session.origin === 'recorded' ? 'Gravada' : 'Importada'}
+				{session.origin === 'recorded' ? t('row.recorded') : t('row.imported')}
 			</Badge>
 			<Link to={`/replay/${session.id}`} className="truncate font-mono text-xs hover:underline">
 				{session.metadata.initialUrl}
 			</Link>
-			<span className="font-mono text-xs">{formatDuration(duration)}</span>
+			<span className="font-mono text-xs">{formatDuration(duration, t)}</span>
 			<span className="font-mono text-xs">{formatBytes(sizeBytes)}</span>
 			<span className="text-muted-foreground text-xs">
-				{new Date(session.startedAt).toLocaleString('pt-BR')}
+				{new Date(session.startedAt).toLocaleString(i18n.language)}
 			</span>
 			<Button size="sm" variant="ghost" onClick={() => setExportOpen(true)}>
-				Exportar
+				{t('row.export')}
 			</Button>
 			<Button size="sm" variant="ghost" onClick={() => onDelete(session.id)}>
-				Excluir
+				{t('row.delete')}
 			</Button>
 			<ExportConfirmDialog
 				open={exportOpen}

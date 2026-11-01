@@ -7,6 +7,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
+import { Trans, useTranslation } from 'react-i18next';
 
 interface Props {
 	open: boolean;
@@ -23,23 +24,26 @@ export function ImportOriginWarningDialog({
 	onContinue,
 	onCancel,
 }: Props) {
+	const { t } = useTranslation(['sessions', 'common']);
 	return (
 		<Dialog open={open} onOpenChange={(v) => !v && onCancel()}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>Sessão de origem diferente</DialogTitle>
+					<DialogTitle>{t('originWarning.title')}</DialogTitle>
 					<DialogDescription>
-						Esta sessão foi gravada em <strong>{importedOrigin}</strong>, mas a tab atual está em
-						<strong> {currentOrigin}</strong>. O replay funciona normalmente, mas verifique se a
-						origem é confiável antes de prosseguir — sessões de origem desconhecida podem conter
-						conteúdo inesperado.
+						<Trans
+							t={t}
+							i18nKey="originWarning.description"
+							values={{ importedOrigin, currentOrigin }}
+							components={{ strong: <strong /> }}
+						/>
 					</DialogDescription>
 				</DialogHeader>
 				<DialogFooter>
 					<Button variant="ghost" onClick={onCancel}>
-						Cancelar
+						{t('common:actions.cancel')}
 					</Button>
-					<Button onClick={onContinue}>Continuar</Button>
+					<Button onClick={onContinue}>{t('originWarning.continue')}</Button>
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>

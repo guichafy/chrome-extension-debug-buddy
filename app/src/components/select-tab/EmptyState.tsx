@@ -1,4 +1,5 @@
-import React from 'react';
+import type React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { Button } from '../ui/button';
 
 type Variant = 'loading' | 'no-tabs' | 'no-results' | 'error';
@@ -24,12 +25,13 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 	onClearSearch,
 	onRetry,
 }) => {
+	const { t } = useTranslation('selectTab');
 	if (variant === 'loading') {
 		return (
 			<Wrapper>
 				<div
 					role="status"
-					aria-label="Carregando abas"
+					aria-label={t('empty.loading')}
 					className="h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-primary"
 				/>
 			</Wrapper>
@@ -39,7 +41,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 	if (variant === 'no-tabs') {
 		return (
 			<Wrapper>
-				<p className="text-sm text-muted-foreground">Nenhuma aba disponível para análise</p>
+				<p className="text-sm text-muted-foreground">{t('empty.noTabs')}</p>
 			</Wrapper>
 		);
 	}
@@ -48,10 +50,17 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 		return (
 			<Wrapper>
 				<p className="text-sm text-muted-foreground">
-					Nenhuma aba corresponde a <span className="font-medium text-foreground">{query}</span>
+					<Trans
+						t={t}
+						i18nKey="empty.noResults"
+						values={{ query }}
+						components={{
+							query: <span className="font-medium text-foreground" />,
+						}}
+					/>
 				</p>
 				<Button variant="ghost" size="sm" onClick={onClearSearch}>
-					Limpar busca
+					{t('empty.clearSearch')}
 				</Button>
 			</Wrapper>
 		);
@@ -60,10 +69,10 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 	// variant === 'error'
 	return (
 		<Wrapper>
-			<p className="text-sm font-medium text-destructive">Erro ao carregar abas</p>
-			<p className="text-xs text-muted-foreground">{error?.message ?? 'Erro desconhecido'}</p>
+			<p className="text-sm font-medium text-destructive">{t('empty.loadError')}</p>
+			<p className="text-xs text-muted-foreground">{error?.message ?? t('empty.unknownError')}</p>
 			<Button variant="outline" size="sm" onClick={onRetry}>
-				Tentar novamente
+				{t('empty.retry')}
 			</Button>
 		</Wrapper>
 	);

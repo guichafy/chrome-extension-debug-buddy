@@ -1,9 +1,9 @@
 import {
 	DEFAULT_LANGUAGE,
+	SUPPORTED_LANGUAGES,
 	isSupportedLanguage,
 	matchSupportedLanguage,
 	resolveLanguage,
-	SUPPORTED_LANGUAGES,
 } from '../languages';
 
 describe('matchSupportedLanguage', () => {
