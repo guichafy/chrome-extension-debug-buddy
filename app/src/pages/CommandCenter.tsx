@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { InterceptedResponse } from '@/types/intercepted';
@@ -33,6 +34,7 @@ const isActionType = (value: string | null): value is ActionType =>
 	value !== null && VALID_RULE_TYPES.has(value as ActionType);
 
 const CommandCenter: React.FC = () => {
+	const { t } = useTranslation(['commandCenter', 'common']);
 	const navigate = useNavigate();
 	const [searchParams, setSearchParams] = useSearchParams();
 
@@ -198,7 +200,7 @@ const CommandCenter: React.FC = () => {
 			closeCreateRule();
 			return true;
 		}
-		setCreateRuleError('Falha ao gravar a regra em chrome.storage.local.');
+		setCreateRuleError(t('page.createRuleSaveFailed'));
 		return false;
 	};
 
@@ -273,11 +275,13 @@ const CommandCenter: React.FC = () => {
 				<AlertDialog open onOpenChange={(o) => !o && closeCreateRule()}>
 					<AlertDialogContent>
 						<AlertDialogHeader>
-							<AlertDialogTitle>Não foi possível criar regra</AlertDialogTitle>
+							<AlertDialogTitle>{t('page.createRuleFailedTitle')}</AlertDialogTitle>
 							<AlertDialogDescription>{draftResult.error.message}</AlertDialogDescription>
 						</AlertDialogHeader>
 						<AlertDialogFooter>
-							<AlertDialogAction onClick={closeCreateRule}>Fechar</AlertDialogAction>
+							<AlertDialogAction onClick={closeCreateRule}>
+								{t('common:actions.close')}
+							</AlertDialogAction>
 						</AlertDialogFooter>
 					</AlertDialogContent>
 				</AlertDialog>
@@ -287,11 +291,13 @@ const CommandCenter: React.FC = () => {
 				<AlertDialog open onOpenChange={() => setCreateRuleError(null)}>
 					<AlertDialogContent>
 						<AlertDialogHeader>
-							<AlertDialogTitle>Erro ao salvar</AlertDialogTitle>
+							<AlertDialogTitle>{t('page.saveErrorTitle')}</AlertDialogTitle>
 							<AlertDialogDescription>{createRuleError}</AlertDialogDescription>
 						</AlertDialogHeader>
 						<AlertDialogFooter>
-							<AlertDialogAction onClick={() => setCreateRuleError(null)}>OK</AlertDialogAction>
+							<AlertDialogAction onClick={() => setCreateRuleError(null)}>
+								{t('page.ok')}
+							</AlertDialogAction>
 						</AlertDialogFooter>
 					</AlertDialogContent>
 				</AlertDialog>
@@ -313,15 +319,13 @@ const CommandCenter: React.FC = () => {
 			<AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Limpar histórico de requisições</AlertDialogTitle>
-						<AlertDialogDescription>
-							Esta ação remove todas as requisições. Não pode ser desfeita.
-						</AlertDialogDescription>
+						<AlertDialogTitle>{t('page.clearHistoryTitle')}</AlertDialogTitle>
+						<AlertDialogDescription>{t('page.clearHistoryDescription')}</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel>Cancelar</AlertDialogCancel>
+						<AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
 						<AlertDialogAction onClick={handleClearHistory} className="bg-red-500 hover:bg-red-600">
-							Limpar histórico
+							{t('page.clearHistoryConfirm')}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

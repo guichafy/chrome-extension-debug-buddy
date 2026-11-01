@@ -64,61 +64,81 @@ export interface AppliedTypeBadgeMeta {
 // distingue visualmente de breakpoint (`octagon-alert`).
 const APPLIED_TYPE_BADGE_META: Record<AppliedType, AppliedTypeBadgeMeta> = {
 	proxy: {
-		label: APPLIED_TYPE_LABELS.proxy,
+		get label() {
+			return APPLIED_TYPE_LABELS.proxy;
+		},
 		iconName: 'arrow-right',
 		variant: 'outline',
 		colorClass: 'border-muted-foreground/30 text-muted-foreground',
 	},
 	mock: {
-		label: APPLIED_TYPE_LABELS.mock,
+		get label() {
+			return APPLIED_TYPE_LABELS.mock;
+		},
 		iconName: 'copy',
 		variant: 'secondary',
 		colorClass: 'bg-primary/10 border-primary/40 text-primary',
 	},
 	transform: {
-		label: APPLIED_TYPE_LABELS.transform,
+		get label() {
+			return APPLIED_TYPE_LABELS.transform;
+		},
 		iconName: 'file-edit',
 		variant: 'secondary',
 		colorClass: 'bg-info/10 border-info/40 text-info',
 	},
 	breakpoint: {
-		label: APPLIED_TYPE_LABELS.breakpoint,
+		get label() {
+			return APPLIED_TYPE_LABELS.breakpoint;
+		},
 		iconName: 'octagon-alert',
 		variant: 'secondary',
 		colorClass: 'bg-warning/10 border-warning/40 text-warning',
 	},
 	latency: {
-		label: APPLIED_TYPE_LABELS.latency,
+		get label() {
+			return APPLIED_TYPE_LABELS.latency;
+		},
 		iconName: 'timer',
 		variant: 'secondary',
 		colorClass: 'bg-warning/10 border-warning/40 text-warning',
 	},
 	block: {
-		label: APPLIED_TYPE_LABELS.block,
+		get label() {
+			return APPLIED_TYPE_LABELS.block;
+		},
 		iconName: 'x-circle',
 		variant: 'destructive',
 		colorClass: 'bg-destructive/10 border-destructive/40 text-destructive',
 	},
 	requestModify: {
-		label: APPLIED_TYPE_LABELS.requestModify,
+		get label() {
+			return APPLIED_TYPE_LABELS.requestModify;
+		},
 		iconName: 'edit',
 		variant: 'secondary',
 		colorClass: 'bg-info/10 border-info/40 text-info',
 	},
 	responseModify: {
-		label: APPLIED_TYPE_LABELS.responseModify,
+		get label() {
+			return APPLIED_TYPE_LABELS.responseModify;
+		},
 		iconName: 'edit',
 		variant: 'secondary',
 		colorClass: 'bg-info/10 border-info/40 text-info',
 	},
 	requestBreakpoint: {
-		label: APPLIED_TYPE_LABELS.requestBreakpoint,
+		get label() {
+			return APPLIED_TYPE_LABELS.requestBreakpoint;
+		},
 		iconName: 'octagon-alert',
 		variant: 'secondary',
 		colorClass: 'bg-warning/10 border-warning/40 text-warning',
 	},
 	responseBreakpoint: {
-		label: APPLIED_TYPE_LABELS.responseBreakpoint,
+		get label() {
+			return APPLIED_TYPE_LABELS.responseBreakpoint;
+		},
 		iconName: 'octagon-alert',
 		variant: 'secondary',
 		colorClass: 'bg-warning/10 border-warning/40 text-warning',

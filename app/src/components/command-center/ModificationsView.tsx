@@ -3,6 +3,7 @@
 // final do chain por stage. Quando nenhum dos dois está presente, renderiza
 // um estado vazio explicativo.
 
+import { Trans, useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { LucideIcon } from '@/components/ui/lucide-icon';
 import { cn } from '@/lib/utils';
@@ -18,6 +19,7 @@ interface ModificationsViewProps {
 }
 
 export function ModificationsView({ request }: ModificationsViewProps) {
+	const { t } = useTranslation('commandCenter');
 	const { requestModified, responseModified } = request;
 	const hasAny = Boolean(requestModified || responseModified);
 
@@ -27,10 +29,11 @@ export function ModificationsView({ request }: ModificationsViewProps) {
 				className="rounded-md border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground"
 				data-testid="modifications-empty"
 			>
-				Nenhuma modificação foi aplicada por uma regra nesta requisição. Se uma regra com ação{' '}
-				<code className="px-1 font-mono">requestModify</code> ou{' '}
-				<code className="px-1 font-mono">responseModify</code> casar, a comparação original ×
-				modificado aparece aqui.
+				<Trans
+					t={t}
+					i18nKey="modifications.empty"
+					components={{ code: <code className="px-1 font-mono" /> }}
+				/>
 			</div>
 		);
 	}
@@ -77,6 +80,7 @@ function RequestModSection({
 	original: OriginalRequest;
 	modification: RequestModificationSnapshot;
 }) {
+	const { t } = useTranslation('commandCenter');
 	const headerDiffs = modification.headers
 		? diffHeaderRecord(original.headers, modification.headers)
 		: [];
@@ -86,18 +90,29 @@ function RequestModSection({
 			className="rounded-md border bg-info/5 p-3"
 			data-testid="modifications-section-request"
 		>
-			<SectionHeader iconName="upload" label="Request modificado" tone="info" />
+			<SectionHeader iconName="upload" label={t('modifications.requestModified')} tone="info" />
 			<dl className="mt-3 space-y-2">
 				{modification.url !== undefined && (
-					<DiffRow label="URL" before={original.url} after={modification.url} />
+					<DiffRow
+						field="url"
+						label={t('modifications.url')}
+						before={original.url}
+						after={modification.url}
+					/>
 				)}
 				{modification.method !== undefined && (
-					<DiffRow label="Método" before={original.method} after={modification.method} />
+					<DiffRow
+						field="method"
+						label={t('modifications.method')}
+						before={original.method}
+						after={modification.method}
+					/>
 				)}
 				{headerDiffs.length > 0 && <HeadersDiff diffs={headerDiffs} />}
 				{modification.postData !== undefined && (
 					<DiffRow
-						label="Body"
+						field="body"
+						label={t('modifications.body')}
 						before={original.postData ?? ''}
 						after={modification.postData}
 						multiline
@@ -122,6 +137,7 @@ function ResponseModSection({
 	original: OriginalResponse;
 	modification: ResponseModificationSnapshot;
 }) {
+	const { t } = useTranslation('commandCenter');
 	const headerDiffs = modification.headers
 		? diffHeaderRecord(original.headers, modification.headers)
 		: [];
@@ -131,25 +147,37 @@ function ResponseModSection({
 			className="rounded-md border bg-success/5 p-3"
 			data-testid="modifications-section-response"
 		>
-			<SectionHeader iconName="download" label="Response modificado" tone="success" />
+			<SectionHeader
+				iconName="download"
+				label={t('modifications.responseModified')}
+				tone="success"
+			/>
 			<dl className="mt-3 space-y-2">
 				{modification.status !== undefined && (
 					<DiffRow
-						label="Status"
+						field="status"
+						label={t('modifications.status')}
 						before={String(original.status)}
 						after={String(modification.status)}
 					/>
 				)}
 				{modification.statusPhrase !== undefined && (
 					<DiffRow
-						label="Status text"
+						field="status-text"
+						label={t('modifications.statusText')}
 						before={original.statusPhrase}
 						after={modification.statusPhrase}
 					/>
 				)}
 				{headerDiffs.length > 0 && <HeadersDiff diffs={headerDiffs} />}
 				{modification.body !== undefined && (
-					<DiffRow label="Body" before={original.body ?? ''} after={modification.body} multiline />
+					<DiffRow
+						field="body"
+						label={t('modifications.body')}
+						before={original.body ?? ''}
+						after={modification.body}
+						multiline
+					/>
 				)}
 			</dl>
 		</section>
@@ -188,22 +216,36 @@ function DiffRow({
 	before,
 	after,
 	multiline = false,
+	field,
 }: {
 	label: string;
 	before: string;
 	after: string;
 	multiline?: boolean;
+	// Identificador estável do campo (independente do idioma) para o test id.
+	field: string;
 }) {
+	const { t } = useTranslation('commandCenter');
 	return (
 		<div
 			className="grid gap-1 rounded border bg-background p-2"
-			data-testid={`modifications-diff-${label.toLowerCase()}`}
+			data-testid={`modifications-diff-${field}`}
 		>
 			<div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
 				{label}
 			</div>
-			<DiffValue label="antes" value={before} kind="removed" multiline={multiline} />
-			<DiffValue label="depois" value={after} kind="added" multiline={multiline} />
+			<DiffValue
+				label={t('modifications.before')}
+				value={before}
+				kind="removed"
+				multiline={multiline}
+			/>
+			<DiffValue
+				label={t('modifications.after')}
+				value={after}
+				kind="added"
+				multiline={multiline}
+			/>
 		</div>
 	);
 }
@@ -246,12 +288,13 @@ function DiffValue({
 }
 
 function HeadersDiff({ diffs }: { diffs: HeaderDiff[] }) {
+	const { t } = useTranslation('commandCenter');
 	const meaningful = diffs.filter((d) => d.kind !== 'unchanged');
 	if (meaningful.length === 0) return null;
 	return (
 		<div className="rounded border bg-background p-2" data-testid="modifications-diff-headers">
 			<div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-				Headers
+				{t('modifications.headers')}
 			</div>
 			<ul className="mt-1 space-y-1">
 				{meaningful.map((diff) => (

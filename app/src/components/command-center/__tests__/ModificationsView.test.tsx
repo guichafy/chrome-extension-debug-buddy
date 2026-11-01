@@ -51,7 +51,7 @@ describe('ModificationsView', () => {
 		expect(urlRow).toHaveTextContent('https://api.test/v2/users');
 
 		// Método diff
-		const methodRow = within(section).getByTestId('modifications-diff-método');
+		const methodRow = within(section).getByTestId('modifications-diff-method');
 		expect(methodRow).toHaveTextContent('GET');
 		expect(methodRow).toHaveTextContent('POST');
 

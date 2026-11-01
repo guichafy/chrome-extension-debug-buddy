@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
 	ColumnDef,
 	ColumnFiltersState,
@@ -21,6 +22,7 @@ import {
 	TableHeader,
 	TableRow,
 } from '@/components/ui/table';
+import { getRequestTableLabels } from './tableLabels';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,6 +56,12 @@ export function DataTable<TData extends { id: string }, TValue>({
 	filterSlot,
 	pendingRowIds,
 }: DataTableProps<TData, TValue>) {
+	// useTranslation re-renderiza a tabela (e as cells, que leem
+	// getRequestTableLabels) quando o idioma muda.
+	const { t } = useTranslation('commandCenter');
+	const columnLabels = getRequestTableLabels().columns;
+	const columnLabel = (id: string): string =>
+		id in columnLabels ? columnLabels[id as keyof typeof columnLabels] : id;
 	// Estados para a tabela
 	const [sorting, setSorting] = React.useState<SortingState>([
 		{ id: 'timestamp', desc: true }, // Ordenar por timestamp decrescente por padrão
@@ -138,13 +146,13 @@ export function DataTable<TData extends { id: string }, TValue>({
 							className="text-xs bg-red-500/10 border-red-500/30 text-red-300 hover:bg-red-500/20"
 						>
 							<LucideIcon name="trash" className="h-4 w-4 mr-1" />
-							Limpar Histórico
+							{t('table.clearHistory')}
 						</Button>
 					)}
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
 							<Button variant="outline" className="ml-auto">
-								Colunas
+								{t('table.columnsMenu')}
 							</Button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end">
@@ -159,27 +167,7 @@ export function DataTable<TData extends { id: string }, TValue>({
 											checked={column.getIsVisible()}
 											onCheckedChange={(value) => column.toggleVisibility(!!value)}
 										>
-											{column.id === 'url'
-												? 'URL'
-												: column.id === 'method'
-													? 'Método'
-													: column.id === 'tipo'
-														? 'Tipo'
-														: column.id === 'statusCode'
-															? 'Status Code'
-															: column.id === 'requestType'
-																? 'Request Type'
-																: column.id === 'mimeType'
-																	? 'MIME Type'
-																	: column.id === 'timestamp'
-																		? 'Horário'
-																		: column.id === 'duration'
-																			? 'Tempo'
-																			: column.id === 'transferSize'
-																				? 'Tamanho'
-																				: column.id === 'actions'
-																					? 'Ações'
-																					: column.id}
+											{columnLabel(column.id)}
 										</DropdownMenuCheckboxItem>
 									);
 								})}
@@ -248,7 +236,7 @@ export function DataTable<TData extends { id: string }, TValue>({
 						) : (
 							<TableRow>
 								<TableCell colSpan={columns.length} className="h-24 text-center">
-									Nenhuma requisição encontrada
+									{t('table.noResults')}
 								</TableCell>
 							</TableRow>
 						)}
@@ -257,11 +245,11 @@ export function DataTable<TData extends { id: string }, TValue>({
 			</div>
 			<div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-2 flex-shrink-0">
 				<div className="flex-1 text-sm text-muted-foreground">
-					{table.getFilteredRowModel().rows.length} requisição(ões) encontrada(s).
+					{t('table.resultsCount', { count: table.getFilteredRowModel().rows.length })}
 				</div>
 				<div className="flex flex-wrap items-center justify-end gap-4 sm:gap-6">
 					<div className="flex items-center space-x-2">
-						<p className="text-sm font-medium">Linhas por página</p>
+						<p className="text-sm font-medium">{t('table.rowsPerPage')}</p>
 						<select
 							className="h-8 w-16 rounded-md border border-input bg-background px-2"
 							value={table.getState().pagination.pageSize}
@@ -277,7 +265,7 @@ export function DataTable<TData extends { id: string }, TValue>({
 						</select>
 					</div>
 					<div className="flex items-center space-x-2">
-						<span className="text-sm font-medium">Página</span>
+						<span className="text-sm font-medium">{t('table.page')}</span>
 						<Input
 							className="h-8 w-16 text-center"
 							type="number"
@@ -291,7 +279,9 @@ export function DataTable<TData extends { id: string }, TValue>({
 								}
 							}}
 						/>
-						<span className="text-sm font-medium">de {table.getPageCount()}</span>
+						<span className="text-sm font-medium">
+							{t('table.pageOf', { total: table.getPageCount() })}
+						</span>
 					</div>
 					<div className="flex items-center space-x-2">
 						<Button
@@ -300,7 +290,7 @@ export function DataTable<TData extends { id: string }, TValue>({
 							onClick={() => table.setPageIndex(0)}
 							disabled={!table.getCanPreviousPage()}
 							className="h-8 w-8 p-0"
-							aria-label="Ir para primeira página"
+							aria-label={t('table.firstPage')}
 						>
 							<LucideIcon name="chevrons-left" className="h-4 w-4" />
 						</Button>
@@ -310,7 +300,7 @@ export function DataTable<TData extends { id: string }, TValue>({
 							onClick={() => table.previousPage()}
 							disabled={!table.getCanPreviousPage()}
 							className="h-8 w-8 p-0"
-							aria-label="Ir para página anterior"
+							aria-label={t('table.previousPage')}
 						>
 							<LucideIcon name="chevron-left" className="h-4 w-4" />
 						</Button>
@@ -363,7 +353,7 @@ export function DataTable<TData extends { id: string }, TValue>({
 							onClick={() => table.nextPage()}
 							disabled={!table.getCanNextPage()}
 							className="h-8 w-8 p-0"
-							aria-label="Ir para próxima página"
+							aria-label={t('table.nextPage')}
 						>
 							<LucideIcon name="chevron-right" className="h-4 w-4" />
 						</Button>
@@ -373,7 +363,7 @@ export function DataTable<TData extends { id: string }, TValue>({
 							onClick={() => table.setPageIndex(table.getPageCount() - 1)}
 							disabled={!table.getCanNextPage()}
 							className="h-8 w-8 p-0"
-							aria-label="Ir para última página"
+							aria-label={t('table.lastPage')}
 						>
 							<LucideIcon name="chevrons-right" className="h-4 w-4" />
 						</Button>
