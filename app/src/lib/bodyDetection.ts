@@ -1,3 +1,6 @@
+// Limita parsing e destaque síncronos no inspector; bodies maiores usam blocos de texto.
+export const BODY_FORMAT_LIMIT = 32 * 1024;
+
 export type BodyKind =
 	| { kind: 'empty'; reason?: string }
 	| { kind: 'image'; mimeType: string }
@@ -95,13 +98,24 @@ export function detectBodyKind(
 	if (normalizedMime && JS_TYPES.has(normalizedMime)) {
 		return { kind: 'javascript' };
 	}
-	if (normalizedMime && JSON_TYPES.has(normalizedMime)) {
+	if (normalizedMime && (JSON_TYPES.has(normalizedMime) || normalizedMime.endsWith('+json'))) {
 		return { kind: 'json' };
+	}
+	if (normalizedMime?.startsWith('text/')) {
+		return { kind: 'plain', mimeType: normalizedMime };
 	}
 
 	// Sem MIME explícito: detecta JSON por heurística
-	const trimmed = body.trim();
-	if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+	const trimmed = body.length <= BODY_FORMAT_LIMIT ? body.trim() : undefined;
+	// Sem MIME, não afirmamos validade de JSON grande nem executamos o parse
+	// completo. Preservamos a representação textual (inclusive Unicode).
+	if (trimmed === undefined) {
+		const beginning = body.trimStart();
+		if (beginning.startsWith('{') || beginning.startsWith('[')) {
+			return { kind: 'plain', mimeType: normalizedMime };
+		}
+	}
+	if (trimmed !== undefined && (trimmed.startsWith('{') || trimmed.startsWith('['))) {
 		try {
 			JSON.parse(trimmed);
 			return { kind: 'json' };

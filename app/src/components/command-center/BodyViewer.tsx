@@ -1,9 +1,14 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { LucideIcon } from '@/components/ui/lucide-icon';
 import { cn } from '@/lib/utils';
-import { detectBodyKind, formatByteSize, type BodyKind } from '@/lib/bodyDetection';
+import {
+	detectBodyKind,
+	formatByteSize,
+	BODY_FORMAT_LIMIT,
+	type BodyKind,
+} from '@/lib/bodyDetection';
 
 interface BodyViewerProps {
 	body: string | undefined;
@@ -20,14 +25,6 @@ function bodyToBlob(body: string, mimeType: string): Blob {
 	const bytes = new Uint8Array(body.length);
 	for (let i = 0; i < body.length; i++) bytes[i] = body.charCodeAt(i) & 0xff;
 	return new Blob([bytes], { type: mimeType });
-}
-
-function tryPrettyJson(body: string): string {
-	try {
-		return JSON.stringify(JSON.parse(body), null, 2);
-	} catch {
-		return body;
-	}
 }
 
 function highlightJson(json: string): string {
@@ -51,7 +48,7 @@ function highlightJson(json: string): string {
 		);
 }
 
-export function BodyViewer({
+export const BodyViewer = React.memo(function BodyViewer({
 	body,
 	mimeType,
 	bodyUnavailableReason,
@@ -64,16 +61,7 @@ export function BodyViewer({
 	);
 
 	const [htmlMode, setHtmlMode] = useState<'preview' | 'source'>('preview');
-	const blobUrlRef = useRef<string | null>(null);
-
-	useEffect(() => {
-		return () => {
-			if (blobUrlRef.current) {
-				URL.revokeObjectURL(blobUrlRef.current);
-				blobUrlRef.current = null;
-			}
-		};
-	}, []);
+	const [copyError, setCopyError] = useState<string | null>(null);
 
 	const totalBytes = body?.length ?? 0;
 	const showSize = body !== undefined && body !== '';
@@ -82,15 +70,19 @@ export function BodyViewer({
 		if (body === undefined) return;
 		try {
 			await navigator.clipboard.writeText(body);
+			setCopyError(null);
 		} catch (err) {
-			console.error('Falha ao copiar body:', err);
+			setCopyError(`Falha ao copiar body: ${err instanceof Error ? err.message : String(err)}`);
 		}
 	};
 
 	const handleDownload = () => {
 		if (body === undefined) return;
 		const inferredMime = mimeType ?? 'application/octet-stream';
-		const blob = bodyToBlob(body, inferredMime);
+		const blob =
+			kind.kind === 'binary' || kind.kind === 'image'
+				? bodyToBlob(body, inferredMime)
+				: new Blob([body], { type: inferredMime });
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
@@ -123,7 +115,7 @@ export function BodyViewer({
 					</Badge>
 				)}
 				<div className="ml-auto flex items-center gap-1">
-					{kind.kind === 'html' && (
+					{kind.kind === 'html' && body !== undefined && body.length <= BODY_FORMAT_LIMIT && (
 						<Button
 							type="button"
 							size="sm"
@@ -167,21 +159,28 @@ export function BodyViewer({
 				</div>
 			</div>
 
+			{copyError && (
+				<p role="alert" className="p-3 text-xs text-destructive">
+					{copyError}
+				</p>
+			)}
 			{/* Conteúdo */}
 			<div className={cn('min-w-0 overflow-auto', containerHeight)}>
-				{renderBody(kind, body, mimeType, htmlMode, blobUrlRef)}
+				<BodyContent kind={kind} body={body} htmlMode={htmlMode} />
 			</div>
 		</div>
 	);
-}
+});
 
-function renderBody(
-	kind: BodyKind,
-	body: string | undefined,
-	mimeType: string | undefined,
-	htmlMode: 'preview' | 'source',
-	blobUrlRef: React.MutableRefObject<string | null>,
-) {
+const BodyContent = React.memo(function BodyContent({
+	kind,
+	body,
+	htmlMode,
+}: {
+	kind: BodyKind;
+	body: string | undefined;
+	htmlMode: 'preview' | 'source';
+}) {
 	if (kind.kind === 'empty') {
 		return <div className="p-4 text-xs text-muted-foreground">{kind.reason ?? 'Body vazio.'}</div>;
 	}
@@ -189,39 +188,15 @@ function renderBody(
 	if (body === undefined) return null;
 
 	if (kind.kind === 'image') {
-		if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
-		const blob = bodyToBlob(body, kind.mimeType);
-		const url = URL.createObjectURL(blob);
-		blobUrlRef.current = url;
-		return (
-			<div
-				className="flex min-h-[180px] items-center justify-center p-4"
-				style={{
-					backgroundImage:
-						'linear-gradient(45deg, hsl(var(--muted)) 25%, transparent 25%), linear-gradient(-45deg, hsl(var(--muted)) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(var(--muted)) 75%), linear-gradient(-45deg, transparent 75%, hsl(var(--muted)) 75%)',
-					backgroundSize: '16px 16px',
-					backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0',
-				}}
-			>
-				<img
-					src={url}
-					alt="Response body preview"
-					className="max-h-[360px] max-w-full object-contain"
-				/>
-			</div>
-		);
+		return <BodyImage body={body} mimeType={kind.mimeType} />;
+	}
+
+	if (kind.kind !== 'binary' && body.length > BODY_FORMAT_LIMIT) {
+		return <PagedBody body={body} />;
 	}
 
 	if (kind.kind === 'json') {
-		const pretty = tryPrettyJson(body);
-		const html = highlightJson(pretty);
-		return (
-			<pre
-				className="min-w-0 whitespace-pre-wrap break-all p-3 font-mono text-xs leading-relaxed"
-				// biome-ignore lint/security/noDangerouslySetInnerHtml: JSON é escapado em highlightJson antes de aplicar spans
-				dangerouslySetInnerHTML={{ __html: html }}
-			/>
-		);
+		return <JsonBody body={body} />;
 	}
 
 	if (kind.kind === 'html') {
@@ -259,5 +234,98 @@ function renderBody(
 		<pre className="min-w-0 whitespace-pre-wrap break-all p-3 font-mono text-xs leading-relaxed">
 			{body}
 		</pre>
+	);
+});
+
+function JsonBody({ body }: { body: string }) {
+	const formatted = useMemo(() => {
+		try {
+			return { html: highlightJson(JSON.stringify(JSON.parse(body), null, 2)) };
+		} catch (error) {
+			return { error: `JSON inválido: ${error instanceof Error ? error.message : String(error)}` };
+		}
+	}, [body]);
+	if (formatted.error !== undefined) {
+		return (
+			<>
+				<p role="alert" className="p-3 text-xs text-destructive">
+					{formatted.error}
+				</p>
+				<pre className="whitespace-pre-wrap break-all p-3 text-xs">{body}</pre>
+			</>
+		);
+	}
+	return (
+		<pre
+			className="min-w-0 whitespace-pre-wrap break-all p-3 font-mono text-xs leading-relaxed"
+			// biome-ignore lint/security/noDangerouslySetInnerHtml: JSON escapado antes de aplicar spans
+			dangerouslySetInnerHTML={{ __html: formatted.html }}
+		/>
+	);
+}
+
+// Limite em unidades UTF-16, como os offsets de String.slice. O texto completo
+// continua disponível por blocos, Copiar e Download, sem alterar a captura.
+const BODY_BLOCK_SIZE = 16_384;
+function PagedBody({ body }: { body: string }) {
+	const [position, setPosition] = useState({ body, page: 0 });
+	if (position.body !== body) setPosition({ body, page: 0 });
+	const page = position.body === body ? position.page : 0;
+	const count = Math.ceil(body.length / BODY_BLOCK_SIZE);
+	return (
+		<div>
+			<p className="px-3 pt-3 text-xs text-muted-foreground">
+				Body grande: visualização em blocos, sem formatação ou validação. Copiar e Download
+				preservam o conteúdo completo.
+			</p>
+			<div className="flex items-center gap-2 p-3 text-xs">
+				<Button
+					type="button"
+					size="sm"
+					variant="outline"
+					aria-label="Bloco anterior do body"
+					disabled={page === 0}
+					onClick={() => setPosition({ body, page: page - 1 })}
+				>
+					Anterior
+				</Button>
+				<span aria-live="polite">
+					Bloco {page + 1} de {count}
+				</span>
+				<Button
+					type="button"
+					size="sm"
+					variant="outline"
+					aria-label="Próximo bloco do body"
+					disabled={page + 1 === count}
+					onClick={() => setPosition({ body, page: page + 1 })}
+				>
+					Próximo
+				</Button>
+			</div>
+			<pre className="min-w-0 whitespace-pre-wrap break-all p-3 font-mono text-xs leading-relaxed">
+				{body.slice(page * BODY_BLOCK_SIZE, (page + 1) * BODY_BLOCK_SIZE)}
+			</pre>
+		</div>
+	);
+}
+
+function BodyImage({ body, mimeType }: { body: string; mimeType: string }) {
+	const [url, setUrl] = useState<string | null>(null);
+	useEffect(() => {
+		const next = URL.createObjectURL(bodyToBlob(body, mimeType));
+		setUrl(next);
+		return () => URL.revokeObjectURL(next);
+	}, [body, mimeType]);
+	return (
+		<div className="flex min-h-[180px] items-center justify-center p-4">
+			{url && (
+				<img
+					src={url}
+					alt="Response body preview"
+					className="max-h-[360px] max-w-full object-contain"
+				/>
+			)}
+		</div>
 	);
 }

@@ -9,6 +9,148 @@ describe('recorder debounce flush', () => {
 	afterEach(() => {
 		// Garante que cleanup com timers reais — fake-indexeddb usa timers internos.
 		vi.useRealTimers();
+		vi.restoreAllMocks();
+	});
+
+	test('persiste checkpoints mesmo quando eventos chegam a cada 100ms', async () => {
+		const id = await recorder.startSession({
+			tabId: 8,
+			initialUrl: 'https://x',
+			userAgent: 'test',
+			viewportSize: { w: 800, h: 600 },
+			canvasCaptureEnabled: false,
+		});
+		const put = vi.spyOn(sessionStore, 'put').mockResolvedValue(undefined);
+		vi.useFakeTimers();
+		for (let i = 0; i < 30; i++) {
+			await recorder.addEvent(id, {
+				type: 'console',
+				timestamp: Date.now(),
+				phaseId: `bootstrap-${id}`,
+				source: 'app',
+				level: 'log',
+				args: [{ type: 'string', description: `evento-${i}` }],
+			});
+			await vi.advanceTimersByTimeAsync(100);
+		}
+		expect(put.mock.calls.length).toBeGreaterThanOrEqual(3);
+		expect(put.mock.calls.length).toBeLessThanOrEqual(4);
+		put.mockRestore();
+	});
+
+	test('flush explícito propaga falha de persistência', async () => {
+		const id = await recorder.startSession({
+			tabId: 9,
+			initialUrl: 'https://x',
+			userAgent: 'test',
+			viewportSize: { w: 800, h: 600 },
+			canvasCaptureEnabled: false,
+		});
+		const error = new Error('disco indisponível');
+		const put = vi.spyOn(sessionStore, 'put').mockRejectedValueOnce(error);
+		await expect(recorder._flushForTests(id)).rejects.toThrow(error);
+		put.mockRestore();
+	});
+
+	test.each(['manual', 'limite'])(
+		'permite repetir encerramento após falha de persistência: %s',
+		async (mode) => {
+			const id = await recorder.startSession({
+				tabId: 12,
+				initialUrl: 'https://x',
+				userAgent: 'test',
+				viewportSize: { w: 800, h: 600 },
+				canvasCaptureEnabled: false,
+			});
+			const error = new Error('QuotaExceededError');
+			vi.spyOn(sessionStore, 'put').mockRejectedValueOnce(error);
+			if (mode === 'limite') {
+				recorder._setLimitsForTests({ sizeBytes: 1, durationMs: 600_000 });
+				await expect(
+					recorder.addEvent(id, {
+						type: 'console',
+						timestamp: Date.now(),
+						phaseId: `bootstrap-${id}`,
+						source: 'app',
+						level: 'log',
+						args: [{ type: 'string', description: 'evento preservado' }],
+					}),
+				).rejects.toThrow(error);
+			} else {
+				await expect(recorder.stopSession(id)).rejects.toThrow(error);
+			}
+			await recorder.stopSession(id);
+			const durable = await sessionStore.get(id);
+			expect(durable!.endedAt).not.toBeNull();
+			if (mode === 'limite') expect(durable!.events).toHaveLength(1);
+		},
+	);
+
+	test('eventos sucessivos renovam debounce sem duplicar o checkpoint máximo', async () => {
+		const id = await recorder.startSession({
+			tabId: 10,
+			initialUrl: 'https://x',
+			userAgent: 'test',
+			viewportSize: { w: 800, h: 600 },
+			canvasCaptureEnabled: false,
+		});
+		const put = vi.spyOn(sessionStore, 'put').mockResolvedValue(undefined);
+		vi.useFakeTimers();
+		for (let i = 0; i < 2; i++) {
+			await recorder.addEvent(id, {
+				type: 'console',
+				timestamp: Date.now(),
+				phaseId: `bootstrap-${id}`,
+				source: 'app',
+				level: 'log',
+				args: [{ type: 'string', description: `evento-${i}` }],
+			});
+			await vi.advanceTimersByTimeAsync(100);
+		}
+		expect(put).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(100);
+		expect(put).toHaveBeenCalledTimes(1);
+		await vi.advanceTimersByTimeAsync(1000);
+		expect(put).toHaveBeenCalledTimes(1);
+	});
+
+	test('aguarda checkpoint em voo antes do flush final sem sobrescrever sessão encerrada', async () => {
+		const id = await recorder.startSession({
+			tabId: 11,
+			initialUrl: 'https://x',
+			userAgent: 'test',
+			viewportSize: { w: 800, h: 600 },
+			canvasCaptureEnabled: false,
+		});
+		let release!: () => void;
+		const checkpoint = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const snapshots: Array<number | null> = [];
+		const put = vi.spyOn(sessionStore, 'put').mockImplementation(async (session) => {
+			snapshots.push(session.endedAt);
+			if (snapshots.length === 1) await checkpoint;
+		});
+		vi.useFakeTimers();
+		await recorder.addEvent(id, {
+			type: 'console',
+			timestamp: Date.now(),
+			phaseId: `bootstrap-${id}`,
+			source: 'app',
+			level: 'log',
+			args: [{ type: 'string', description: 'evento' }],
+		});
+		await vi.advanceTimersByTimeAsync(200);
+		const stop = recorder.stopSession(id);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(put).toHaveBeenCalledTimes(1);
+		release();
+		await stop;
+		expect(snapshots).toHaveLength(2);
+		expect(snapshots[0]).toBeNull();
+		expect(snapshots[1]).toBeTypeOf('number');
+		await vi.advanceTimersByTimeAsync(1000);
+		expect(put).toHaveBeenCalledTimes(2);
 	});
 
 	test('addEvent não escreve em IDB sincronicamente — só agenda flush', async () => {

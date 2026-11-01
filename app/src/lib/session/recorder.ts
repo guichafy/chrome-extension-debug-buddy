@@ -88,40 +88,50 @@ function serializeBySessionId<T>(sessionId: string, fn: () => Promise<T>): Promi
  * Sessões grandes (eventos acumulados) custam ~500KB de JSON.parse por get.
  * Cache é populado no primeiro get e mantido até `stopSession` ou flush final.
  *
- * Combinado com `pendingFlushes` (debounce dos puts), reduz write amplification
- * de O(N²) (cada event reescreve sessão crescendo) pra O(N) amortizado.
+ * O debounce agrupa puts, com checkpoint máximo de 1s sob tráfego contínuo.
+ * Cada put ainda grava a sessão inteira; os budgets integrados medem essa amplificação.
  */
 const sessionCache = new Map<string, Session>();
 
 const FLUSH_DEBOUNCE_MS = 200;
+const FLUSH_MAX_WAIT_MS = 1000;
 const pendingFlushes = new Map<string, ReturnType<typeof setTimeout>>();
+const checkpointTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function cancelScheduledFlush(sessionId: string): void {
+	const debounce = pendingFlushes.get(sessionId);
+	if (debounce !== undefined) clearTimeout(debounce);
+	pendingFlushes.delete(sessionId);
+	const checkpoint = checkpointTimers.get(sessionId);
+	if (checkpoint !== undefined) clearTimeout(checkpoint);
+	checkpointTimers.delete(sessionId);
+}
 
 function scheduleFlush(sessionId: string): void {
 	const existing = pendingFlushes.get(sessionId);
-	if (existing) clearTimeout(existing);
-	const timer = setTimeout(() => {
-		void flushSession(sessionId);
-	}, FLUSH_DEBOUNCE_MS);
-	pendingFlushes.set(sessionId, timer);
+	if (existing !== undefined) clearTimeout(existing);
+	const flush = () => {
+		cancelScheduledFlush(sessionId);
+		// A mesma fila das mutações impede que um checkpoint antigo sobrescreva
+		// o flush final. Não há writes concorrentes para a mesma sessão.
+		void serializeBySessionId(sessionId, () => flushSession(sessionId)).catch((error) => {
+			console.error(`[session] flush put falhou para ${sessionId}:`, error);
+		});
+	};
+	pendingFlushes.set(sessionId, setTimeout(flush, FLUSH_DEBOUNCE_MS));
+	if (!checkpointTimers.has(sessionId)) {
+		checkpointTimers.set(sessionId, setTimeout(flush, FLUSH_MAX_WAIT_MS));
+	}
 }
 
 async function flushSession(sessionId: string): Promise<void> {
-	pendingFlushes.delete(sessionId);
 	const cached = sessionCache.get(sessionId);
 	if (!cached) return;
-	try {
-		await sessionStore.put(cached);
-	} catch (err) {
-		console.error('[session] flush put falhou:', err);
-	}
+	await sessionStore.put(cached);
 }
 
 async function flushAndForget(sessionId: string): Promise<void> {
-	const existing = pendingFlushes.get(sessionId);
-	if (existing) {
-		clearTimeout(existing);
-		pendingFlushes.delete(sessionId);
-	}
+	cancelScheduledFlush(sessionId);
 	await flushSession(sessionId);
 }
 
@@ -163,6 +173,7 @@ async function autoStop(
 	reason: 'size' | 'time',
 	r: SessionRuntime,
 ): Promise<void> {
+	const previousTelemetry = session.telemetry;
 	session.endedAt = Date.now();
 	session.telemetry = {
 		hitHardLimit: true,
@@ -176,7 +187,15 @@ async function autoStop(
 	// `session` é o mesmo objeto referenciado pelo cache (getCachedOrLoad retorna
 	// a mesma referência), então flushAndForget já persiste todas as mutações
 	// acima. Não precisamos de put redundante.
-	await flushAndForget(session.id);
+	try {
+		await flushAndForget(session.id);
+	} catch (error) {
+		// O encerramento só se torna definitivo depois do commit. Mantém todos
+		// os eventos no cache para permitir nova tentativa explícita de stop.
+		session.endedAt = null;
+		session.telemetry = previousTelemetry;
+		throw error;
+	}
 	sessionCache.delete(session.id);
 	runtime.delete(session.id);
 }
@@ -239,11 +258,7 @@ export const recorder = {
 	stopSession(id: string): Promise<void> {
 		return serializeBySessionId(id, async () => {
 			// Cancela qualquer flush pendente — vamos consolidar em put síncrono final.
-			const pendingTimer = pendingFlushes.get(id);
-			if (pendingTimer) {
-				clearTimeout(pendingTimer);
-				pendingFlushes.delete(id);
-			}
+			cancelScheduledFlush(id);
 			const s = await getCachedOrLoad(id);
 			if (!s) throw new Error(`Session ${id} não encontrada`);
 			// Idempotente por design: background pode chamar stopSession em tab close
@@ -260,10 +275,15 @@ export const recorder = {
 			} catch (err) {
 				console.warn('[session] stopSession: falha ao ler privacyConfig:', err);
 			}
-			runtime.delete(id);
 			// Put síncrono final é a última oportunidade de persistir — cache descartado
 			// depois pra próximos reads sempre lerem do IDB (evita stale).
-			await sessionStore.put(s);
+			try {
+				await sessionStore.put(s);
+			} catch (error) {
+				s.endedAt = null;
+				throw error;
+			}
+			runtime.delete(id);
 			sessionCache.delete(id);
 		});
 	},
@@ -424,8 +444,8 @@ export const recorder = {
 
 	_resetEnginesForTests(): void {
 		sessionCache.clear();
-		for (const t of pendingFlushes.values()) clearTimeout(t);
-		pendingFlushes.clear();
+		for (const id of pendingFlushes.keys()) cancelScheduledFlush(id);
+		for (const id of checkpointTimers.keys()) cancelScheduledFlush(id);
 	},
 
 	async _flushForTests(sessionId: string): Promise<void> {
@@ -460,7 +480,7 @@ export const recorder = {
 		runtime.clear();
 		mutationChain.clear();
 		sessionCache.clear();
-		for (const t of pendingFlushes.values()) clearTimeout(t);
-		pendingFlushes.clear();
+		for (const id of pendingFlushes.keys()) cancelScheduledFlush(id);
+		for (const id of checkpointTimers.keys()) cancelScheduledFlush(id);
 	},
 };

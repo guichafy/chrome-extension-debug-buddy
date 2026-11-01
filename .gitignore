@@ -76,3 +76,7 @@ app/playwright-report/
 app/test-results/
 app/.playwright/
 app/e2e/evidence/
+
+# Performance Playwright (métricas e traces via artifacts de CI)
+app/performance-results/
+app/performance-report/

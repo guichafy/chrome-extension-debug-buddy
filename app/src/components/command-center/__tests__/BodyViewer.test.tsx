@@ -16,6 +16,69 @@ afterEach(() => {
 });
 
 describe('BodyViewer', () => {
+	test('respeita MIME textual para Unicode sem trocar o conteúdo por hex dump', () => {
+		render(<BodyViewer body="ação ação ação" mimeType="text/plain" />);
+		expect(document.querySelector('pre')!.textContent).toBe('ação ação ação');
+	});
+	test('limita DOM de JSON grande e mantém acesso a todos os blocos e cópia integral', async () => {
+		const body = JSON.stringify({ value: 'a'.repeat(100_000), end: 'fim-do-body' });
+		const writeText = vi.fn().mockResolvedValue(undefined);
+		Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+		render(<BodyViewer body={body} mimeType="application/json" />);
+		expect(document.querySelector('pre')!.textContent!.length).toBeLessThanOrEqual(16_384);
+		expect(screen.getByText(/sem formatação ou validação/i)).toBeInTheDocument();
+		const parts = [document.querySelector('pre')!.textContent];
+		const next = screen.getByRole('button', { name: 'Próximo bloco do body' });
+		while (!next.hasAttribute('disabled')) {
+			fireEvent.click(next);
+			parts.push(document.querySelector('pre')!.textContent);
+		}
+		expect(parts.join('')).toBe(body);
+		fireEvent.click(screen.getByRole('button', { name: 'Copiar body' }));
+		expect(writeText).toHaveBeenCalledWith(body);
+	});
+
+	test('não reprocessa JSON inalterado quando o pai renderiza', () => {
+		const body = '{"performance-test":true}';
+		const parse = vi.spyOn(JSON, 'parse');
+		const view = render(<BodyViewer body={body} mimeType="application/json" />);
+		const calls = () => parse.mock.calls.filter(([input]) => input === body).length;
+		const initial = calls();
+		view.rerender(<BodyViewer body={body} mimeType="application/json" />);
+		expect(calls()).toBe(initial);
+		parse.mockRestore();
+	});
+
+	test('mostra erro de JSON inválido com MIME explícito e preserva texto original', () => {
+		render(<BodyViewer body={'{"invalido":'} mimeType="application/json" />);
+		expect(screen.getByRole('alert')).toHaveTextContent('JSON inválido');
+		expect(document.querySelector('pre')).toHaveTextContent('{"invalido":');
+	});
+
+	test('não faz parse completo de body grande sem MIME', () => {
+		const body = JSON.stringify({ data: '漢'.repeat(100_000) });
+		const parse = vi.spyOn(JSON, 'parse');
+		render(<BodyViewer body={body} />);
+		expect(parse.mock.calls.filter(([input]) => input === body)).toHaveLength(0);
+		expect(document.querySelector('pre')!.textContent).toBe(body.slice(0, 16_384));
+		parse.mockRestore();
+	});
+
+	test('reinicia paginação ao trocar o body e limita HTML grande sem montar iframe', () => {
+		const body = '<p>conteúdo</p>'.repeat(5000);
+		const view = render(<BodyViewer body={body} mimeType="text/html" />);
+		expect(document.querySelector('iframe')).toBeNull();
+		fireEvent.click(screen.getByRole('button', { name: 'Próximo bloco do body' }));
+		view.rerender(<BodyViewer body={'início' + 'x'.repeat(40_000)} mimeType="text/plain" />);
+		expect(document.querySelector('pre')!.textContent!.startsWith('início')).toBe(true);
+	});
+
+	test('revoga URL da imagem quando body muda para texto', () => {
+		const view = render(<BodyViewer body="\u0089PNG" mimeType="image/png" />);
+		view.rerender(<BodyViewer body="texto" mimeType="text/plain" />);
+		expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock-url');
+	});
+
 	test('mostra "Body vazio." quando body é undefined', () => {
 		render(<BodyViewer body={undefined} />);
 		expect(screen.getByText('Body vazio.')).toBeInTheDocument();
