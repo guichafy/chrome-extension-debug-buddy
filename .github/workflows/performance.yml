@@ -1,0 +1,84 @@
+name: Performance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - '.github/workflows/performance.yml'
+      - 'docs/performance.md'
+  schedule:
+    # Segunda-feira às 06:30 UTC: cenários curtos e soak real.
+    - cron: '30 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      soak:
+        description: 'Incluir gravações reais de 10min, 30min e limite de 50MiB'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: performance-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  performance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    defaults:
+      run:
+        working-directory: app
+    env:
+      CI: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Instalar Chromium e dependências do sistema
+        run: npx playwright install --with-deps chromium
+
+      - name: Instalar Xvfb
+        run: sudo apt-get install -y xvfb
+
+      - name: Compilar extensão de produção
+        run: npm run build
+
+      - name: Verificar tipos do harness de performance
+        run: npm run typecheck:performance
+
+      - name: Registrar ambiente do runner
+        run: |
+          node --input-type=module -e "import os from 'node:os'; import {writeFileSync} from 'node:fs'; writeFileSync('performance-environment.json', JSON.stringify({commit: process.env.GITHUB_SHA, node: process.version, os: os.platform(), release: os.release(), arch: os.arch(), cpu: os.cpus(), memory: os.totalmem()}, null, 2));"
+
+      - name: Executar cenários curtos sem retry
+        if: github.event_name != 'schedule' && inputs.soak != true
+        run: xvfb-run --auto-servernum npm run perf
+
+      - name: Executar cenários curtos e soak real sem retry
+        if: github.event_name == 'schedule' || inputs.soak == true
+        run: xvfb-run --auto-servernum npm run perf:soak
+
+      - name: Preservar evidência da primeira execução
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            app/performance-report/
+            app/performance-results/
+            app/performance-environment.json
+          if-no-files-found: warn
+          retention-days: 30

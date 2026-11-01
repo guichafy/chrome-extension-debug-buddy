@@ -1,0 +1,10 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"rootDir": ".",
+		"noEmit": true,
+		"types": ["node", "chrome", "vite/client"]
+	},
+	"include": ["e2e/performance/**/*.ts", "playwright.performance.config.ts"],
+	"exclude": ["node_modules", "dist", "coverage"]
+}
