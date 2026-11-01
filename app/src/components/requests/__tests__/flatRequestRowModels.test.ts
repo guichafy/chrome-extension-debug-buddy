@@ -58,7 +58,7 @@ test('reutiliza linhas e caches inalterados, substituindo somente a request modi
 	expect(table.getCoreRowModel()).toBe(second);
 });
 
-test('reordenação recria índices capturados nos accessors e exclusão remove caches antigos', () => {
+test('reordenação atualiza índices e restauração reaproveita objetos ainda pertencentes ao histórico', () => {
 	const table = makeTable();
 	const first = table.getCoreRowModel();
 	expect(first.rowsById.c.getValue('position')).toBe(2);
@@ -68,7 +68,49 @@ test('reordenação recria índices capturados nos accessors e exclusão remove 
 	expect(second.rowsById.c.getValue('position')).toBe(0);
 	expect(second.rowsById.b).toBeUndefined();
 	table.setOptions((options) => ({ ...options, data: [a, b, c] }));
+	expect(table.getCoreRowModel().rowsById.b).toBe(first.rowsById.b);
+	expect(table.getCoreRowModel().rowsById.c.getValue('position')).toBe(2);
+});
+
+test('filtrar e remover filtro mantém linhas inalteradas e invalida substituições com mesmo ID', () => {
+	const table = makeTable();
+	const first = table.getCoreRowModel();
+	table.setOptions((options) => ({ ...options, data: [a] }));
+	expect(Object.keys(table.getCoreRowModel().rowsById)).toEqual(['a']);
+	table.setOptions((options) => ({ ...options, data: [a, b, c] }));
+	const restored = table.getCoreRowModel();
+	expect(restored.rowsById.a).toBe(first.rowsById.a);
+	expect(restored.rowsById.b).toBe(first.rowsById.b);
+	expect(restored.rowsById.c).toBe(first.rowsById.c);
+	table.setOptions((options) => ({ ...options, data: [a, { ...b, value: 15 }, c] }));
 	expect(table.getCoreRowModel().rowsById.b).not.toBe(first.rowsById.b);
+	expect(table.getCoreRowModel().rowsById.b.getValue('value')).toBe(15);
+});
+
+test('trocar colunas com filtro ativo invalida também linhas temporariamente ocultas', () => {
+	const table = makeTable();
+	const old = table.getCoreRowModel().rowsById.b;
+	expect(old.getValue('value')).toBe(1);
+	table.setOptions((options) => ({ ...options, data: [a] }));
+	table.getCoreRowModel();
+	table.setOptions((options) => ({
+		...options,
+		columns: [{ id: 'value', accessorFn: (row) => row.value! * 10 }],
+	}));
+	table.getCoreRowModel();
+	table.setOptions((options) => ({ ...options, data: [a, b, c] }));
+	const restored = table.getCoreRowModel().rowsById.b;
+	expect(restored).not.toBe(old);
+	expect(restored.getValue('value')).toBe(10);
+});
+
+test('dataset vazio descarta também caches fracos mesmo com objetos antigos retidos externamente', () => {
+	const table = makeTable();
+	const original = table.getCoreRowModel().rowsById.a;
+	table.setOptions((options) => ({ ...options, data: [] }));
+	expect(table.getCoreRowModel().rows).toEqual([]);
+	table.setOptions((options) => ({ ...options, data: [a, b, c] }));
+	expect(table.getCoreRowModel().rowsById.a).not.toBe(original);
 });
 
 test('trocar definição de coluna invalida valor e células mesmo com os mesmos dados', () => {
@@ -146,7 +188,7 @@ test('filtro e paginação usam requests atualizadas sem manter linhas removidas
 	expect(table.getCoreRowModel().rowsById).toEqual({});
 });
 
-test('wrapper da timeline conserva referências, flags e ordem e elimina entradas removidas', () => {
+test('wrapper conserva referências entre filtros, distinguindo IDs que compartilham a resposta', () => {
 	const build = createRequestRowsCache();
 	const request: InterceptedResponse = {
 		url: 'https://example.test',
@@ -166,5 +208,15 @@ test('wrapper da timeline conserva referências, flags e ordem e elimina entrada
 	build({ b: pending });
 	const third = build({ b: pending, a: request });
 	expect(third.rows.map((row) => row.id)).toEqual(['b', 'a']);
-	expect(third.rows[1]).not.toBe(first.rows[0]);
+	expect(third.rows[1]).toBe(first.rows[0]);
+	const aliases = build({ a: request, alias: request });
+	expect(aliases.rows[0]).toBe(first.rows[0]);
+	expect(aliases.rows[1]).not.toBe(aliases.rows[0]);
+	expect(aliases.rows[1].id).toBe('alias');
+	expect(aliases.rows[1].request).toBe(request);
+	expect(build({}).rows).toEqual([]);
+	expect(build({ a: request }).rows[0]).not.toBe(first.rows[0]);
+	const replaced = build({ a: { ...request, status: 201 } });
+	expect(replaced.rows[0]).not.toBe(first.rows[0]);
+	expect(replaced.rows[0].request.status).toBe(201);
 });
