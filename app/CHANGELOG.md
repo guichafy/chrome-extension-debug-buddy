@@ -1,3 +1,20 @@
+## [0.14.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.13.6...v0.14.0) (2026-11-01)
+
+### Features
+
+* **i18n:** infraestrutura i18next e seletor de idioma ([46e8504](https://github.com/guichafy/chrome-extension-debug-buddy/commit/46e850442404ecb240b6b86229047d2e83beef74)), closes [#3](https://github.com/guichafy/chrome-extension-debug-buddy/issues/3)
+* **i18n:** traduz editores de matcher, mock e transform ([154dc4c](https://github.com/guichafy/chrome-extension-debug-buddy/commit/154dc4c921101b721fb9146fceadfca0ca11df85)), closes [#3](https://github.com/guichafy/chrome-extension-debug-buddy/issues/3)
+* **i18n:** traduz mensagens de hooks e rótulos restantes ([789a79d](https://github.com/guichafy/chrome-extension-debug-buddy/commit/789a79d795ea4b95639de71c410557c987705576)), closes [#3](https://github.com/guichafy/chrome-extension-debug-buddy/issues/3)
+* **i18n:** traduz o Command Center ([c72ec85](https://github.com/guichafy/chrome-extension-debug-buddy/commit/c72ec85ded264bf01049fa7ac321dcba14e73dea)), closes [#3](https://github.com/guichafy/chrome-extension-debug-buddy/issues/3)
+* **i18n:** traduz o Rules Lab ([1acdcc2](https://github.com/guichafy/chrome-extension-debug-buddy/commit/1acdcc2920600f14e698d1a308a2dc378ddc8aa3)), closes [#3](https://github.com/guichafy/chrome-extension-debug-buddy/issues/3)
+* **i18n:** traduz o wizard de regras, presets e editores de ação ([c0e914e](https://github.com/guichafy/chrome-extension-debug-buddy/commit/c0e914e7d49f53976095d592d5f2129c349d2d2f)), closes [#3](https://github.com/guichafy/chrome-extension-debug-buddy/issues/3)
+* **i18n:** traduz replay de sessão e Live Insights ([fe3e636](https://github.com/guichafy/chrome-extension-debug-buddy/commit/fe3e6365fbd93af4c155285a57d17f0150a778b8)), closes [#3](https://github.com/guichafy/chrome-extension-debug-buddy/issues/3)
+* **i18n:** traduz seleção de aba, sessões e privacidade ([1268e7b](https://github.com/guichafy/chrome-extension-debug-buddy/commit/1268e7b0103f758bd5fd3c6e933328bcd6814f66)), closes [#3](https://github.com/guichafy/chrome-extension-debug-buddy/issues/3)
+
+### Documentation
+
+* **i18n:** documenta como adicionar idiomas e textos traduzíveis ([78c4c1a](https://github.com/guichafy/chrome-extension-debug-buddy/commit/78c4c1aa255f5875897f31b1320ce9ab9a103512)), closes [#3](https://github.com/guichafy/chrome-extension-debug-buddy/issues/3) [#3](https://github.com/guichafy/chrome-extension-debug-buddy/issues/3)
+
 ## [0.13.6](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.13.5...v0.13.6) (2026-11-01)
 
 ### Bug Fixes
