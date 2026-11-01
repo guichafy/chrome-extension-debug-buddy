@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
 import type { LucideIconName } from '@/components/ui/lucide-icon';
 import { LucideIcon } from '@/components/ui/lucide-icon';
@@ -23,10 +24,11 @@ interface NavMainProps {
 }
 
 export function NavMain({ items, className }: NavMainProps) {
+	const { t } = useTranslation('layout');
 	return (
 		<div className={cn('py-2', className)}>
 			<div className="px-3 py-2">
-				<h2 className="mb-2 px-2 text-xs font-semibold tracking-tight">Principal</h2>
+				<h2 className="mb-2 px-2 text-xs font-semibold tracking-tight">{t('nav.section')}</h2>
 				<SidebarMenu>
 					{items.map((item) => (
 						<SidebarMenuItem key={item.path}>

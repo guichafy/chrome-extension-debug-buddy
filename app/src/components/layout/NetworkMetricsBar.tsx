@@ -1,7 +1,8 @@
+import { useTranslation } from 'react-i18next';
 import { LucideIcon, type LucideIconName } from '@/components/ui/lucide-icon';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { MetricsAggregate } from '@/lib/networkMetrics';
-import { formatBytes, formatCount } from './networkMetricsFormat';
+import { formatBytes } from './networkMetricsFormat';
 
 interface NetworkMetricsBarProps {
 	session: MetricsAggregate;
@@ -11,10 +12,11 @@ interface NetworkMetricsBarProps {
 // — requests, transferred, resources — sempre relativas à sessão de
 // interceptação atual. Janela "Página" foi descontinuada (ver useNetworkMetrics).
 export function NetworkMetricsBar({ session }: NetworkMetricsBarProps) {
+	const { t } = useTranslation('layout');
 	if (session.totalRequests === 0) {
 		return (
 			<div className="flex min-w-0 items-center gap-2 overflow-hidden">
-				<span className="text-xs text-muted-foreground">Sem requests ainda</span>
+				<span className="text-xs text-muted-foreground">{t('metrics.noRequestsYet')}</span>
 			</div>
 		);
 	}
@@ -24,22 +26,22 @@ export function NetworkMetricsBar({ session }: NetworkMetricsBarProps) {
 			<Pill
 				name="requests"
 				icon="activity"
-				value={`${formatCount(session.totalRequests)} requests`}
-				tooltip="Total de requisições capturadas pela sessão atual de análise."
+				value={t('metrics.requests', { count: session.totalRequests })}
+				tooltip={t('metrics.requestsTooltip')}
 			/>
 			<Separator />
 			<Pill
 				name="transferred"
 				icon="download"
-				value={`${formatBytes(session.totalBytes)} transferred`}
-				tooltip="Bytes recebidos no fio (transferSize do CDP). Inclui headers e payload comprimido quando aplicável."
+				value={t('metrics.transferred', { value: formatBytes(session.totalBytes) })}
+				tooltip={t('metrics.transferredTooltip')}
 			/>
 			<Separator />
 			<Pill
 				name="resources"
 				icon="database"
-				value={`${formatBytes(session.totalResourceBytes)} resources`}
-				tooltip="Soma dos response bodies decodificados que a extensão capturou. Bodies binários ou acima do cap não contam (viram bodyUnavailableReason)."
+				value={t('metrics.resources', { value: formatBytes(session.totalResourceBytes) })}
+				tooltip={t('metrics.resourcesTooltip')}
 			/>
 		</div>
 	);
