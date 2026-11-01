@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { LucideIcon } from '@/components/ui/lucide-icon';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -11,6 +12,7 @@ interface PresetWelcomeProps {
 }
 
 export function PresetWelcome({ onSelectBlank, onSelectPreset }: PresetWelcomeProps) {
+	const { t } = useTranslation('ruleEditor');
 	return (
 		<ScrollArea className="min-h-0 flex-1 pr-2">
 			<div className="space-y-3 pb-1">
@@ -24,10 +26,8 @@ export function PresetWelcome({ onSelectBlank, onSelectPreset }: PresetWelcomePr
 						<LucideIcon name="plus" className="h-4 w-4" />
 					</div>
 					<div className="flex-1 min-w-0">
-						<div className="text-sm font-medium">Começar do zero</div>
-						<p className="text-xs text-muted-foreground">
-							Configure manualmente o matcher e a ação.
-						</p>
+						<div className="text-sm font-medium">{t('presetWelcome.blankTitle')}</div>
+						<p className="text-xs text-muted-foreground">{t('presetWelcome.blankDescription')}</p>
 					</div>
 					<LucideIcon
 						name="arrow-right"
@@ -36,10 +36,8 @@ export function PresetWelcome({ onSelectBlank, onSelectPreset }: PresetWelcomePr
 				</button>
 
 				<div className="flex items-baseline justify-between gap-2 pt-1">
-					<h3 className="text-sm font-medium">Usar template</h3>
-					<p className="text-xs text-muted-foreground">
-						Pré-preenche o wizard. Você ainda pode editar antes de salvar.
-					</p>
+					<h3 className="text-sm font-medium">{t('presetWelcome.templatesTitle')}</h3>
+					<p className="text-xs text-muted-foreground">{t('presetWelcome.templatesHint')}</p>
 				</div>
 
 				{TEMPLATE_GROUPS.map((group) => (

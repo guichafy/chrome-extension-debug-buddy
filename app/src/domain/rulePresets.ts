@@ -8,28 +8,29 @@ import type {
 	RuleStage,
 	UrlMatcher,
 } from '@/types/rules';
+import { i18n } from '@/i18n/instance';
 
 // Spec de um preset. `stage` define o estágio da regra resultante; `actions`
 // é o array já encadeado (ex.: mock atrasado vira [requestDelay, mock] no
 // Request stage). Quando o preset é só mock no Response stage, `actions`
 // fica com um único item.
+// `name`/`description` são getters: resolvem no idioma ativo da UI a cada
+// leitura (textos em rules:presets.<chave>).
 export interface PresetSpec {
-	name: string;
-	description: string;
+	readonly name: string;
+	readonly description: string;
 	stage: RuleStage;
 	actions: Action[];
 }
 
-const mockResponse = (mock: MockAction): PresetSpec => ({
-	name: 'placeholder',
-	description: 'placeholder',
+type PresetBody = Pick<PresetSpec, 'stage' | 'actions'>;
+
+const mockResponse = (mock: MockAction): PresetBody => ({
 	stage: 'response',
 	actions: [mock],
 });
 
-const mockRequestWithDelay = (delayMs: number, mock: MockAction): PresetSpec => ({
-	name: 'placeholder',
-	description: 'placeholder',
+const mockRequestWithDelay = (delayMs: number, mock: MockAction): PresetBody => ({
 	stage: 'request',
 	actions: [
 		{
@@ -41,7 +42,7 @@ const mockRequestWithDelay = (delayMs: number, mock: MockAction): PresetSpec => 
 	],
 });
 
-const mockRequestWithRangeDelay = (minMs: number, maxMs: number, mock: MockAction): PresetSpec => {
+const mockRequestWithRangeDelay = (minMs: number, maxMs: number, mock: MockAction): PresetBody => {
 	// Para faixa, resolvemos um valor aleatório dentro do range na criação do
 	// preset. No futuro (Phase 2/3) a chain pode resolver dinamicamente; por
 	// hora preservamos comportamento determinístico do preset materializado.
@@ -59,8 +60,12 @@ export const PRESETS: Record<RulePresetId, PresetSpec> = {
 			headers: { 'content-type': 'application/json' },
 			body: '{"error":"internal_server_error"}',
 		}),
-		name: 'Erro 500 (Internal Server Error)',
-		description: 'Retorna 500 Internal Server Error com payload JSON.',
+		get name() {
+			return i18n.t('rules:presets.httpError500.name');
+		},
+		get description() {
+			return i18n.t('rules:presets.httpError500.description');
+		},
 	},
 	http_error_404: {
 		...mockResponse({
@@ -71,8 +76,12 @@ export const PRESETS: Record<RulePresetId, PresetSpec> = {
 			headers: { 'content-type': 'application/json' },
 			body: '{"error":"not_found"}',
 		}),
-		name: 'Erro 404 (Not Found)',
-		description: 'Retorna 404 Not Found com payload JSON.',
+		get name() {
+			return i18n.t('rules:presets.httpError404.name');
+		},
+		get description() {
+			return i18n.t('rules:presets.httpError404.description');
+		},
 	},
 	http_error_401: {
 		...mockResponse({
@@ -83,8 +92,12 @@ export const PRESETS: Record<RulePresetId, PresetSpec> = {
 			headers: { 'content-type': 'application/json' },
 			body: '{"error":"unauthorized"}',
 		}),
-		name: 'Erro 401 (Unauthorized)',
-		description: 'Retorna 401 Unauthorized com payload JSON.',
+		get name() {
+			return i18n.t('rules:presets.httpError401.name');
+		},
+		get description() {
+			return i18n.t('rules:presets.httpError401.description');
+		},
 	},
 	http_error_403: {
 		...mockResponse({
@@ -95,8 +108,12 @@ export const PRESETS: Record<RulePresetId, PresetSpec> = {
 			headers: { 'content-type': 'application/json' },
 			body: '{"error":"forbidden"}',
 		}),
-		name: 'Erro 403 (Forbidden)',
-		description: 'Retorna 403 Forbidden com payload JSON.',
+		get name() {
+			return i18n.t('rules:presets.httpError403.name');
+		},
+		get description() {
+			return i18n.t('rules:presets.httpError403.description');
+		},
 	},
 	latency_fixed: {
 		...mockRequestWithDelay(1000, {
@@ -107,8 +124,12 @@ export const PRESETS: Record<RulePresetId, PresetSpec> = {
 			headers: { 'content-type': 'application/json' },
 			body: '{"ok":true}',
 		}),
-		name: 'Latência fixa (1s)',
-		description: 'Atrasa a resposta em 1s e devolve 200 OK.',
+		get name() {
+			return i18n.t('rules:presets.latencyFixed.name');
+		},
+		get description() {
+			return i18n.t('rules:presets.latencyFixed.description');
+		},
 	},
 	latency_range: {
 		...mockRequestWithRangeDelay(500, 2000, {
@@ -119,8 +140,12 @@ export const PRESETS: Record<RulePresetId, PresetSpec> = {
 			headers: { 'content-type': 'application/json' },
 			body: '{"ok":true}',
 		}),
-		name: 'Latência variável (0.5s–2s)',
-		description: 'Atrasa a resposta entre 0.5s e 2s e devolve 200 OK.',
+		get name() {
+			return i18n.t('rules:presets.latencyRange.name');
+		},
+		get description() {
+			return i18n.t('rules:presets.latencyRange.description');
+		},
 	},
 	empty_response: {
 		...mockResponse({
@@ -131,8 +156,12 @@ export const PRESETS: Record<RulePresetId, PresetSpec> = {
 			headers: {},
 			body: '',
 		}),
-		name: 'Resposta vazia (200)',
-		description: 'Devolve 200 OK com body vazio.',
+		get name() {
+			return i18n.t('rules:presets.emptyResponse.name');
+		},
+		get description() {
+			return i18n.t('rules:presets.emptyResponse.description');
+		},
 	},
 	broken_json: {
 		...mockResponse({
@@ -144,8 +173,12 @@ export const PRESETS: Record<RulePresetId, PresetSpec> = {
 			contentType: 'application/json',
 			body: '{"unterminated":',
 		}),
-		name: 'JSON quebrado (200 com payload inválido)',
-		description: 'Devolve 200 OK com JSON inválido sintaticamente.',
+		get name() {
+			return i18n.t('rules:presets.brokenJson.name');
+		},
+		get description() {
+			return i18n.t('rules:presets.brokenJson.description');
+		},
 	},
 };
 

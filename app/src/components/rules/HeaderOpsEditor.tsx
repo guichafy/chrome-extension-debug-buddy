@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from 'react-i18next';
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +30,7 @@ const HeaderRecordSection: React.FC<HeaderRecordSectionProps> = ({
 	testIdPrefix,
 	mode,
 }) => {
+	const { t } = useTranslation('ruleEditor');
 	const [name, setName] = useState('');
 	const [val, setVal] = useState('');
 	const entries = Object.entries(value ?? {});
@@ -76,16 +78,16 @@ const HeaderRecordSection: React.FC<HeaderRecordSectionProps> = ({
 				<Input
 					value={name}
 					onChange={(e) => setName(e.target.value)}
-					placeholder="X-Custom-Header"
+					placeholder={t('headerOps.namePlaceholder')}
 					data-testid={`${testIdPrefix}-${mode}-name`}
-					aria-label={`Nome do header (${mode})`}
+					aria-label={t('headerOps.nameAriaLabel', { mode })}
 				/>
 				<Input
 					value={val}
 					onChange={(e) => setVal(e.target.value)}
-					placeholder="valor"
+					placeholder={t('headerOps.valuePlaceholder')}
 					data-testid={`${testIdPrefix}-${mode}-value`}
-					aria-label={`Valor do header (${mode})`}
+					aria-label={t('headerOps.valueAriaLabel', { mode })}
 				/>
 				<Button
 					type="button"
@@ -94,7 +96,7 @@ const HeaderRecordSection: React.FC<HeaderRecordSectionProps> = ({
 					data-testid={`${testIdPrefix}-${mode}-add`}
 				>
 					<LucideIcon name="plus" className="mr-1 h-3.5 w-3.5" />
-					Adicionar
+					{t('headerOps.add')}
 				</Button>
 			</div>
 			{entries.length > 0 && (
@@ -114,7 +116,7 @@ const HeaderRecordSection: React.FC<HeaderRecordSectionProps> = ({
 								size="sm"
 								onClick={() => handleRemove(k)}
 								className="h-6 w-6 p-0 text-destructive"
-								aria-label={`Remover header ${k}`}
+								aria-label={t('headerOps.removeHeader', { name: k })}
 								data-testid={`${testIdPrefix}-${mode}-remove-${k}`}
 							>
 								<LucideIcon name="x" className="h-3.5 w-3.5" />
@@ -134,6 +136,7 @@ interface RemoveSectionProps {
 }
 
 const RemoveSection: React.FC<RemoveSectionProps> = ({ value, onChange, testIdPrefix }) => {
+	const { t } = useTranslation('ruleEditor');
 	const [name, setName] = useState('');
 	const list = value ?? [];
 
@@ -164,9 +167,9 @@ const RemoveSection: React.FC<RemoveSectionProps> = ({ value, onChange, testIdPr
 		<section className="rounded-md border bg-card p-3" data-testid={`${testIdPrefix}-remove`}>
 			<header className="mb-2 flex items-center justify-between">
 				<div>
-					<h5 className="text-sm font-medium">Remover headers</h5>
+					<h5 className="text-sm font-medium">{t('headerOps.removeTitle')}</h5>
 					<p className="text-xs text-muted-foreground">
-						Headers removidos antes da aplicação de <strong>set</strong> e <strong>add</strong>.
+						<Trans t={t} i18nKey="headerOps.removeHelp" components={{ strong: <strong /> }} />
 					</p>
 				</div>
 				<span
@@ -182,7 +185,7 @@ const RemoveSection: React.FC<RemoveSectionProps> = ({ value, onChange, testIdPr
 					onChange={(e) => setName(e.target.value)}
 					placeholder="Authorization"
 					data-testid={`${testIdPrefix}-remove-name`}
-					aria-label="Nome do header a remover"
+					aria-label={t('headerOps.removeNameAriaLabel')}
 				/>
 				<Button
 					type="button"
@@ -191,7 +194,7 @@ const RemoveSection: React.FC<RemoveSectionProps> = ({ value, onChange, testIdPr
 					data-testid={`${testIdPrefix}-remove-add`}
 				>
 					<LucideIcon name="plus" className="mr-1 h-3.5 w-3.5" />
-					Adicionar
+					{t('headerOps.add')}
 				</Button>
 			</div>
 			{list.length > 0 && (
@@ -206,7 +209,7 @@ const RemoveSection: React.FC<RemoveSectionProps> = ({ value, onChange, testIdPr
 							<button
 								type="button"
 								onClick={() => handleRemove(n)}
-								aria-label={`Desfazer remoção de ${n}`}
+								aria-label={t('headerOps.undoRemove', { name: n })}
 								data-testid={`${testIdPrefix}-remove-undo-${n}`}
 								className="rounded p-0.5 hover:bg-destructive/20"
 							>
@@ -225,6 +228,7 @@ export const HeaderOpsEditor: React.FC<HeaderOpsEditorProps> = ({
 	onChange,
 	testIdPrefix,
 }) => {
+	const { t } = useTranslation('ruleEditor');
 	const updateSet = (next: Record<string, string> | undefined) => {
 		onChange({ ...value, setHeaders: next });
 	};
@@ -243,23 +247,23 @@ export const HeaderOpsEditor: React.FC<HeaderOpsEditorProps> = ({
 				testIdPrefix={testIdPrefix}
 			/>
 			<HeaderRecordSection
-				title="Definir headers"
-				helper="Substitui o valor existente (ou cria se não existir)."
+				title={t('headerOps.setTitle')}
+				helper={t('headerOps.setHelp')}
 				value={value.setHeaders}
 				onChange={updateSet}
 				testIdPrefix={testIdPrefix}
 				mode="set"
 			/>
 			<HeaderRecordSection
-				title="Adicionar headers"
-				helper="Adiciona somente se não existir (case-insensitive)."
+				title={t('headerOps.addTitle')}
+				helper={t('headerOps.addHelp')}
 				value={value.addHeaders}
 				onChange={updateAdd}
 				testIdPrefix={testIdPrefix}
 				mode="add"
 			/>
 			<p className="text-xs text-muted-foreground">
-				Ordem de aplicação: <strong>remove</strong> → <strong>set</strong> → <strong>add</strong>.
+				<Trans t={t} i18nKey="headerOps.order" components={{ strong: <strong /> }} />
 			</p>
 		</div>
 	);

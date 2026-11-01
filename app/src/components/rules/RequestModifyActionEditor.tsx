@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from 'react-i18next';
 import React, { useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -35,6 +36,7 @@ export const RequestModifyActionEditor: React.FC<RequestModifyActionEditorProps>
 	action,
 	onChange,
 }) => {
+	const { t } = useTranslation('ruleEditor');
 	const [activeTab, setActiveTab] = useState('basic');
 	const overrideUrl = action.url !== undefined;
 	const overrideMethod = action.method !== undefined;
@@ -93,13 +95,13 @@ export const RequestModifyActionEditor: React.FC<RequestModifyActionEditorProps>
 			<Tabs value={activeTab} onValueChange={setActiveTab}>
 				<TabsList className="w-full">
 					<TabsTrigger value="basic" className="flex-1">
-						URL & Método
+						{t('modifyTabs.urlAndMethod')}
 					</TabsTrigger>
 					<TabsTrigger value="headers" className="flex-1">
-						Headers
+						{t('modifyTabs.headers')}
 					</TabsTrigger>
 					<TabsTrigger value="body" className="flex-1">
-						Body
+						{t('modifyTabs.body')}
 					</TabsTrigger>
 				</TabsList>
 
@@ -113,20 +115,17 @@ export const RequestModifyActionEditor: React.FC<RequestModifyActionEditorProps>
 								data-testid="request-modify-url-enabled"
 							/>
 							<Label htmlFor="request-modify-url-enabled" className="font-medium">
-								Sobrescrever URL
+								{t('requestModify.overrideUrl')}
 							</Label>
 						</div>
 						<Input
 							value={action.url ?? ''}
 							onChange={(e) => handleUrlChange(e.target.value)}
-							placeholder="https://api.exemplo.com/users/42"
+							placeholder={t('requestModify.urlPlaceholder')}
 							disabled={!overrideUrl}
 							data-testid="request-modify-url-input"
 						/>
-						<p className="mt-2 text-xs text-muted-foreground">
-							Substitui completamente a URL antes do envio (útil pra redirecionar pra outro host ou
-							caminho).
-						</p>
+						<p className="mt-2 text-xs text-muted-foreground">{t('requestModify.urlHelp')}</p>
 					</div>
 
 					<div className="rounded-md border bg-card p-3">
@@ -138,7 +137,7 @@ export const RequestModifyActionEditor: React.FC<RequestModifyActionEditorProps>
 								data-testid="request-modify-method-enabled"
 							/>
 							<Label htmlFor="request-modify-method-enabled" className="font-medium">
-								Sobrescrever método HTTP
+								{t('requestModify.overrideMethod')}
 							</Label>
 						</div>
 						<Select
@@ -180,7 +179,7 @@ export const RequestModifyActionEditor: React.FC<RequestModifyActionEditorProps>
 							data-testid="request-modify-body-enabled"
 						/>
 						<Label htmlFor="request-modify-body-enabled" className="font-medium">
-							Substituir body
+							{t('requestModify.replaceBody')}
 						</Label>
 					</div>
 					<Textarea
@@ -192,8 +191,7 @@ export const RequestModifyActionEditor: React.FC<RequestModifyActionEditorProps>
 						data-testid="request-modify-body-textarea"
 					/>
 					<p className="text-xs text-muted-foreground">
-						O conteúdo substitui o <code>postData</code> da requisição original. Para edições
-						pontuais (JSONPath), prefira <code>bodyOperations</code> (em breve no editor).
+						<Trans t={t} i18nKey="requestModify.bodyHelp" components={{ code: <code /> }} />
 					</p>
 				</TabsContent>
 			</Tabs>
@@ -204,11 +202,10 @@ export const RequestModifyActionEditor: React.FC<RequestModifyActionEditorProps>
 			>
 				<h4 className="mb-1 flex items-center gap-2 text-sm font-medium text-blue-800 dark:text-blue-200">
 					<LucideIcon name="info" className="h-4 w-4" />
-					Modificador de request
+					{t('requestModify.infoTitle')}
 				</h4>
 				<p className="text-xs text-blue-800/90 dark:text-blue-200/80">
-					Roda no estágio <strong>Request</strong>, antes de a requisição sair pra rede. A chain
-					continua após o modify — combine com outras actions (mock, block) na mesma regra.
+					<Trans t={t} i18nKey="requestModify.infoText" components={{ strong: <strong /> }} />
 				</p>
 			</div>
 		</div>

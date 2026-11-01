@@ -1,13 +1,10 @@
+import { useTranslation } from 'react-i18next';
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { LucideIcon } from '@/components/ui/lucide-icon';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import {
-	ACTION_TYPE_DESCRIPTION,
-	availableActionTypesForStage,
-	createDefaultActionFor,
-} from '@/domain/actionDefaults';
+import { availableActionTypesForStage, createDefaultActionFor } from '@/domain/actionDefaults';
 import { getActionVisuals } from '@/components/rules-lab/ruleVisuals';
 import type { Action, ActionType, RuleStage } from '@/types/rules';
 import { isActionValidForStage, isTerminalAction } from '@/types/rules';
@@ -35,6 +32,7 @@ export const ActionChainEditor: React.FC<ActionChainEditorProps> = ({
 	onChange,
 	samplePayload,
 }) => {
+	const { t } = useTranslation(['ruleEditor', 'rules']);
 	const [pickerOpen, setPickerOpen] = useState(false);
 	const terminalIndex = findTerminalIndex(actions);
 	const hasTerminal = terminalIndex >= 0;
@@ -116,12 +114,12 @@ export const ActionChainEditor: React.FC<ActionChainEditorProps> = ({
 										className="rounded bg-rose-500/15 px-1.5 py-0.5 text-[10px] uppercase text-rose-300"
 										data-testid={`action-chain-terminal-badge-${index}`}
 									>
-										Terminal
+										{t('chain.terminal')}
 									</span>
 								)}
 								{!action.enabled && (
 									<span className="rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">
-										Pausada
+										{t('chain.paused')}
 									</span>
 								)}
 							</div>
@@ -130,7 +128,7 @@ export const ActionChainEditor: React.FC<ActionChainEditorProps> = ({
 									className="mt-0.5 text-xs text-destructive"
 									data-testid={`action-chain-invalid-${index}`}
 								>
-									Esta action não é válida no stage atual ({stage}).
+									{t('chain.invalidForStage', { stage })}
 								</p>
 							)}
 							{unreachable && (
@@ -138,7 +136,7 @@ export const ActionChainEditor: React.FC<ActionChainEditorProps> = ({
 									className="mt-0.5 text-xs text-amber-300"
 									data-testid={`action-chain-unreachable-${index}`}
 								>
-									Inalcançável — action terminal anterior interrompe a chain.
+									{t('chain.unreachable')}
 								</p>
 							)}
 						</div>
@@ -161,7 +159,7 @@ export const ActionChainEditor: React.FC<ActionChainEditorProps> = ({
 							size="sm"
 							onClick={() => moveAction(index, -1)}
 							disabled={index === 0}
-							aria-label={`Mover action ${index + 1} para cima`}
+							aria-label={t('chain.moveUp', { position: index + 1 })}
 							className="h-7 w-7 p-0"
 							data-testid={`action-chain-up-${index}`}
 						>
@@ -173,7 +171,7 @@ export const ActionChainEditor: React.FC<ActionChainEditorProps> = ({
 							size="sm"
 							onClick={() => moveAction(index, 1)}
 							disabled={index === actions.length - 1}
-							aria-label={`Mover action ${index + 1} para baixo`}
+							aria-label={t('chain.moveDown', { position: index + 1 })}
 							className="h-7 w-7 p-0"
 							data-testid={`action-chain-down-${index}`}
 						>
@@ -184,7 +182,7 @@ export const ActionChainEditor: React.FC<ActionChainEditorProps> = ({
 							variant="ghost"
 							size="sm"
 							onClick={() => removeAction(index)}
-							aria-label={`Remover action ${index + 1}`}
+							aria-label={t('chain.remove', { position: index + 1 })}
 							className="h-7 w-7 p-0 text-destructive"
 							data-testid={`action-chain-remove-${index}`}
 						>
@@ -206,10 +204,11 @@ export const ActionChainEditor: React.FC<ActionChainEditorProps> = ({
 
 	let addDisabledReason: string | null = null;
 	if (hasTerminal) {
-		addDisabledReason = `A chain já é terminada por "${getActionVisuals(actions[terminalIndex]).label}". Remova-a antes de adicionar novas actions.`;
+		addDisabledReason = t('chain.terminatedBy', {
+			action: getActionVisuals(actions[terminalIndex]).label,
+		});
 	} else if (responseChainCapped) {
-		addDisabledReason =
-			'Chain com múltiplas actions em stage=response ainda não é suportada — o engine atual executa só a primeira. Remova esta action para trocar por outra.';
+		addDisabledReason = t('chain.responseChainCapped');
 	}
 
 	return (
@@ -219,7 +218,7 @@ export const ActionChainEditor: React.FC<ActionChainEditorProps> = ({
 					className="rounded-md border border-dashed border-muted-foreground/30 bg-muted/20 p-4 text-center text-sm text-muted-foreground"
 					data-testid="action-chain-empty"
 				>
-					Nenhuma action configurada. Adicione a primeira para definir o comportamento da regra.
+					{t('chain.empty')}
 				</div>
 			) : (
 				actions.map((a, i) => renderRow(a, i))
@@ -236,7 +235,7 @@ export const ActionChainEditor: React.FC<ActionChainEditorProps> = ({
 							data-testid="action-chain-add-trigger"
 						>
 							<LucideIcon name="plus" className="mr-1 h-4 w-4" />
-							Adicionar action
+							{t('chain.add')}
 						</Button>
 					</PopoverTrigger>
 					<PopoverContent align="start" className="w-80 p-2">
@@ -263,7 +262,7 @@ export const ActionChainEditor: React.FC<ActionChainEditorProps> = ({
 										<div>
 											<div className="text-sm font-medium">{visuals.label}</div>
 											<div className="text-xs text-muted-foreground">
-												{ACTION_TYPE_DESCRIPTION[type]}
+												{t(`rules:actionDescriptions.${type}`)}
 											</div>
 										</div>
 									</button>

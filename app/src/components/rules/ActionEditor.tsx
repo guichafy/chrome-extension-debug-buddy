@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import React from 'react';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -42,6 +43,7 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({
 	stage,
 	samplePayload,
 }) => {
+	const { t } = useTranslation('ruleEditor');
 	const renderActionEditor = () => {
 		switch (action.type) {
 			case 'mock':
@@ -77,7 +79,7 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({
 		<div className="space-y-4" data-testid="breakpoint-action-editor">
 			<div>
 				<Label htmlFor="breakpoint-description" className="font-medium">
-					Descrição (opcional)
+					{t('breakpoint.descriptionLabel')}
 				</Label>
 				<Textarea
 					id="breakpoint-description"
@@ -89,13 +91,10 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({
 							description: e.target.value,
 						});
 					}}
-					placeholder="Ex: pausar para conferir token de autenticação antes de prosseguir"
+					placeholder={t('breakpoint.descriptionPlaceholder')}
 					className="h-24"
 				/>
-				<p className="mt-2 text-xs text-muted-foreground">
-					Esta descrição aparecerá no inspector de respostas quando a regra disparar — útil para
-					lembrar por que o breakpoint foi configurado.
-				</p>
+				<p className="mt-2 text-xs text-muted-foreground">{t('breakpoint.descriptionHelp')}</p>
 			</div>
 
 			<div
@@ -103,12 +102,9 @@ export const ActionEditor: React.FC<ActionEditorProps> = ({
 				data-testid="breakpoint-action-info"
 			>
 				<h4 className="mb-2 text-sm font-medium text-blue-800 dark:text-blue-200">
-					Sobre o Breakpoint
+					{t('breakpoint.infoTitle')}
 				</h4>
-				<p className="text-sm text-blue-700 dark:text-blue-200/80">
-					Quando esta regra casar, o request será pausado e o dialog de inspeção será aberto para
-					edição manual da resposta antes de prosseguir.
-				</p>
+				<p className="text-sm text-blue-700 dark:text-blue-200/80">{t('breakpoint.infoText')}</p>
 			</div>
 		</div>
 	);
