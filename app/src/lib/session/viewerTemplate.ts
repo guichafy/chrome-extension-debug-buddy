@@ -1,5 +1,6 @@
 // Template HTML standalone que renderiza uma session offline + visual rrweb.
-// JSON.stringify(session) é injetado como literal JavaScript.
+// JSON.stringify(session) é injetado como literal JavaScript, depois de passar por
+// escapeJsonForScript (o conteúdo gravado vem de páginas não confiáveis).
 // rrweb-player JS+CSS é embutido inline a partir do node_modules em build time.
 //
 // Vite 6 já declara `*?raw` em `vite/client.d.ts` — não precisamos de
@@ -13,6 +14,22 @@
 
 import rrwebPlayerJs from 'rrweb-player-umd?raw';
 import rrwebPlayerCss from 'rrweb-player-css?raw';
+
+const SCRIPT_UNSAFE_CHARS: Record<string, string> = {
+	'<': '\\u003c',
+	'>': '\\u003e',
+	'&': '\\u0026',
+	'\u2028': '\\u2028',
+	'\u2029': '\\u2029',
+};
+
+// Console args, mensagens de erro, URLs e texto do DOM vêm da página gravada.
+// Sem escape, um `</script>` dentro de qualquer string fecha o <script> do viewer
+// e o HTML seguinte executa ao abrir o viewer.html exportado. Esses caracteres só
+// aparecem dentro de strings em JSON válido, então o escape \uXXXX preserva o valor.
+export function escapeJsonForScript(json: string): string {
+	return json.replace(/[<>&\u2028\u2029]/g, (c) => SCRIPT_UNSAFE_CHARS[c]);
+}
 
 export function buildViewerHtml(sessionJson: string): string {
 	return `<!DOCTYPE html>
@@ -76,7 +93,7 @@ ${rrwebPlayerCss}
 ${rrwebPlayerJs}
 </script>
 <script>
-const SESSION = ${sessionJson};
+const SESSION = ${escapeJsonForScript(sessionJson)};
 
 function escape(s) {
 	return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -136,7 +153,7 @@ const timeline = document.getElementById('timeline');
 (SESSION.events || []).forEach(ev => {
 	const row = document.createElement('div');
 	row.className = 'row';
-	row.innerHTML = '<span class="offset">+' + offsetSec(ev, SESSION.startedAt) + 's</span><span class="t-' + ev.type + '">' + escape(eventLabel(ev)) + '</span>';
+	row.innerHTML = '<span class="offset">+' + offsetSec(ev, SESSION.startedAt) + 's</span><span class="t-' + escape(ev.type) + '">' + escape(eventLabel(ev)) + '</span>';
 	timeline.appendChild(row);
 });
 
