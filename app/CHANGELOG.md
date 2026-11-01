@@ -1,3 +1,16 @@
+## [0.13.5](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.13.4...v0.13.5) (2026-11-01)
+
+### Performance
+
+* batch history updates and verify native panel coverage ([f95ebc4](https://github.com/guichafy/chrome-extension-debug-buddy/commit/f95ebc437c93b123a54fa954acd48d1f65c1a876))
+* bound response rendering and guard long recordings ([d7a64ce](https://github.com/guichafy/chrome-extension-debug-buddy/commit/d7a64cefe685e0e848375002f90fecf5824af15d))
+* retain filtered row identities without pinning cleared history ([ff651af](https://github.com/guichafy/chrome-extension-debug-buddy/commit/ff651afa4888f25db17602064def1df52ff29656))
+* reuse unchanged table rows to reduce garbage collection ([5e628df](https://github.com/guichafy/chrome-extension-debug-buddy/commit/5e628df66005b1392a84551ab11e077871f81ab8))
+
+### Documentation
+
+* record approved performance baselines and close tracked work ([8807c84](https://github.com/guichafy/chrome-extension-debug-buddy/commit/8807c84e0727d30936b7bbe8da291524989d1042))
+
 ## [0.13.4](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.13.3...v0.13.4) (2026-10-31)
 
 ### Bug Fixes
