@@ -13,8 +13,9 @@ HTTP.
 
 ![Command Center com tráfego interceptado: checkout bloqueado, carrinho mockado, pedidos com atraso, lista de produtos transformada e respostas 404/500 reais](docs/images/command-center.png)
 
-> A interface está em português (pt-BR). A internacionalização é acompanhada na
-> [#3](https://github.com/guichafy/chrome-extension-debug-buddy/issues/3).
+> A interface está disponível em português (Brasil) e inglês. Ela segue o
+> idioma do Chrome e pode ser trocada a qualquer momento no rodapé da barra
+> lateral.
 
 ## Para que serve
 
@@ -43,7 +44,8 @@ npm run build
 1. Abra `chrome://extensions` e ative o **Modo do desenvolvedor**.
 2. Clique em **Carregar sem compactação** e selecione a pasta `app/dist/`.
 3. Clique no ícone do Debug Buddy na barra do Chrome. A interface abre em uma
-   aba própria; ela também fica disponível no Side Panel do Chrome.
+   aba própria; ela também fica disponível no Side Panel do Chrome. Para
+   trocar o idioma, use o seletor no rodapé da barra lateral.
 4. No cabeçalho, escolha a **aba alvo** — a aplicação que você quer depurar.
 5. Clique em **Iniciar Análise**. O Chrome mostra a barra "começou a
    depurar este navegador" na aba alvo; isso é esperado.
@@ -205,7 +207,9 @@ wrappers permanecem até a página ser recarregada.
 - Algumas respostas não têm corpo disponível pelo CDP.
 - Uma requisição pausada trava a página até ser aprovada, editada, mockada ou
   ignorada.
-- Por enquanto, a interface é só em português ([#3](https://github.com/guichafy/chrome-extension-debug-buddy/issues/3)).
+- Os textos gerados pelo service worker (resumos de recomendações, erros de
+  captura e mensagens de erro que ele devolve) e o `viewer.html` exportado
+  continuam em português.
 
 ## Desenvolvimento
 
@@ -224,6 +228,68 @@ npm run docs:screenshots  # regenera docs/images/ e os assets da loja em docs/st
 Stack: Manifest V3, Chrome Debugger API / DevTools Protocol, React 19,
 React Router, Vite, TypeScript, Tailwind CSS v4, shadcn/ui, IndexedDB, rrweb,
 Vitest, Playwright, Biome.
+
+### Internacionalização (i18n)
+
+A interface usa [i18next](https://www.i18next.com/) com
+[react-i18next](https://react.i18next.com/), só nas páginas da extensão (aba de
+opções e Side Panel). Tudo fica em `app/src/i18n/`:
+
+| Caminho | Papel |
+|---|---|
+| `languages.ts` | Idiomas suportados, nomes nativos e a escolha do idioma: preferência salva → idioma do Chrome → inglês. |
+| `locales/pt-BR/<namespace>.ts` | Catálogo fonte. Define todos os namespaces e chaves. |
+| `locales/<idioma>/<namespace>.ts` | Traduções, tipadas contra o catálogo pt-BR. |
+| `ui.ts` | Inicialização da página: lê a preferência, baixa só o chunk daquele idioma e mantém a aba e o Side Panel sincronizados. |
+| `instance.ts` | A instância do i18next e suas opções. |
+
+A escolha fica salva em `chrome.storage.local` (`uiLanguage`).
+
+**Adicionando um texto traduzível**
+
+1. Crie a chave no arquivo pt-BR do namespace certo (`locales/pt-BR/commandCenter.ts`,
+   `locales/pt-BR/ruleEditor.ts`, …) e a mesma chave em todos os outros
+   idiomas. O `npm run typecheck` falha enquanto um idioma tiver chave faltando
+   ou sobrando.
+2. No componente, use `const { t } = useTranslation('<namespace>')` e
+   `t('secao.chave')`. As chaves são checadas pelo tsc.
+3. Interpolação usa `{{nome}}`. Para texto com marcação, coloque tags nomeadas
+   na string (`'Clique em <strong>{{label}}</strong>'`) e renderize com
+   `<Trans t={t} i18nKey="…" components={{ strong: <strong /> }} />`.
+4. Plurais usam os sufixos do i18next e são guiados por `count`: `_one`/`_other`
+   no inglês e `_one`/`_many`/`_other` no português. `_zero` é opcional em
+   qualquer idioma — por exemplo, para manter "0 abas", já que o português
+   trata 0 como singular.
+5. Chaves em camelCase, sem `_` (o underscore é reservado para os sufixos de
+   plural).
+6. Fora de componentes, em código usado só pela UI, chame `i18n.t(...)` de
+   `@/i18n/instance`. Nunca importe o i18n em código alcançável pelo service
+   worker ou pelos content scripts: service workers MV3 não conseguem carregar
+   os catálogos sob demanda. O `npm run lint:ext` falha se o runtime do i18next
+   aparecer ali.
+
+Não há idioma de fallback. Uma chave ausente aparece como `namespace:chave` e é
+registrada no console; no Vitest ela lança erro. O
+`src/i18n/__tests__/catalogParity.test.ts` também confere formas de plural,
+variáveis de interpolação, tags de componente e strings vazias.
+
+**Adicionando um idioma** (por exemplo `es`)
+
+1. Copie `app/src/i18n/locales/en/` para `app/src/i18n/locales/es/` e traduza
+   os valores.
+2. Adicione `'es'` em `SUPPORTED_LANGUAGES` e o nome nativo em
+   `LANGUAGE_NATIVE_NAMES` (`languages.ts`).
+3. Rode `npm run typecheck`. Ele aponta os demais lugares para registrar o
+   catálogo: o carregamento sob demanda em `ui.ts`, o setup de testes em
+   `testing.ts` e o teste de paridade.
+4. Rode `npm test`; o teste de paridade lista as formas de plural que faltam
+   para o novo idioma.
+
+O Vitest começa cada arquivo de teste em pt-BR (os testes existentes verificam
+os textos em português). As suítes do Playwright fixam pt-BR via
+`chrome.storage.local` antes de abrir a extensão, porque o Playwright emula
+`en-US` nas páginas; `launchExtensionContext({ uiLanguage: 'en' })` abre em
+inglês.
 
 Notas de arquitetura e convenções ficam em [`CLAUDE.md`](CLAUDE.md). Os
 releases são automatizados com semantic-release e enviados à Chrome Web Store

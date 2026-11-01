@@ -12,9 +12,9 @@ It drives the Chrome DevTools Protocol (`Fetch` and `Network` domains) through
 
 ![Command Center showing intercepted traffic: a blocked checkout, a mocked cart, a delayed orders call, a transformed product list, and real 404/500 responses](docs/images/command-center.png)
 
-> The UI is currently in Portuguese (pt-BR). Screen and button names below are
-> written as **pt-BR label** (English meaning). i18n is tracked in
-> [#3](https://github.com/guichafy/chrome-extension-debug-buddy/issues/3).
+> The UI is available in English and Portuguese (Brazil). It follows Chrome's
+> language and can be switched at any time from the sidebar footer. The
+> screenshots below still show the Portuguese UI.
 
 ## What it is for
 
@@ -43,12 +43,13 @@ npm run build
 1. Open `chrome://extensions` and enable **Developer mode**.
 2. Click **Load unpacked** and select the `app/dist/` folder.
 3. Click the Debug Buddy toolbar icon. The UI opens in a dedicated tab; it is
-   also available docked in Chrome's Side Panel.
+   also available docked in Chrome's Side Panel. To change the language, use
+   the selector in the sidebar footer.
 4. In the header, pick the **target tab** — the web app you want to debug.
-5. Click **Iniciar Análise** (Start analysis). Chrome shows a
+5. Click **Start Analysis**. Chrome shows a
    "started debugging this browser" bar on the target tab; that is expected.
 6. Use the app normally and follow the traffic in **Command Center**.
-7. Click **Parar Análise** (Stop analysis) when you are done. Any
+7. Click **Stop Analysis** when you are done. Any
    request still paused is released before the debugger detaches.
 
 ## Feature tour
@@ -63,19 +64,18 @@ duration, size, method, URL, and status. The header shows live metrics
 survives closing the UI.
 
 Click a row to open the **inspector** with Overview, Request, and Response
-tabs, plus a **Modificações** (Modifications) tab whenever a rule rewrote the
-request or response. **Criar regra** (Create rule) turns a real capture into a
-pre-filled rule.
+tabs, plus a **Modifications** tab whenever a rule rewrote the request or
+response. **Create rule** turns a real capture into a pre-filled rule.
 
 ![Request inspector open on a mocked request](docs/images/request-inspector.png)
 
 ### Breakpoints — pause, inspect, decide
 
 A `breakpoint` action holds the request — before it is sent or after the
-server replied — until you act. The pending dock lets you **Aprovar**
-(Approve), **Editar…** (Edit status, headers, and body before releasing),
-**Criar Mock** (Create mock), or ignore it. Keyboard shortcuts: <kbd>A</kbd>
-approve, <kbd>I</kbd> ignore, <kbd>J</kbd>/<kbd>K</kbd> next/previous.
+server replied — until you act. The pending dock lets you **Approve**,
+**Edit…** (change status, headers, and body before releasing), **Create
+Mock**, or ignore it. Keyboard shortcuts: <kbd>A</kbd> approve, <kbd>I</kbd>
+ignore, <kbd>J</kbd>/<kbd>K</kbd> next/previous.
 
 ![Pending action dock with a paused request to /api/inventory](docs/images/pending-breakpoint.png)
 
@@ -97,8 +97,8 @@ are validated against these invariants.
 
 ![Rules Lab listing request and response stage rules](docs/images/rules-lab.png)
 
-The rule editor walks through **Tipo** (type and stage), **Matcher**,
-**Ação** (actions), and **Revisar** (review):
+The rule editor walks through **Type** (type and stage), **Matcher**,
+**Action** (the action chain), and **Review**:
 
 ![Rule editor on the actions step, editing request headers](docs/images/rule-editor.png)
 
@@ -136,14 +136,14 @@ The rule editor walks through **Tipo** (type and stage), **Matcher**,
 hitting the network. To act on what the server sent back (force a `503`, patch
 a JSON field with `transform`), use `"stage": "response"`.
 
-### Sessões — Session Replay
+### Sessions — Session Replay
 
 While interception is on, Debug Buddy records the target tab with
 [rrweb](https://github.com/rrweb-io/rrweb) (up to 50 MB or 10 minutes per
-session; the **Gravação** (Recording) switch in the header turns it off). The
-replay page plays the DOM back next to a timeline of network calls, console
-errors, and navigations, a **Requisições** (Requests) tab, and
-**Recomendações** (Recommendations). Sessions can be exported and imported as
+session; the **Recording** switch in the header turns it off). The replay page
+plays the DOM back next to a timeline of network calls, console errors, and
+navigations, a **Requests** tab, and **Recommendations**. Sessions can be
+exported and imported as
 `.dbsession` files; importing one recorded on a different origin asks for
 confirmation first.
 
@@ -153,9 +153,9 @@ The activity icon next to the recording switch opens **Live Insights**: the
 technologies detected on the target page and recommendations, updated while
 you navigate.
 
-### Privacidade — redaction
+### Privacy — redaction
 
-The **Privacidade** (Privacy) page controls what is masked before data is
+The **Privacy** page controls what is masked before data is
 stored: header names and value patterns, body patterns, console output, all
 form inputs or chosen CSS selectors in the DOM recording, domains that must
 never be recorded, user paths in stack traces, and automatic purge after N
@@ -165,14 +165,14 @@ days.
 
 1. The UI (tab or Side Panel) sends commands to the background service worker,
    which owns all runtime state.
-2. On **Iniciar Análise**, the worker calls `chrome.debugger.attach` on
+2. On **Start Analysis**, the worker calls `chrome.debugger.attach` on
    the target tab and enables `Network` (timing) and `Fetch` with two intercept
    patterns: the `Request` stage and the `Response` stage.
 3. Each `Fetch.requestPaused` event runs the matching rules for that stage and
    is then continued, fulfilled (mock), failed (block), or held (breakpoint).
 4. Every request is written to IndexedDB and pushed to the UI; durations arrive
    later from `Network` events and are merged in.
-5. **Parar Análise** releases anything still paused and detaches the
+5. **Stop Analysis** releases anything still paused and detaches the
    debugger.
 
 Rules live in `chrome.storage.local`; requests and sessions live in IndexedDB.
@@ -205,7 +205,9 @@ until the page reloads.
 - Some responses have no body available through the CDP.
 - A paused request blocks the page until it is approved, edited, mocked, or
   ignored.
-- The UI is Portuguese-only for now ([#3](https://github.com/guichafy/chrome-extension-debug-buddy/issues/3)).
+- Texts generated by the service worker (recommendation summaries, capture
+  errors, and error messages it returns) and the exported `viewer.html` are
+  still in Portuguese.
 
 ## Development
 
@@ -224,6 +226,67 @@ npm run docs:screenshots  # regenerate docs/images/ and the store assets in docs
 Stack: Manifest V3, Chrome Debugger API / DevTools Protocol, React 19,
 React Router, Vite, TypeScript, Tailwind CSS v4, shadcn/ui, IndexedDB, rrweb,
 Vitest, Playwright, Biome.
+
+### Internationalization (i18n)
+
+The UI uses [i18next](https://www.i18next.com/) with
+[react-i18next](https://react.i18next.com/), only in the extension pages
+(options tab and Side Panel). Everything lives in `app/src/i18n/`:
+
+| Path | Role |
+|---|---|
+| `languages.ts` | Supported languages, their native names, and how the language is picked: saved choice → Chrome UI language → English. |
+| `locales/pt-BR/<namespace>.ts` | Source catalog. It defines every namespace and key. |
+| `locales/<lang>/<namespace>.ts` | Translations, typed against the pt-BR catalog. |
+| `ui.ts` | Page bootstrap: reads the preference, loads only that language's chunk, and keeps the tab and the Side Panel in sync. |
+| `instance.ts` | The i18next instance and its options. |
+
+The choice is saved in `chrome.storage.local` (`uiLanguage`).
+
+**Adding a translatable text**
+
+1. Add the key to the pt-BR file of the right namespace (`locales/pt-BR/commandCenter.ts`,
+   `locales/pt-BR/ruleEditor.ts`, …), then the same key in every other
+   language. `npm run typecheck` fails while a language is missing a key or has
+   one too many.
+2. In a component, use `const { t } = useTranslation('<namespace>')` and
+   `t('section.key')`. Keys are type-checked.
+3. Interpolation uses `{{name}}`. For text with markup, put named tags in the
+   string (`'Click <strong>{{label}}</strong>'`) and render it with
+   `<Trans t={t} i18nKey="…" components={{ strong: <strong /> }} />`.
+4. Plurals use i18next suffixes and are driven by `count`: `_one`/`_other`
+   in English, `_one`/`_many`/`_other` in Portuguese. `_zero` is optional in
+   any language, for example to keep "0 abas", since Portuguese treats 0 as
+   singular.
+5. Keys are camelCase without `_` (the underscore is reserved for plural
+   suffixes).
+6. Outside components, in code used only by the UI, call `i18n.t(...)` from
+   `@/i18n/instance`. Never import i18n in code reachable from the service
+   worker or the content scripts: MV3 service workers cannot lazy-load the
+   catalogs. `npm run lint:ext` fails the build if the i18next runtime shows up
+   there.
+
+There is no fallback language. A missing key renders as `namespace:key` and is
+logged; in Vitest it throws. `src/i18n/__tests__/catalogParity.test.ts` also
+checks plural forms, interpolation variables, component tags, and empty
+strings.
+
+**Adding a language** (for example `es`)
+
+1. Copy `app/src/i18n/locales/en/` to `app/src/i18n/locales/es/` and translate
+   the values.
+2. Add `'es'` to `SUPPORTED_LANGUAGES` and its native name to
+   `LANGUAGE_NATIVE_NAMES` in `languages.ts`.
+3. Run `npm run typecheck`. It points at the remaining places to register the
+   catalog: the lazy loader in `ui.ts`, the test setup in `testing.ts`, and the
+   parity test.
+4. Run `npm test`; the parity test lists missing plural forms for the new
+   language.
+
+Vitest starts every test file in pt-BR (the existing tests assert Portuguese
+texts). The Playwright suites pin pt-BR through `chrome.storage.local` before
+opening the extension, because Playwright emulates `en-US` in its pages;
+`launchExtensionContext({ uiLanguage: 'en' })` opens them in English.
 
 Architecture notes and conventions live in [`CLAUDE.md`](CLAUDE.md). Releases
 are automated with semantic-release and uploaded to the Chrome Web Store as a
