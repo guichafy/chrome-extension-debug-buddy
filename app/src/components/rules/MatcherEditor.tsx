@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,6 +39,7 @@ export const MatcherEditor: React.FC<MatcherEditorProps> = ({
 	canRemove,
 	stage,
 }) => {
+	const { t } = useTranslation(['ruleEditor', 'rules']);
 	// Renderizar editor específico para cada tipo de matcher
 	const renderMatcherEditor = () => {
 		switch (matcher.type) {
@@ -71,7 +73,7 @@ export const MatcherEditor: React.FC<MatcherEditorProps> = ({
 						}}
 					/>
 					<Label htmlFor={`url-regex-${urlMatcher.pattern}`} className="text-sm">
-						Usar Regex
+						{t('matcher.useRegex')}
 					</Label>
 				</div>
 			</div>
@@ -84,13 +86,11 @@ export const MatcherEditor: React.FC<MatcherEditorProps> = ({
 					});
 				}}
 				placeholder={
-					urlMatcher.isRegex ? '^https://api\\.exemplo\\.com/.*$' : 'api.exemplo.com/endpoint'
+					urlMatcher.isRegex ? t('matcher.urlRegexPlaceholder') : t('matcher.urlPlaceholder')
 				}
 			/>
 			{urlMatcher.isRegex && (
-				<p className="text-xs text-muted-foreground">
-					Use expressões regulares para interceptar URLs com padrões mais complexos.
-				</p>
+				<p className="text-xs text-muted-foreground">{t('matcher.urlRegexHelp')}</p>
 			)}
 		</div>
 	);
@@ -107,7 +107,7 @@ export const MatcherEditor: React.FC<MatcherEditorProps> = ({
 			: methodMatcher.method;
 		return (
 			<div className="space-y-2">
-				<Label className="font-medium">Método HTTP</Label>
+				<Label className="font-medium">{t('matcher.types.method')}</Label>
 				<Select
 					value={selectedValue}
 					onValueChange={(value) => {
@@ -118,10 +118,10 @@ export const MatcherEditor: React.FC<MatcherEditorProps> = ({
 					}}
 				>
 					<SelectTrigger>
-						<SelectValue placeholder="Selecione um método" />
+						<SelectValue placeholder={t('matcher.methodPlaceholder')} />
 					</SelectTrigger>
 					<SelectContent>
-						<SelectItem value="ANY">Qualquer método</SelectItem>
+						<SelectItem value="ANY">{t('matcher.anyMethod')}</SelectItem>
 						<SelectItem value="GET">GET</SelectItem>
 						<SelectItem value="POST">POST</SelectItem>
 						<SelectItem value="PUT">PUT</SelectItem>
@@ -142,7 +142,7 @@ export const MatcherEditor: React.FC<MatcherEditorProps> = ({
 		return (
 			<div className="space-y-2">
 				<div className="flex items-center justify-between">
-					<Label className="font-medium">Header</Label>
+					<Label className="font-medium">{t('matcher.types.header')}</Label>
 					<Select
 						value={headerMatcher.headerType}
 						onValueChange={(value: 'request' | 'response') => {
@@ -154,16 +154,18 @@ export const MatcherEditor: React.FC<MatcherEditorProps> = ({
 						}}
 					>
 						<SelectTrigger className="w-[180px]" data-testid="header-matcher-type-trigger">
-							<SelectValue placeholder="Tipo de Header" />
+							<SelectValue placeholder={t('matcher.headerTypePlaceholder')} />
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value="request">Request</SelectItem>
+							<SelectItem value="request">{t('rules:stages.request')}</SelectItem>
 							<SelectItem
 								value="response"
 								disabled={stageBlocksResponse}
 								data-testid="header-matcher-type-response-option"
 							>
-								Response{stageBlocksResponse ? ' (indisponível em request stage)' : ''}
+								{stageBlocksResponse
+									? t('matcher.responseUnavailableInRequest')
+									: t('rules:stages.response')}
 							</SelectItem>
 						</SelectContent>
 					</Select>
@@ -174,13 +176,12 @@ export const MatcherEditor: React.FC<MatcherEditorProps> = ({
 						data-testid="header-matcher-stage-warning"
 						role="alert"
 					>
-						Este matcher casa headers de resposta, mas a regra está no estágio Request — onde a
-						resposta ainda não existe. Troque para Request ou mude o stage da regra.
+						{t('matcher.responseHeaderInRequestStage')}
 					</p>
 				)}
 				<div className="grid grid-cols-2 gap-2">
 					<div>
-						<Label className="text-sm">Nome</Label>
+						<Label className="text-sm">{t('matcher.name')}</Label>
 						<Input
 							value={headerMatcher.name}
 							onChange={(e) => {
@@ -193,7 +194,7 @@ export const MatcherEditor: React.FC<MatcherEditorProps> = ({
 						/>
 					</div>
 					<div>
-						<Label className="text-sm">Valor</Label>
+						<Label className="text-sm">{t('matcher.value')}</Label>
 						<Input
 							value={headerMatcher.value}
 							onChange={(e) => {
@@ -214,7 +215,7 @@ export const MatcherEditor: React.FC<MatcherEditorProps> = ({
 	// retornado pelo servidor; em `stage='request'` (ou stage indefinido) contra
 	// o `postData` enviado pelo cliente. O label muda pra deixar o alvo óbvio.
 	const renderBodyMatcherEditor = (bodyMatcher: BodyMatcher) => {
-		const bodyLabel = stage === 'response' ? 'Corpo da resposta' : 'Corpo da requisição (postData)';
+		const bodyLabel = stage === 'response' ? t('matcher.bodyResponse') : t('matcher.bodyRequest');
 		return (
 			<div className="space-y-2">
 				<div className="flex items-center justify-between">
@@ -233,7 +234,7 @@ export const MatcherEditor: React.FC<MatcherEditorProps> = ({
 							}}
 						/>
 						<Label htmlFor={`body-regex-${bodyMatcher.pattern}`} className="text-sm">
-							Usar Regex
+							{t('matcher.useRegex')}
 						</Label>
 					</div>
 				</div>
@@ -248,12 +249,10 @@ export const MatcherEditor: React.FC<MatcherEditorProps> = ({
 					placeholder={bodyMatcher.isRegex ? '"id":\\s*\\d+' : '"id": 123'}
 				/>
 				{bodyMatcher.isRegex && (
-					<p className="text-xs text-muted-foreground">
-						Use expressões regulares para encontrar padrões no corpo da requisição.
-					</p>
+					<p className="text-xs text-muted-foreground">{t('matcher.bodyRegexHelp')}</p>
 				)}
 				<div>
-					<Label className="text-sm">Content-Type (opcional)</Label>
+					<Label className="text-sm">{t('matcher.contentTypeOptional')}</Label>
 					<Input
 						value={bodyMatcher.contentType || ''}
 						onChange={(e) => {
@@ -284,13 +283,7 @@ export const MatcherEditor: React.FC<MatcherEditorProps> = ({
 						}}
 					/>
 					<Label htmlFor={`matcher-enabled-${matcher.type}`} className="font-medium">
-						{matcher.type === 'url'
-							? 'URL'
-							: matcher.type === 'method'
-								? 'Método HTTP'
-								: matcher.type === 'header'
-									? 'Header'
-									: 'Body'}
+						{t(`matcher.types.${matcher.type}`)}
 					</Label>
 				</div>
 				{canRemove && (
@@ -301,7 +294,7 @@ export const MatcherEditor: React.FC<MatcherEditorProps> = ({
 						className="h-8 w-8 p-0 text-destructive"
 					>
 						<LucideIcon name="trash" className="h-4 w-4" />
-						<span className="sr-only">Remover</span>
+						<span className="sr-only">{t('matcher.remove')}</span>
 					</Button>
 				)}
 			</div>

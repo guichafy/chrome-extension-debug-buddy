@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from 'react';
+import type { TFunction } from 'i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,7 +23,7 @@ import type {
 	UrlMatcher,
 } from '@/types/rules';
 import { isMatcherValidForStage } from '@/types/rules';
-import { explainMatchers } from '@/domain/ruleMatching';
+import { explainMatchers, type MatcherCheck } from '@/domain/ruleMatching';
 import { MatcherEditor } from './MatcherEditor';
 
 const HTTP_METHODS = ['ANY', 'GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'] as const;
@@ -123,15 +125,44 @@ function removeOther(matchers: Matcher[], otherIndexInOthers: number): Matcher[]
 	return copy;
 }
 
+// Texto do preview montado a partir do resultado estruturado do domínio.
+function describeMatcher(matcher: Matcher, t: TFunction<'ruleEditor'>): string {
+	switch (matcher.type) {
+		case 'url':
+			return matcher.pattern
+				? t('unified.describe.url', { pattern: matcher.pattern })
+				: t('unified.describe.urlEmpty');
+		case 'method': {
+			const methods = Array.isArray(matcher.method) ? matcher.method : [matcher.method];
+			return t('unified.describe.method', {
+				methods: methods.length === 0 ? t('unified.describe.empty') : methods.join(', '),
+			});
+		}
+		case 'header':
+			return t('unified.describe.header', { name: matcher.name || t('unified.describe.empty') });
+		case 'body':
+			return t('unified.describe.body', { pattern: matcher.pattern || '' });
+		default: {
+			const exhaustive: never = matcher;
+			throw new Error(`Matcher type não suportado: ${(exhaustive as { type: string }).type}`);
+		}
+	}
+}
+
+function describeCheck(check: MatcherCheck, t: TFunction<'ruleEditor'>): string {
+	return t(`unified.outcome.${check.outcome}`, { matcher: describeMatcher(check.matcher, t) });
+}
+
 export const UnifiedMatcherEditor: React.FC<UnifiedMatcherEditorProps> = ({
 	matchers,
 	onChange,
 	stage,
 }) => {
+	const { t } = useTranslation('ruleEditor');
 	const view = useMemo(() => buildUnifiedView(matchers), [matchers]);
 	const { url, method, others } = view;
 
-	const [testUrl, setTestUrl] = useState('https://api.exemplo.com/users/42');
+	const [testUrl, setTestUrl] = useState(() => t('unified.testUrlDefault'));
 	const [testMethod, setTestMethod] = useState<HttpMethod>('GET');
 
 	const selectedMethods = methodToArray(method.method);
@@ -233,7 +264,7 @@ export const UnifiedMatcherEditor: React.FC<UnifiedMatcherEditorProps> = ({
 								onCheckedChange={(checked) => handleUrlEnabledChange(checked === true)}
 							/>
 							<Label htmlFor="unified-url-enabled" className="font-medium">
-								Padrão de URL
+								{t('unified.urlPattern')}
 							</Label>
 						</div>
 						<div className="flex items-center gap-2">
@@ -243,7 +274,7 @@ export const UnifiedMatcherEditor: React.FC<UnifiedMatcherEditorProps> = ({
 								onCheckedChange={(checked) => handleUrlIsRegexChange(checked === true)}
 							/>
 							<Label htmlFor="unified-url-regex" className="text-sm text-muted-foreground">
-								Regex
+								{t('unified.regex')}
 							</Label>
 						</div>
 					</div>
@@ -252,7 +283,7 @@ export const UnifiedMatcherEditor: React.FC<UnifiedMatcherEditorProps> = ({
 						value={url.pattern}
 						onChange={(e) => handleUrlPatternChange(e.target.value)}
 						placeholder={
-							url.isRegex ? '^https://api\\.exemplo\\.com/.*$' : 'api.exemplo.com/users/*'
+							url.isRegex ? t('matcher.urlRegexPlaceholder') : t('unified.urlPlaceholder')
 						}
 						aria-invalid={urlPatternError || undefined}
 						aria-describedby={urlPatternError ? 'unified-url-pattern-error' : undefined}
@@ -260,14 +291,15 @@ export const UnifiedMatcherEditor: React.FC<UnifiedMatcherEditorProps> = ({
 					/>
 					{!url.isRegex && (
 						<p className="mt-2 text-xs text-muted-foreground">
-							Use <code className="rounded bg-muted px-1">*</code> como wildcard (qualquer sequência
-							de caracteres). Sem wildcards, casa quando a URL contém o trecho.
+							<Trans
+								t={t}
+								i18nKey="unified.wildcardHelp"
+								components={{ code: <code className="rounded bg-muted px-1" /> }}
+							/>
 						</p>
 					)}
 					{url.isRegex && (
-						<p className="mt-2 text-xs text-muted-foreground">
-							Expressão regular completa testada contra a URL.
-						</p>
+						<p className="mt-2 text-xs text-muted-foreground">{t('unified.regexHelp')}</p>
 					)}
 					{urlPatternError && (
 						<p
@@ -276,7 +308,7 @@ export const UnifiedMatcherEditor: React.FC<UnifiedMatcherEditorProps> = ({
 							className="mt-2 text-xs font-medium text-destructive"
 							data-testid="unified-url-error"
 						>
-							Informe um padrão de URL — não há valor padrão.
+							{t('unified.urlPatternRequired')}
 						</p>
 					)}
 				</section>
@@ -297,11 +329,11 @@ export const UnifiedMatcherEditor: React.FC<UnifiedMatcherEditorProps> = ({
 							onCheckedChange={(checked) => handleMethodEnabledChange(checked === true)}
 						/>
 						<Label htmlFor="unified-method-enabled" className="font-medium">
-							Métodos HTTP
+							{t('unified.methods')}
 						</Label>
 					</div>
 					<fieldset className="flex flex-wrap gap-2 border-0 p-0">
-						<legend className="sr-only">Métodos HTTP</legend>
+						<legend className="sr-only">{t('unified.methods')}</legend>
 						{HTTP_METHODS.map((m) => {
 							const active = m === 'ANY' ? isAny : selectedMethods.includes(m);
 							return (
@@ -316,13 +348,13 @@ export const UnifiedMatcherEditor: React.FC<UnifiedMatcherEditorProps> = ({
 									data-testid={`unified-method-${m}`}
 									className={cn('h-8', active && 'shadow-sm')}
 								>
-									{m === 'ANY' ? 'ANY (qualquer)' : m}
+									{m === 'ANY' ? t('unified.anyMethodChip') : m}
 								</Button>
 							);
 						})}
 					</fieldset>
 					<p className="mt-2 text-xs text-muted-foreground">
-						Selecione um ou mais métodos. Use <strong>ANY</strong> para casar qualquer método HTTP.
+						<Trans t={t} i18nKey="unified.methodsHelp" components={{ strong: <strong /> }} />
 					</p>
 					{methodSelectionError && (
 						<p
@@ -330,7 +362,7 @@ export const UnifiedMatcherEditor: React.FC<UnifiedMatcherEditorProps> = ({
 							className="mt-2 text-xs font-medium text-destructive"
 							data-testid="unified-method-error"
 						>
-							Selecione ao menos um método ou desative este matcher.
+							{t('unified.methodRequired')}
 						</p>
 					)}
 				</section>
@@ -338,7 +370,7 @@ export const UnifiedMatcherEditor: React.FC<UnifiedMatcherEditorProps> = ({
 				{others.length > 0 && (
 					<section className="space-y-2">
 						<div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-							Matchers avançados
+							{t('unified.advanced')}
 						</div>
 						{invalidHeaderMatcherCount > 0 && (
 							<p
@@ -346,10 +378,8 @@ export const UnifiedMatcherEditor: React.FC<UnifiedMatcherEditorProps> = ({
 								data-testid="unified-matchers-stage-warning"
 								role="alert"
 							>
-								{invalidHeaderMatcherCount === 1
-									? '1 matcher é inválido para este stage.'
-									: `${invalidHeaderMatcherCount} matchers são inválidos para este stage.`}{' '}
-								Ajuste o headerType ou mude o stage da regra.
+								{t('unified.invalidForStage', { count: invalidHeaderMatcherCount })}{' '}
+								{t('unified.invalidForStageHint')}
 							</p>
 						)}
 						{others.map((m, idx) => (
@@ -374,11 +404,11 @@ export const UnifiedMatcherEditor: React.FC<UnifiedMatcherEditorProps> = ({
 						onClick={() => addOtherMatcher('header')}
 					>
 						<LucideIcon name="plus" className="mr-1 h-4 w-4" />
-						Adicionar header
+						{t('unified.addHeader')}
 					</Button>
 					<Button type="button" variant="outline" size="sm" onClick={() => addOtherMatcher('body')}>
 						<LucideIcon name="plus" className="mr-1 h-4 w-4" />
-						Adicionar body
+						{t('unified.addBody')}
 					</Button>
 				</div>
 			</div>
@@ -387,27 +417,25 @@ export const UnifiedMatcherEditor: React.FC<UnifiedMatcherEditorProps> = ({
 			<aside data-testid="unified-matcher-preview" className="rounded-lg border bg-muted/30 p-4">
 				<div className="mb-3 flex items-center gap-2">
 					<LucideIcon name="zap" className="h-4 w-4 text-muted-foreground" />
-					<div className="text-sm font-medium">Preview de match</div>
+					<div className="text-sm font-medium">{t('unified.previewTitle')}</div>
 				</div>
-				<p className="mb-3 text-xs text-muted-foreground">
-					Cole uma URL de teste para ver se a regra casaria o request.
-				</p>
+				<p className="mb-3 text-xs text-muted-foreground">{t('unified.previewHelp')}</p>
 				<div className="space-y-3">
 					<div>
 						<Label htmlFor="unified-test-url" className="text-xs">
-							URL de teste
+							{t('unified.testUrl')}
 						</Label>
 						<Input
 							id="unified-test-url"
 							value={testUrl}
 							onChange={(e) => setTestUrl(e.target.value)}
-							placeholder="https://api.exemplo.com/users/42"
+							placeholder={t('unified.testUrlDefault')}
 							data-testid="unified-test-url-input"
 						/>
 					</div>
 					<div>
 						<Label htmlFor="unified-test-method" className="text-xs">
-							Método de teste
+							{t('unified.testMethod')}
 						</Label>
 						<Select value={testMethod} onValueChange={(v) => setTestMethod(v as HttpMethod)}>
 							<SelectTrigger id="unified-test-method" data-testid="unified-test-method-trigger">
@@ -437,16 +465,14 @@ export const UnifiedMatcherEditor: React.FC<UnifiedMatcherEditorProps> = ({
 								name={explanation.overall ? 'check-circle' : 'x-circle'}
 								className="h-4 w-4"
 							/>
-							<span>{explanation.overall ? 'Casa esta regra' : 'Não casa esta regra'}</span>
+							<span>{explanation.overall ? t('unified.matches') : t('unified.doesNotMatch')}</span>
 						</div>
 					</output>
 					<ul
 						className="space-y-1.5 text-xs text-muted-foreground"
 						data-testid="unified-preview-checks"
 					>
-						{explanation.checks.length === 0 && (
-							<li>Adicione ao menos uma condição (URL ou método).</li>
-						)}
+						{explanation.checks.length === 0 && <li>{t('unified.noConditions')}</li>}
 						{explanation.checks.map((check, idx) => (
 							<li
 								key={idx}
@@ -465,7 +491,7 @@ export const UnifiedMatcherEditor: React.FC<UnifiedMatcherEditorProps> = ({
 									)}
 								/>
 								<span className={cn(check.matcher.enabled && check.pass && 'text-foreground/80')}>
-									{check.reason}
+									{describeCheck(check, t)}
 								</span>
 							</li>
 						))}

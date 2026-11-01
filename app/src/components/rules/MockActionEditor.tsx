@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -55,6 +56,7 @@ const validateJson = (raw: string): JsonValidation => {
 };
 
 export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onChange, stage }) => {
+	const { t } = useTranslation('ruleEditor');
 	const [activeTab, setActiveTab] = useState<string>('response');
 	const [headerName, setHeaderName] = useState('');
 	const [headerValue, setHeaderValue] = useState('');
@@ -83,16 +85,16 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 		setStatusError(null);
 		const trimmed = raw.trim();
 		if (trimmed.length === 0) {
-			setStatusError('Informe um status code HTTP.');
+			setStatusError(t('mock.statusErrors.empty'));
 			return;
 		}
 		if (!/^\d+$/.test(trimmed)) {
-			setStatusError('O status precisa conter apenas dígitos.');
+			setStatusError(t('mock.statusErrors.notDigits'));
 			return;
 		}
 		const parsed = Number.parseInt(trimmed, 10);
 		if (!Number.isInteger(parsed) || parsed < 100 || parsed > 599) {
-			setStatusError('O status deve estar entre 100 e 599.');
+			setStatusError(t('mock.statusErrors.outOfRange'));
 			return;
 		}
 		if (parsed !== action.status) {
@@ -139,11 +141,11 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 		const current = action.body ?? '';
 		const validation = validateJson(current);
 		if (validation.kind === 'empty') {
-			setFormatError('O body está vazio — nada para formatar.');
+			setFormatError(t('mock.formatErrors.empty'));
 			return;
 		}
 		if (validation.kind === 'invalid') {
-			setFormatError(`JSON inválido: ${validation.message}`);
+			setFormatError(t('mock.formatErrors.invalidJson', { message: validation.message }));
 			return;
 		}
 		try {
@@ -152,7 +154,7 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 			setFormatError(null);
 			onChange({ ...action, body: formatted });
 		} catch (e) {
-			setFormatError(`Falhou ao formatar: ${(e as Error).message}`);
+			setFormatError(t('mock.formatErrors.failed', { message: (e as Error).message }));
 		}
 	};
 
@@ -181,7 +183,7 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 					className="mt-1 text-xs text-muted-foreground"
 					data-testid="mock-action-body-validation-empty"
 				>
-					Body vazio. Insira JSON ou outro conteúdo de texto.
+					{t('mock.bodyEmpty')}
 				</p>
 			);
 		}
@@ -192,7 +194,7 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 					data-testid="mock-action-body-validation-valid"
 				>
 					<LucideIcon name="check-circle" className="h-3.5 w-3.5" />
-					JSON válido
+					{t('mock.jsonValid')}
 				</p>
 			);
 		}
@@ -202,7 +204,7 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 				data-testid="mock-action-body-validation-error"
 			>
 				<LucideIcon name="alert-triangle" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-				<span>JSON inválido: {bodyValidation.message}</span>
+				<span>{t('mock.jsonInvalid', { message: bodyValidation.message })}</span>
 			</p>
 		);
 	};
@@ -215,12 +217,10 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 		>
 			<div className="flex items-center gap-2 font-medium text-violet-900 dark:text-violet-100">
 				<LucideIcon name="server-crash" className="h-4 w-4" />
-				{stage === 'request' ? 'Mock pré-rede' : 'Mock pós-rede'}
+				{stage === 'request' ? t('mock.preNetworkTitle') : t('mock.postNetworkTitle')}
 			</div>
 			<p className="mt-1 text-violet-900/90 dark:text-violet-100/80">
-				{stage === 'request'
-					? 'O servidor NÃO será chamado. A resposta abaixo é entregue diretamente ao cliente via fulfillRequest.'
-					: 'O servidor responde normalmente, mas a resposta é substituída pelo mock antes de chegar ao browser.'}
+				{stage === 'request' ? t('mock.preNetworkText') : t('mock.postNetworkText')}
 			</p>
 		</div>
 	) : null;
@@ -231,20 +231,20 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 			<Tabs value={activeTab} onValueChange={setActiveTab}>
 				<TabsList className="w-full mb-4">
 					<TabsTrigger value="response" className="flex-1">
-						Resposta
+						{t('mock.tabs.response')}
 					</TabsTrigger>
 					<TabsTrigger value="headers" className="flex-1">
-						Headers
+						{t('mock.tabs.headers')}
 					</TabsTrigger>
 					<TabsTrigger value="body" className="flex-1">
-						Body
+						{t('mock.tabs.body')}
 					</TabsTrigger>
 				</TabsList>
 
 				<TabsContent value="response" className="space-y-4">
 					<div>
 						<Label htmlFor="mock-action-status-input" className="font-medium">
-							Status code
+							{t('mock.statusCode')}
 						</Label>
 						<Input
 							id="mock-action-status-input"
@@ -272,14 +272,12 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 								{statusError}
 							</p>
 						) : (
-							<p className="mt-1 text-xs text-muted-foreground">
-								Use um valor entre 100 e 599 ou clique em um preset abaixo.
-							</p>
+							<p className="mt-1 text-xs text-muted-foreground">{t('mock.statusHelp')}</p>
 						)}
 					</div>
 
 					<fieldset>
-						<legend className="text-sm font-medium">Presets rápidos</legend>
+						<legend className="text-sm font-medium">{t('mock.presets')}</legend>
 						<div className="mt-2 flex flex-wrap gap-2" data-testid="mock-action-status-presets">
 							{STATUS_PRESETS.map((preset) => {
 								const isSelected =
@@ -304,7 +302,7 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 						<div>
-							<Label htmlFor="mock-action-status-phrase">Status text</Label>
+							<Label htmlFor="mock-action-status-phrase">{t('mock.statusText')}</Label>
 							<Input
 								id="mock-action-status-phrase"
 								data-testid="mock-action-status-phrase"
@@ -329,7 +327,7 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 				<TabsContent value="headers" className="space-y-4">
 					<div className="grid grid-cols-2 gap-4">
 						<div>
-							<Label htmlFor="mock-action-header-name">Nome do header</Label>
+							<Label htmlFor="mock-action-header-name">{t('mock.headerName')}</Label>
 							<Input
 								id="mock-action-header-name"
 								data-testid="mock-action-header-name"
@@ -339,7 +337,7 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 							/>
 						</div>
 						<div>
-							<Label htmlFor="mock-action-header-value">Valor do header</Label>
+							<Label htmlFor="mock-action-header-value">{t('mock.headerValue')}</Label>
 							<div className="flex space-x-2">
 								<Input
 									id="mock-action-header-value"
@@ -355,7 +353,7 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 									data-testid="mock-action-header-add"
 								>
 									<LucideIcon name="plus" className="mr-1 h-3.5 w-3.5" />
-									Adicionar
+									{t('mock.add')}
 								</Button>
 							</div>
 						</div>
@@ -365,7 +363,7 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 						className="border rounded-md p-3 bg-background"
 						data-testid="mock-action-headers-list"
 					>
-						<h4 className="text-sm font-medium mb-2">Headers configurados</h4>
+						<h4 className="text-sm font-medium mb-2">{t('mock.configuredHeaders')}</h4>
 						{Object.keys(action.headers).length > 0 ? (
 							<div className="space-y-2">
 								{Object.entries(action.headers).map(([name, value]) => (
@@ -384,7 +382,7 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 											onClick={() => removeHeader(name)}
 											className="h-8 w-8 p-0 text-destructive"
 											data-testid={`mock-action-header-remove-${name}`}
-											aria-label={`Remover header ${name}`}
+											aria-label={t('mock.removeHeader', { name })}
 										>
 											<LucideIcon name="x" className="h-4 w-4" />
 										</Button>
@@ -392,7 +390,7 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 								))}
 							</div>
 						) : (
-							<p className="text-sm text-muted-foreground">Nenhum header configurado</p>
+							<p className="text-sm text-muted-foreground">{t('mock.noHeaders')}</p>
 						)}
 					</div>
 				</TabsContent>
@@ -405,11 +403,11 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 							checked={hasBody}
 							onCheckedChange={(checked) => updateBodyEnabled(checked === true)}
 						/>
-						<Label htmlFor="mock-response-body-enabled">Enviar body na resposta mockada</Label>
+						<Label htmlFor="mock-response-body-enabled">{t('mock.sendBody')}</Label>
 					</div>
 					<div>
 						<div className="flex items-center justify-between gap-2">
-							<Label htmlFor="mock-action-body">Corpo da resposta (JSON)</Label>
+							<Label htmlFor="mock-action-body">{t('mock.bodyLabel')}</Label>
 							<Button
 								type="button"
 								size="sm"
@@ -419,7 +417,7 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 								data-testid="mock-action-body-format"
 							>
 								<LucideIcon name="sparkles" className="mr-1 h-3.5 w-3.5" />
-								Formatar JSON
+								{t('mock.formatJson')}
 							</Button>
 						</div>
 						<Textarea
@@ -427,7 +425,7 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 							data-testid="mock-action-body-textarea"
 							value={action.body ?? ''}
 							onChange={(e) => updateBody(e.target.value)}
-							placeholder='{"success": true, "message": "Resposta mockada"}'
+							placeholder={t('mock.bodyPlaceholder')}
 							className={cn(
 								'font-mono h-64',
 								hasBody &&
@@ -437,11 +435,7 @@ export const MockActionEditor: React.FC<MockActionEditorProps> = ({ action, onCh
 							disabled={!hasBody}
 							aria-invalid={hasBody && bodyValidation.kind === 'invalid' ? 'true' : 'false'}
 						/>
-						{!hasBody && (
-							<p className="mt-2 text-sm text-muted-foreground">
-								O mock será enviado sem corpo de resposta.
-							</p>
-						)}
+						{!hasBody && <p className="mt-2 text-sm text-muted-foreground">{t('mock.noBody')}</p>}
 						{renderBodyValidation()}
 						{formatError && (
 							<p
