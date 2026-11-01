@@ -23,7 +23,8 @@ permissions:
 
 concurrency:
   group: performance-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Preserva métricas/trace da primeira execução mesmo se outro commit chegar.
+  cancel-in-progress: false
 
 jobs:
   performance:

@@ -1,8 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { InterceptedResponse } from '@/types/intercepted';
 import { indexedDBService } from '@/lib/indexedDB';
 import type { Filter } from '@/types/filters';
 import { buildFilterGroups, matchesFilterGroups } from '@/lib/filterMatching';
+
+type RequestChange =
+	| { action: 'newRequest'; requestId: string; request: InterceptedResponse }
+	| { action: 'requestUpdated'; requestId: string; updates: Partial<InterceptedResponse> };
+
+const UPDATE_WINDOW_MS = 50;
 
 // Hook puramente reativo: o background é a fonte de verdade da persistência
 // (`background.ts` grava no IndexedDB ao receber Fetch.requestPaused, mock,
@@ -20,6 +26,42 @@ export function useAllRequests() {
 	const [loading, setLoading] = useState(true);
 	const [filters, setFilters] = useState<Filter[]>([]);
 	const [dbInitialized, setDbInitialized] = useState(false);
+	const pendingChanges = useRef<RequestChange[]>([]);
+	const updateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	const cancelPendingChanges = useCallback(() => {
+		if (updateTimer.current !== null) clearTimeout(updateTimer.current);
+		updateTimer.current = null;
+		pendingChanges.current = [];
+	}, []);
+
+	const enqueueChange = useCallback((change: RequestChange) => {
+		pendingChanges.current.push(change);
+		// Janela fixa desde a primeira mensagem: tráfego contínuo não adia o commit.
+		// Copiamos o histórico uma vez por lote, evitando refazer tabela/métricas
+		// para cada patch de timing de requests alheias ao inspector selecionado.
+		if (updateTimer.current !== null) return;
+		updateTimer.current = setTimeout(() => {
+			updateTimer.current = null;
+			const changes = pendingChanges.current;
+			pendingChanges.current = [];
+			setAllRequests((previous) => {
+				let next = previous;
+				for (const item of changes) {
+					if (item.action === 'newRequest') {
+						if (next === previous) next = { ...previous };
+						next[item.requestId] = item.request;
+					} else {
+						const existing = next[item.requestId];
+						if (!existing) continue;
+						if (next === previous) next = { ...previous };
+						next[item.requestId] = { ...existing, ...item.updates };
+					}
+				}
+				return next;
+			});
+		}, UPDATE_WINDOW_MS);
+	}, []);
 
 	useEffect(() => {
 		indexedDBService
@@ -74,6 +116,7 @@ export function useAllRequests() {
 	const clearAllRequests = useCallback(async () => {
 		try {
 			await chrome.runtime.sendMessage({ action: 'clearAllRequests' });
+			cancelPendingChanges();
 			setAllRequests({});
 			clearCurrentRequest();
 			return true;
@@ -81,7 +124,7 @@ export function useAllRequests() {
 			console.error('Erro ao limpar requisições:', err);
 			return false;
 		}
-	}, [clearCurrentRequest]);
+	}, [clearCurrentRequest, cancelPendingChanges]);
 
 	const filteredRequests = useMemo(() => {
 		if (filters.length === 0) return allRequests;
@@ -98,13 +141,9 @@ export function useAllRequests() {
 
 		const messageListener = (message: any) => {
 			if (message.action === 'newRequest' && message.requestId && message.request) {
-				setAllRequests((prev) => ({ ...prev, [message.requestId]: message.request }));
+				enqueueChange(message);
 			} else if (message.action === 'requestUpdated' && message.requestId && message.updates) {
-				setAllRequests((prev) => {
-					const existing = prev[message.requestId];
-					if (!existing) return prev;
-					return { ...prev, [message.requestId]: { ...existing, ...message.updates } };
-				});
+				enqueueChange(message);
 			}
 		};
 		chrome.runtime.onMessage.addListener(messageListener);
@@ -120,10 +159,11 @@ export function useAllRequests() {
 		document.addEventListener('visibilitychange', handleVisibility);
 
 		return () => {
+			cancelPendingChanges();
 			chrome.runtime.onMessage.removeListener(messageListener);
 			document.removeEventListener('visibilitychange', handleVisibility);
 		};
-	}, [reloadFromDB]);
+	}, [reloadFromDB, enqueueChange, cancelPendingChanges]);
 
 	return {
 		allRequests,

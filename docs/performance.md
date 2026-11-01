@@ -40,9 +40,10 @@ A execução completa precisa de mais de 40 minutos de gravação, além do cen�
 | UI: histórico | 10.000 e 50.000 requisições com uma resposta de 100KiB. Os dados são semeados no IndexedDB para isolar o custo da UI. |
 | UI durante captura | 10.000 registros semeados e body de 5MiB enquanto fetches reais chegam a cada 50ms, com gravação ativa. |
 | Formatos e ciclo de vida | Texto Unicode, HTML, imagem, JSON inválido, body indisponível, JSON grande sem MIME, mesma quantidade de bytes com densidade diferente de tokens; cópia/download integrais, fechar/reabrir inspector, trocar rota, recarregar e entrypoint estreito sidepanel.html. Este último não simula o host nativo do Chrome. |
+| Side Panel nativo | Abertura por gesto real com chrome.sidePanel.open, contexto SIDE_PANEL sem aba correspondente, mensagens ao vivo e ressincronização do IndexedDB ao fechar/reabrir. |
 | Gravação curta | 96 requests HTTP reais, até oito concorrentes, com payload determinístico e 20ms de latência no servidor local. |
 | Checkpoint contínuo | Após a rajada inicial, 60 requests sequenciais com pausas de 30ms; o período medido precisa durar pelo menos 3s e produzir um checkpoint antes de parar. |
-| Stop com rede em voo | O servidor segura oito respostas até stopDebugging concluir; elas são liberadas e precisam completar. As respostas entregues após detach são omissões previstas, separadas da janela capturada. |
+| Stop com rede em voo | O servidor segura quatro respostas (abaixo do teto HTTP/1.1 de seis conexões por origem) até stopDebugging concluir; elas são liberadas e precisam completar. As respostas entregues após detach são omissões previstas, separadas da janela capturada. |
 | Autostop de tempo | Uma request a cada 5s, aproximadamente; um evento real depois dos 10min confirma o encerramento com `hardLimitReason: time`. |
 | Sessões sucessivas | Três sessões completas de pelo menos 10min na mesma instância da extensão. Confere isolamento, persistência e ausência de sessões abertas ao final. |
 | Limite de tamanho | Depois da captura de rede, mensagens reais de console de 32KiB fazem a sessão atingir 50MiB. Há um teto de 1.900 mensagens para limitar a carga. |
@@ -81,11 +82,15 @@ Para calibrar, preserve a primeira execução, compare a mesma revisão e o mesm
 
 Na primeira medição comparável do código anterior, uma resposta JSON de 1MiB apresentou máximos de 680,8ms para Response, 451,5ms para o menu e 1.715ms para o editor; a maior long task foi de 935ms. Após a otimização de BodyViewer, os seis cenários locais de corpo/histórico passaram; no cenário de 5MiB com 1.000 registros, a maior interação medida foi de aproximadamente 37ms. Esses números descrevem essas execuções locais específicas.
 
+O cenário de 50.000 requests revelou um segundo custo: 25 patches reconstruíam o histórico e o modelo da tabela, produzindo 966ms de bloqueio acumulado e 3,08s de tarefas na UI. Com agrupamento em janelas fixas de 50ms (sem adiar indefinidamente sob tráfego contínuo), a mesma carga passou com 283ms de bloqueio e 1,21s de tarefas. Os patches mantêm a ordem e o body integral; a persistência continua imediata no background. Os 21 cenários curtos passaram no build final local.
+
 Uma tentativa anterior com 5MiB, snapshots DOM do tracing habilitados e o renderer chegando a aproximadamente 5GB terminou em timeout. A sobrecarga do profiler torna essa tentativa inadequada para uma comparação quantitativa de antes/depois. Os testes atuais mantêm tracing sem snapshots DOM.
 
 A gravação curta inicial preservou os 96 IDs em todas as etapas. Foram observados dois puts por request, p95 de transação de aproximadamente 4,1ms e nenhum erro de persistência. O cenário contínuo reproduziu a ausência de checkpoints: após 3.492ms de tráfego, ainda havia somente o write inicial da sessão; o flush final preservou os 156 requests. Essa evidência motivou limitar a espera máxima de flush do recorder. O teste mantém a asserção do checkpoint para impedir a regressão.
 
-A configuração dos cenários de 10min, 30min e tamanho não equivale a uma execução aprovada. Sua validação deve ser comprovada pelos artefatos da execução correspondente; este documento não afirma que os cenários longos passaram.
+O cenário real de 30min passou localmente: três sessões de pelo menos 600.105ms, com 116 requests por sessão (348 no total), paridade de bodies/IDs e nenhum erro de persistência ou sessão órfã. Foram 702 commits de sessão, p95 de 2,5ms e máximo de 7,2ms. O heap do service worker passou de 1,78MiB para 2,69MiB (pico amostrado de 6,91MiB). Este ensaio usou o build com paginação/memoização e checkpoint de 1s; correções posteriores de classificação Unicode e tratamento de falha no flush não pertencem à carga exercitada. Os artefatos registram o hash exato do build. O cenário isolado de 10min compartilha o encerramento exercitado três vezes no ensaio de 30min.
+
+O teste do Side Panel nativo também passou: recebeu request e duração ao vivo e, após fechar/reabrir, exibiu alteração feita diretamente no IndexedDB sem broadcast. Isso valida remontagem/resync; não comprova todas as transições de foco/visibilidade de uma instância que permanece aberta (follow-up Beads 1kl).
 
 ## CI e retenção da primeira execução
 
@@ -97,10 +102,12 @@ Localmente, Playwright reutiliza e limpa o diretório de saída entre execuçõe
 
 ## Provar que o gate reprova
 
-O teste permite uma única injeção de diagnóstico que bloqueia cada clique por650ms no browser, sem alterar a extensão. Este comando deve falhar e preservar artifacts; ele nunca faz parte do job normal:
+O teste permite uma única injeção de diagnóstico que bloqueia cada clique por 650ms no browser, sem alterar a extensão. Este comando deve falhar e preservar artifacts; ele nunca faz parte do job normal:
 
 ```bash
 PERF_INJECT_REGRESSION=1 npm run perf -- ui.spec.ts --grep 'Response 10240 bytes' --output=/tmp/debug-buddy-regressao-deliberada
 ```
 
 A variável não altera budgets nem permite dispensar asserções. Remova-a para a execução normal. O gate detecta violações dos cenários e limites documentados; não promete detectar toda degradação possível em qualquer máquina ou carga.
+
+A injeção deliberada foi executada localmente e reprovou no budget de Response: p95 de 665ms contra o limite de 250ms, com métricas, perfil e trace preservados. A primeira execução de CI também ficou preservada em [performance-41297319132-1](https://github.com/guichafy/chrome-extension-debug-buddy/actions/runs/41297319132/artifacts/13080785078); ela revelou erros no harness (permissão de clipboard por origem opaca, seletor de filtro e teto de conexões HTTP), corrigidos em commit posterior, sem retries.

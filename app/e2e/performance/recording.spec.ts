@@ -178,6 +178,7 @@ async function runRecording(
 ) {
 	const fixture = await startRecordingFixture();
 	const context = await launchExtensionContext();
+	context.setDefaultTimeout(15_000);
 	const diagnostics = watchRecordingErrors(context);
 	const evidence: Record<string, unknown> = {
 		mode,
@@ -268,7 +269,9 @@ async function runRecording(
 			samples.push(await sampler.sample(`session-${index}-before-stop`));
 			const captures = await capturesWithTiming(ui, sequences.length);
 			if (mode === 'inflight') {
-				const ids = Array.from({ length: 8 }, () => sequence++);
+				// HTTP/1.1 limita conexões simultâneas por host. Quatro requests
+				// deixam duas vagas e garantem que TODAS chegaram ao servidor antes do stop.
+				const ids = Array.from({ length: 4 }, () => sequence++);
 				evidence.responsesOutsideCaptureWindow = ids;
 				await target.evaluate((pendingIds) => {
 					(window as any).__heldTraffic = Promise.all(
@@ -287,7 +290,11 @@ async function runRecording(
 						}),
 					);
 				}, ids);
-				await expect.poll(() => fixture.received.length).toBe(sequence);
+				await expect
+					.poll(() => fixture.received.filter((id) => ids.includes(id)).sort((a, b) => a - b), {
+						timeout: 5_000,
+					})
+					.toEqual(ids);
 				expect(fixture.completed).toHaveLength(sequences.length);
 			}
 			if (mode === 'size') {

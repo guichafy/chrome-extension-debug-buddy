@@ -165,6 +165,7 @@ export async function withBodyTypes(
 				: { width: 1440, height: 1000 },
 	});
 	const errors: string[] = [];
+	context.setDefaultTimeout(15_000);
 	const samples: InteractionSample[] = [];
 	const evidence: Record<string, unknown> = {
 		entrypoint,
@@ -183,7 +184,9 @@ export async function withBodyTypes(
 	try {
 		const id = await getExtensionId(context);
 		const origin = `chrome-extension://${id}`;
-		await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin });
+		// Chrome não permite grantPermissions para a origem opaca chrome-extension.
+		// A permissão vale só neste perfil descartável, sem substituir a API real.
+		await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 		const page = await context.newPage();
 		page.on('pageerror', (error) => errors.push(error.message));
 		page.on('console', (message) => {

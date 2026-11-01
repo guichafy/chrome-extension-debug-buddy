@@ -318,7 +318,15 @@ function BodyImage({ body, mimeType }: { body: string; mimeType: string }) {
 		return () => URL.revokeObjectURL(next);
 	}, [body, mimeType]);
 	return (
-		<div className="flex min-h-[180px] items-center justify-center p-4">
+		<div
+			className="flex min-h-[180px] items-center justify-center p-4"
+			style={{
+				backgroundImage:
+					'linear-gradient(45deg, hsl(var(--muted)) 25%, transparent 25%), linear-gradient(-45deg, hsl(var(--muted)) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(var(--muted)) 75%), linear-gradient(-45deg, transparent 75%, hsl(var(--muted)) 75%)',
+				backgroundSize: '16px 16px',
+				backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0',
+			}}
+		>
 			{url && (
 				<img
 					src={url}

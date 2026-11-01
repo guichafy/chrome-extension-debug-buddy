@@ -94,7 +94,9 @@ for (const fixture of [plain, largeHtml, noMimeJson]) {
 			}
 			if (fixture === noMimeJson) {
 				await harness.page.getByRole('tab', { name: 'Overview', exact: true }).click();
-				await expect(harness.page.getByText('Sem Content-Type', { exact: true })).toBeVisible();
+				await expect(
+					harness.page.getByText('MIME: Sem Content-Type', { exact: true }),
+				).toBeVisible();
 				await harness.openResponse(fixture);
 			}
 			await assertBodyTypesExport(harness.page, fixture.body!, testInfo);
