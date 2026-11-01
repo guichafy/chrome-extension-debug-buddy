@@ -86,6 +86,8 @@ O cenário de 50.000 requests revelou um segundo custo: 25 patches reconstruíam
 
 No runner Linux (AMD EPYC 9V74, 4 vCPUs, Node 22.23.4, Chromium 147), o primeiro ensaio após agrupamento passou 20/21 cenários e ainda revelou pausas no caso de 50 mil requests. O perfil separou cerca de 920ms de GC automático dentro da janela de interação; havia também GC forçado posterior, que agora fica explicitamente fora da janela de CPU/long tasks. A correção seguinte reutiliza wrappers e linhas TanStack inalteradas, invalidando por dados/índice/colunas e descartando entradas removidas. Com a janela corrigida, o baseline local de 50k passou de 1,18s de tarefas e 270ms de bloqueio acumulado para 0,97s e 58ms; heap após limpar: 26,7MiB. Ordenação/filtros/paginação continuam usando os modelos originais do TanStack.
 
+O ensaio Linux seguinte isolou uma última pausa de 307ms ao remover o filtro, quando o dataset voltava de uma para 50 mil linhas. O cache passou a usar chaves fracas por identidade: linhas ocultas são reutilizadas enquanto os dados originais existem, e uma lista vazia descarta explicitamente os caches. O cenário local de 50k passou com 0,94s de tarefas, maior long task de 58ms, bloqueio acumulado de 8ms e heap após limpar de 28,6MiB. Há 14 testes específicos para identidade, ordem, índices, colunas, alias de IDs, filtros e limpeza.
+
 Uma tentativa anterior com 5MiB, snapshots DOM do tracing habilitados e o renderer chegando a aproximadamente 5GB terminou em timeout. A sobrecarga do profiler torna essa tentativa inadequada para uma comparação quantitativa de antes/depois. Os testes atuais mantêm tracing sem snapshots DOM.
 
 A gravação curta inicial preservou os 96 IDs em todas as etapas. Foram observados dois puts por request, p95 de transação de aproximadamente 4,1ms e nenhum erro de persistência. O cenário contínuo reproduziu a ausência de checkpoints: após 3.492ms de tráfego, ainda havia somente o write inicial da sessão; o flush final preservou os 156 requests. Essa evidência motivou limitar a espera máxima de flush do recorder. O teste mantém a asserção do checkpoint para impedir a regressão.
@@ -95,6 +97,17 @@ O cenário real de 30min passou localmente: três sessões de pelo menos 600.105
 O cenário de tamanho também passou no build final: encerrou em 52.460.423 bytes estimados, com 1.662 eventos e 96 requests preservados. Foram cinco commits de sessão, máximo de 33,2ms, e nenhum erro de persistência. Os cenários curtos e de tamanho validam a revisão final; o soak de 30min registra separadamente a revisão descrita acima.
 
 O teste do Side Panel nativo também passou: recebeu request e duração ao vivo e, após fechar/reabrir, exibiu alteração feita diretamente no IndexedDB sem broadcast. Isso valida remontagem/resync; não comprova todas as transições de foco/visibilidade de uma instância que permanece aberta (follow-up Beads 1kl).
+
+## Baseline aprovado no CI Linux
+
+A revisão `ff54bef` passou os 21 cenários curtos em 1,7min no [run 41300363545](https://github.com/guichafy/chrome-extension-debug-buddy/actions/runs/41300363545), com os mesmos budgets iniciais. CI funcional (1.402 testes) e E2Es existentes também passaram. O runner usa Ubuntu 24.04, Node 22 e Chromium 147; o artefato registra CPU, RAM, kernel e hash do build daquela execução.
+
+| Cenário | Response máx. | Menu máx. | Editor máx. | Maior long task |
+| --- | --- | --- | --- | --- |
+| 50k requests / JSON 100KiB / parado | 30,4ms | 31,9ms | 54,4ms | 84ms |
+| 10k requests / JSON 5MiB / captura ativa | 55,5ms | 62,4ms | 105,2ms | 74ms |
+
+No caso de 50k, paginar/ordenar/filtrar ficaram em 29,0/65,3/53,0ms; DOM após GC: 769 nós. Os [artefatos aprovados](https://github.com/guichafy/chrome-extension-debug-buddy/actions/runs/41300363545/artifacts/13081057290) contêm todas as amostras, métricas de CPU/heap, perfis e traces. Esse baseline é uma execução reproduzível, não uma garantia estatística contra variação de runners hospedados.
 
 ## CI e retenção da primeira execução
 
