@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useEffect, useMemo, useReducer, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -10,7 +11,6 @@ import {
 import { groupTechsByCategory } from '@/lib/insights/groupByCategory';
 import type { TechHit } from '@/lib/insights/types';
 import {
-	CATEGORY_LABEL,
 	CATEGORY_ORDER,
 	RULE_CATEGORIES,
 	type RecommendationCategory,
@@ -157,6 +157,7 @@ interface Props {
 // `getLiveSnapshot` ao background e dispatchamos `hydrate` antes de registrar
 // o listener — garantindo que o painel reflita o estado acumulado da sessão.
 export function LiveInsightsPanel({ tabId, isInterceptionActive, onCountChange }: Props) {
+	const { t } = useTranslation(['replay', 'layout']);
 	const [state, dispatch] = useReducer(reducer, INITIAL);
 	const [selectedHost, setSelectedHost] = useState<string | null>(null);
 
@@ -273,15 +274,19 @@ export function LiveInsightsPanel({ tabId, isInterceptionActive, onCountChange }
 	const activeRecommendations = selectedHost ? (recsByHost.get(selectedHost) ?? []) : [];
 
 	return (
-		<div className="flex h-full flex-col" aria-label="Live Insights">
+		<div className="flex h-full flex-col" aria-label={t('layout:header.liveInsights')}>
 			<header className="sticky top-0 z-10 border-b bg-background">
 				<div className="flex items-center justify-between px-4 py-3">
 					<div className="flex flex-col">
-						<h2 className="font-semibold text-sm">Live Insights</h2>
+						<h2 className="font-semibold text-sm">{t('layout:header.liveInsights')}</h2>
 						{totalHosts > 0 && (
 							<span className="text-[11px] text-muted-foreground">
-								{totalHosts} {totalHosts === 1 ? 'host' : 'hosts'} · {totalRecommendations}{' '}
-								{totalRecommendations === 1 ? 'recomendação' : 'recomendações'}
+								{t('liveInsights.summary', {
+									hosts: t('liveInsights.hosts', { count: totalHosts }),
+									recommendations: t('liveInsights.recommendations', {
+										count: totalRecommendations,
+									}),
+								})}
 							</span>
 						)}
 					</div>
@@ -293,7 +298,7 @@ export function LiveInsightsPanel({ tabId, isInterceptionActive, onCountChange }
 							setSelectedHost(null);
 						}}
 					>
-						limpar
+						{t('liveInsights.clear')}
 					</button>
 				</div>
 
@@ -312,7 +317,7 @@ export function LiveInsightsPanel({ tabId, isInterceptionActive, onCountChange }
 
 			{!isInterceptionActive && (
 				<div className="border-b bg-warning/10 px-3 py-2 text-foreground text-xs">
-					Inicie a análise para coletar insights desta página.
+					{t('liveInsights.startAnalysisHint')}
 				</div>
 			)}
 
@@ -344,6 +349,7 @@ function HostPicker({
 	value: string;
 	onChange: (host: string) => void;
 }) {
+	const { t } = useTranslation('replay');
 	const selectedDetection = detectionsByHost.get(value) ?? null;
 	const selectedRecs = recsByHost.get(value)?.length ?? 0;
 	const frameworkLabel = selectedDetection ? pickerLabel(selectedDetection) : null;
@@ -368,7 +374,7 @@ function HostPicker({
 						</div>
 						{selectedRecs > 0 && (
 							<span className="text-[10px] text-muted-foreground">
-								{selectedRecs} {selectedRecs === 1 ? 'recomendação' : 'recomendações'} neste host
+								{t('liveInsights.hostRecommendations', { count: selectedRecs })}
 							</span>
 						)}
 					</div>
@@ -394,18 +400,20 @@ function HostPicker({
 									{idx === 0 && (
 										<span
 											className="size-1.5 shrink-0 rounded-full bg-info"
-											aria-label="host mais recente"
+											aria-label={t('liveInsights.mostRecentHost')}
 										/>
 									)}
 								</div>
 								<div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-									{fw ? <span>{fw}</span> : <span className="italic">sem detecção</span>}
+									{fw ? (
+										<span>{fw}</span>
+									) : (
+										<span className="italic">{t('liveInsights.noDetection')}</span>
+									)}
 									{recs > 0 && (
 										<>
 											<span aria-hidden>·</span>
-											<span>
-												{recs} {recs === 1 ? 'rec' : 'recs'}
-											</span>
+											<span>{t('liveInsights.recsShort', { count: recs })}</span>
 										</>
 									)}
 								</div>
@@ -419,25 +427,26 @@ function HostPicker({
 }
 
 function EmptyState() {
+	const { t } = useTranslation('replay');
 	return (
 		<div className="flex flex-1 flex-col items-center justify-center gap-1 px-6 py-10 text-center">
-			<p className="text-muted-foreground text-xs">Aguardando primeira detecção do probe…</p>
+			<p className="text-muted-foreground text-xs">{t('liveInsights.waitingFirstDetection')}</p>
 			<p className="text-[11px] text-muted-foreground/80">
-				Nenhuma recomendação até agora. Carregue recursos da página para acionar regras.
+				{t('liveInsights.noRecommendationsYet')}
 			</p>
 		</div>
 	);
 }
 
 function HostTechs({ detection }: { detection: LiveDetectionEntry | null }) {
+	const { t } = useTranslation('replay');
 	const techs = detection?.techs ?? [];
 	const groups = useMemo(() => groupTechsByCategory(techs), [techs]);
 
 	if (!detection) {
 		return (
 			<p className="border-b px-3 py-2 text-muted-foreground text-xs">
-				Sem detecção do probe para este host. Recomendações abaixo são derivadas de respostas HTTP
-				capturadas.
+				{t('liveInsights.noProbeDetection')}
 			</p>
 		);
 	}
@@ -452,10 +461,7 @@ function HostTechs({ detection }: { detection: LiveDetectionEntry | null }) {
 						{detection.url}
 					</p>
 				</div>
-				<p className="px-3 pb-3 text-muted-foreground text-xs">
-					Nenhuma tecnologia detectada para este host ainda. Aguarde o próximo Fetch ou navegação
-					SPA.
-				</p>
+				<p className="px-3 pb-3 text-muted-foreground text-xs">{t('liveInsights.noTechsYet')}</p>
 			</div>
 		);
 	}
@@ -474,10 +480,11 @@ function HostTechs({ detection }: { detection: LiveDetectionEntry | null }) {
 }
 
 function HostRecommendations({ items }: { items: Recommendation[] }) {
+	const { t } = useTranslation('replay');
 	if (items.length === 0) {
 		return (
 			<p className="px-3 py-2 text-muted-foreground text-xs">
-				Nenhuma recomendação para este host.
+				{t('liveInsights.noHostRecommendations')}
 			</p>
 		);
 	}
@@ -497,7 +504,7 @@ function HostRecommendations({ items }: { items: Recommendation[] }) {
 				grouped[cat].length === 0 ? null : (
 					<details key={cat} open className="border-b last:border-b-0">
 						<summary className="cursor-pointer select-none px-3 py-2 font-medium text-muted-foreground text-xs uppercase tracking-wider hover:bg-muted/40">
-							{CATEGORY_LABEL[cat]} ({grouped[cat].length})
+							{t(`categories.${cat}`)} ({grouped[cat].length})
 						</summary>
 						<RuleGroups items={grouped[cat]} />
 					</details>

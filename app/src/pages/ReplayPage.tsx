@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { RecommendationsTab } from '@/components/replay/RecommendationsTab';
@@ -22,6 +23,7 @@ function originOfUrl(rawUrl: string): string {
 }
 
 export function ReplayPage() {
+	const { t } = useTranslation('replay');
 	const { sessionId } = useParams<{ sessionId: string }>();
 	const [session, setSession] = useState<Session | null>(null);
 	const [currentOrigin, setCurrentOrigin] = useState<string>('');
@@ -67,7 +69,7 @@ export function ReplayPage() {
 	}, []);
 
 	if (!session) {
-		return <div className="p-4 text-muted-foreground text-sm">Carregando…</div>;
+		return <div className="p-4 text-muted-foreground text-sm">{t('page.loading')}</div>;
 	}
 
 	// Narrowing explícito para evitar que o branch do RrwebPlayer dependa de `?? []`
@@ -88,10 +90,15 @@ export function ReplayPage() {
 	return (
 		<div className="flex h-full flex-col gap-3 p-4">
 			<div className="flex items-baseline justify-between">
-				<h1 className="font-semibold text-xl">Replay — {session.metadata.initialUrl}</h1>
+				<h1 className="font-semibold text-xl">
+					{t('page.title', { url: session.metadata.initialUrl })}
+				</h1>
 				<span className="text-muted-foreground text-xs">
-					{session.events.length} eventos · {session.detectionPhases.length} fases ·{' '}
-					{session.rrwebEvents?.length ?? 0} eventos visuais
+					{t('page.stats', {
+						events: session.events.length,
+						phases: session.detectionPhases.length,
+						visual: session.rrwebEvents?.length ?? 0,
+					})}
 				</span>
 			</div>
 
@@ -100,8 +107,12 @@ export function ReplayPage() {
 					role="alert"
 					className="rounded border border-amber-500/40 bg-amber-500/10 p-2 text-amber-900 text-xs dark:text-amber-200"
 				>
-					Sessão importada gravada em <strong>{importedOrigin}</strong>, mas a tab atual está em{' '}
-					<strong>{currentOrigin}</strong>. Verifique se a origem é confiável.
+					<Trans
+						t={t}
+						i18nKey="page.originBanner"
+						values={{ importedOrigin, currentOrigin }}
+						components={{ strong: <strong /> }}
+					/>
 				</div>
 			)}
 
@@ -122,9 +133,9 @@ export function ReplayPage() {
 						/>
 					) : (
 						<div className="flex min-h-[200px] items-center justify-center p-6 text-center text-muted-foreground text-sm">
-							Sessão sem captura visual.
+							{t('page.noVisual')}
 							<br />
-							Esta sessão foi gravada antes da Fase 2 ou com rrweb desabilitado.
+							{t('page.noVisualHint')}
 						</div>
 					)}
 				</div>
@@ -133,9 +144,9 @@ export function ReplayPage() {
 				<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
 					<Tabs defaultValue="timeline" className="flex h-full flex-col gap-3 overflow-hidden">
 						<TabsList className="self-start">
-							<TabsTrigger value="timeline">Timeline</TabsTrigger>
+							<TabsTrigger value="timeline">{t('page.tabs.timeline')}</TabsTrigger>
 							<TabsTrigger value="requests">
-								Requisições
+								{t('page.tabs.requests')}
 								{(() => {
 									const count = session.events.filter(
 										(e) => e.type === 'network' && e.timestamp <= cutoffTimestamp,
@@ -145,7 +156,7 @@ export function ReplayPage() {
 								})()}
 							</TabsTrigger>
 							<TabsTrigger value="recommendations">
-								Recomendações
+								{t('page.tabs.recommendations')}
 								{(session.recommendations?.length ?? 0) > 0 && (
 									<span className="ml-2 rounded bg-muted px-1.5 text-[10px]">
 										{session.recommendations?.length}
@@ -159,7 +170,7 @@ export function ReplayPage() {
 							className="mt-0 flex flex-1 flex-col gap-3 overflow-hidden"
 						>
 							<div className="flex flex-wrap items-center gap-3 rounded border p-2 text-xs">
-								<span className="font-medium">Filtros:</span>
+								<span className="font-medium">{t('page.filters')}</span>
 								{FILTERS.map((f) => (
 									<label key={f} htmlFor={`filter-${f}`} className="flex items-center gap-1">
 										<Checkbox
@@ -175,7 +186,7 @@ export function ReplayPage() {
 							<div className="flex-1 overflow-auto rounded border">
 								{visibleEvents.length === 0 ? (
 									<p className="p-3 text-muted-foreground text-sm">
-										Nenhum evento até o ponto atual ({(playhead.currentMs / 1000).toFixed(2)}s).
+										{t('page.noEvents', { seconds: (playhead.currentMs / 1000).toFixed(2) })}
 									</p>
 								) : (
 									visibleEvents.map((ev, i) => (

@@ -1,3 +1,4 @@
+import { i18n } from '@/i18n/instance';
 import type { RecommendationRuleId } from '../types';
 
 export type RecommendationCategory = 'security' | 'performance';
@@ -15,9 +16,15 @@ export const RULE_CATEGORIES: Record<RecommendationRuleId, RecommendationCategor
 	'image-not-optimized': 'performance',
 };
 
-export const CATEGORY_LABEL: Record<RecommendationCategory, string> = {
-	security: 'Segurança',
-	performance: 'Performance',
+// Getters: o rótulo segue o idioma ativo da UI (replay:categories). Módulo
+// usado só pela UI — o engine de recomendações (background) não o importa.
+export const CATEGORY_LABEL: Readonly<Record<RecommendationCategory, string>> = {
+	get security() {
+		return i18n.t('replay:categories.security');
+	},
+	get performance() {
+		return i18n.t('replay:categories.performance');
+	},
 };
 
 export const CATEGORY_ORDER: RecommendationCategory[] = ['security', 'performance'];

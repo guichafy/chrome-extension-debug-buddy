@@ -5,6 +5,7 @@ import commandCenter from './commandCenter';
 import common from './common';
 import layout from './layout';
 import privacy from './privacy';
+import replay from './replay';
 import ruleEditor from './ruleEditor';
 import rules from './rules';
 import rulesLab from './rulesLab';
@@ -16,6 +17,7 @@ const ptBR = {
 	common,
 	layout,
 	privacy,
+	replay,
 	ruleEditor,
 	rules,
 	rulesLab,

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useMemo, useState } from 'react';
 import { RequestTimeline } from '@/components/command-center/RequestTimeline';
 import { sessionEventsToRequestsRecord } from '@/lib/session/sessionNetworkAdapter';
@@ -21,6 +22,7 @@ interface Props {
 // método/URL/status, headers, e aviso de body indisponível). Replay não tem
 // criar regra ou abrir Rules Lab — é histórico.
 export function ReplayRequestsTab({ events, cutoffTimestamp }: Props) {
+	const { t } = useTranslation('replay');
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [filters, setFilters] = useState<Filter[]>([]);
 
@@ -43,9 +45,7 @@ export function ReplayRequestsTab({ events, cutoffTimestamp }: Props) {
 		);
 		return (
 			<p className="p-3 text-muted-foreground text-sm">
-				{hasNetworkEventsBeforeCutoff
-					? 'Sessão gravada antes da Fase 7 — sem dados ricos de requisição.'
-					: 'Nenhuma requisição capturada até este ponto da gravação.'}
+				{hasNetworkEventsBeforeCutoff ? t('requests.legacySession') : t('requests.noneYet')}
 			</p>
 		);
 	}
