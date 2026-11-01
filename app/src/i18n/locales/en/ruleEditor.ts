@@ -382,6 +382,16 @@ const ruleEditor: Translation<typeof source> = {
 		modeDeclarative: 'Declarative',
 		modeAdvanced: 'Advanced (JS)',
 	},
+	scriptRunner: {
+		sandboxUnknown: 'Unknown error in the sandbox',
+		syntaxError: 'Syntax error: {{message}}',
+		runtimeError: 'Runtime error: {{message}}',
+		timeout: 'Timeout: the sandbox did not respond within {{ms}}ms',
+		sandboxNotReady: 'Sandbox not initialized: missing contentWindow',
+		emptyScript: 'Empty script — write the function body before previewing.',
+		unavailable:
+			'Could not run the script: sandbox unavailable and the CSP blocks direct execution.',
+	},
 };
 
 export default ruleEditor;

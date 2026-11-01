@@ -1,3 +1,4 @@
+import { i18n } from '@/i18n/instance';
 import { useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Action, Matcher, Rule, RuleStage } from '@/types/rules';
@@ -106,7 +107,7 @@ export function useRules() {
 
 				const cloned: Rule = {
 					id: uuidv4(),
-					name: `${source.name} (cópia)`,
+					name: i18n.t('rulesLab:toast.duplicateName', { name: source.name }),
 					enabled: false,
 					stage: source.stage,
 					matchers: clonedMatchers,

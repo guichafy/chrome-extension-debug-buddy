@@ -7,6 +7,11 @@ const privacy: Translation<typeof source> = {
 	saved: 'Settings saved.',
 	error: 'Error: {{error}}',
 	unknownError: 'unknown',
+	errors: {
+		loadFailed: 'Failed to load privacyConfig',
+		saveFailed: 'Failed to save privacyConfig',
+		purgeFailed: 'Failed to purge',
+	},
 	purged_one: 'Removed {{count}} old session.',
 	purged_other: 'Removed {{count}} old sessions.',
 	title: 'Privacy & Redaction',

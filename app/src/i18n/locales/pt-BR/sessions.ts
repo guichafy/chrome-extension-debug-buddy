@@ -21,6 +21,10 @@ const sessions = {
 		size: 'Tamanho',
 		duration: 'Duração',
 		stopHint: 'Clique no switch para parar a gravação.',
+		errors: {
+			noTargetTab: 'Sem tab alvo',
+			noActiveSession: 'Sem sessão ativa',
+		},
 	},
 	import: {
 		button: 'Importar .dbsession',

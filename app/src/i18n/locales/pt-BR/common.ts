@@ -4,6 +4,12 @@ const common = {
 		cancel: 'Cancelar',
 		close: 'Fechar',
 		save: 'Salvar',
+		toggleSidebar: 'Alternar barra lateral',
+	},
+	errors: {
+		unknown: 'Erro desconhecido',
+		unknownApplyEdit: 'Erro desconhecido ao aplicar edição.',
+		noResponse: 'Sem resposta',
 	},
 };
 
