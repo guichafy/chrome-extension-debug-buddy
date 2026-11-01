@@ -1,7 +1,7 @@
 import { performanceEnvironment } from './environment';
 import { expect, test, type Page, type Locator } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
-import { getExtensionId, launchExtensionContext } from '../helpers/extension';
+import { getExtensionId, launchExtensionContext, waitForAppDatabase } from '../helpers/extension';
 
 import { interact, distribution, assertInteractionBudgets } from './measurements';
 
@@ -39,6 +39,7 @@ for (const scenario of scenarios) {
 				if (msg.type() === 'error') errors.push(msg.text());
 			});
 			await page.goto(`chrome-extension://${extId}/options.html#/command-center`);
+			await waitForAppDatabase(page);
 			const seeded = await page.evaluate(async ({ count, bytes }) => {
 				const db = await new Promise<IDBDatabase>((resolve, reject) => {
 					const open = indexedDB.open('debugger-extension-db', 2);
