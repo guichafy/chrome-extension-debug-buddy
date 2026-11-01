@@ -1,3 +1,4 @@
+import { i18n } from '@/i18n/instance';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface RecordingStatus {
@@ -56,26 +57,30 @@ export function useRecording(tabId: number | null): {
 
 	const startRecording = useCallback(
 		async (canvasCaptureEnabled: boolean) => {
-			if (tabId === null) return { ok: false, error: 'Sem tab alvo' };
+			if (tabId === null) {
+				return { ok: false, error: i18n.t('sessions:recording.errors.noTargetTab') };
+			}
 			const res = await chrome.runtime.sendMessage({
 				action: 'startRecording',
 				tabId,
 				canvasCaptureEnabled,
 			});
 			if (res?.ok) await refresh();
-			return res ?? { ok: false, error: 'Sem resposta' };
+			return res ?? { ok: false, error: i18n.t('common:errors.noResponse') };
 		},
 		[tabId, refresh],
 	);
 
 	const stopRecording = useCallback(async () => {
-		if (!status.sessionId) return { ok: false, error: 'Sem sessão ativa' };
+		if (!status.sessionId) {
+			return { ok: false, error: i18n.t('sessions:recording.errors.noActiveSession') };
+		}
 		const res = await chrome.runtime.sendMessage({
 			action: 'stopRecording',
 			sessionId: status.sessionId,
 		});
 		if (res?.ok) await refresh();
-		return res ?? { ok: false, error: 'Sem resposta' };
+		return res ?? { ok: false, error: i18n.t('common:errors.noResponse') };
 	}, [status.sessionId, refresh]);
 
 	// Broadcast-driven refresh: background broadcasta `recordingStateChanged`

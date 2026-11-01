@@ -5,6 +5,11 @@ const privacy = {
 	saved: 'Configuração salva.',
 	error: 'Erro: {{error}}',
 	unknownError: 'desconhecido',
+	errors: {
+		loadFailed: 'Falha ao carregar privacyConfig',
+		saveFailed: 'Falha ao salvar privacyConfig',
+		purgeFailed: 'Falha ao purgar',
+	},
 	purged_zero: 'Removidas {{count}} sessões antigas.',
 	purged_one: 'Removidas {{count}} sessões antigas.',
 	purged_many: 'Removidas {{count}} sessões antigas.',

@@ -11,6 +11,8 @@
 // "no fallbacks" do projeto se mantém: erros de execução sempre voltam
 // ao chamador como `{ ok: false, error }`, nunca silenciados.
 
+import { i18n } from '@/i18n/instance';
+
 export type AdvancedScriptResult =
 	| { ok: true; output: unknown }
 	| { ok: false; error: string };
@@ -94,7 +96,7 @@ function ensureIframeRunner(): IframeRunner | null {
 		if (data.ok) {
 			cb({ ok: true, output: data.output });
 		} else {
-			cb({ ok: false, error: data.error ?? 'Erro desconhecido no sandbox' });
+			cb({ ok: false, error: data.error ?? i18n.t('ruleEditor:scriptRunner.sandboxUnknown') });
 		}
 	});
 
@@ -109,14 +111,20 @@ function runDirect(script: string, response: unknown): Promise<AdvancedScriptRes
 			// biome-ignore lint/suspicious/noFunctionConstructor: avaliação intencional do script do usuário
 			fn = new Function('response', script) as (response: unknown) => unknown;
 		} catch (err) {
-			resolve({ ok: false, error: `Erro de sintaxe: ${(err as Error).message}` });
+			resolve({
+				ok: false,
+				error: i18n.t('ruleEditor:scriptRunner.syntaxError', { message: (err as Error).message }),
+			});
 			return;
 		}
 		try {
 			const output = fn(response);
 			resolve({ ok: true, output });
 		} catch (err) {
-			resolve({ ok: false, error: `Erro de execução: ${(err as Error).message}` });
+			resolve({
+				ok: false,
+				error: i18n.t('ruleEditor:scriptRunner.runtimeError', { message: (err as Error).message }),
+			});
 		}
 	});
 }
@@ -134,7 +142,7 @@ function runViaIframe(
 				runner.pending.delete(id);
 				resolve({
 					ok: false,
-					error: `Timeout: o sandbox não respondeu em ${timeoutMs}ms`,
+					error: i18n.t('ruleEditor:scriptRunner.timeout', { ms: timeoutMs }),
 				});
 			}
 		}, timeoutMs);
@@ -146,7 +154,7 @@ function runViaIframe(
 		if (!target) {
 			runner.pending.delete(id);
 			window.clearTimeout(timer);
-			resolve({ ok: false, error: 'Sandbox não inicializado: contentWindow ausente' });
+			resolve({ ok: false, error: i18n.t('ruleEditor:scriptRunner.sandboxNotReady') });
 			return;
 		}
 		const message: SandboxRequest = { id, script, response };
@@ -171,7 +179,7 @@ export async function runAdvancedScript(
 	const timeoutMs = options.timeoutMs ?? 5000;
 
 	if (script.trim().length === 0) {
-		return { ok: false, error: 'Script vazio — escreva o corpo da função antes de prever.' };
+		return { ok: false, error: i18n.t('ruleEditor:scriptRunner.emptyScript') };
 	}
 
 	if (options.forceDirect || (canUseDirectEval() && !getSandboxUrl())) {
@@ -185,8 +193,7 @@ export async function runAdvancedScript(
 
 	return {
 		ok: false,
-		error:
-			'Não foi possível executar o script: sandbox indisponível e CSP bloqueia execução direta.',
+		error: i18n.t('ruleEditor:scriptRunner.unavailable'),
 	};
 }
 

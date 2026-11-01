@@ -19,6 +19,7 @@
 //   mods. Retorna agregado `{ succeeded, failed[] }` pra UI decidir como
 //   notificar o usuário.
 
+import { i18n } from '@/i18n/instance';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PendingInterception } from '@/lib/interceptionPipeline';
 
@@ -121,7 +122,7 @@ export function usePendingInterceptions() {
 				}
 				return {
 					success: false,
-					error: response?.error ?? 'Erro desconhecido ao aplicar edição.',
+					error: response?.error ?? i18n.t('common:errors.unknownApplyEdit'),
 				};
 			} catch (error) {
 				return {
@@ -171,7 +172,10 @@ export function usePendingInterceptions() {
 					succeeded++;
 					removeLocal(id);
 				} else {
-					failed.push({ requestId: id, error: response?.error ?? 'Erro desconhecido' });
+					failed.push({
+						requestId: id,
+						error: response?.error ?? i18n.t('common:errors.unknown'),
+					});
 				}
 			} catch (error) {
 				failed.push({

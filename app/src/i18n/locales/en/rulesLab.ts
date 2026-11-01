@@ -84,6 +84,7 @@ const rulesLab: Translation<typeof source> = {
 		duplicated: 'Rule "{{name}}" created (disabled)',
 		added: 'Rule "{{name}}" added',
 		updated: 'Rule "{{name}}" updated',
+		duplicateName: '{{name}} (copy)',
 	},
 	import: {
 		title: 'Import rules',

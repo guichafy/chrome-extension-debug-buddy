@@ -1,3 +1,4 @@
+import { i18n } from '@/i18n/instance';
 import { useCallback, useEffect, useState } from 'react';
 import type { RedactionConfig } from '@/lib/session/types';
 
@@ -24,7 +25,7 @@ export function usePrivacyConfig(): UsePrivacyConfigResult {
 		if (res?.ok && res.privacyConfig) {
 			setConfig(res.privacyConfig);
 		} else {
-			setError(res?.error ?? 'Falha ao carregar privacyConfig');
+			setError(res?.error ?? i18n.t('privacy:errors.loadFailed'));
 		}
 		setLoading(false);
 	}, []);
@@ -45,7 +46,7 @@ export function usePrivacyConfig(): UsePrivacyConfigResult {
 			setConfig(next);
 			return { ok: true as const };
 		}
-		const err = res?.error ?? 'Falha ao salvar privacyConfig';
+		const err = res?.error ?? i18n.t('privacy:errors.saveFailed');
 		setError(err);
 		return { ok: false as const, error: err };
 	}, []);
@@ -55,7 +56,7 @@ export function usePrivacyConfig(): UsePrivacyConfigResult {
 		if (res?.ok) {
 			return { ok: true as const, purgedCount: res.purgedCount };
 		}
-		return { ok: false as const, error: res?.error ?? 'Falha ao purgar' };
+		return { ok: false as const, error: res?.error ?? i18n.t('privacy:errors.purgeFailed') };
 	}, []);
 
 	return { config, loading, error, saving, save, reload, purgeNow };

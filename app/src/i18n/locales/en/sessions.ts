@@ -22,6 +22,10 @@ const sessions: Translation<typeof source> = {
 		size: 'Size',
 		duration: 'Duration',
 		stopHint: 'Click the switch to stop recording.',
+		errors: {
+			noTargetTab: 'No target tab',
+			noActiveSession: 'No active session',
+		},
 	},
 	import: {
 		button: 'Import .dbsession',

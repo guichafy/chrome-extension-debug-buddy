@@ -89,6 +89,7 @@ const rulesLab = {
 		duplicated: 'Regra "{{name}}" criada (desativada)',
 		added: 'Regra "{{name}}" adicionada',
 		updated: 'Regra "{{name}}" atualizada',
+		duplicateName: '{{name}} (cópia)',
 	},
 	import: {
 		title: 'Importar regras',

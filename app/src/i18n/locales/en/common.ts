@@ -6,6 +6,12 @@ const common: Translation<typeof source> = {
 		cancel: 'Cancel',
 		close: 'Close',
 		save: 'Save',
+		toggleSidebar: 'Toggle Sidebar',
+	},
+	errors: {
+		unknown: 'Unknown error',
+		unknownApplyEdit: 'Unknown error while applying the edit.',
+		noResponse: 'No response',
 	},
 };
 

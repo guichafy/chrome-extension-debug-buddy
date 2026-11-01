@@ -388,6 +388,16 @@ const ruleEditor = {
 		modeDeclarative: 'Declarativo',
 		modeAdvanced: 'Avançado (JS)',
 	},
+	scriptRunner: {
+		sandboxUnknown: 'Erro desconhecido no sandbox',
+		syntaxError: 'Erro de sintaxe: {{message}}',
+		runtimeError: 'Erro de execução: {{message}}',
+		timeout: 'Timeout: o sandbox não respondeu em {{ms}}ms',
+		sandboxNotReady: 'Sandbox não inicializado: contentWindow ausente',
+		emptyScript: 'Script vazio — escreva o corpo da função antes de prever.',
+		unavailable:
+			'Não foi possível executar o script: sandbox indisponível e CSP bloqueia execução direta.',
+	},
 };
 
 export default ruleEditor;
