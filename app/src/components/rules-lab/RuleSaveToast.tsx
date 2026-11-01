@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { LucideIcon } from '@/components/ui/lucide-icon';
 import { cn } from '@/lib/utils';
@@ -18,6 +19,7 @@ export function RuleSaveToast({
 	onDismiss,
 	durationMs = 5000,
 }: RuleSaveToastProps) {
+	const { t } = useTranslation(['rulesLab', 'common']);
 	const [progress, setProgress] = useState(100);
 
 	useEffect(() => {
@@ -58,9 +60,7 @@ export function RuleSaveToast({
 				</div>
 				<div className="flex-1">
 					<div className="text-sm font-medium">{message}</div>
-					<div className="mt-1 text-xs text-muted-foreground">
-						As regras anteriores podem ser restauradas em até 5s.
-					</div>
+					<div className="mt-1 text-xs text-muted-foreground">{t('toast.undoHint')}</div>
 				</div>
 				<div className="flex shrink-0 items-center gap-1">
 					<Button
@@ -72,7 +72,7 @@ export function RuleSaveToast({
 						data-testid="rule-save-toast-undo"
 					>
 						<LucideIcon name="rotate-ccw" className="mr-1 h-3 w-3" />
-						Desfazer
+						{t('toast.undo')}
 					</Button>
 					<Button
 						type="button"
@@ -80,7 +80,7 @@ export function RuleSaveToast({
 						size="sm"
 						onClick={onDismiss}
 						className="h-7 w-7 p-0 text-muted-foreground"
-						aria-label="Fechar"
+						aria-label={t('common:actions.close')}
 						data-testid="rule-save-toast-close"
 					>
 						<LucideIcon name="x" className="h-3.5 w-3.5" />

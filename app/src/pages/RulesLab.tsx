@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import RuleEditor from '@/components/rules/RuleEditor';
@@ -102,6 +103,7 @@ function savePersistedFilters(state: PersistedFilters): void {
 }
 
 function RulesLab() {
+	const { t, i18n } = useTranslation('rulesLab');
 	const {
 		rules,
 		addRule,
@@ -229,7 +231,7 @@ function RulesLab() {
 				sorted.sort((a, b) => a.updatedAt - b.updatedAt);
 				break;
 			case 'name_asc':
-				sorted.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+				sorted.sort((a, b) => a.name.localeCompare(b.name, i18n.language));
 				break;
 			case 'status_active_first':
 				sorted.sort((a, b) => {
@@ -239,7 +241,7 @@ function RulesLab() {
 				break;
 		}
 		return sorted;
-	}, [rules, search, actionFilters, methodFilters, sort, stageFilter]);
+	}, [rules, search, actionFilters, methodFilters, sort, stageFilter, i18n.language]);
 
 	// Drag-and-drop só é seguro quando a ordem visível casa com a ordem do array
 	// `rules` — ou seja, sem busca/filtro e ordenação por prioridade.
@@ -251,13 +253,16 @@ function RulesLab() {
 		methodFilters.length === 0;
 
 	const subtitle = useMemo(() => {
-		if (rules.length === 0) return 'Nenhuma regra configurada';
+		if (rules.length === 0) return t('subtitle.empty');
 		const active = rules.filter((r) => r.enabled).length;
 		const paused = rules.length - active;
-		if (paused === 0)
-			return `${rules.length} ${rules.length === 1 ? 'regra' : 'regras'} · todas ativas`;
-		return `${rules.length} regras · ${active} ${active === 1 ? 'ativa' : 'ativas'}, ${paused} ${paused === 1 ? 'pausada' : 'pausadas'}`;
-	}, [rules]);
+		if (paused === 0) return t('subtitle.allActive', { count: rules.length });
+		return t('subtitle.mixed', {
+			rules: t('subtitle.rules', { count: rules.length }),
+			active: t('subtitle.active', { count: active }),
+			paused: t('subtitle.paused', { count: paused }),
+		});
+	}, [rules, t]);
 
 	const handleExport = () => {
 		const json = serializeRules(rules);
@@ -284,7 +289,7 @@ function RulesLab() {
 			}
 			setImportPreview(result.rules);
 		} catch (err) {
-			setImportError(err instanceof Error ? err.message : 'JSON inválido');
+			setImportError(err instanceof Error ? err.message : t('import.invalidJson'));
 		}
 	};
 
@@ -304,7 +309,7 @@ function RulesLab() {
 		const created = await duplicateRule(rule.id);
 		if (created) {
 			setSaveToast({
-				message: `Regra "${created.name}" criada (desativada)`,
+				message: t('toast.duplicated', { name: created.name }),
 				previousRules,
 			});
 		}
@@ -361,13 +366,13 @@ function RulesLab() {
 
 			{importError && (
 				<div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-					Erro ao importar: {importError}
+					{t('import.error', { error: importError })}
 					<button
 						type="button"
 						onClick={() => setImportError(null)}
 						className="ml-2 text-xs underline"
 					>
-						fechar
+						{t('import.dismiss')}
 					</button>
 				</div>
 			)}
@@ -410,7 +415,7 @@ function RulesLab() {
 					if (created) {
 						setIsCreating(false);
 						setSaveToast({
-							message: `Regra "${created.name}" adicionada`,
+							message: t('toast.added', { name: created.name }),
 							previousRules,
 						});
 					}
@@ -432,7 +437,7 @@ function RulesLab() {
 						if (ok) {
 							setEditingRule(null);
 							setSaveToast({
-								message: `Regra "${updated.name}" atualizada`,
+								message: t('toast.updated', { name: updated.name }),
 								previousRules,
 							});
 						}

@@ -1,0 +1,103 @@
+import type { Translation } from '../../types';
+import type source from '../pt-BR/rulesLab';
+
+const rulesLab: Translation<typeof source> = {
+	header: {
+		title: 'Rule Management',
+		newRule: 'New rule',
+		moreActions: 'More actions',
+		exportRules: 'Export rules',
+		importRules: 'Import rules',
+		clearAll: 'Clear all',
+	},
+	subtitle: {
+		empty: 'No rules configured',
+		allActive_one: '{{count}} rule · all active',
+		allActive_other: '{{count}} rules · all active',
+		mixed: '{{rules}} · {{active}}, {{paused}}',
+		rules_one: '{{count}} rule',
+		rules_other: '{{count}} rules',
+		active_one: '{{count}} active',
+		active_other: '{{count}} active',
+		paused_one: '{{count}} paused',
+		paused_other: '{{count}} paused',
+	},
+	empty: {
+		title: 'Create your first rule',
+		description:
+			'Rules intercept requests from the debugged tab and modify the response. Start from a preset or create one from scratch.',
+		create: 'Create first rule',
+		importJson: 'Import from JSON',
+	},
+	toolbar: {
+		searchPlaceholder: 'Search rules by name or URL...',
+		searchAriaLabel: 'Search rules',
+		sortAriaLabel: 'Sort order',
+		clearFilters: 'Clear filters',
+		filterByType: 'Filter by action type',
+		type: 'Type',
+		rulesCount_one: '{{count}} rule',
+		rulesCount_other: '{{count}} rules',
+		filterByMethod: 'Filter by HTTP method',
+		method: 'Method',
+		sort: {
+			priorityAsc: 'Priority (manual)',
+			updatedDesc: 'Updated (newest)',
+			updatedAsc: 'Updated (oldest)',
+			nameAsc: 'Name (A → Z)',
+			statusActiveFirst: 'Status (active first)',
+		},
+	},
+	list: {
+		noMatches: 'No rule matches the current filters.',
+		reorderHint: 'Drag by the handle or use Ctrl/Cmd + ↑/↓ to reorder priority.',
+		columns: {
+			order: 'Order',
+			status: 'Status',
+			stage: 'Stage',
+			type: 'Type',
+			matcher: 'Matcher',
+			action: 'Action',
+			updated: 'Updated',
+			actions: 'Actions',
+		},
+		filterByStage: 'Filter by stage',
+		stageAll: 'All',
+		showing: 'Showing {{from}}–{{to}} of {{total}}',
+		shownOfTotal: '{{shown}} of {{total}}',
+		previousPage: 'Previous page',
+		nextPage: 'Next page',
+	},
+	row: {
+		pause: 'Pause rule',
+		activate: 'Enable rule',
+		unreachable: 'Unreachable rule',
+		unreachableTooltip:
+			'Unreachable: a terminal rule of the same stage above always runs before this one. Adjust the order or the matchers so this rule can be exercised.',
+		edit: 'Edit rule',
+		duplicate: 'Duplicate rule',
+		delete: 'Delete rule',
+	},
+	toast: {
+		undoHint: 'The previous rules can be restored within 5s.',
+		undo: 'Undo',
+		duplicated: 'Rule "{{name}}" created (disabled)',
+		added: 'Rule "{{name}}" added',
+		updated: 'Rule "{{name}}" updated',
+	},
+	import: {
+		title: 'Import rules',
+		description_one: '{{count}} rule ready to import. Choose the strategy.',
+		description_other: '{{count}} rules ready to import. Choose the strategy.',
+		merge: 'Add to existing rules',
+		mergeHint: 'Keeps the current rules and creates new ones with new IDs.',
+		replace: 'Replace all rules',
+		replaceHint: 'Deletes all existing rules and keeps only the imported ones.',
+		confirm: 'Confirm import',
+		error: 'Error importing: {{error}}',
+		invalidJson: 'Invalid JSON',
+		dismiss: 'dismiss',
+	},
+};
+
+export default rulesLab;

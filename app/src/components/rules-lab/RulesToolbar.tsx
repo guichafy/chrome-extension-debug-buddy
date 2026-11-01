@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
 	DropdownMenu,
@@ -39,23 +40,25 @@ interface RulesToolbarProps {
 	totalCount: number;
 }
 
-const ACTION_FILTER_OPTIONS: { id: ActionType; label: string }[] = [
-	{ id: 'mock', label: 'Mock' },
-	{ id: 'requestDelay', label: 'Latência' },
-	{ id: 'transform', label: 'Transform' },
-	{ id: 'breakpoint', label: 'Breakpoint' },
-	{ id: 'requestModify', label: 'Modify req' },
-	{ id: 'responseModify', label: 'Modify res' },
-	{ id: 'block', label: 'Block' },
+// Rótulos em `rules:actionTypes.<id>`.
+const ACTION_FILTER_OPTIONS: ActionType[] = [
+	'mock',
+	'requestDelay',
+	'transform',
+	'breakpoint',
+	'requestModify',
+	'responseModify',
+	'block',
 ];
 
-const SORT_LABELS: Record<RulesSortOption, string> = {
-	priority_asc: 'Prioridade (manual)',
-	updated_desc: 'Atualizado (mais recente)',
-	updated_asc: 'Atualizado (mais antigo)',
-	name_asc: 'Nome (A → Z)',
-	status_active_first: 'Status (ativas primeiro)',
-};
+// Chave de tradução (rulesLab:toolbar.sort.*) de cada critério, na ordem do menu.
+const SORT_LABEL_KEYS = {
+	priority_asc: 'toolbar.sort.priorityAsc',
+	updated_desc: 'toolbar.sort.updatedDesc',
+	updated_asc: 'toolbar.sort.updatedAsc',
+	name_asc: 'toolbar.sort.nameAsc',
+	status_active_first: 'toolbar.sort.statusActiveFirst',
+} as const satisfies Record<RulesSortOption, string>;
 
 function toggleArrayValue<T>(arr: readonly T[], value: T): T[] {
 	const next = arr.filter((item) => item !== value);
@@ -113,6 +116,7 @@ export function RulesToolbar({
 	methodCounts,
 	totalCount,
 }: RulesToolbarProps) {
+	const { t } = useTranslation(['rulesLab', 'rules']);
 	const hasActiveFilters =
 		actionFilters.length > 0 ||
 		methodFilters.length > 0 ||
@@ -137,9 +141,9 @@ export function RulesToolbar({
 					<Input
 						value={search}
 						onChange={(e) => onSearchChange(e.target.value)}
-						placeholder="Buscar regras por nome ou URL..."
+						placeholder={t('toolbar.searchPlaceholder')}
 						className="h-8 pl-8 text-sm"
-						aria-label="Buscar regras"
+						aria-label={t('toolbar.searchAriaLabel')}
 					/>
 				</div>
 
@@ -149,21 +153,21 @@ export function RulesToolbar({
 							variant="outline"
 							size="sm"
 							className="h-7 gap-1.5 text-xs"
-							aria-label="Critério de ordenação"
+							aria-label={t('toolbar.sortAriaLabel')}
 						>
 							<LucideIcon name="arrow-up-down" className="h-3 w-3" />
-							{SORT_LABELS[sort]}
+							{t(SORT_LABEL_KEYS[sort])}
 							<LucideIcon name="chevron-down" className="h-3 w-3" />
 						</Button>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end">
-						{(Object.keys(SORT_LABELS) as RulesSortOption[]).map((option) => (
+						{(Object.keys(SORT_LABEL_KEYS) as RulesSortOption[]).map((option) => (
 							<DropdownMenuItem
 								key={option}
 								onClick={() => onSortChange(option)}
 								className="text-xs"
 							>
-								{SORT_LABELS[option]}
+								{t(SORT_LABEL_KEYS[option])}
 								{option === sort && (
 									<LucideIcon name="check" className="ml-auto h-3.5 w-3.5 opacity-60" />
 								)}
@@ -181,33 +185,35 @@ export function RulesToolbar({
 						data-testid="filter-clear"
 					>
 						<LucideIcon name="x" className="h-3 w-3" />
-						Limpar filtros
+						{t('toolbar.clearFilters')}
 					</Button>
 				)}
 			</div>
 
 			<fieldset className="flex flex-wrap items-center gap-1.5" data-testid="filter-group-types">
-				<legend className="sr-only">Filtrar por tipo de ação</legend>
-				<span className="mr-1 text-[11px] uppercase tracking-wide text-muted-foreground">Tipo</span>
-				{ACTION_FILTER_OPTIONS.map((opt) => (
+				<legend className="sr-only">{t('toolbar.filterByType')}</legend>
+				<span className="mr-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+					{t('toolbar.type')}
+				</span>
+				{ACTION_FILTER_OPTIONS.map((type) => (
 					<FilterChip
-						key={opt.id}
-						label={opt.label}
-						count={actionCounts[opt.id] ?? 0}
-						active={actionFilters.includes(opt.id)}
-						onClick={() => onActionFiltersChange(toggleArrayValue(actionFilters, opt.id))}
-						testId={`filter-chip-type-${opt.id}`}
+						key={type}
+						label={t(`rules:actionTypes.${type}`)}
+						count={actionCounts[type] ?? 0}
+						active={actionFilters.includes(type)}
+						onClick={() => onActionFiltersChange(toggleArrayValue(actionFilters, type))}
+						testId={`filter-chip-type-${type}`}
 					/>
 				))}
 				<span className="ml-2 text-[10px] text-muted-foreground">
-					{actionFilters.length === 0 ? `${totalCount} regras` : null}
+					{actionFilters.length === 0 ? t('toolbar.rulesCount', { count: totalCount }) : null}
 				</span>
 			</fieldset>
 
 			<fieldset className="flex flex-wrap items-center gap-1.5" data-testid="filter-group-methods">
-				<legend className="sr-only">Filtrar por método HTTP</legend>
+				<legend className="sr-only">{t('toolbar.filterByMethod')}</legend>
 				<span className="mr-1 text-[11px] uppercase tracking-wide text-muted-foreground">
-					Método
+					{t('toolbar.method')}
 				</span>
 				{METHOD_FILTER_OPTIONS.map((method) => (
 					<FilterChip
