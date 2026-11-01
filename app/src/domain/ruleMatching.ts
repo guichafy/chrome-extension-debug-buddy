@@ -166,35 +166,27 @@ export function validateMatchersForStage(
 	return errors.length === 0 ? { ok: true } : { ok: false, errors };
 }
 
-// Retorna pass/reason por matcher para alimentar o painel de preview do
+// Retorna pass/outcome por matcher para alimentar o painel de preview do
 // editor. Matchers desabilitados aparecem como "ignorado" (pass=true) para
-// refletir o comportamento de runtime.
+// refletir o comportamento de runtime. O texto exibido é montado pela UI a
+// partir do `outcome` (i18n) — este módulo também roda no service worker e
+// não carrega catálogo de idioma.
+export type MatcherCheckOutcome =
+	| 'disabled'
+	| 'emptyPattern'
+	| 'noMethodSelected'
+	| 'match'
+	| 'noMatch';
+
 export interface MatcherCheck {
 	matcher: Matcher;
 	pass: boolean;
-	reason: string;
+	outcome: MatcherCheckOutcome;
 }
 
 export interface MatchersExplanation {
 	overall: boolean;
 	checks: MatcherCheck[];
-}
-
-function describeMatcher(matcher: Matcher): string {
-	switch (matcher.type) {
-		case 'url':
-			return matcher.pattern ? `URL "${matcher.pattern}"` : 'URL (vazio)';
-		case 'method': {
-			const methods = Array.isArray(matcher.method) ? matcher.method : [matcher.method];
-			return `Método ${methods.length === 0 ? '(vazio)' : methods.join(', ')}`;
-		}
-		case 'header':
-			return `Header ${matcher.name || '(vazio)'}`;
-		case 'body':
-			return `Body "${matcher.pattern || ''}"`;
-		default:
-			return 'Matcher desconhecido';
-	}
 }
 
 export function explainMatchers(
@@ -207,24 +199,19 @@ export function explainMatchers(
 	}
 	const checks: MatcherCheck[] = matchers.map((matcher) => {
 		if (!matcher.enabled) {
-			return { matcher, pass: true, reason: `${describeMatcher(matcher)} (desabilitado)` };
+			return { matcher, pass: true, outcome: 'disabled' };
 		}
 		const pass = singleMatcherMatches(matcher, input, stage);
-		const description = describeMatcher(matcher);
 		if (matcher.type === 'url' && matcher.pattern.length === 0) {
-			return { matcher, pass: false, reason: `${description}: padrão vazio` };
+			return { matcher, pass: false, outcome: 'emptyPattern' };
 		}
 		if (matcher.type === 'method') {
 			const methods = Array.isArray(matcher.method) ? matcher.method : [matcher.method];
 			if (methods.length === 0) {
-				return { matcher, pass: false, reason: `${description}: nenhum método selecionado` };
+				return { matcher, pass: false, outcome: 'noMethodSelected' };
 			}
 		}
-		return {
-			matcher,
-			pass,
-			reason: pass ? `${description} casa o request` : `${description} não casa o request`,
-		};
+		return { matcher, pass, outcome: pass ? 'match' : 'noMatch' };
 	});
 	const enabledChecks = checks.filter((c) => c.matcher.enabled);
 	const overall = enabledChecks.length > 0 && enabledChecks.every((c) => c.pass);

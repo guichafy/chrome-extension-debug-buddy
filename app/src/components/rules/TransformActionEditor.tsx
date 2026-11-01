@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from 'react-i18next';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -62,12 +63,8 @@ function pickInitialSample(provided: string | undefined): string {
 	}
 }
 
-const DEFAULT_ADVANCED_SCRIPT = `// "response" é o JSON parseado da resposta original.
-// Retorne o objeto/valor que substituirá a resposta.
-return {
-  ...response,
-  modifiedAt: new Date().toISOString(),
-};`;
+// Script inicial do modo avançado: ruleEditor:transform.defaultScript (os
+// comentários do script seguem o idioma da UI).
 
 const newId = (): string => {
 	if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -84,11 +81,8 @@ const createOperation = (overrides: Partial<TransformOperation> = {}): Transform
 	...overrides,
 });
 
-const OPERATION_TYPE_LABEL: Record<TransformOperationType, string> = {
-	add: 'Adicionar',
-	remove: 'Remover',
-	replace: 'Substituir',
-};
+// Rótulos dos tipos de operação: ruleEditor:transform.operationTypes.<tipo>.
+const OPERATION_TYPES: readonly TransformOperationType[] = ['add', 'remove', 'replace'];
 
 interface OperationValidation {
 	pathError?: string;
@@ -112,6 +106,7 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 	initialSampleResponse,
 	scriptRunner,
 }) => {
+	const { t } = useTranslation('ruleEditor');
 	const operations = useMemo<TransformOperation[]>(() => action.operations ?? [], [action]);
 	const mode: TransformMode = action.mode ?? 'declarative';
 	const advancedScript = action.advancedScript ?? '';
@@ -126,7 +121,7 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 		// Quando entra em advanced pela primeira vez, popula com um script
 		// inicial de exemplo para guiar o usuário (apenas se vazio).
 		if (target === 'advanced' && advancedScript.length === 0) {
-			patch.advancedScript = DEFAULT_ADVANCED_SCRIPT;
+			patch.advancedScript = t('transform.defaultScript');
 		}
 		onChange({ ...action, ...patch });
 	};
@@ -166,14 +161,16 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 
 	const sampleParse = useMemo<{ ok: true; value: unknown } | { ok: false; error: string }>(() => {
 		const trimmed = sampleInput.trim();
-		if (trimmed.length === 0)
-			return { ok: false, error: 'Cole uma resposta JSON de exemplo no painel de preview.' };
+		if (trimmed.length === 0) return { ok: false, error: t('transform.errors.sampleMissing') };
 		try {
 			return { ok: true, value: JSON.parse(sampleInput) };
 		} catch (e) {
-			return { ok: false, error: `JSON de exemplo inválido: ${(e as Error).message}` };
+			return {
+				ok: false,
+				error: t('transform.errors.sampleInvalid', { message: (e as Error).message }),
+			};
 		}
-	}, [sampleInput]);
+	}, [sampleInput, t]);
 
 	const previewResult = useMemo(() => {
 		if (!sampleParse.ok) {
@@ -187,12 +184,12 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 			const v = operationValidations[firstInvalid];
 			return {
 				ok: false as const,
-				error: v.pathError || v.valueError || 'Operação inválida',
+				error: v.pathError || v.valueError || t('transform.errors.invalidOperation'),
 				failedAtIndex: firstInvalid,
 			};
 		}
 		return applyOperations(sampleParse.value, operations);
-	}, [sampleParse, operations, operationValidations]);
+	}, [sampleParse, operations, operationValidations, t]);
 
 	// --- Preview do modo avançado (assíncrono) -------------------------
 	const [advancedResult, setAdvancedResult] = useState<AdvancedScriptResult | null>(null);
@@ -210,7 +207,7 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 		if (advancedScript.trim().length === 0) {
 			setAdvancedResult({
 				ok: false,
-				error: 'Escreva o corpo da função antes de visualizar o preview.',
+				error: t('transform.errors.scriptEmpty'),
 			});
 			setAdvancedRunning(false);
 			return;
@@ -222,7 +219,7 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 			setAdvancedResult(r);
 			setAdvancedRunning(false);
 		});
-	}, [mode, advancedScript, sampleParse, runner]);
+	}, [mode, advancedScript, sampleParse, runner, t]);
 
 	const renderOperationRow = (op: TransformOperation, index: number) => {
 		const validation = operationValidations[index];
@@ -242,7 +239,7 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 			>
 				<div className="flex items-start gap-2">
 					<div className="w-32 shrink-0">
-						<Label className="text-xs uppercase text-muted-foreground">Tipo</Label>
+						<Label className="text-xs uppercase text-muted-foreground">{t('transform.type')}</Label>
 						<Select
 							value={op.type}
 							onValueChange={(v: TransformOperationType) => updateOperation(index, { type: v })}
@@ -251,9 +248,11 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
-								<SelectItem value="add">Adicionar</SelectItem>
-								<SelectItem value="remove">Remover</SelectItem>
-								<SelectItem value="replace">Substituir</SelectItem>
+								{OPERATION_TYPES.map((type) => (
+									<SelectItem key={type} value={type}>
+										{t(`transform.operationTypes.${type}`)}
+									</SelectItem>
+								))}
 							</SelectContent>
 						</Select>
 					</div>
@@ -285,7 +284,7 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 								className="h-7 w-7 p-0"
 								onClick={() => moveOperation(index, -1)}
 								disabled={index === 0}
-								aria-label={`Mover operação ${index + 1} para cima`}
+								aria-label={t('transform.moveUp', { position: index + 1 })}
 								data-testid={`transform-op-up-${index}`}
 							>
 								<LucideIcon name="chevron-down" className="h-3.5 w-3.5 rotate-180" />
@@ -297,7 +296,7 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 								className="h-7 w-7 p-0"
 								onClick={() => moveOperation(index, 1)}
 								disabled={index === operations.length - 1}
-								aria-label={`Mover operação ${index + 1} para baixo`}
+								aria-label={t('transform.moveDown', { position: index + 1 })}
 								data-testid={`transform-op-down-${index}`}
 							>
 								<LucideIcon name="chevron-down" className="h-3.5 w-3.5" />
@@ -308,7 +307,7 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 								size="sm"
 								className="h-7 w-7 p-0 text-destructive"
 								onClick={() => removeOperation(index)}
-								aria-label={`Remover operação ${index + 1}`}
+								aria-label={t('transform.remove', { position: index + 1 })}
 								data-testid={`transform-op-remove-${index}`}
 							>
 								<LucideIcon name="trash" className="h-3.5 w-3.5" />
@@ -319,12 +318,14 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 
 				{op.type !== 'remove' && (
 					<div>
-						<Label className="text-xs uppercase text-muted-foreground">Valor (JSON)</Label>
+						<Label className="text-xs uppercase text-muted-foreground">
+							{t('transform.valueLabel')}
+						</Label>
 						<Textarea
 							className="mt-1 min-h-[60px] font-mono text-sm"
 							value={op.value ?? ''}
 							onChange={(e) => updateOperation(index, { value: e.target.value })}
-							placeholder='"texto entre aspas" ou {"chave": "valor"}'
+							placeholder={t('transform.valuePlaceholder')}
 							aria-invalid={validation.valueError ? true : undefined}
 							data-testid={`transform-op-value-${index}`}
 						/>
@@ -336,9 +337,7 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 								{validation.valueError}
 							</p>
 						)}
-						<p className="mt-1 text-xs text-muted-foreground">
-							Strings precisam estar entre aspas. Use JSON literal para objetos e arrays.
-						</p>
+						<p className="mt-1 text-xs text-muted-foreground">{t('transform.valueHelp')}</p>
 					</div>
 				)}
 
@@ -349,7 +348,7 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 					>
 						<div className="flex items-center gap-1 font-medium">
 							<LucideIcon name="alert-triangle" className="h-3.5 w-3.5" />
-							Falhou ao aplicar
+							{t('transform.failedToApply')}
 						</div>
 						<p className="mt-0.5">{previewResult.error}</p>
 					</div>
@@ -377,10 +376,10 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 			>
 				<div className="flex items-center gap-1 font-medium">
 					<LucideIcon name="alert-triangle" className="h-3.5 w-3.5" />
-					Falha no preview
+					{t('transform.previewFailed')}
 					{previewResult.failedAtIndex >= 0 && (
 						<span className="text-[10px] font-normal opacity-80">
-							(operação {previewResult.failedAtIndex + 1})
+							{t('transform.failedOperation', { position: previewResult.failedAtIndex + 1 })}
 						</span>
 					)}
 				</div>
@@ -392,17 +391,16 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 	const renderDeclarativeMode = () => (
 		<div className="space-y-4">
 			<div>
-				<h4 className="text-sm font-medium">Transform declarativo</h4>
-				<p className="mt-1 text-xs text-muted-foreground">
-					Configure operações JSONPath para alterar a resposta do servidor. As operações são
-					aplicadas em ordem; se uma falhar, as seguintes não serão executadas.
-				</p>
+				<h4 className="text-sm font-medium">{t('transform.declarativeTitle')}</h4>
+				<p className="mt-1 text-xs text-muted-foreground">{t('transform.declarativeHelp')}</p>
 			</div>
 
 			<div className="grid gap-4 lg:grid-cols-[1fr_minmax(0,_22rem)]">
 				<div className="space-y-3">
 					<div className="flex items-center justify-between">
-						<Label className="text-sm font-medium">Operações ({operations.length})</Label>
+						<Label className="text-sm font-medium">
+							{t('transform.operations', { total: operations.length })}
+						</Label>
 						<Button
 							type="button"
 							variant="outline"
@@ -411,7 +409,7 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 							data-testid="transform-op-add"
 						>
 							<LucideIcon name="plus" className="mr-1 h-3.5 w-3.5" />
-							Adicionar operação
+							{t('transform.addOperation')}
 						</Button>
 					</div>
 					{operations.length === 0 ? (
@@ -419,8 +417,7 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 							className="rounded-md border border-dashed border-muted-foreground/30 bg-muted/20 p-4 text-center text-xs text-muted-foreground"
 							data-testid="transform-op-empty"
 						>
-							Nenhuma operação configurada. Adicione uma operação para começar a transformar a
-							resposta.
+							{t('transform.noOperations')}
 						</div>
 					) : (
 						<div className="space-y-2">
@@ -432,7 +429,7 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 				<div className="space-y-3">
 					<div>
 						<Label className="text-xs font-medium uppercase text-muted-foreground">
-							Resposta de exemplo
+							{t('transform.sampleResponse')}
 						</Label>
 						<Textarea
 							className="mt-1 h-40 font-mono text-xs"
@@ -448,7 +445,7 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 					</div>
 					<div>
 						<Label className="text-xs font-medium uppercase text-muted-foreground">
-							Saída transformada
+							{t('transform.transformedOutput')}
 						</Label>
 						<div className="mt-1">{renderDeclarativePreviewOutput()}</div>
 					</div>
@@ -464,7 +461,7 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 					className="rounded border bg-muted/40 p-2 text-xs text-muted-foreground"
 					data-testid="transform-advanced-preview-pending"
 				>
-					Executando script…
+					{t('transform.runningScript')}
 				</div>
 			);
 		}
@@ -474,7 +471,7 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 					className="rounded border bg-muted/40 p-2 text-xs text-muted-foreground"
 					data-testid="transform-advanced-preview-idle"
 				>
-					Aguardando script e resposta de exemplo válida.
+					{t('transform.waitingScript')}
 				</div>
 			);
 		}
@@ -496,7 +493,7 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 			>
 				<div className="flex items-center gap-1 font-medium">
 					<LucideIcon name="alert-triangle" className="h-3.5 w-3.5" />
-					Falha no preview
+					{t('transform.previewFailed')}
 				</div>
 				<p className="mt-1">{advancedResult.error}</p>
 			</output>
@@ -506,11 +503,8 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 	const renderAdvancedMode = () => (
 		<div className="space-y-4">
 			<div>
-				<h4 className="text-sm font-medium">Transform avançado (JavaScript)</h4>
-				<p className="mt-1 text-xs text-muted-foreground">
-					Escreva uma função que recebe a resposta original e retorna a versão transformada. Útil
-					para casos que não cabem no editor declarativo.
-				</p>
+				<h4 className="text-sm font-medium">{t('transform.advancedTitle')}</h4>
+				<p className="mt-1 text-xs text-muted-foreground">{t('transform.advancedHelp')}</p>
 			</div>
 
 			<output
@@ -520,17 +514,15 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 			>
 				<div className="flex items-center gap-2 font-medium">
 					<LucideIcon name="alert-triangle" className="h-4 w-4" />
-					Aviso de segurança
+					{t('transform.securityTitle')}
 				</div>
-				<p className="mt-1">
-					Código executa no service worker da extensão; só rode código que você confia.
-				</p>
+				<p className="mt-1">{t('transform.securityText')}</p>
 			</output>
 
 			<div className="grid gap-4 lg:grid-cols-[1fr_minmax(0,_22rem)]">
 				<div className="space-y-2">
 					<Label className="text-xs font-medium uppercase text-muted-foreground">
-						Função (JavaScript)
+						{t('transform.functionLabel')}
 					</Label>
 					<div className="rounded-md border bg-muted/30 p-2">
 						<div
@@ -547,7 +539,7 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 							}
 							placeholder="return { ...response };"
 							spellCheck={false}
-							aria-label="Corpo da função de transformação avançada"
+							aria-label={t('transform.functionAriaLabel')}
 							data-testid="transform-advanced-script"
 						/>
 						<div
@@ -558,15 +550,18 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 						</div>
 					</div>
 					<p className="text-xs text-muted-foreground">
-						A assinatura é fixa: a função recebe <code className="font-mono">response</code> (JSON
-						parseado) e deve retornar o objeto/valor que substituirá a resposta.
+						<Trans
+							t={t}
+							i18nKey="transform.signatureHelp"
+							components={{ code: <code className="font-mono" /> }}
+						/>
 					</p>
 				</div>
 
 				<div className="space-y-3">
 					<div>
 						<Label className="text-xs font-medium uppercase text-muted-foreground">
-							Resposta de exemplo
+							{t('transform.sampleResponse')}
 						</Label>
 						<Textarea
 							className="mt-1 h-40 font-mono text-xs"
@@ -582,7 +577,7 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 					</div>
 					<div>
 						<Label className="text-xs font-medium uppercase text-muted-foreground">
-							Saída transformada
+							{t('transform.transformedOutput')}
 						</Label>
 						<div className="mt-1">{renderAdvancedPreviewOutput()}</div>
 					</div>
@@ -600,10 +595,10 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 		>
 			<TabsList>
 				<TabsTrigger value="declarative" data-testid="transform-mode-declarative">
-					Declarativo
+					{t('transform.modeDeclarative')}
 				</TabsTrigger>
 				<TabsTrigger value="advanced" data-testid="transform-mode-advanced">
-					Avançado (JS)
+					{t('transform.modeAdvanced')}
 				</TabsTrigger>
 			</TabsList>
 			<TabsContent value="declarative">{renderDeclarativeMode()}</TabsContent>
@@ -614,6 +609,4 @@ export const TransformActionEditor: React.FC<TransformActionEditorProps> = ({
 
 export const __TEST_HELPERS = {
 	createOperation,
-	OPERATION_TYPE_LABEL,
-	DEFAULT_ADVANCED_SCRIPT,
 };

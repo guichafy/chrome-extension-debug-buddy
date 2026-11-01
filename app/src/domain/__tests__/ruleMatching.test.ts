@@ -432,7 +432,7 @@ describe('explainMatchers', () => {
 		expect(result.overall).toBe(true);
 		expect(result.checks).toHaveLength(1);
 		expect(result.checks[0].pass).toBe(true);
-		expect(result.checks[0].reason).toContain('casa');
+		expect(result.checks[0].outcome).toBe('match');
 	});
 
 	test('retorna check pass=false quando URL não casa', () => {
@@ -446,6 +446,7 @@ describe('explainMatchers', () => {
 		});
 		expect(result.overall).toBe(false);
 		expect(result.checks[0].pass).toBe(false);
+		expect(result.checks[0].outcome).toBe('noMatch');
 	});
 
 	test('matcher desabilitado é reportado como ignorado e não bloqueia overall', () => {
@@ -459,7 +460,7 @@ describe('explainMatchers', () => {
 			headers: {},
 		});
 		expect(result.overall).toBe(true);
-		expect(result.checks[1].reason).toContain('desabilitado');
+		expect(result.checks[1].outcome).toBe('disabled');
 	});
 
 	test('URL pattern vazio é reportado com mensagem específica', () => {
@@ -470,7 +471,7 @@ describe('explainMatchers', () => {
 			headers: {},
 		});
 		expect(result.overall).toBe(false);
-		expect(result.checks[0].reason).toContain('vazio');
+		expect(result.checks[0].outcome).toBe('emptyPattern');
 	});
 
 	test('multi-method com array contendo o método de teste retorna pass', () => {
