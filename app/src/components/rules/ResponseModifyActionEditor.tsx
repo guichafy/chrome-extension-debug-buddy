@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from 'react-i18next';
 import React, { useEffect, useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -26,6 +27,7 @@ export const ResponseModifyActionEditor: React.FC<ResponseModifyActionEditorProp
 	action,
 	onChange,
 }) => {
+	const { t } = useTranslation('ruleEditor');
 	const [activeTab, setActiveTab] = useState('basic');
 	const overrideStatus = action.status !== undefined;
 	const overrideBody = action.body !== undefined;
@@ -52,16 +54,16 @@ export const ResponseModifyActionEditor: React.FC<ResponseModifyActionEditorProp
 		setStatusInput(raw);
 		const trimmed = raw.trim();
 		if (trimmed.length === 0) {
-			setStatusError('Informe um status code HTTP.');
+			setStatusError(t('responseModify.statusErrors.empty'));
 			return;
 		}
 		if (!/^\d+$/.test(trimmed)) {
-			setStatusError('O status precisa conter apenas dígitos.');
+			setStatusError(t('responseModify.statusErrors.notDigits'));
 			return;
 		}
 		const parsed = Number.parseInt(trimmed, 10);
 		if (!Number.isInteger(parsed) || parsed < 100 || parsed > 599) {
-			setStatusError('O status deve estar entre 100 e 599.');
+			setStatusError(t('responseModify.statusErrors.outOfRange'));
 			return;
 		}
 		setStatusError(null);
@@ -105,13 +107,13 @@ export const ResponseModifyActionEditor: React.FC<ResponseModifyActionEditorProp
 			<Tabs value={activeTab} onValueChange={setActiveTab}>
 				<TabsList className="w-full">
 					<TabsTrigger value="basic" className="flex-1">
-						Status
+						{t('modifyTabs.status')}
 					</TabsTrigger>
 					<TabsTrigger value="headers" className="flex-1">
-						Headers
+						{t('modifyTabs.headers')}
 					</TabsTrigger>
 					<TabsTrigger value="body" className="flex-1">
-						Body
+						{t('modifyTabs.body')}
 					</TabsTrigger>
 				</TabsList>
 
@@ -125,7 +127,7 @@ export const ResponseModifyActionEditor: React.FC<ResponseModifyActionEditorProp
 								data-testid="response-modify-status-enabled"
 							/>
 							<Label htmlFor="response-modify-status-enabled" className="font-medium">
-								Sobrescrever status code
+								{t('responseModify.overrideStatus')}
 							</Label>
 						</div>
 						<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -134,7 +136,7 @@ export const ResponseModifyActionEditor: React.FC<ResponseModifyActionEditorProp
 									htmlFor="response-modify-status-input"
 									className="text-xs text-muted-foreground"
 								>
-									Status (100–599)
+									{t('responseModify.statusLabel')}
 								</Label>
 								<Input
 									id="response-modify-status-input"
@@ -164,7 +166,7 @@ export const ResponseModifyActionEditor: React.FC<ResponseModifyActionEditorProp
 									htmlFor="response-modify-status-phrase"
 									className="text-xs text-muted-foreground"
 								>
-									Status text (opcional)
+									{t('responseModify.statusTextLabel')}
 								</Label>
 								<Input
 									id="response-modify-status-phrase"
@@ -196,7 +198,7 @@ export const ResponseModifyActionEditor: React.FC<ResponseModifyActionEditorProp
 							data-testid="response-modify-body-enabled"
 						/>
 						<Label htmlFor="response-modify-body-enabled" className="font-medium">
-							Substituir body
+							{t('responseModify.replaceBody')}
 						</Label>
 					</div>
 					<Textarea
@@ -208,7 +210,7 @@ export const ResponseModifyActionEditor: React.FC<ResponseModifyActionEditorProp
 						data-testid="response-modify-body-textarea"
 					/>
 					<p className="text-xs text-muted-foreground">
-						Para edições JSONPath, considere a action <strong>Transform</strong>.
+						<Trans t={t} i18nKey="responseModify.bodyHelp" components={{ strong: <strong /> }} />
 					</p>
 				</TabsContent>
 			</Tabs>
@@ -219,11 +221,10 @@ export const ResponseModifyActionEditor: React.FC<ResponseModifyActionEditorProp
 			>
 				<h4 className="mb-1 flex items-center gap-2 text-sm font-medium text-purple-800 dark:text-purple-200">
 					<LucideIcon name="info" className="h-4 w-4" />
-					Modificador de response
+					{t('responseModify.infoTitle')}
 				</h4>
 				<p className="text-xs text-purple-800/90 dark:text-purple-200/80">
-					Roda no estágio <strong>Response</strong>, após o servidor responder e antes do retorno ao
-					browser. A chain continua após o modify.
+					<Trans t={t} i18nKey="responseModify.infoText" components={{ strong: <strong /> }} />
 				</p>
 			</div>
 		</div>

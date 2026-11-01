@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from 'react-i18next';
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +33,7 @@ const isNonNegativeIntegerString = (value: string): boolean => {
 };
 
 export const DelayActionEditor: React.FC<DelayActionEditorProps> = ({ action, onChange }) => {
+	const { t } = useTranslation('ruleEditor');
 	const [inputValue, setInputValue] = useState<string>(String(action.timeMs));
 	const [error, setError] = useState<string | null>(null);
 
@@ -49,16 +51,16 @@ export const DelayActionEditor: React.FC<DelayActionEditorProps> = ({ action, on
 		setInputValue(raw);
 		const trimmed = raw.trim();
 		if (trimmed.length === 0) {
-			setError('Informe um valor em milissegundos.');
+			setError(t('delay.errors.empty'));
 			return;
 		}
 		if (!/^\d+$/.test(trimmed)) {
-			setError('Informe um número inteiro não negativo (apenas dígitos).');
+			setError(t('delay.errors.notDigits'));
 			return;
 		}
 		const parsed = Number.parseInt(trimmed, 10);
 		if (!Number.isInteger(parsed) || parsed < 0) {
-			setError('O delay precisa ser um número inteiro maior ou igual a zero.');
+			setError(t('delay.errors.negative'));
 			return;
 		}
 		setError(null);
@@ -81,7 +83,7 @@ export const DelayActionEditor: React.FC<DelayActionEditorProps> = ({ action, on
 		<div className="space-y-4" data-testid="delay-action-editor">
 			<div>
 				<Label htmlFor="delay-time-ms" className="font-medium">
-					Delay em milissegundos
+					{t('delay.label')}
 				</Label>
 				<Input
 					id="delay-time-ms"
@@ -107,13 +109,13 @@ export const DelayActionEditor: React.FC<DelayActionEditorProps> = ({ action, on
 					</p>
 				) : (
 					<p id="delay-time-ms-help" className="mt-1 text-xs text-muted-foreground">
-						Mínimo 0ms. Valores maiores aumentam o tempo de espera percebido pelo cliente.
+						{t('delay.help')}
 					</p>
 				)}
 			</div>
 
 			<fieldset>
-				<legend className="text-sm font-medium">Presets rápidos</legend>
+				<legend className="text-sm font-medium">{t('delay.presets')}</legend>
 				<div className="mt-2 flex flex-wrap gap-2" data-testid="delay-action-presets">
 					{DELAY_PRESETS.map((preset) => {
 						const isSelected = action.timeMs === preset.timeMs;
@@ -141,11 +143,15 @@ export const DelayActionEditor: React.FC<DelayActionEditorProps> = ({ action, on
 			>
 				<h4 className="mb-2 flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-200">
 					<LucideIcon name="info" className="h-4 w-4" />
-					Sobre o Delay
+					{t('delay.infoTitle')}
 				</h4>
 				<p className="text-sm text-amber-800/90 dark:text-amber-200/80">
-					O servidor remoto será chamado normalmente; a resposta será segurada por{' '}
-					<strong>{previewMs}ms</strong> antes de devolver ao cliente.
+					<Trans
+						t={t}
+						i18nKey="delay.infoText"
+						values={{ ms: previewMs }}
+						components={{ strong: <strong /> }}
+					/>
 				</p>
 			</div>
 		</div>

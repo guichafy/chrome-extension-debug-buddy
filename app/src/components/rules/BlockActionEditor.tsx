@@ -1,4 +1,5 @@
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { Label } from '@/components/ui/label';
 import { LucideIcon } from '@/components/ui/lucide-icon';
 import {
@@ -15,71 +16,48 @@ interface BlockActionEditorProps {
 	onChange: (action: BlockAction) => void;
 }
 
+// Chave da descrição em ruleEditor:block.reasons.<chave>.
+type BlockReasonKey =
+	| 'failed'
+	| 'aborted'
+	| 'timedOut'
+	| 'accessDenied'
+	| 'connectionFailed'
+	| 'connectionRefused'
+	| 'nameNotResolved'
+	| 'blockedByClient'
+	| 'internetDisconnected';
+
 interface BlockReasonOption {
 	value: BlockErrorReason;
-	label: string;
-	description: string;
+	descriptionKey: BlockReasonKey;
 }
 
 // Subset curado em `types/rules.ts` (9 valores). Mesma lista em ordem
 // pedagógica — falhas genéricas primeiro, depois condições mais específicas.
+// O rótulo é o próprio valor do CDP (não traduzido).
 const BLOCK_REASONS: readonly BlockReasonOption[] = [
-	{
-		value: 'Failed',
-		label: 'Failed',
-		description: 'Erro genérico — net::ERR_FAILED no devtools.',
-	},
-	{
-		value: 'Aborted',
-		label: 'Aborted',
-		description: 'Requisição cancelada — net::ERR_ABORTED.',
-	},
-	{
-		value: 'TimedOut',
-		label: 'TimedOut',
-		description: 'Timeout simulado — net::ERR_TIMED_OUT.',
-	},
-	{
-		value: 'AccessDenied',
-		label: 'AccessDenied',
-		description: 'Acesso negado por política — net::ERR_ACCESS_DENIED.',
-	},
-	{
-		value: 'ConnectionFailed',
-		label: 'ConnectionFailed',
-		description: 'Falha na conexão TCP — net::ERR_CONNECTION_FAILED.',
-	},
-	{
-		value: 'ConnectionRefused',
-		label: 'ConnectionRefused',
-		description: 'Servidor recusou — net::ERR_CONNECTION_REFUSED.',
-	},
-	{
-		value: 'NameNotResolved',
-		label: 'NameNotResolved',
-		description: 'DNS falhou — net::ERR_NAME_NOT_RESOLVED.',
-	},
-	{
-		value: 'BlockedByClient',
-		label: 'BlockedByClient',
-		description: 'Bloqueado por extensão/cliente — net::ERR_BLOCKED_BY_CLIENT.',
-	},
-	{
-		value: 'InternetDisconnected',
-		label: 'InternetDisconnected',
-		description: 'Sem conectividade — net::ERR_INTERNET_DISCONNECTED.',
-	},
+	{ value: 'Failed', descriptionKey: 'failed' },
+	{ value: 'Aborted', descriptionKey: 'aborted' },
+	{ value: 'TimedOut', descriptionKey: 'timedOut' },
+	{ value: 'AccessDenied', descriptionKey: 'accessDenied' },
+	{ value: 'ConnectionFailed', descriptionKey: 'connectionFailed' },
+	{ value: 'ConnectionRefused', descriptionKey: 'connectionRefused' },
+	{ value: 'NameNotResolved', descriptionKey: 'nameNotResolved' },
+	{ value: 'BlockedByClient', descriptionKey: 'blockedByClient' },
+	{ value: 'InternetDisconnected', descriptionKey: 'internetDisconnected' },
 ];
 
-function describeReason(value: BlockErrorReason): string {
+function reasonDescriptionKey(value: BlockErrorReason): BlockReasonKey {
 	const found = BLOCK_REASONS.find((r) => r.value === value);
 	if (!found) {
 		throw new Error(`BlockErrorReason desconhecido: ${value}`);
 	}
-	return found.description;
+	return found.descriptionKey;
 }
 
 export const BlockActionEditor: React.FC<BlockActionEditorProps> = ({ action, onChange }) => {
+	const { t } = useTranslation('ruleEditor');
 	const handleReasonChange = (next: string) => {
 		onChange({ ...action, errorReason: next as BlockErrorReason });
 	};
@@ -88,7 +66,7 @@ export const BlockActionEditor: React.FC<BlockActionEditorProps> = ({ action, on
 		<div className="space-y-4" data-testid="block-action-editor">
 			<div>
 				<Label htmlFor="block-action-reason" className="font-medium">
-					Motivo do bloqueio
+					{t('block.reasonLabel')}
 				</Label>
 				<Select value={action.errorReason} onValueChange={handleReasonChange}>
 					<SelectTrigger
@@ -106,15 +84,17 @@ export const BlockActionEditor: React.FC<BlockActionEditorProps> = ({ action, on
 								data-testid={`block-action-reason-option-${option.value}`}
 							>
 								<div className="flex flex-col">
-									<span className="font-medium">{option.label}</span>
-									<span className="text-xs text-muted-foreground">{option.description}</span>
+									<span className="font-medium">{option.value}</span>
+									<span className="text-xs text-muted-foreground">
+										{t(`block.reasons.${option.descriptionKey}`)}
+									</span>
 								</div>
 							</SelectItem>
 						))}
 					</SelectContent>
 				</Select>
 				<p className="mt-2 text-xs text-muted-foreground" data-testid="block-action-reason-help">
-					{describeReason(action.errorReason)}
+					{t(`block.reasons.${reasonDescriptionKey(action.errorReason)}`)}
 				</p>
 			</div>
 
@@ -124,12 +104,10 @@ export const BlockActionEditor: React.FC<BlockActionEditorProps> = ({ action, on
 			>
 				<h4 className="mb-1 flex items-center gap-2 text-sm font-medium text-destructive">
 					<LucideIcon name="alert-triangle" className="h-4 w-4" />
-					Falha imediata, sem chamada à rede
+					{t('block.infoTitle')}
 				</h4>
 				<p className="text-xs text-destructive/90">
-					O request será encerrado com <code>Fetch.failRequest</code> e o motivo selecionado. Útil
-					pra simular cenários offline, DNS quebrado, timeout ou bloqueios por política sem mexer no
-					servidor.
+					<Trans t={t} i18nKey="block.infoText" components={{ code: <code /> }} />
 				</p>
 			</div>
 		</div>

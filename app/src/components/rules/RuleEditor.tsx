@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import {
 	Dialog,
 	DialogContent,
@@ -71,36 +72,14 @@ type WizardStep = 'type' | 'matcher' | 'action' | 'review';
 const FULL_STEPS: readonly WizardStep[] = ['type', 'matcher', 'action', 'review'] as const;
 const STEPS_WITHOUT_TYPE: readonly WizardStep[] = ['matcher', 'action', 'review'] as const;
 
-const STEP_META: Record<WizardStep, { label: string; description: string }> = {
-	type: {
-		label: 'Tipo',
-		description: 'Escolha o comportamento da regra.',
-	},
-	matcher: {
-		label: 'Matcher',
-		description: 'Defina quais requisições serão alvo.',
-	},
-	action: {
-		label: 'Ação',
-		description: 'Configure como a regra age sobre o request.',
-	},
-	review: {
-		label: 'Revisar',
-		description: 'Confirme antes de salvar.',
-	},
-};
+// Rótulo/descrição de cada passo: ruleEditor:steps.<step>.label|description.
 
 // Phase 1 (compat): o wizard atual lida só com os 4 tipos clássicos; os novos
 // `requestModify`/`responseModify`/`block` ficam para Phase 4 (UI dual-stage).
 // `delay` foi renomeado para `requestDelay` no schema.
 type LegacyEditableType = 'mock' | 'transform' | 'requestDelay' | 'breakpoint';
 
-const ACTION_TYPE_DESCRIPTION: Record<LegacyEditableType, string> = {
-	mock: 'Não chama o servidor — retorna a resposta mockada.',
-	transform: 'Chama o servidor e aplica modificações na resposta.',
-	requestDelay: 'Atrasa a resposta antes de devolver ao cliente.',
-	breakpoint: 'Pausa antes de responder e permite editar a resposta em voo.',
-};
+// Descrição de cada tipo no card: ruleEditor:typeDescriptions.<tipo>.
 
 const ACTION_TYPE_ORDER: ReadonlyArray<LegacyEditableType> = [
 	'breakpoint',
@@ -175,10 +154,11 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 	headerMatcherSource,
 	samplePayload,
 }) => {
+	const { t } = useTranslation(['ruleEditor', 'rules', 'common']);
 	const STEPS = skipTypeStep ? STEPS_WITHOUT_TYPE : FULL_STEPS;
 	const [view, setView] = useState<EditorView>(mode === 'edit' ? 'editor' : 'welcome');
 	const [cameFromWelcome, setCameFromWelcome] = useState(false);
-	const [name, setName] = useState(rule?.name || 'Nova Regra');
+	const [name, setName] = useState(rule?.name || t('defaultName'));
 	const [matchers, setMatchers] = useState<Matcher[]>(rule?.matchers ?? DEFAULT_MATCHERS);
 	// Phase 4: editor opera sobre `actions: Action[]` (chain). O Tipo step
 	// continua usando o tipo da PRIMEIRA action como indicador visual, mas o
@@ -312,7 +292,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 				setShowCancelConfirm(false);
 				return;
 			}
-			setName('Nova Regra');
+			setName(t('defaultName'));
 			setMatchers(DEFAULT_MATCHERS);
 			setActions([DEFAULT_ACTION]);
 			setStage('response');
@@ -355,7 +335,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
 	const startBlank = () => {
 		beginEditingFromDraft({
-			name: 'Nova Regra',
+			name: t('defaultName'),
 			enabled: true,
 			stage: 'response',
 			matchers: DEFAULT_MATCHERS,
@@ -375,7 +355,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 		if (!name.trim()) {
 			errors.push({
 				id: 'name-empty',
-				message: 'Informe um nome para a regra',
+				message: t('validation.nameEmpty'),
 				step: skipTypeStep ? 'matcher' : 'type',
 			});
 		}
@@ -383,13 +363,13 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 		if (!enabledUrlMatcher) {
 			errors.push({
 				id: 'url-matcher-missing',
-				message: 'A regra precisa de um matcher de URL habilitado',
+				message: t('validation.urlMatcherMissing'),
 				step: 'matcher',
 			});
 		} else if (enabledUrlMatcher.type === 'url' && enabledUrlMatcher.pattern.trim().length === 0) {
 			errors.push({
 				id: 'url-pattern-empty',
-				message: 'Preencha o padrão da URL antes de salvar',
+				message: t('validation.urlPatternEmpty'),
 				step: 'matcher',
 			});
 		}
@@ -403,13 +383,13 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 			if (methods.length === 0) {
 				errors.push({
 					id: 'method-empty',
-					message: 'Selecione ao menos um método HTTP ou desative o matcher de método',
+					message: t('validation.methodEmpty'),
 					step: 'matcher',
 				});
 			}
 		}
 		return errors;
-	}, [name, matchers, skipTypeStep]);
+	}, [name, matchers, skipTypeStep, t]);
 
 	const hasErrors = validationErrors.length > 0;
 
@@ -503,22 +483,20 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 		return (
 			<div className="space-y-4">
 				<div>
-					<Label htmlFor="ruleName">Nome da Regra</Label>
+					<Label htmlFor="ruleName">{t('typeStep.nameLabel')}</Label>
 					<Input
 						id="ruleName"
 						value={name}
 						onChange={(e) => setName(e.target.value)}
-						placeholder="Ex: API de Login"
+						placeholder={t('typeStep.namePlaceholder')}
 						className="w-full"
 					/>
 				</div>
 
 				<fieldset className="space-y-2" data-testid="rule-wizard-stage">
-					<legend className="text-sm font-medium">Estágio (stage)</legend>
+					<legend className="text-sm font-medium">{t('typeStep.stageLegend')}</legend>
 					<p className="text-xs text-muted-foreground">
-						<strong>Request</strong> roda antes da requisição sair pra rede;{' '}
-						<strong>Response</strong> roda depois que o servidor responde. Cada regra opera em um
-						único stage — para agir nos dois, crie duas regras.
+						<Trans t={t} i18nKey="typeStep.stageHelp" components={{ strong: <strong /> }} />
 					</p>
 					<Select
 						value={stage}
@@ -534,41 +512,38 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value="request" data-testid="rule-wizard-stage-option-request">
-								Request — antes do envio
+								{t('typeStep.stageRequestOption')}
 							</SelectItem>
 							<SelectItem value="response" data-testid="rule-wizard-stage-option-response">
-								Response — depois do retorno
+								{t('typeStep.stageResponseOption')}
 							</SelectItem>
 						</SelectContent>
 					</Select>
 					{isLocked && (
 						<p className="text-xs text-muted-foreground" data-testid="rule-wizard-stage-locked">
-							Em edição o stage não pode ser alterado — actions e matchers dependem dele. Para
-							trocar, crie uma nova regra.
+							{t('typeStep.stageLocked')}
 						</p>
 					)}
 				</fieldset>
 
 				<fieldset className="space-y-2" data-testid="rule-wizard-type-cards">
-					<legend className="text-sm font-medium">Tipo de regra</legend>
+					<legend className="text-sm font-medium">{t('typeStep.typeLegend')}</legend>
 					<p className="text-xs text-muted-foreground">
-						{isLocked
-							? 'Em edição, o tipo não pode ser alterado — para mudar o tipo, crie uma nova regra.'
-							: 'Escolha o comportamento inicial. O passo "Ação" permite encadear mais actions depois.'}
+						{isLocked ? t('typeStep.typeLocked') : t('typeStep.typeHelp')}
 					</p>
 					<div className="grid gap-3 sm:grid-cols-2">
-						{ACTION_TYPE_ORDER.map((t) => {
-							const v = getActionVisuals(createDefaultActionForType(t));
-							const isSelected = action.type === t;
+						{ACTION_TYPE_ORDER.map((type) => {
+							const v = getActionVisuals(createDefaultActionForType(type));
+							const isSelected = action.type === type;
 							const disabled = isLocked && !isSelected;
 							return (
 								<button
-									key={t}
+									key={type}
 									type="button"
 									aria-pressed={isSelected}
 									aria-disabled={disabled}
 									disabled={disabled}
-									onClick={() => handleSelectType(t)}
+									onClick={() => handleSelectType(type)}
 									className={cn(
 										'group flex items-start gap-3 rounded-lg border p-4 text-left transition-colors',
 										isSelected
@@ -582,7 +557,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 										disabled && 'cursor-not-allowed opacity-50 hover:bg-card',
 										!disabled && !isSelected && 'cursor-pointer',
 									)}
-									data-testid={`rule-wizard-type-card-${t}`}
+									data-testid={`rule-wizard-type-card-${type}`}
 									data-selected={isSelected ? 'true' : 'false'}
 								>
 									<div
@@ -604,15 +579,15 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 														v.bgClass,
 														v.textClass,
 													)}
-													data-testid={`rule-wizard-type-card-${t}-selected-badge`}
+													data-testid={`rule-wizard-type-card-${type}-selected-badge`}
 												>
 													<LucideIcon name="check" className="h-3 w-3" />
-													Selecionado
+													{t('typeStep.selected')}
 												</span>
 											)}
 										</div>
 										<p className="mt-1 text-sm text-muted-foreground">
-											{ACTION_TYPE_DESCRIPTION[t]}
+											{t(`typeDescriptions.${type}`)}
 										</p>
 									</div>
 								</button>
@@ -627,7 +602,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 						checked={enabled}
 						onCheckedChange={(checked) => setEnabled(checked === true)}
 					/>
-					<Label htmlFor="rule-enabled">Regra ativa</Label>
+					<Label htmlFor="rule-enabled">{t('typeStep.enabled')}</Label>
 				</div>
 			</div>
 		);
@@ -635,12 +610,12 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
 	const renderNameField = () => (
 		<div>
-			<Label htmlFor="ruleName">Nome da Regra</Label>
+			<Label htmlFor="ruleName">{t('typeStep.nameLabel')}</Label>
 			<Input
 				id="ruleName"
 				value={name}
 				onChange={(e) => setName(e.target.value)}
-				placeholder="Ex: API de Login"
+				placeholder={t('typeStep.namePlaceholder')}
 				className="w-full"
 			/>
 		</div>
@@ -650,11 +625,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 		<div className="space-y-3">
 			{skipTypeStep && renderNameField()}
 			<div>
-				<h3 className="mb-1 text-lg font-medium">Condições de Match</h3>
-				<p className="mb-4 text-sm text-muted-foreground">
-					Defina o padrão de URL e os métodos HTTP que disparam esta regra. O painel à direita
-					mostra em tempo real se a regra casaria uma URL de teste.
-				</p>
+				<h3 className="mb-1 text-lg font-medium">{t('matcherStep.title')}</h3>
+				<p className="mb-4 text-sm text-muted-foreground">{t('matcherStep.description')}</p>
 			</div>
 			<UnifiedMatcherEditor matchers={matchers} onChange={setMatchers} stage={stage} />
 			{headerMatcherSource && (
@@ -680,15 +652,14 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 					<LucideIcon name={visuals.iconName} className="h-4 w-4" />
 				</span>
 				<div className="text-sm">
-					<span className="text-muted-foreground">Chain de actions ({actions.length}) — </span>
-					<strong>Stage: {stage === 'request' ? 'Request' : 'Response'}</strong>
+					<span className="text-muted-foreground">
+						{t('actionStep.chain', { total: actions.length })}
+					</span>
+					<strong>{t('actionStep.stage', { stage: t(`rules:stages.${stage}`) })}</strong>
 				</div>
 			</div>
-			<h3 className="mb-2 text-lg font-medium">Ações da regra</h3>
-			<p className="mb-4 text-sm text-muted-foreground">
-				As actions executam em ordem. Uma action terminal (Mock, Block, Breakpoint) interrompe a
-				chain — actions após ela ficam inalcançáveis.
-			</p>
+			<h3 className="mb-2 text-lg font-medium">{t('actionStep.title')}</h3>
+			<p className="mb-4 text-sm text-muted-foreground">{t('actionStep.description')}</p>
 			<ActionChainEditor
 				actions={actions}
 				stage={stage}
@@ -715,23 +686,23 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 							<LucideIcon name={visuals.iconName} className="h-4 w-4" />
 						</div>
 						<div className="flex-1">
-							<div className="text-sm font-medium">{name || '(sem nome)'}</div>
+							<div className="text-sm font-medium">{name || t('review.unnamed')}</div>
 							<div className="text-xs text-muted-foreground">
-								{enabled ? 'Ativa ao salvar' : 'Pausada ao salvar'}
+								{enabled ? t('review.activeOnSave') : t('review.pausedOnSave')}
 							</div>
 						</div>
 					</div>
 					<dl className="grid gap-2 text-sm">
 						<div className="grid grid-cols-[110px_1fr] gap-2">
-							<dt className="text-muted-foreground">Tipo</dt>
+							<dt className="text-muted-foreground">{t('review.type')}</dt>
 							<dd>{visuals.label}</dd>
 						</div>
 						<div className="grid grid-cols-[110px_1fr] gap-2">
-							<dt className="text-muted-foreground">Matcher</dt>
+							<dt className="text-muted-foreground">{t('review.matcher')}</dt>
 							<dd className="break-all">{matcherSummary}</dd>
 						</div>
 						<div className="grid grid-cols-[110px_1fr] gap-2">
-							<dt className="text-muted-foreground">Ação</dt>
+							<dt className="text-muted-foreground">{t('review.action')}</dt>
 							<dd className="break-all">{actionSummary}</dd>
 						</div>
 					</dl>
@@ -746,7 +717,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 					>
 						<div className="mb-2 flex items-center gap-2 text-sm font-medium text-destructive">
 							<LucideIcon name="alert-triangle" className="h-4 w-4" />
-							Corrija os itens abaixo antes de salvar
+							{t('review.fixErrors')}
 						</div>
 						<ul className="space-y-1 text-sm">
 							{validationErrors.map((err) => (
@@ -761,7 +732,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 										<span>
 											{err.message}
 											<span className="ml-1 text-xs text-muted-foreground">
-												(passo {STEP_META[err.step].label})
+												{t('review.errorStep', { step: t(`steps.${err.step}.label`) })}
 											</span>
 										</span>
 									</button>
@@ -776,11 +747,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 					>
 						<div className="flex items-center gap-2 font-medium">
 							<LucideIcon name="check-circle" className="h-4 w-4" />
-							Pronto para salvar
+							{t('review.ready')}
 						</div>
-						<p className="mt-1 text-xs text-emerald-200/80">
-							Todos os campos obrigatórios estão preenchidos.
-						</p>
+						<p className="mt-1 text-xs text-emerald-200/80">{t('review.readyHint')}</p>
 					</div>
 				)}
 			</div>
@@ -808,7 +777,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 					className="rounded-lg border border-muted-foreground/20 bg-muted/40 p-3 text-xs text-muted-foreground"
 					data-testid="rule-wizard-diff-empty"
 				>
-					Nenhuma alteração realizada — salvar manterá a regra como está.
+					{t('diff.noChanges')}
 				</div>
 			);
 		}
@@ -822,28 +791,28 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 		}> = [
 			{
 				id: 'name',
-				label: 'Nome',
+				label: t('diff.name'),
 				before: rule.name,
 				after: name,
 				changed: nameChanged,
 			},
 			{
 				id: 'enabled',
-				label: 'Estado',
-				before: rule.enabled ? 'Ativa' : 'Pausada',
-				after: enabled ? 'Ativa' : 'Pausada',
+				label: t('diff.state'),
+				before: rule.enabled ? t('diff.active') : t('diff.paused'),
+				after: enabled ? t('diff.active') : t('diff.paused'),
 				changed: enabledChanged,
 			},
 			{
 				id: 'matcher',
-				label: 'Matcher',
+				label: t('diff.matcher'),
 				before: beforeMatcherSummary,
 				after: afterMatcherSummary,
 				changed: matchersChanged,
 			},
 			{
 				id: 'action',
-				label: 'Ação',
+				label: t('diff.action'),
 				before: beforeActionSummary,
 				after: afterActionSummary,
 				changed: actionChanged,
@@ -854,7 +823,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 			<div className="rounded-lg border bg-card p-4" data-testid="rule-wizard-diff">
 				<div className="mb-2 flex items-center gap-2 text-sm font-medium">
 					<LucideIcon name="rotate-ccw" className="h-4 w-4 text-muted-foreground" />
-					Alterações em relação à regra atual
+					{t('diff.title')}
 				</div>
 				<dl className="space-y-2 text-sm">
 					{rows.map((row) => (
@@ -937,18 +906,22 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 								className="mb-1 inline-flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
 							>
 								<LucideIcon name="arrow-left" className="h-3 w-3" />
-								Voltar
+								{t('dialog.back')}
 							</button>
 						)}
 						<DialogTitle>
-							{mode === 'edit' ? 'Editar Regra' : isWelcome ? 'Nova regra' : 'Configurar regra'}
+							{mode === 'edit'
+								? t('dialog.editTitle')
+								: isWelcome
+									? t('dialog.newTitle')
+									: t('dialog.configureTitle')}
 						</DialogTitle>
 						<DialogDescription>
 							{mode === 'edit'
-								? 'Modifique os detalhes da regra.'
+								? t('dialog.editDescription')
 								: isWelcome
-									? 'Comece do zero ou escolha um template.'
-									: STEP_META[step].description}
+									? t('dialog.welcomeDescription')
+									: t(`steps.${step}.description`)}
 						</DialogDescription>
 					</DialogHeader>
 
@@ -957,7 +930,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 					) : (
 						<>
 							<nav
-								aria-label="Passos do wizard"
+								aria-label={t('steps.navAriaLabel')}
 								className="flex items-center justify-between gap-2 border-y py-3"
 								data-testid="rule-wizard-steps"
 							>
@@ -994,7 +967,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 													{idx + 1}
 												</span>
 												<span className="hidden truncate font-medium sm:inline">
-													{STEP_META[s].label}
+													{t(`steps.${s}.label`)}
 												</span>
 											</button>
 											{idx < STEPS.length - 1 && (
@@ -1025,7 +998,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 									}}
 									disabled={isSaving}
 								>
-									Cancelar
+									{t('common:actions.cancel')}
 								</Button>
 								<div className="flex items-center gap-2">
 									<Button
@@ -1035,7 +1008,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 										disabled={isFirstStep || isSaving}
 									>
 										<LucideIcon name="arrow-left" className="mr-1 h-4 w-4" />
-										Anterior
+										{t('dialog.previous')}
 									</Button>
 									{isLastStep ? (
 										<Button
@@ -1053,11 +1026,11 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 													className="h-4 w-4"
 												/>
 											)}
-											{mode === 'create' ? 'Adicionar' : 'Salvar'}
+											{mode === 'create' ? t('dialog.add') : t('common:actions.save')}
 										</Button>
 									) : (
 										<Button type="button" onClick={goNext} disabled={isSaving}>
-											Próximo
+											{t('dialog.next')}
 											<LucideIcon name="arrow-right" className="ml-1 h-4 w-4" />
 										</Button>
 									)}
@@ -1076,15 +1049,12 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Descartar alterações?</AlertDialogTitle>
-						<AlertDialogDescription>
-							Você fez alterações que ainda não foram salvas. Sair agora descartará tudo o que foi
-							modificado neste wizard.
-						</AlertDialogDescription>
+						<AlertDialogTitle>{t('discard.title')}</AlertDialogTitle>
+						<AlertDialogDescription>{t('discard.description')}</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel onClick={() => setShowCancelConfirm(false)}>
-							Continuar editando
+							{t('discard.keepEditing')}
 						</AlertDialogCancel>
 						<AlertDialogAction
 							onClick={() => {
@@ -1092,7 +1062,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 								closeDialog();
 							}}
 						>
-							Descartar
+							{t('discard.confirm')}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

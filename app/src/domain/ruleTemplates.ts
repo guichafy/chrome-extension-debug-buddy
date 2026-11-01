@@ -9,6 +9,7 @@ import type {
 	TransformAction,
 	UrlMatcher,
 } from '@/types/rules';
+import { i18n } from '@/i18n/instance';
 import { PRESETS } from './rulePresets';
 
 // Identificadores estáveis para os templates curados oferecidos no welcome do
@@ -23,12 +24,14 @@ export type RuleTemplateId =
 	| 'transform_remove_id'
 	| 'breakpoint_manual';
 
+// `name`/`description` (e as actions com texto) são getters: resolvem no
+// idioma ativo da UI a cada leitura (textos em rules:templates.<chave>).
 export interface TemplateSpec {
 	id: RuleTemplateId;
-	name: string;
-	description: string;
+	readonly name: string;
+	readonly description: string;
 	stage: RuleStage;
-	actions: Action[];
+	readonly actions: Action[];
 }
 
 const mockTemplate = (
@@ -45,8 +48,12 @@ const mockTemplate = (
 	});
 	return {
 		id,
-		name: preset.name,
-		description: preset.description,
+		get name() {
+			return preset.name;
+		},
+		get description() {
+			return preset.description;
+		},
 		stage: preset.stage,
 		actions: merged,
 	};
@@ -92,43 +99,56 @@ export const TEMPLATES: Record<RuleTemplateId, TemplateSpec> = {
 	mock_empty: mockTemplate('mock_empty', 'empty_response'),
 	delay_3s: {
 		id: 'delay_3s',
-		name: 'Atrasar resposta em 3s',
-		description:
-			'Chama o servidor normalmente e segura a resposta por 3000ms antes de devolvê-la ao cliente.',
+		get name() {
+			return i18n.t('rules:templates.delay3s.name');
+		},
+		get description() {
+			return i18n.t('rules:templates.delay3s.description');
+		},
 		stage: 'request',
 		actions: [requestDelayAction(3000)],
 	},
 	transform_cors_header: {
 		id: 'transform_cors_header',
-		name: 'Adicionar header CORS Access-Control-Allow-Origin: *',
-		description:
-			'Chama o servidor e injeta o cabeçalho CORS na resposta para permitir requisições cross-origin durante o debug.',
+		get name() {
+			return i18n.t('rules:templates.transformCorsHeader.name');
+		},
+		get description() {
+			return i18n.t('rules:templates.transformCorsHeader.description');
+		},
 		stage: 'response',
 		actions: [transformAddHeaderAction({ 'access-control-allow-origin': '*' })],
 	},
 	transform_remove_id: {
 		id: 'transform_remove_id',
-		name: 'Remover campo id da resposta JSON',
-		description:
-			'Chama o servidor e remove o campo $.id do body JSON da resposta, útil para testar como o cliente reage à ausência do identificador.',
+		get name() {
+			return i18n.t('rules:templates.transformRemoveId.name');
+		},
+		get description() {
+			return i18n.t('rules:templates.transformRemoveId.description');
+		},
 		stage: 'response',
 		actions: [transformRemoveJsonPathAction('$.id')],
 	},
 	breakpoint_manual: {
 		id: 'breakpoint_manual',
-		name: 'Pausar para inspeção/edição manual',
-		description:
-			'Pausa a requisição assim que casar e abre o dialog para você inspecionar e editar a resposta antes de prosseguir.',
+		get name() {
+			return i18n.t('rules:templates.breakpointManual.name');
+		},
+		get description() {
+			return i18n.t('rules:templates.breakpointManual.description');
+		},
 		stage: 'response',
-		actions: [
-			breakpointAction('Pausa para inspeção e edição manual da resposta antes de prosseguir.'),
-		],
+		get actions() {
+			return [breakpointAction(i18n.t('rules:templates.breakpointManual.actionDescription'))];
+		},
 	},
 };
 
 export interface TemplateGroup {
 	id: 'mock' | 'delay' | 'transform' | 'breakpoint';
-	label: string;
+	// Getter traduzido: rules:templateGroups.<id>.
+	readonly label: string;
 	templates: RuleTemplateId[];
 }
 
@@ -137,22 +157,30 @@ export interface TemplateGroup {
 export const TEMPLATE_GROUPS: TemplateGroup[] = [
 	{
 		id: 'mock',
-		label: 'Mock — não chama o servidor',
+		get label() {
+			return i18n.t('rules:templateGroups.mock');
+		},
 		templates: ['mock_500', 'mock_404', 'mock_401', 'mock_empty'],
 	},
 	{
 		id: 'delay',
-		label: 'Delay — segura a resposta',
+		get label() {
+			return i18n.t('rules:templateGroups.delay');
+		},
 		templates: ['delay_3s'],
 	},
 	{
 		id: 'transform',
-		label: 'Transform — chama o servidor e modifica a resposta',
+		get label() {
+			return i18n.t('rules:templateGroups.transform');
+		},
 		templates: ['transform_cors_header', 'transform_remove_id'],
 	},
 	{
 		id: 'breakpoint',
-		label: 'Breakpoint — pausa para inspeção',
+		get label() {
+			return i18n.t('rules:templateGroups.breakpoint');
+		},
 		templates: ['breakpoint_manual'],
 	},
 ];

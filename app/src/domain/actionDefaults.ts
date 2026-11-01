@@ -56,29 +56,8 @@ export function availableActionTypesForStage(stage: RuleStage): readonly ActionT
 	return RESPONSE_STAGE_ORDER;
 }
 
-// Labels curtos pros chips do picker e cabeçalho das rows do chain editor.
-// Mantém alinhado com `ruleVisuals.getActionVisuals(...).label`, mas exposto
-// como helper estável para evitar chamar `getActionVisuals` só pra pegar o
-// label de um `type` cru.
-export const ACTION_TYPE_LABEL: Record<ActionType, string> = {
-	mock: 'Mock',
-	requestDelay: 'Atraso (Delay)',
-	transform: 'Transform',
-	breakpoint: 'Breakpoint',
-	requestModify: 'Modificar request',
-	responseModify: 'Modificar response',
-	block: 'Bloquear',
-};
-
-export const ACTION_TYPE_DESCRIPTION: Record<ActionType, string> = {
-	mock: 'Substitui a resposta sem chamar o servidor (ou após o servidor responder).',
-	requestDelay: 'Atrasa a chain N ms antes de continuar.',
-	transform: 'Chama o servidor e altera a resposta via JSONPath ou script.',
-	breakpoint: 'Pausa para edição manual antes de prosseguir.',
-	requestModify: 'Edita URL, método, headers e body antes do envio.',
-	responseModify: 'Edita status, headers e body antes de devolver ao browser.',
-	block: 'Falha a requisição com um errorReason específico.',
-};
+// Rótulo/descrição de cada tipo de ação vivem no i18n (rules:actionTypes,
+// rules:actionDescriptions) — este módulo fica sem texto de UI.
 
 // Quando o usuário troca o stage da regra, descartamos actions que deixaram
 // de fazer sentido naquele stage. Mantemos a ordem das válidas.

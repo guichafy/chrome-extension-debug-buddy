@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Checkbox } from '@/components/ui/checkbox';
 import { isSensitiveHeader, maskHeaderValue } from '@/domain/sensitiveHeaders';
 import type { HeaderMatcher, Matcher } from '@/types/rules';
@@ -42,12 +43,13 @@ function findExistingIndex(
 }
 
 export function HeaderMatcherSelector({ headers, matchers, onChange }: HeaderMatcherSelectorProps) {
+	const { t } = useTranslation('ruleEditor');
 	const rows = buildRows(headers);
 
 	if (rows.length === 0) {
 		return (
 			<div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
-				Nenhum header capturado nesta request.
+				{t('headerMatchers.empty')}
 			</div>
 		);
 	}
@@ -78,21 +80,18 @@ export function HeaderMatcherSelector({ headers, matchers, onChange }: HeaderMat
 	return (
 		<div className="space-y-2">
 			<div className="flex flex-wrap items-baseline justify-between gap-2">
-				<h4 className="text-sm font-medium">Header matchers (opcional)</h4>
+				<h4 className="text-sm font-medium">{t('headerMatchers.title')}</h4>
 				<span
 					className="text-xs text-muted-foreground"
 					data-testid="header-matcher-count"
 					aria-live="polite"
 				>
 					{selectedCount > 0
-						? `${selectedCount} marcado${selectedCount > 1 ? 's' : ''} de ${rows.length}`
-						: `${rows.length} disponíve${rows.length > 1 ? 'is' : 'l'}`}
+						? t('headerMatchers.selected', { count: selectedCount, total: rows.length })
+						: t('headerMatchers.available', { count: rows.length })}
 				</span>
 			</div>
-			<p className="text-xs text-muted-foreground">
-				Marque headers para exigir o mesmo valor na request original. Headers sensíveis ficam
-				mascarados.
-			</p>
+			<p className="text-xs text-muted-foreground">{t('headerMatchers.help')}</p>
 			{/* Scroll nativo: scrollbar sempre visível em overflow (diferente do Radix
 			    ScrollArea type="hover", que escondia a indicação de "tem mais"). Cap
 			    responsivo via max-h-[40vh] adapta a viewports maiores; min-h-40 garante
@@ -105,10 +104,10 @@ export function HeaderMatcherSelector({ headers, matchers, onChange }: HeaderMat
 				<table className="w-full text-sm">
 					<thead className="sticky top-0 z-10 bg-muted text-xs uppercase text-muted-foreground shadow-[inset_0_-1px_0_var(--border)]">
 						<tr>
-							<th className="px-3 py-2 text-left">Inc.</th>
-							<th className="px-3 py-2 text-left">Tipo</th>
-							<th className="px-3 py-2 text-left">Nome</th>
-							<th className="px-3 py-2 text-left">Valor</th>
+							<th className="px-3 py-2 text-left">{t('headerMatchers.columns.include')}</th>
+							<th className="px-3 py-2 text-left">{t('headerMatchers.columns.type')}</th>
+							<th className="px-3 py-2 text-left">{t('headerMatchers.columns.name')}</th>
+							<th className="px-3 py-2 text-left">{t('headerMatchers.columns.value')}</th>
 						</tr>
 					</thead>
 					<tbody>

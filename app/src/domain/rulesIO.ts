@@ -1,3 +1,4 @@
+import { i18n } from '@/i18n/instance';
 import type { Action, ActionType, Matcher, MatcherType, Rule, RuleStage } from '@/types/rules';
 import { isActionValidForStage, isTerminalAction } from '@/types/rules';
 
@@ -61,29 +62,35 @@ function validateAction(value: unknown): value is Action {
 }
 
 function validateRule(value: unknown): { ok: true; rule: Rule } | { ok: false; error: string } {
-	if (!isPlainObject(value)) return { ok: false, error: 'regra não é objeto' };
-	if (typeof value.id !== 'string') return { ok: false, error: 'regra sem id válido' };
-	if (typeof value.name !== 'string') return { ok: false, error: 'regra sem name' };
-	if (typeof value.enabled !== 'boolean') return { ok: false, error: 'regra sem enabled' };
+	if (!isPlainObject(value))
+		return { ok: false, error: i18n.t('rules:importValidation.ruleNotObject') };
+	if (typeof value.id !== 'string')
+		return { ok: false, error: i18n.t('rules:importValidation.ruleMissingId') };
+	if (typeof value.name !== 'string')
+		return { ok: false, error: i18n.t('rules:importValidation.ruleMissingName') };
+	if (typeof value.enabled !== 'boolean')
+		return { ok: false, error: i18n.t('rules:importValidation.ruleMissingEnabled') };
 	if (typeof value.stage !== 'string' || !RULE_STAGES.has(value.stage as RuleStage)) {
-		return { ok: false, error: "regra sem stage válido ('request' | 'response')" };
+		return { ok: false, error: i18n.t('rules:importValidation.ruleInvalidStage') };
 	}
 	if (!Array.isArray(value.matchers))
-		return { ok: false, error: 'regra sem matchers (deve ser array)' };
+		return { ok: false, error: i18n.t('rules:importValidation.ruleMissingMatchers') };
 	if (!value.matchers.every(validateMatcher))
-		return { ok: false, error: 'matcher inválido na regra' };
+		return { ok: false, error: i18n.t('rules:importValidation.invalidMatcher') };
 	if (!Array.isArray(value.actions) || value.actions.length === 0) {
-		return { ok: false, error: 'regra sem actions (deve ser array não vazio)' };
+		return { ok: false, error: i18n.t('rules:importValidation.ruleMissingActions') };
 	}
 	if (!value.actions.every(validateAction)) {
-		return { ok: false, error: 'action inválida na regra' };
+		return { ok: false, error: i18n.t('rules:importValidation.invalidAction') };
 	}
 	const stage = value.stage as RuleStage;
 	const actions = value.actions as Action[];
 	const chainCheck = validateChainInvariants(actions, stage);
 	if (!chainCheck.ok) return chainCheck;
-	if (typeof value.createdAt !== 'number') return { ok: false, error: 'createdAt ausente' };
-	if (typeof value.updatedAt !== 'number') return { ok: false, error: 'updatedAt ausente' };
+	if (typeof value.createdAt !== 'number')
+		return { ok: false, error: i18n.t('rules:importValidation.missingCreatedAt') };
+	if (typeof value.updatedAt !== 'number')
+		return { ok: false, error: i18n.t('rules:importValidation.missingUpdatedAt') };
 	return { ok: true, rule: value as unknown as Rule };
 }
 
@@ -107,7 +114,10 @@ function validateChainInvariants(
 		if (!isActionValidForStage(action.type, stage)) {
 			return {
 				ok: false,
-				error: `action '${action.type}' não é válida em stage '${stage}'`,
+				error: i18n.t('rules:importValidation.actionInvalidForStage', {
+					type: action.type,
+					stage,
+				}),
 			};
 		}
 	}
@@ -119,13 +129,15 @@ function validateChainInvariants(
 	if (terminalIndices.length > 1) {
 		return {
 			ok: false,
-			error: `chain com ${terminalIndices.length} actions terminais (máx 1)`,
+			error: i18n.t('rules:importValidation.tooManyTerminals', {
+				total: terminalIndices.length,
+			}),
 		};
 	}
 	if (terminalIndices.length === 1 && terminalIndices[0] !== actions.length - 1) {
 		return {
 			ok: false,
-			error: 'action terminal precisa ser a última da chain',
+			error: i18n.t('rules:importValidation.terminalNotLast'),
 		};
 	}
 
@@ -137,9 +149,7 @@ function validateChainInvariants(
 		if (enabledCount > 1) {
 			return {
 				ok: false,
-				error:
-					'chain com 2+ actions em stage=response ainda não é suportada ' +
-					'(Response stage roda no engine single-action; aguardando migração para executeChain)',
+				error: i18n.t('rules:importValidation.responseChainUnsupported'),
 			};
 		}
 	}
@@ -148,15 +158,19 @@ function validateChainInvariants(
 }
 
 export function validateRuleImport(value: unknown): RulesImportResult {
-	if (!isPlainObject(value)) return { ok: false, error: 'arquivo não é objeto JSON' };
+	if (!isPlainObject(value))
+		return { ok: false, error: i18n.t('rules:importValidation.fileNotObject') };
 	if (value.schemaVersion !== CURRENT_SCHEMA_VERSION) {
 		return {
 			ok: false,
-			error: `schemaVersion ${value.schemaVersion} não suportado (esperado ${CURRENT_SCHEMA_VERSION})`,
+			error: i18n.t('rules:importValidation.unsupportedSchema', {
+				version: String(value.schemaVersion),
+				expected: CURRENT_SCHEMA_VERSION,
+			}),
 		};
 	}
 	if (!Array.isArray(value.rules)) {
-		return { ok: false, error: 'rules deve ser um array' };
+		return { ok: false, error: i18n.t('rules:importValidation.rulesNotArray') };
 	}
 
 	const rules: Rule[] = [];

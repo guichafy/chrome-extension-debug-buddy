@@ -1,3 +1,4 @@
+import { i18n } from '@/i18n/instance';
 import type { InterceptedResponse } from '@/types/intercepted';
 import type {
 	Action,
@@ -37,12 +38,7 @@ export type BuildRuleDraftResult =
 // `responseModify`/`block` — esses são criados manualmente via wizard.
 export type QuickMockActionType = 'mock' | 'breakpoint' | 'transform' | 'requestDelay';
 
-const NAME_PREFIX_BY_TYPE: Record<QuickMockActionType, string> = {
-	mock: 'Mock',
-	breakpoint: 'Breakpoint',
-	transform: 'Transform',
-	requestDelay: 'Latência',
-};
+// Prefixo do nome da regra gerada = rótulo do tipo (rules:actionTypes.<tipo>).
 
 // Stage natural de cada tipo no fluxo Quick Mock. Mock substitui a resposta
 // (Response stage é o uso mais comum a partir de uma request capturada — o
@@ -123,7 +119,7 @@ export function buildRuleDraftFromRequest(
 			ok: false,
 			error: {
 				code: 'method_missing',
-				message: 'Não é possível criar regra sem o método HTTP original.',
+				message: i18n.t('rules:quickMock.methodMissing'),
 			},
 		};
 	}
@@ -132,7 +128,7 @@ export function buildRuleDraftFromRequest(
 			ok: false,
 			error: {
 				code: 'method_missing',
-				message: `Quick Mock não suporta o tipo de ação '${options.type}'.`,
+				message: i18n.t('rules:quickMock.unsupportedType', { type: options.type }),
 			},
 		};
 	}
@@ -150,7 +146,7 @@ export function buildRuleDraftFromRequest(
 				ok: false,
 				error: {
 					code: 'header_value_missing',
-					message: `Header "${selection.name}" foi marcado mas não tem valor capturado.`,
+					message: i18n.t('rules:quickMock.headerValueMissing', { name: selection.name }),
 				},
 			};
 		}
@@ -168,7 +164,10 @@ export function buildRuleDraftFromRequest(
 	const stage = STAGE_BY_TYPE[options.type];
 
 	const draft: RuleDraft = {
-		name: `${NAME_PREFIX_BY_TYPE[options.type]} para ${pattern}`,
+		name: i18n.t('rules:quickMock.ruleName', {
+			prefix: i18n.t(`rules:actionTypes.${options.type}`),
+			pattern,
+		}),
 		enabled: true,
 		stage,
 		matchers,
