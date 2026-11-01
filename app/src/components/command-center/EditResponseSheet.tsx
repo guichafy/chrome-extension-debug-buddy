@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -96,6 +97,7 @@ export function EditResponseSheet({
 	requestId,
 	onSubmit,
 }: EditResponseSheetProps) {
+	const { t } = useTranslation(['commandCenter', 'common']);
 	const [statusInput, setStatusInput] = useState<string>(String(request.status));
 	const [rows, setRows] = useState<HeaderRow[]>(() => headersToRows(pickInitialHeaders(request)));
 	const [body, setBody] = useState<string>(() => pickInitialBody(request));
@@ -160,7 +162,7 @@ export function EditResponseSheet({
 
 	const handleSubmit = async () => {
 		if (!statusValid) {
-			setErrorMessage('Status code precisa ser um inteiro entre 100 e 599.');
+			setErrorMessage(t('editSheet.statusInvalid'));
 			return;
 		}
 
@@ -170,12 +172,12 @@ export function EditResponseSheet({
 		for (const row of rows) {
 			const trimmedName = row.name.trim();
 			if (!trimmedName && row.value.trim() !== '') {
-				newHeaderErrors[row.id] = 'Header sem nome. Preencha a chave ou remova a linha.';
+				newHeaderErrors[row.id] = t('editSheet.headerNameMissing');
 			}
 		}
 		if (Object.keys(newHeaderErrors).length > 0) {
 			setHeaderErrors(newHeaderErrors);
-			setErrorMessage('Há headers com chave vazia. Corrija antes de aplicar.');
+			setErrorMessage(t('editSheet.emptyHeaderKeys'));
 			return;
 		}
 		setHeaderErrors({});
@@ -189,9 +191,7 @@ export function EditResponseSheet({
 			RESERVED_HEADER_NAMES.includes(k.toLowerCase()),
 		);
 		if (touchedReserved.length > 0) {
-			setWarningMessage(
-				`Headers controlados pelo Chrome detectados (${touchedReserved.join(', ')}). O navegador pode sobrescrever esses valores.`,
-			);
+			setWarningMessage(t('editSheet.reservedHeaders', { headers: touchedReserved.join(', ') }));
 		} else {
 			setWarningMessage(null);
 		}
@@ -208,7 +208,7 @@ export function EditResponseSheet({
 				onOpenChange(false);
 				return;
 			}
-			setErrorMessage(result.error || 'Falha ao aplicar edição.');
+			setErrorMessage(result.error || t('editSheet.applyFailed'));
 		} catch (err) {
 			setErrorMessage(err instanceof Error ? err.message : String(err));
 		} finally {
@@ -226,11 +226,8 @@ export function EditResponseSheet({
 				data-testid="edit-response-sheet"
 			>
 				<SheetHeader className="space-y-2 border-b p-6">
-					<SheetTitle>Editar response (one-shot)</SheetTitle>
-					<SheetDescription>
-						Ajuste status, headers e body desta requisição. A edição é aplicada uma única vez — para
-						persistir como regra reutilizável use &quot;Criar Mock&quot;.
-					</SheetDescription>
+					<SheetTitle>{t('editSheet.responseTitle')}</SheetTitle>
+					<SheetDescription>{t('editSheet.responseDescription')}</SheetDescription>
 					<div
 						className="mt-2 flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-xs"
 						data-testid="edit-response-context"
@@ -254,7 +251,7 @@ export function EditResponseSheet({
 				<ScrollArea className="min-h-0 flex-1">
 					<div className="space-y-4 p-6">
 						<div className="space-y-1">
-							<Label htmlFor="edit-response-status">Status code</Label>
+							<Label htmlFor="edit-response-status">{t('editSheet.statusCode')}</Label>
 							<Input
 								id="edit-response-status"
 								type="number"
@@ -266,15 +263,13 @@ export function EditResponseSheet({
 								data-testid="edit-response-status-input"
 							/>
 							{!statusValid && (
-								<p className="text-xs text-destructive">
-									Status code precisa ser um inteiro entre 100 e 599.
-								</p>
+								<p className="text-xs text-destructive">{t('editSheet.statusInvalid')}</p>
 							)}
 						</div>
 
 						<div className="space-y-2">
 							<div className="flex items-center justify-between">
-								<Label>Response headers</Label>
+								<Label>{t('editSheet.responseHeaders')}</Label>
 								<Button
 									type="button"
 									variant="outline"
@@ -284,13 +279,11 @@ export function EditResponseSheet({
 									data-testid="edit-response-add-header"
 								>
 									<LucideIcon name="plus" className="h-3.5 w-3.5" />
-									Adicionar header
+									{t('editSheet.addHeader')}
 								</Button>
 							</div>
 							{rows.length === 0 ? (
-								<p className="text-xs text-muted-foreground">
-									Sem headers. Use &quot;Adicionar header&quot; para incluir.
-								</p>
+								<p className="text-xs text-muted-foreground">{t('editSheet.noHeaders')}</p>
 							) : (
 								<div className="space-y-2" data-testid="edit-response-headers">
 									{rows.map((row) => {
@@ -304,7 +297,7 @@ export function EditResponseSheet({
 													}}
 												>
 													<Input
-														placeholder="Header"
+														placeholder={t('editSheet.headerPlaceholder')}
 														value={row.name}
 														onChange={(e) => updateRow(row.id, { name: e.target.value })}
 														className="font-mono text-xs"
@@ -312,7 +305,7 @@ export function EditResponseSheet({
 														aria-invalid={rowError ? 'true' : undefined}
 													/>
 													<Input
-														placeholder="valor"
+														placeholder={t('editSheet.valuePlaceholder')}
 														value={row.value}
 														onChange={(e) => updateRow(row.id, { value: e.target.value })}
 														className="font-mono text-xs"
@@ -323,7 +316,9 @@ export function EditResponseSheet({
 														variant="ghost"
 														size="icon"
 														onClick={() => removeRow(row.id)}
-														aria-label={`Remover header ${row.name || 'sem nome'}`}
+														aria-label={t('editSheet.removeHeader', {
+															name: row.name || t('editSheet.unnamedHeader'),
+														})}
 														className="h-8 w-8"
 													>
 														<LucideIcon name="x" className="h-4 w-4" />
@@ -345,7 +340,7 @@ export function EditResponseSheet({
 						</div>
 
 						<div className="space-y-1">
-							<Label htmlFor="edit-response-body">Response body</Label>
+							<Label htmlFor="edit-response-body">{t('editSheet.responseBody')}</Label>
 							{request.bodyUnavailableReason && (
 								<output
 									className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-100"
@@ -353,8 +348,7 @@ export function EditResponseSheet({
 								>
 									<LucideIcon name="alert-triangle" className="mt-0.5 h-4 w-4 shrink-0" />
 									<span className="break-words">
-										Body original indisponível ({request.bodyUnavailableReason}). O textarea começa
-										vazio — submeter agora vai responder com body vazio.
+										{t('editSheet.bodyUnavailable', { reason: request.bodyUnavailableReason })}
 									</span>
 								</output>
 							)}
@@ -398,7 +392,7 @@ export function EditResponseSheet({
 						onClick={() => onOpenChange(false)}
 						disabled={submitting}
 					>
-						Cancelar
+						{t('common:actions.cancel')}
 					</Button>
 					<Button
 						type="button"
@@ -408,7 +402,7 @@ export function EditResponseSheet({
 						data-testid="edit-response-submit"
 					>
 						<LucideIcon name="check" className="h-4 w-4" />
-						{submitting ? 'Aplicando…' : 'Aplicar e continuar'}
+						{submitting ? t('editSheet.applying') : t('editSheet.applyAndContinue')}
 					</Button>
 				</SheetFooter>
 			</SheetContent>

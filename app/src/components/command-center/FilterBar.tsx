@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import * as React from 'react';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
@@ -20,6 +21,7 @@ type PopoverInteractOutsideEvent = Parameters<
 >[0];
 
 export function FilterBar({ filters, onFiltersChange, requests }: FilterBarProps) {
+	const { t, i18n } = useTranslation('commandCenter');
 	const rootRef = React.useRef<HTMLDivElement>(null);
 	const inputRef = React.useRef<HTMLInputElement>(null);
 	const [draft, setDraft] = React.useState('');
@@ -28,9 +30,11 @@ export function FilterBar({ filters, onFiltersChange, requests }: FilterBarProps
 	// Recomputa sugestões apenas quando o popover está aberto. Sem essa guarda,
 	// rajadas de interceptação (`requests` muda muitas vezes/s) reconstruiriam
 	// a lista de facets em background, mesmo o usuário não estando vendo.
+	// i18n.language entra nas deps porque os hints são traduzidos.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: i18n.language recalcula os hints ao trocar de idioma
 	const suggestions = React.useMemo<FilterSuggestion[]>(
 		() => (open ? buildSuggestions(draft, Object.values(requests)) : []),
-		[draft, open, requests],
+		[draft, open, requests, i18n.language],
 	);
 
 	const focusInput = React.useCallback(() => {
@@ -131,11 +135,7 @@ export function FilterBar({ filters, onFiltersChange, requests }: FilterBarProps
 							onChange={handleInputChange}
 							onFocus={() => setOpen(true)}
 							onKeyDown={handleKeyDown}
-							placeholder={
-								hasFilters
-									? 'Adicionar filtro…'
-									: 'Filtrar por method:, status:, state: ou texto livre'
-							}
+							placeholder={hasFilters ? t('filterBar.addFilter') : t('filterBar.placeholder')}
 							className="min-w-[12ch] flex-1 bg-transparent px-1 py-0.5 outline-hidden placeholder:text-muted-foreground"
 						/>
 						{hasFilters && (
@@ -149,7 +149,7 @@ export function FilterBar({ filters, onFiltersChange, requests }: FilterBarProps
 								}}
 								className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
 							>
-								Limpar
+								{t('filterBar.clear')}
 							</Button>
 						)}
 					</div>
@@ -165,10 +165,12 @@ export function FilterBar({ filters, onFiltersChange, requests }: FilterBarProps
 						<CommandList>
 							{suggestions.length === 0 ? (
 								<div className="px-3 py-6 text-center text-sm text-muted-foreground">
-									Nenhuma sugestão para «{draft}»
+									{t('filterBar.noSuggestions', { draft })}
 								</div>
 							) : (
-								<CommandGroup heading={draft.length === 0 ? 'Sugestões' : 'Resultados'}>
+								<CommandGroup
+									heading={draft.length === 0 ? t('filterBar.suggestions') : t('filterBar.results')}
+								>
 									{suggestions.map((suggestion) => (
 										<CommandItem
 											key={suggestion.id}

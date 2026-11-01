@@ -8,6 +8,7 @@
 //                                    headers/postData modificados).
 // - "Cancelar"                     → Fetch.failRequest com errorReason='Aborted'.
 
+import { useTranslation } from 'react-i18next';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -89,6 +90,7 @@ export function EditRequestSheet({
 	onApproveWithEdit,
 	onCancel,
 }: EditRequestSheetProps) {
+	const { t } = useTranslation(['commandCenter', 'common']);
 	const [url, setUrl] = useState<string>(entry.url);
 	const [method, setMethod] = useState<string>(inferInitialMethod(entry));
 	const [rows, setRows] = useState<HeaderRow[]>(() => headersToRows(entry.request.headers));
@@ -153,7 +155,7 @@ export function EditRequestSheet({
 				onOpenChange(false);
 				return;
 			}
-			setErrorMessage('Falha ao aprovar — ver console do background pra detalhes.');
+			setErrorMessage(t('editSheet.approveFailed'));
 		} finally {
 			setSubmitting(false);
 		}
@@ -161,19 +163,19 @@ export function EditRequestSheet({
 
 	const handleApproveWithMods = async () => {
 		if (!urlValid) {
-			setErrorMessage('URL não pode ficar vazia.');
+			setErrorMessage(t('editSheet.urlEmpty'));
 			return;
 		}
 		const newHeaderErrors: Record<string, string> = {};
 		for (const row of rows) {
 			const trimmedName = row.name.trim();
 			if (!trimmedName && row.value.trim() !== '') {
-				newHeaderErrors[row.id] = 'Header sem nome. Preencha a chave ou remova a linha.';
+				newHeaderErrors[row.id] = t('editSheet.headerNameMissing');
 			}
 		}
 		if (Object.keys(newHeaderErrors).length > 0) {
 			setHeaderErrors(newHeaderErrors);
-			setErrorMessage('Há headers com chave vazia. Corrija antes de aplicar.');
+			setErrorMessage(t('editSheet.emptyHeaderKeys'));
 			return;
 		}
 		setHeaderErrors({});
@@ -191,7 +193,7 @@ export function EditRequestSheet({
 				onOpenChange(false);
 				return;
 			}
-			setErrorMessage(result.error || 'Falha ao aplicar edição.');
+			setErrorMessage(result.error || t('editSheet.applyFailed'));
 		} catch (err) {
 			setErrorMessage(err instanceof Error ? err.message : String(err));
 		} finally {
@@ -208,7 +210,7 @@ export function EditRequestSheet({
 				onOpenChange(false);
 				return;
 			}
-			setErrorMessage('Falha ao cancelar — ver console do background pra detalhes.');
+			setErrorMessage(t('editSheet.cancelFailed'));
 		} finally {
 			setSubmitting(false);
 		}
@@ -222,11 +224,8 @@ export function EditRequestSheet({
 				data-testid="edit-request-sheet"
 			>
 				<SheetHeader className="space-y-2 border-b p-6">
-					<SheetTitle>Editar request (breakpoint)</SheetTitle>
-					<SheetDescription>
-						Ajuste URL, método, headers e body antes de liberar para a rede. A edição é aplicada uma
-						única vez — use as regras para mudanças persistentes.
-					</SheetDescription>
+					<SheetTitle>{t('editSheet.requestTitle')}</SheetTitle>
+					<SheetDescription>{t('editSheet.requestDescription')}</SheetDescription>
 					<div
 						className="mt-2 flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-xs"
 						data-testid="edit-request-context"
@@ -250,7 +249,7 @@ export function EditRequestSheet({
 				<ScrollArea className="min-h-0 flex-1">
 					<div className="space-y-4 p-6">
 						<div className="space-y-1">
-							<Label htmlFor="edit-request-url">URL</Label>
+							<Label htmlFor="edit-request-url">{t('editSheet.url')}</Label>
 							<Input
 								id="edit-request-url"
 								value={url}
@@ -259,11 +258,11 @@ export function EditRequestSheet({
 								data-testid="edit-request-url-input"
 								aria-invalid={!urlValid ? 'true' : undefined}
 							/>
-							{!urlValid && <p className="text-xs text-destructive">URL não pode ficar vazia.</p>}
+							{!urlValid && <p className="text-xs text-destructive">{t('editSheet.urlEmpty')}</p>}
 						</div>
 
 						<div className="space-y-1">
-							<Label htmlFor="edit-request-method">Método</Label>
+							<Label htmlFor="edit-request-method">{t('editSheet.method')}</Label>
 							<Select value={method} onValueChange={setMethod}>
 								<SelectTrigger
 									id="edit-request-method"
@@ -284,7 +283,7 @@ export function EditRequestSheet({
 
 						<div className="space-y-2">
 							<div className="flex items-center justify-between">
-								<Label>Request headers</Label>
+								<Label>{t('editSheet.requestHeaders')}</Label>
 								<Button
 									type="button"
 									variant="outline"
@@ -294,13 +293,11 @@ export function EditRequestSheet({
 									data-testid="edit-request-add-header"
 								>
 									<LucideIcon name="plus" className="h-3.5 w-3.5" />
-									Adicionar header
+									{t('editSheet.addHeader')}
 								</Button>
 							</div>
 							{rows.length === 0 ? (
-								<p className="text-xs text-muted-foreground">
-									Sem headers. Use &quot;Adicionar header&quot; para incluir.
-								</p>
+								<p className="text-xs text-muted-foreground">{t('editSheet.noHeaders')}</p>
 							) : (
 								<div className="space-y-2" data-testid="edit-request-headers">
 									{rows.map((row) => {
@@ -314,7 +311,7 @@ export function EditRequestSheet({
 													}}
 												>
 													<Input
-														placeholder="Header"
+														placeholder={t('editSheet.headerPlaceholder')}
 														value={row.name}
 														onChange={(e) => updateRow(row.id, { name: e.target.value })}
 														className="font-mono text-xs"
@@ -322,7 +319,7 @@ export function EditRequestSheet({
 														aria-invalid={rowError ? 'true' : undefined}
 													/>
 													<Input
-														placeholder="valor"
+														placeholder={t('editSheet.valuePlaceholder')}
 														value={row.value}
 														onChange={(e) => updateRow(row.id, { value: e.target.value })}
 														className="font-mono text-xs"
@@ -333,7 +330,9 @@ export function EditRequestSheet({
 														variant="ghost"
 														size="icon"
 														onClick={() => removeRow(row.id)}
-														aria-label={`Remover header ${row.name || 'sem nome'}`}
+														aria-label={t('editSheet.removeHeader', {
+															name: row.name || t('editSheet.unnamedHeader'),
+														})}
 														className="h-8 w-8"
 													>
 														<LucideIcon name="x" className="h-4 w-4" />
@@ -355,7 +354,7 @@ export function EditRequestSheet({
 						</div>
 
 						<div className="space-y-1">
-							<Label htmlFor="edit-request-body">Request body (postData)</Label>
+							<Label htmlFor="edit-request-body">{t('editSheet.requestBody')}</Label>
 							<Textarea
 								id="edit-request-body"
 								value={postData}
@@ -363,7 +362,7 @@ export function EditRequestSheet({
 								rows={10}
 								className="font-mono text-xs"
 								data-testid="edit-request-body-input"
-								placeholder="Vazio para GET/HEAD ou body raw. Para JSON, cole o objeto serializado."
+								placeholder={t('editSheet.requestBodyPlaceholder')}
 							/>
 						</div>
 
@@ -390,7 +389,7 @@ export function EditRequestSheet({
 						data-testid="edit-request-cancel"
 					>
 						<LucideIcon name="x-circle" className="h-4 w-4" />
-						Cancelar (failRequest)
+						{t('editSheet.cancelFailRequest')}
 					</Button>
 					<div className="flex items-center gap-2">
 						<Button
@@ -402,7 +401,7 @@ export function EditRequestSheet({
 							data-testid="edit-request-approve-no-mods"
 						>
 							<LucideIcon name="play" className="h-4 w-4" />
-							Aprovar sem modificações
+							{t('editSheet.approveUnmodified')}
 						</Button>
 						<Button
 							type="button"
@@ -412,7 +411,7 @@ export function EditRequestSheet({
 							data-testid="edit-request-approve-with-mods"
 						>
 							<LucideIcon name="check" className="h-4 w-4" />
-							{submitting ? 'Aplicando…' : 'Aprovar com modificações'}
+							{submitting ? t('editSheet.applying') : t('editSheet.approveModified')}
 						</Button>
 					</div>
 				</SheetFooter>

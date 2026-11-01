@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
 import { LucideIcon } from '@/components/ui/lucide-icon';
@@ -26,6 +27,7 @@ export function PendingActionDock({
 	onIgnoreAll,
 	onViewPending,
 }: PendingActionDockProps) {
+	const { t } = useTranslation('commandCenter');
 	if (pendingCount === 0) return null;
 
 	// O dock sempre opera sobre uma única request — a selecionada (se houver)
@@ -35,7 +37,7 @@ export function PendingActionDock({
 	const positionLabel =
 		hasSelectedPending && currentIndex !== null ? `${currentIndex + 1} / ${pendingCount}` : null;
 
-	const counterLabel = pendingCount === 1 ? '1 pausada' : `${pendingCount} pausadas`;
+	const counterLabel = t('dock.paused', { count: pendingCount });
 	const navDisabled = pendingCount < 2;
 
 	return (
@@ -46,7 +48,7 @@ export function PendingActionDock({
 				'fixed bottom-6 right-6 z-50 w-[min(20rem,calc(100vw-3rem))] rounded-lg border border-warning/40 bg-card/95 p-4 shadow-lg backdrop-blur',
 				'animate-in fade-in-0 slide-in-from-bottom-4',
 			)}
-			aria-label="Ações de pendentes"
+			aria-label={t('dock.ariaLabel')}
 			data-testid="pending-action-dock"
 		>
 			<div className="mb-2 flex items-center justify-between gap-2">
@@ -86,7 +88,7 @@ export function PendingActionDock({
 					data-testid="pending-action-dock-approve-next"
 				>
 					<LucideIcon name="arrow-right" className="mr-1 h-4 w-4" />
-					Aprovar
+					{t('dock.approve')}
 				</Button>
 				<Button
 					type="button"
@@ -97,7 +99,7 @@ export function PendingActionDock({
 					data-testid="pending-action-dock-edit-next"
 				>
 					<LucideIcon name="file-edit" className="mr-1 h-4 w-4" />
-					Editar…
+					{t('dock.edit')}
 				</Button>
 				<Button
 					type="button"
@@ -108,7 +110,7 @@ export function PendingActionDock({
 					data-testid="pending-action-dock-create-mock-next"
 				>
 					<LucideIcon name="copy" className="mr-1 h-4 w-4" />
-					Criar Mock
+					{t('dock.createMock')}
 				</Button>
 				<div className="grid grid-cols-2 gap-2">
 					<Button
@@ -119,7 +121,7 @@ export function PendingActionDock({
 						className="border-warning/40 hover:bg-warning/15"
 						data-testid="pending-action-dock-view-pending"
 					>
-						Ver pausadas
+						{t('dock.viewPending')}
 					</Button>
 					<Button
 						type="button"
@@ -129,15 +131,15 @@ export function PendingActionDock({
 						className="border-warning/40 hover:bg-warning/15"
 						data-testid="pending-action-dock-ignore-all"
 					>
-						Ignorar todos
+						{t('dock.ignoreAll')}
 					</Button>
 				</div>
 			</div>
 			<div className="grid grid-cols-2 gap-2 text-xs">
-				<HotkeyRow keyName="A" label="Aprovar" disabled={false} />
-				<HotkeyRow keyName="I" label="Ignorar" disabled={false} />
-				<HotkeyRow keyName="J" label="Próximo" disabled={navDisabled} />
-				<HotkeyRow keyName="K" label="Anterior" disabled={navDisabled} />
+				<HotkeyRow keyName="A" label={t('dock.hotkeys.approve')} disabled={false} />
+				<HotkeyRow keyName="I" label={t('dock.hotkeys.ignore')} disabled={false} />
+				<HotkeyRow keyName="J" label={t('dock.hotkeys.next')} disabled={navDisabled} />
+				<HotkeyRow keyName="K" label={t('dock.hotkeys.previous')} disabled={navDisabled} />
 			</div>
 		</section>
 	);

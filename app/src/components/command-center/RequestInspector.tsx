@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -42,10 +43,11 @@ export function RequestInspector({
 	onClose,
 	rules,
 }: RequestInspectorProps) {
+	const { t } = useTranslation(['commandCenter', 'common']);
 	if (!request || !requestId) {
 		return (
 			<aside className="flex h-full items-center justify-center border-l p-6 text-sm text-muted-foreground">
-				Selecione uma requisição na timeline para inspecionar.
+				{t('inspector.empty')}
 			</aside>
 		);
 	}
@@ -84,7 +86,7 @@ export function RequestInspector({
 					style={{ gridTemplateColumns: 'auto minmax(0, 1fr) auto auto auto' }}
 				>
 					<Badge variant="outline" className="font-mono text-xs">
-						{request.method ?? 'Método ausente'}
+						{request.method ?? t('table.methodMissing')}
 					</Badge>
 					<span className="truncate font-mono text-xs" title={request.url}>
 						{truncateMiddle(request.url)}
@@ -97,7 +99,7 @@ export function RequestInspector({
 						variant="ghost"
 						size="icon"
 						onClick={onClose}
-						aria-label="Fechar inspector"
+						aria-label={t('inspector.close')}
 						className="h-8 w-8"
 					>
 						<LucideIcon name="x" className="h-4 w-4" />
@@ -114,12 +116,12 @@ export function RequestInspector({
 							data-testid="awaiting-decision-badge"
 						>
 							<LucideIcon name="hourglass" className="h-3 w-3 animate-pulse" />
-							Aguardando decisão
+							{t('inspector.awaitingDecision')}
 						</Badge>
 					) : (
 						<Badge variant="outline" className="gap-1 text-xs" data-testid="resolved-badge">
 							<LucideIcon name="check-circle" className="h-3 w-3" />
-							Resolvida
+							{t('inspector.resolved')}
 						</Badge>
 					)}
 					<DropdownMenu>
@@ -132,7 +134,7 @@ export function RequestInspector({
 								data-testid="request-inspector-create-rule"
 							>
 								<LucideIcon name="plus" className="h-4 w-4" />
-								Criar regra
+								{t('inspector.createRule')}
 								<LucideIcon name="chevron-down" className="h-4 w-4" />
 							</Button>
 						</DropdownMenuTrigger>
@@ -177,7 +179,7 @@ export function RequestInspector({
 							className="gap-2"
 						>
 							<LucideIcon name="flask" className="h-4 w-4" />
-							Abrir no Rules Lab
+							{t('inspector.openInRulesLab')}
 						</Button>
 					)}
 				</div>
@@ -186,7 +188,9 @@ export function RequestInspector({
 			{request.captureError && (
 				<div className="m-4 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
 					<LucideIcon name="alert-triangle" className="mt-0.5 h-4 w-4 shrink-0" />
-					<span className="break-words">Falha na captura: {request.captureError}</span>
+					<span className="break-words">
+						{t('inspector.captureFailed', { error: request.captureError })}
+					</span>
 				</div>
 			)}
 
@@ -204,7 +208,7 @@ export function RequestInspector({
 				>
 					<LucideIcon name="octagon-alert" className="mt-0.5 h-4 w-4 shrink-0" />
 					<div className="min-w-0">
-						<div className="font-medium">Breakpoint pausou esta requisição</div>
+						<div className="font-medium">{t('inspector.breakpointPaused')}</div>
 						<p className="mt-0.5 break-words text-rose-900/80 dark:text-rose-100/80">
 							{breakpointDescription}
 						</p>
@@ -214,12 +218,12 @@ export function RequestInspector({
 
 			<Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
 				<TabsList className={cn('mx-4 grid', hasModifications ? 'grid-cols-4' : 'grid-cols-3')}>
-					<TabsTrigger value="overview">Overview</TabsTrigger>
-					<TabsTrigger value="request">Request</TabsTrigger>
-					<TabsTrigger value="response">Response</TabsTrigger>
+					<TabsTrigger value="overview">{t('inspector.tabs.overview')}</TabsTrigger>
+					<TabsTrigger value="request">{t('inspector.tabs.request')}</TabsTrigger>
+					<TabsTrigger value="response">{t('inspector.tabs.response')}</TabsTrigger>
 					{hasModifications && (
 						<TabsTrigger value="modifications" data-testid="tab-modifications">
-							Modificações
+							{t('inspector.tabs.modifications')}
 						</TabsTrigger>
 					)}
 				</TabsList>
@@ -227,53 +231,57 @@ export function RequestInspector({
 				<ScrollArea className="flex-1 px-4 py-3">
 					<TabsContent value="overview" className="space-y-2 text-sm">
 						<div>
-							<span className="font-medium">Resource type: </span>
+							<span className="font-medium">{t('inspector.resourceType')} </span>
 							{request.type}
 						</div>
 						<div>
-							<span className="font-medium">MIME: </span>
-							{request.mimeType ?? 'Sem Content-Type'}
+							<span className="font-medium">{t('inspector.mime')} </span>
+							{request.mimeType ?? t('table.noContentType')}
 						</div>
 						<div>
-							<span className="font-medium">Duração: </span>
+							<span className="font-medium">{t('inspector.duration')} </span>
 							{formatDuration(request.duration)}
 						</div>
 						{typeof request.mockLatencyMs === 'number' && (
 							<div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
-								Mock aplicado com latência artificial de {request.mockLatencyMs}ms.
+								{t('inspector.mockLatency', { ms: request.mockLatencyMs })}
 							</div>
 						)}
 					</TabsContent>
 
 					<TabsContent value="request" className="space-y-3">
 						<div>
-							<h3 className="mb-1 text-sm font-medium">Headers</h3>
+							<h3 className="mb-1 text-sm font-medium">{t('inspector.headers')}</h3>
 							<HeaderTable
 								headers={requestHeaders}
-								emptyMessage="Sem request headers capturados."
+								emptyMessage={t('inspector.noRequestHeaders')}
 							/>
 						</div>
 						<div>
-							<h3 className="mb-1 text-sm font-medium">Body</h3>
-							<BodyViewer body={request.request?.postData} label="Body" expandedHeight={false} />
+							<h3 className="mb-1 text-sm font-medium">{t('inspector.body')}</h3>
+							<BodyViewer
+								body={request.request?.postData}
+								label={t('inspector.body')}
+								expandedHeight={false}
+							/>
 						</div>
 					</TabsContent>
 
 					<TabsContent value="response" className="space-y-3">
 						<div>
-							<h3 className="mb-1 text-sm font-medium">Headers</h3>
+							<h3 className="mb-1 text-sm font-medium">{t('inspector.headers')}</h3>
 							<HeaderTable
 								headers={responseHeaders}
-								emptyMessage="Sem response headers capturados."
+								emptyMessage={t('inspector.noResponseHeaders')}
 							/>
 						</div>
 						<div>
-							<h3 className="mb-1 text-sm font-medium">Body</h3>
+							<h3 className="mb-1 text-sm font-medium">{t('inspector.body')}</h3>
 							<BodyViewer
 								body={responseBody}
 								mimeType={request.mimeType}
 								bodyUnavailableReason={request.bodyUnavailableReason}
-								label="Body"
+								label={t('inspector.body')}
 								expandedHeight
 							/>
 						</div>
@@ -334,6 +342,7 @@ function MockComparison({
 	request: InterceptedResponse;
 	rules: Rule[];
 }) {
+	const { t } = useTranslation('commandCenter');
 	const view = buildReplayView(request, rules);
 	if (!view.currentMock) return null;
 	return (
@@ -341,24 +350,21 @@ function MockComparison({
 			<div className="flex items-center gap-2">
 				<LucideIcon name="flask" className="h-4 w-4" />
 				<span className="font-medium">
-					Mock ativo aplicado por &quot;{view.currentMock.ruleName}&quot;
+					{t('inspector.mockActive', { rule: view.currentMock.ruleName })}
 				</span>
 			</div>
 			<div>
-				<span className="font-medium">Status mock: </span>
+				<span className="font-medium">{t('inspector.mockStatus')} </span>
 				{view.currentMock.status} {view.currentMock.statusPhrase ?? ''}
 			</div>
 			{view.currentMock.body !== undefined && (
 				<BodyViewer
 					body={view.currentMock.body}
 					mimeType={mockMimeType(view.currentMock.headers)}
-					label="Body mock"
+					label={t('inspector.mockBody')}
 				/>
 			)}
-			<p className="text-muted-foreground">
-				A resposta acima (capturada) é o que veio do servidor antes da regra. O bloco azul mostra o
-				que sua regra mock retorna agora para esta URL.
-			</p>
+			<p className="text-muted-foreground">{t('inspector.mockComparisonHint')}</p>
 		</div>
 	);
 }

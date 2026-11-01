@@ -1,5 +1,13 @@
 import type { AppliedType, InterceptedResponse } from '@/types/intercepted';
-import type { Filter, FilterField, FilterOperator, RequestState } from '@/types/filters';
+import { i18n } from '@/i18n/instance';
+import {
+	APPLIED_TYPE_LABELS,
+	type Filter,
+	type FilterField,
+	type FilterOperator,
+	REQUEST_STATE_LABELS,
+	type RequestState,
+} from '@/types/filters';
 
 // Sugestão exibida no Combobox da FilterBar. `display` é o texto visível, `hint`
 // é a categoria/explicação e `apply` retorna o filtro pronto para anexar.
@@ -10,30 +18,24 @@ export interface FilterSuggestion {
 	apply: Omit<Filter, 'id'>;
 }
 
-const FIELD_PREFIXES: Array<{ prefix: string; field: FilterField; hint: string }> = [
-	{ prefix: 'method:', field: 'method', hint: 'Método HTTP' },
-	{ prefix: 'status:', field: 'status', hint: 'Status code' },
-	{ prefix: 'url:', field: 'url', hint: 'URL contém' },
-	{ prefix: 'type:', field: 'type', hint: 'Resource type' },
-	{ prefix: 'mime:', field: 'mime', hint: 'Content-Type' },
-	{ prefix: 'state:', field: 'state', hint: 'Estado' },
-	{ prefix: 'tipo:', field: 'tipo', hint: 'Tipo de regra aplicada' },
+type PrefixField = 'method' | 'status' | 'url' | 'type' | 'mime' | 'state' | 'tipo';
+
+// Hint de cada prefixo: commandCenter:suggestions.prefixHints.<campo>.
+const FIELD_PREFIXES: Array<{ prefix: string; field: PrefixField }> = [
+	{ prefix: 'method:', field: 'method' },
+	{ prefix: 'status:', field: 'status' },
+	{ prefix: 'url:', field: 'url' },
+	{ prefix: 'type:', field: 'type' },
+	{ prefix: 'mime:', field: 'mime' },
+	{ prefix: 'state:', field: 'state' },
+	{ prefix: 'tipo:', field: 'tipo' },
 ];
 
-const STATE_VALUES: Array<{ value: RequestState; label: string }> = [
-	{ value: 'pending', label: 'Aguardando' },
-	{ value: 'failed', label: 'Falha' },
-	{ value: 'modified', label: 'Modificado' },
-	{ value: 'ok', label: 'OK' },
-];
+// Rótulos vêm de REQUEST_STATE_LABELS / APPLIED_TYPE_LABELS (idioma ativo),
+// e a busca casa tanto o valor cru quanto o rótulo traduzido.
+const STATE_VALUES: RequestState[] = ['pending', 'failed', 'modified', 'ok'];
 
-const TIPO_VALUES: Array<{ value: AppliedType; label: string }> = [
-	{ value: 'proxy', label: 'Proxy' },
-	{ value: 'mock', label: 'Mock' },
-	{ value: 'transform', label: 'Transform' },
-	{ value: 'breakpoint', label: 'Breakpoint' },
-	{ value: 'latency', label: 'Latência' },
-];
+const TIPO_VALUES: AppliedType[] = ['proxy', 'mock', 'transform', 'breakpoint', 'latency'];
 
 const COMMON_STATUS_GROUPS = ['2xx', '3xx', '4xx', '5xx'];
 const FALLBACK_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
@@ -91,39 +93,75 @@ function buildFieldValueSuggestions(
 			const candidates = facets.methods.length > 0 ? facets.methods : FALLBACK_METHODS;
 			return candidates
 				.filter((m) => m.toLowerCase().includes(lowerValue))
-				.map((m) => buildSuggestion(m, 'is', 'Método HTTP'));
+				.map((m) => buildSuggestion(m, 'is', i18n.t('commandCenter:suggestions.methodHint')));
 		}
 		case 'type':
 			return facets.types
 				.filter((t) => t.toLowerCase().includes(lowerValue))
-				.map((t) => buildSuggestion(t, 'is', 'Request type'));
+				.map((t) => buildSuggestion(t, 'is', i18n.t('commandCenter:suggestions.typeHint')));
 		case 'mime':
 			return facets.mimes
 				.filter((m) => m.toLowerCase().includes(lowerValue))
-				.map((m) => buildSuggestion(m, 'is', 'Content-Type'));
+				.map((m) => buildSuggestion(m, 'is', i18n.t('commandCenter:suggestions.mimeHint')));
 		case 'state':
 			return STATE_VALUES.filter(
-				(s) => s.value.includes(lowerValue) || s.label.toLowerCase().includes(lowerValue),
-			).map((s) => buildSuggestion(s.value, 'is', `Estado: ${s.label}`));
+				(s) =>
+					s.includes(lowerValue) || REQUEST_STATE_LABELS[s].toLowerCase().includes(lowerValue),
+			).map((s) =>
+				buildSuggestion(
+					s,
+					'is',
+					i18n.t('commandCenter:suggestions.stateHint', { label: REQUEST_STATE_LABELS[s] }),
+				),
+			);
 		case 'tipo':
 			return TIPO_VALUES.filter(
-				(t) => t.value.includes(lowerValue) || t.label.toLowerCase().includes(lowerValue),
-			).map((t) => buildSuggestion(t.value, 'is', `Tipo: ${t.label}`));
+				(t) => t.includes(lowerValue) || APPLIED_TYPE_LABELS[t].toLowerCase().includes(lowerValue),
+			).map((t) =>
+				buildSuggestion(
+					t,
+					'is',
+					i18n.t('commandCenter:suggestions.tipoHint', { label: APPLIED_TYPE_LABELS[t] }),
+				),
+			);
 		case 'status': {
-			const groups = COMMON_STATUS_GROUPS.map((g) => buildSuggestion(g, 'is', `Faixa ${g}`));
+			const groups = COMMON_STATUS_GROUPS.map((g) =>
+				buildSuggestion(g, 'is', i18n.t('commandCenter:suggestions.statusGroupHint', { group: g })),
+			);
 			const exact = facets.statuses
 				.filter((s) => s.includes(lowerValue))
-				.map((s) => buildSuggestion(s, 'is', 'Status code'));
+				.map((s) => buildSuggestion(s, 'is', i18n.t('commandCenter:suggestions.statusHint')));
 			const compound: FilterSuggestion[] = [];
 			if (/^\d+$/.test(value)) {
-				compound.push(buildSuggestion(value, 'gte', `Status ≥ ${value}`, `status:≥${value}`));
-				compound.push(buildSuggestion(value, 'lte', `Status ≤ ${value}`, `status:≤${value}`));
+				compound.push(
+					buildSuggestion(
+						value,
+						'gte',
+						i18n.t('commandCenter:suggestions.statusGteHint', { value }),
+						`status:≥${value}`,
+					),
+				);
+				compound.push(
+					buildSuggestion(
+						value,
+						'lte',
+						i18n.t('commandCenter:suggestions.statusLteHint', { value }),
+						`status:≤${value}`,
+					),
+				);
 			}
 			return [...groups, ...exact, ...compound];
 		}
 		case 'url':
 			if (value.length === 0) return [];
-			return [buildSuggestion(value, 'contains', 'URL contém', `url:${value}`)];
+			return [
+				buildSuggestion(
+					value,
+					'contains',
+					i18n.t('commandCenter:suggestions.urlHint'),
+					`url:${value}`,
+				),
+			];
 		case 'duration':
 			return [];
 		case 'timestamp':
@@ -154,15 +192,15 @@ export function buildSuggestions(
 		field === 'state' || field === 'tipo';
 
 	if (input.length === 0) {
-		const fieldShortcuts: FilterSuggestion[] = FIELD_PREFIXES.map(({ prefix, field, hint }) => ({
+		const fieldShortcuts: FilterSuggestion[] = FIELD_PREFIXES.map(({ prefix, field }) => ({
 			id: `prefix:${field}`,
 			display: prefix,
-			hint,
+			hint: i18n.t(`commandCenter:suggestions.prefixHints.${field}`),
 			apply: { field, operator: isExactOperatorField(field) ? 'is' : 'contains', value: '' },
 		}));
 		const pendingShortcut: FilterSuggestion = {
 			id: 'shortcut:state:pending',
-			display: 'Apenas pendentes',
+			display: i18n.t('commandCenter:suggestions.pendingOnly'),
 			hint: 'state:pending',
 			apply: { field: 'state', operator: 'is', value: 'pending' },
 		};
@@ -172,17 +210,17 @@ export function buildSuggestions(
 	const lower = input.toLowerCase();
 	const prefixMatches: FilterSuggestion[] = FIELD_PREFIXES.filter(({ prefix }) =>
 		prefix.startsWith(lower),
-	).map(({ prefix, field, hint }) => ({
+	).map(({ prefix, field }) => ({
 		id: `prefix:${field}:partial`,
 		display: prefix,
-		hint,
+		hint: i18n.t(`commandCenter:suggestions.prefixHints.${field}`),
 		apply: { field, operator: isExactOperatorField(field) ? 'is' : 'contains', value: '' },
 	}));
 
 	const freeSuggestion: FilterSuggestion = {
 		id: 'free:contains',
-		display: `Buscar livre por «${input}»`,
-		hint: 'Procura em todos os campos',
+		display: i18n.t('commandCenter:suggestions.freeSearch', { input }),
+		hint: i18n.t('commandCenter:suggestions.freeSearchHint'),
 		apply: { field: 'free', operator: 'contains', value: input },
 	};
 

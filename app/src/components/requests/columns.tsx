@@ -21,6 +21,8 @@ import { getRequestState } from '@/lib/requestState';
 import { getAppliedTypeBadgeMeta, getAppliedTypes } from '@/lib/appliedType';
 import { cn } from '@/lib/utils';
 
+import { getRequestTableLabels } from './tableLabels';
+
 // Tipo para representar uma requisição
 export type RequestRow = {
 	id: string;
@@ -48,7 +50,7 @@ export const columns: ColumnDef<RequestRow>[] = [
 					onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
 					className="pl-0"
 				>
-					Tipo
+					{getRequestTableLabels().columns.tipo}
 					<ArrowUpDown className="ml-2 h-4 w-4" />
 				</Button>
 			);
@@ -61,17 +63,19 @@ export const columns: ColumnDef<RequestRow>[] = [
 		cell: ({ row }) => {
 			const request = row.original.request;
 			const types = getAppliedTypes(request);
+			const labels = getRequestTableLabels();
 			return (
 				<TooltipProvider delayDuration={150}>
 					<div className="flex flex-wrap items-center gap-1">
 						{types.map((type) => {
 							const meta = getAppliedTypeBadgeMeta(type);
+							const label = labels.appliedTypes[type];
 							return (
 								<Tooltip key={type}>
 									<TooltipTrigger asChild>
 										<Badge
 											variant={meta.variant}
-											aria-label={meta.label}
+											aria-label={label}
 											data-testid={`applied-type-badge-${type}-${row.original.id}`}
 											className={cn(
 												'text-xs whitespace-nowrap inline-flex items-center justify-center px-1.5 py-0.5',
@@ -79,10 +83,10 @@ export const columns: ColumnDef<RequestRow>[] = [
 											)}
 										>
 											<LucideIcon name={meta.iconName} className="h-3 w-3" />
-											<span className="sr-only">{meta.label}</span>
+											<span className="sr-only">{label}</span>
 										</Badge>
 									</TooltipTrigger>
-									<TooltipContent>{meta.label}</TooltipContent>
+									<TooltipContent>{label}</TooltipContent>
 								</Tooltip>
 							);
 						})}
@@ -91,15 +95,15 @@ export const columns: ColumnDef<RequestRow>[] = [
 								<TooltipTrigger asChild>
 									<Badge
 										variant="outline"
-										aria-label="Editada em runtime"
+										aria-label={labels.editedAtRuntime}
 										data-testid={`edited-runtime-badge-${row.original.id}`}
 										className="text-xs whitespace-nowrap inline-flex items-center justify-center px-1.5 py-0.5 border-info/40 text-info"
 									>
 										<LucideIcon name="edit" className="h-3 w-3" />
-										<span className="sr-only">Editada em runtime</span>
+										<span className="sr-only">{labels.editedAtRuntime}</span>
 									</Badge>
 								</TooltipTrigger>
-								<TooltipContent>Editada em runtime</TooltipContent>
+								<TooltipContent>{labels.editedAtRuntime}</TooltipContent>
 							</Tooltip>
 						)}
 					</div>
@@ -117,7 +121,7 @@ export const columns: ColumnDef<RequestRow>[] = [
 					onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
 					className="pl-0"
 				>
-					Horário
+					{getRequestTableLabels().columns.timestamp}
 					<ArrowUpDown className="ml-2 h-4 w-4" />
 				</Button>
 			);
@@ -153,7 +157,7 @@ export const columns: ColumnDef<RequestRow>[] = [
 					onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
 					className="pl-0"
 				>
-					Tempo
+					{getRequestTableLabels().columns.duration}
 					<ArrowUpDown className="ml-2 h-4 w-4" />
 				</Button>
 			);
@@ -187,7 +191,7 @@ export const columns: ColumnDef<RequestRow>[] = [
 					onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
 					className="pl-0"
 				>
-					Tamanho
+					{getRequestTableLabels().columns.transferSize}
 					<ArrowUpDown className="ml-2 h-4 w-4" />
 				</Button>
 			);
@@ -237,7 +241,7 @@ export const columns: ColumnDef<RequestRow>[] = [
 					onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
 					className="pl-0"
 				>
-					Método
+					{getRequestTableLabels().columns.method}
 					<ArrowUpDown className="ml-2 h-4 w-4" />
 				</Button>
 			);
@@ -250,7 +254,9 @@ export const columns: ColumnDef<RequestRow>[] = [
 		cell: ({ row }) => {
 			const request = row.original.request;
 			return (
-				<span className="font-medium whitespace-nowrap">{request.method ?? 'Método ausente'}</span>
+				<span className="font-medium whitespace-nowrap">
+					{request.method ?? getRequestTableLabels().methodMissing}
+				</span>
 			);
 		},
 		size: 80,
@@ -264,7 +270,7 @@ export const columns: ColumnDef<RequestRow>[] = [
 					onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
 					className="pl-0"
 				>
-					URL
+					{getRequestTableLabels().columns.url}
 					<ArrowUpDown className="ml-2 h-4 w-4" />
 				</Button>
 			);
@@ -307,7 +313,7 @@ export const columns: ColumnDef<RequestRow>[] = [
 					onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
 					className="pl-0"
 				>
-					Status Code
+					{getRequestTableLabels().columns.statusCode}
 					<ArrowUpDown className="ml-2 h-4 w-4" />
 				</Button>
 			);
@@ -324,7 +330,9 @@ export const columns: ColumnDef<RequestRow>[] = [
 			const request = row.original.request;
 			return (
 				<span className="whitespace-nowrap">
-					{typeof request.status === 'number' ? request.status : 'Status ausente'}{' '}
+					{typeof request.status === 'number'
+						? request.status
+						: getRequestTableLabels().statusMissing}{' '}
 					{request.statusText}
 				</span>
 			);
@@ -333,7 +341,7 @@ export const columns: ColumnDef<RequestRow>[] = [
 	},
 	{
 		accessorKey: 'requestType',
-		header: 'Request Type',
+		header: () => getRequestTableLabels().columns.requestType,
 		cell: ({ row }) => {
 			const request = row.original.request;
 			return <span className="whitespace-nowrap">{request.type}</span>;
@@ -342,12 +350,12 @@ export const columns: ColumnDef<RequestRow>[] = [
 	},
 	{
 		accessorKey: 'mimeType',
-		header: 'MIME Type',
+		header: () => getRequestTableLabels().columns.mimeType,
 		cell: ({ row }) => {
 			const request = row.original.request;
 			return (
 				<span className="text-xs text-muted-foreground whitespace-nowrap">
-					{request.mimeType ?? 'Sem Content-Type'}
+					{request.mimeType ?? getRequestTableLabels().noContentType}
 				</span>
 			);
 		},
@@ -359,18 +367,21 @@ export const columns: ColumnDef<RequestRow>[] = [
 			const requestId = row.original.id;
 			// Acessar as funções através do meta do table
 			const { onSelect } = table.options.meta as { onSelect: (requestId: string) => void };
+			const labels = getRequestTableLabels();
 
 			return (
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
 						<Button variant="ghost" className="h-8 w-8 p-0">
-							<span className="sr-only">Abrir menu</span>
+							<span className="sr-only">{labels.openMenu}</span>
 							<MoreHorizontal className="h-4 w-4" />
 						</Button>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end">
-						<DropdownMenuLabel>Ações</DropdownMenuLabel>
-						<DropdownMenuItem onClick={() => onSelect(requestId)}>Ver detalhes</DropdownMenuItem>
+						<DropdownMenuLabel>{labels.actionsMenu}</DropdownMenuLabel>
+						<DropdownMenuItem onClick={() => onSelect(requestId)}>
+							{labels.viewDetails}
+						</DropdownMenuItem>
 					</DropdownMenuContent>
 				</DropdownMenu>
 			);

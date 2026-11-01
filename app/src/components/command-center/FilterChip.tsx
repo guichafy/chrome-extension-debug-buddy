@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { LucideIcon } from '@/components/ui/lucide-icon';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -42,6 +43,7 @@ function formatFilterValue(filter: Filter): string {
 }
 
 export function FilterChip({ filter, onRemove }: FilterChipProps) {
+	const { t } = useTranslation('commandCenter');
 	const fieldLabel = FILTER_FIELD_LABELS[filter.field];
 	const operatorLabel = FILTER_OPERATOR_LABELS[filter.operator];
 	const valueLabel = formatFilterValue(filter);
@@ -60,7 +62,7 @@ export function FilterChip({ filter, onRemove }: FilterChipProps) {
 						)}
 					>
 						<span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-							{filter.field === 'free' ? 'busca' : filter.field}
+							{filter.field === 'free' ? t('filterBar.freeFieldChip') : filter.field}
 						</span>
 						{filter.field !== 'free' && (
 							<span className="text-muted-foreground/70">{operatorLabel}</span>
@@ -70,7 +72,7 @@ export function FilterChip({ filter, onRemove }: FilterChipProps) {
 							type="button"
 							onClick={() => onRemove(filter.id)}
 							className="ml-1 rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground focus:outline-hidden focus:ring-1 focus:ring-ring"
-							aria-label={`Remover filtro ${tooltip}`}
+							aria-label={t('filterBar.removeFilter', { filter: tooltip })}
 						>
 							<LucideIcon name="x" className="h-3 w-3" />
 						</button>

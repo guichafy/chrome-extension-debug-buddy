@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +56,7 @@ export const BodyViewer = React.memo(function BodyViewer({
 	label,
 	expandedHeight = false,
 }: BodyViewerProps) {
+	const { t } = useTranslation('commandCenter');
 	const kind = useMemo<BodyKind>(
 		() => detectBodyKind(body, mimeType, bodyUnavailableReason),
 		[body, mimeType, bodyUnavailableReason],
@@ -72,7 +74,9 @@ export const BodyViewer = React.memo(function BodyViewer({
 			await navigator.clipboard.writeText(body);
 			setCopyError(null);
 		} catch (err) {
-			setCopyError(`Falha ao copiar body: ${err instanceof Error ? err.message : String(err)}`);
+			setCopyError(
+				t('bodyViewer.copyFailed', { error: err instanceof Error ? err.message : String(err) }),
+			);
 		}
 	};
 
@@ -127,7 +131,7 @@ export const BodyViewer = React.memo(function BodyViewer({
 								name={htmlMode === 'preview' ? 'file-json' : 'image'}
 								className="h-3 w-3"
 							/>
-							{htmlMode === 'preview' ? 'Source' : 'Preview'}
+							{htmlMode === 'preview' ? t('bodyViewer.source') : t('bodyViewer.preview')}
 						</Button>
 					)}
 					{body !== undefined && body !== '' && (
@@ -138,10 +142,10 @@ export const BodyViewer = React.memo(function BodyViewer({
 								variant="ghost"
 								className="h-6 gap-1 px-2 text-[11px]"
 								onClick={handleCopy}
-								aria-label="Copiar body"
+								aria-label={t('bodyViewer.copyAriaLabel')}
 							>
 								<LucideIcon name="copy" className="h-3 w-3" />
-								Copiar
+								{t('bodyViewer.copy')}
 							</Button>
 							<Button
 								type="button"
@@ -149,10 +153,10 @@ export const BodyViewer = React.memo(function BodyViewer({
 								variant="ghost"
 								className="h-6 gap-1 px-2 text-[11px]"
 								onClick={handleDownload}
-								aria-label="Baixar body"
+								aria-label={t('bodyViewer.downloadAriaLabel')}
 							>
 								<LucideIcon name="download" className="h-3 w-3" />
-								Download
+								{t('bodyViewer.download')}
 							</Button>
 						</>
 					)}
@@ -181,8 +185,13 @@ const BodyContent = React.memo(function BodyContent({
 	body: string | undefined;
 	htmlMode: 'preview' | 'source';
 }) {
+	const { t, i18n } = useTranslation('commandCenter');
 	if (kind.kind === 'empty') {
-		return <div className="p-4 text-xs text-muted-foreground">{kind.reason ?? 'Body vazio.'}</div>;
+		return (
+			<div className="p-4 text-xs text-muted-foreground">
+				{kind.reason ?? t('bodyViewer.empty')}
+			</div>
+		);
 	}
 
 	if (body === undefined) return null;
@@ -203,7 +212,7 @@ const BodyContent = React.memo(function BodyContent({
 		if (htmlMode === 'preview') {
 			return (
 				<iframe
-					title="HTML preview"
+					title={t('bodyViewer.htmlPreviewTitle')}
 					sandbox=""
 					srcDoc={body}
 					className="h-[360px] w-full border-0 bg-background"
@@ -221,8 +230,10 @@ const BodyContent = React.memo(function BodyContent({
 		return (
 			<div className="p-3 font-mono text-xs leading-relaxed">
 				<p className="mb-2 text-muted-foreground">
-					Conteúdo binário ({kind.totalBytes.toLocaleString('pt-BR')} bytes). Mostrando primeiros{' '}
-					{Math.min(kind.totalBytes, ASCII_CHECK_LIMIT)} bytes:
+					{t('bodyViewer.binary', {
+						total: kind.totalBytes.toLocaleString(i18n.language),
+						shown: Math.min(kind.totalBytes, ASCII_CHECK_LIMIT),
+					})}
 				</p>
 				<pre className="overflow-x-auto whitespace-pre">{kind.sampleHex}</pre>
 			</div>
@@ -238,13 +249,18 @@ const BodyContent = React.memo(function BodyContent({
 });
 
 function JsonBody({ body }: { body: string }) {
+	const { t } = useTranslation('commandCenter');
 	const formatted = useMemo(() => {
 		try {
 			return { html: highlightJson(JSON.stringify(JSON.parse(body), null, 2)) };
 		} catch (error) {
-			return { error: `JSON inválido: ${error instanceof Error ? error.message : String(error)}` };
+			return {
+				error: t('bodyViewer.invalidJson', {
+					message: error instanceof Error ? error.message : String(error),
+				}),
+			};
 		}
-	}, [body]);
+	}, [body, t]);
 	if (formatted.error !== undefined) {
 		return (
 			<>
@@ -268,39 +284,35 @@ function JsonBody({ body }: { body: string }) {
 // continua disponível por blocos, Copiar e Download, sem alterar a captura.
 const BODY_BLOCK_SIZE = 16_384;
 function PagedBody({ body }: { body: string }) {
+	const { t } = useTranslation('commandCenter');
 	const [position, setPosition] = useState({ body, page: 0 });
 	if (position.body !== body) setPosition({ body, page: 0 });
 	const page = position.body === body ? position.page : 0;
 	const count = Math.ceil(body.length / BODY_BLOCK_SIZE);
 	return (
 		<div>
-			<p className="px-3 pt-3 text-xs text-muted-foreground">
-				Body grande: visualização em blocos, sem formatação ou validação. Copiar e Download
-				preservam o conteúdo completo.
-			</p>
+			<p className="px-3 pt-3 text-xs text-muted-foreground">{t('bodyViewer.largeBody')}</p>
 			<div className="flex items-center gap-2 p-3 text-xs">
 				<Button
 					type="button"
 					size="sm"
 					variant="outline"
-					aria-label="Bloco anterior do body"
+					aria-label={t('bodyViewer.previousBlockAriaLabel')}
 					disabled={page === 0}
 					onClick={() => setPosition({ body, page: page - 1 })}
 				>
-					Anterior
+					{t('bodyViewer.previousBlock')}
 				</Button>
-				<span aria-live="polite">
-					Bloco {page + 1} de {count}
-				</span>
+				<span aria-live="polite">{t('bodyViewer.block', { page: page + 1, total: count })}</span>
 				<Button
 					type="button"
 					size="sm"
 					variant="outline"
-					aria-label="Próximo bloco do body"
+					aria-label={t('bodyViewer.nextBlockAriaLabel')}
 					disabled={page + 1 === count}
 					onClick={() => setPosition({ body, page: page + 1 })}
 				>
-					Próximo
+					{t('bodyViewer.nextBlock')}
 				</Button>
 			</div>
 			<pre className="min-w-0 whitespace-pre-wrap break-all p-3 font-mono text-xs leading-relaxed">
@@ -311,6 +323,7 @@ function PagedBody({ body }: { body: string }) {
 }
 
 function BodyImage({ body, mimeType }: { body: string; mimeType: string }) {
+	const { t } = useTranslation('commandCenter');
 	const [url, setUrl] = useState<string | null>(null);
 	useEffect(() => {
 		const next = URL.createObjectURL(bodyToBlob(body, mimeType));
@@ -330,7 +343,7 @@ function BodyImage({ body, mimeType }: { body: string; mimeType: string }) {
 			{url && (
 				<img
 					src={url}
-					alt="Response body preview"
+					alt={t('bodyViewer.imageAlt')}
 					className="max-h-[360px] max-w-full object-contain"
 				/>
 			)}
