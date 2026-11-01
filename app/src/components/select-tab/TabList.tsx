@@ -1,4 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import type React from 'react';
+import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { TabRow } from './TabRow';
 import type { Tab } from './types';
 
@@ -10,6 +12,7 @@ interface TabListProps {
 }
 
 export const TabList: React.FC<TabListProps> = ({ tabs, focusedIndex, currentTabId, onSelect }) => {
+	const { t } = useTranslation('selectTab');
 	const containerRef = useRef<HTMLDivElement>(null);
 	const focusedTabId = tabs[focusedIndex]?.id;
 
@@ -27,7 +30,7 @@ export const TabList: React.FC<TabListProps> = ({ tabs, focusedIndex, currentTab
 			role="listbox"
 			ref={containerRef}
 			id="tab-listbox"
-			aria-label="Abas disponíveis"
+			aria-label={t('list.ariaLabel')}
 			aria-activedescendant={focusedTabId !== undefined ? `tab-row-${focusedTabId}` : undefined}
 			tabIndex={-1}
 			className="flex-1 overflow-y-auto"

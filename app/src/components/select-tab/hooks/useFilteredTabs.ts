@@ -1,3 +1,4 @@
+import { i18n } from '@/i18n/instance';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { INVALID_HOSTNAME, type Tab } from '../types';
 
@@ -41,7 +42,7 @@ const queryTabs = (): Promise<RawTab[]> =>
 			const maybe: unknown = chrome.tabs.query({ currentWindow: true }, (tabs) => {
 				const lastError = chrome.runtime.lastError;
 				if (lastError) {
-					reject(new Error(lastError.message ?? 'Erro desconhecido em chrome.tabs.query'));
+					reject(new Error(lastError.message ?? i18n.t('selectTab:errors.tabsQueryUnknown')));
 					return;
 				}
 				resolve(tabs);

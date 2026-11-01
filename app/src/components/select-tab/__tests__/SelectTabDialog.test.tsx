@@ -1,5 +1,5 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { SelectTabDialog } from '../SelectTabDialog';
 
 vi.mock('../../ui/lucide-icon', () => ({
@@ -22,7 +22,12 @@ const setupTargetTab = (tabId: number | null) => {
 };
 
 const sampleTabs = [
-	{ id: 1, title: 'GitHub Issues', url: 'https://github.com/x/y/issues', index: 0 },
+	{
+		id: 1,
+		title: 'GitHub Issues',
+		url: 'https://github.com/x/y/issues',
+		index: 0,
+	},
 	{ id: 2, title: 'Localhost dev', url: 'http://localhost:5173/', index: 1 },
 	{ id: 3, title: 'Docs MDN', url: 'https://developer.mozilla.org/', index: 2 },
 ];
@@ -76,7 +81,9 @@ describe('SelectTabDialog', () => {
 		setupTabs(sampleTabs);
 		render(<SelectTabDialog open={true} onOpenChange={vi.fn()} onSelectTab={vi.fn()} />);
 		await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(3));
-		fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'inexistente' } });
+		fireEvent.change(screen.getByRole('searchbox'), {
+			target: { value: 'inexistente' },
+		});
 		await waitFor(() => expect(screen.getByText(/Nenhuma aba corresponde a/)).toBeInTheDocument());
 		fireEvent.click(screen.getByRole('button', { name: /Limpar busca/ }));
 		await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(3));

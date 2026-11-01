@@ -1,4 +1,4 @@
-import { getStoredLanguage, LANGUAGE_STORAGE_KEY, setStoredLanguage } from '../preference';
+import { LANGUAGE_STORAGE_KEY, getStoredLanguage, setStoredLanguage } from '../preference';
 
 function storageData(): Record<string, unknown> {
 	return (chrome.storage.local as unknown as { _data: Record<string, unknown> })._data;

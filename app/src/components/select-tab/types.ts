@@ -7,4 +7,6 @@ export interface Tab {
 	index: number;
 }
 
+// Sentinela de hostname para URLs que não parseiam (agrupa no filtro de
+// domínio). Nunca exibida crua: a UI mostra `selectTab:list.invalidUrl`.
 export const INVALID_HOSTNAME = '(URL inválida)';

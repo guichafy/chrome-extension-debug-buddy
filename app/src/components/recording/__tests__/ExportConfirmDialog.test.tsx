@@ -1,7 +1,7 @@
+import { DEFAULT_REDACTION_CONFIG } from '@/lib/session/privacy/defaults';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_REDACTION_CONFIG } from '@/lib/session/privacy/defaults';
 import { ExportConfirmDialog } from '../ExportConfirmDialog';
 
 const sendMessageMock = vi.fn();
@@ -15,7 +15,10 @@ beforeEach(() => {
 
 describe('ExportConfirmDialog', () => {
 	it('renderiza aviso de privacidade quando aberto e nao menciona "versao futura"', async () => {
-		sendMessageMock.mockResolvedValue({ ok: true, privacyConfig: DEFAULT_REDACTION_CONFIG });
+		sendMessageMock.mockResolvedValue({
+			ok: true,
+			privacyConfig: DEFAULT_REDACTION_CONFIG,
+		});
 		render(<ExportConfirmDialog open={true} onOpenChange={() => {}} onConfirm={() => {}} />);
 		expect(screen.getByText(/Authorization headers e cookies/i)).toBeInTheDocument();
 		expect(screen.getByText(/senha, token ou número de cartão/i)).toBeInTheDocument();
@@ -24,7 +27,10 @@ describe('ExportConfirmDialog', () => {
 	});
 
 	it('mostra sumário de redaction aplicado a partir de getPrivacyConfig', async () => {
-		sendMessageMock.mockResolvedValue({ ok: true, privacyConfig: DEFAULT_REDACTION_CONFIG });
+		sendMessageMock.mockResolvedValue({
+			ok: true,
+			privacyConfig: DEFAULT_REDACTION_CONFIG,
+		});
 		render(<ExportConfirmDialog open={true} onOpenChange={() => {}} onConfirm={() => {}} />);
 		await waitFor(() =>
 			expect(screen.getByText(/Mascaramento que será aplicado/i)).toBeInTheDocument(),
@@ -37,11 +43,16 @@ describe('ExportConfirmDialog', () => {
 		// Referencia "Configurações > Privacidade"
 		expect(screen.getByText(/Configurações > Privacidade/i)).toBeInTheDocument();
 		// Confirma que getPrivacyConfig foi chamado
-		expect(sendMessageMock).toHaveBeenCalledWith({ action: 'getPrivacyConfig' });
+		expect(sendMessageMock).toHaveBeenCalledWith({
+			action: 'getPrivacyConfig',
+		});
 	});
 
 	it('botão "Entendi, exportar" chama onConfirm e fecha', async () => {
-		sendMessageMock.mockResolvedValue({ ok: true, privacyConfig: DEFAULT_REDACTION_CONFIG });
+		sendMessageMock.mockResolvedValue({
+			ok: true,
+			privacyConfig: DEFAULT_REDACTION_CONFIG,
+		});
 		const user = userEvent.setup();
 		const onConfirm = vi.fn();
 		const onOpenChange = vi.fn();
@@ -52,7 +63,10 @@ describe('ExportConfirmDialog', () => {
 	});
 
 	it('botão Cancelar fecha sem chamar onConfirm', async () => {
-		sendMessageMock.mockResolvedValue({ ok: true, privacyConfig: DEFAULT_REDACTION_CONFIG });
+		sendMessageMock.mockResolvedValue({
+			ok: true,
+			privacyConfig: DEFAULT_REDACTION_CONFIG,
+		});
 		const user = userEvent.setup();
 		const onConfirm = vi.fn();
 		const onOpenChange = vi.fn();

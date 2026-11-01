@@ -6,9 +6,9 @@
 // preferência; o `chrome.storage.onChanged` propaga a troca para todas as
 // páginas abertas da extensão (aba de opções + side panel).
 
-import { buildInitOptions, i18n, type LanguageResources } from './instance';
-import { isSupportedLanguage, type LanguageCode, resolveLanguage } from './languages';
-import { getStoredLanguage, LANGUAGE_STORAGE_KEY, setStoredLanguage } from './preference';
+import { type LanguageResources, buildInitOptions, i18n } from './instance';
+import { type LanguageCode, isSupportedLanguage, resolveLanguage } from './languages';
+import { LANGUAGE_STORAGE_KEY, getStoredLanguage, setStoredLanguage } from './preference';
 
 // Um chunk por idioma: só o idioma ativo é baixado no carregamento da página.
 const LOADERS: Record<LanguageCode, () => Promise<LanguageResources>> = {

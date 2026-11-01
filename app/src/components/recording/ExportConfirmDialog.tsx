@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
 	Dialog,
@@ -9,6 +8,8 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import type { RedactionConfig } from '@/lib/session/types';
+import { useEffect, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 
 interface Props {
 	open: boolean;
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function ExportConfirmDialog({ open, onOpenChange, onConfirm }: Props) {
+	const { t } = useTranslation(['sessions', 'common']);
 	const [config, setConfig] = useState<RedactionConfig | null>(null);
 	const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -29,10 +31,12 @@ export function ExportConfirmDialog({ open, onOpenChange, onConfirm }: Props) {
 		let cancelled = false;
 		void (async () => {
 			try {
-				const res = await chrome.runtime.sendMessage({ action: 'getPrivacyConfig' });
+				const res = await chrome.runtime.sendMessage({
+					action: 'getPrivacyConfig',
+				});
 				if (cancelled) return;
 				if (!res?.ok || !res.privacyConfig) {
-					setLoadError(res?.error ?? 'falha ao ler privacyConfig');
+					setLoadError(res?.error ?? t('exportDialog.loadErrorFallback'));
 					return;
 				}
 				setConfig(res.privacyConfig as RedactionConfig);
@@ -43,73 +47,106 @@ export function ExportConfirmDialog({ open, onOpenChange, onConfirm }: Props) {
 		return () => {
 			cancelled = true;
 		};
-	}, [open]);
+	}, [open, t]);
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>Exportar sessão — leia antes</DialogTitle>
+					<DialogTitle>{t('exportDialog.title')}</DialogTitle>
 					<DialogDescription className="text-sm">
-						Este arquivo contém TUDO que foi gravado: requisições e respostas da rede (incluindo
-						<strong> Authorization headers e cookies</strong> quando não mascarados), todas as
-						mensagens de console (incluindo qualquer{' '}
-						<strong>senha, token ou número de cartão</strong> que tenha sido logado em{' '}
-						<code>console.log</code>), e o estado da aplicação. Revise antes de anexar em qualquer
-						lugar público (Jira, Slack, e-mail).
+						<Trans
+							t={t}
+							i18nKey="exportDialog.description"
+							components={{ strong: <strong />, code: <code /> }}
+						/>
 					</DialogDescription>
 				</DialogHeader>
 
 				<section className="rounded border bg-muted/30 p-3 text-xs">
-					<p className="mb-2 font-medium">Mascaramento que será aplicado neste export:</p>
+					<p className="mb-2 font-medium">{t('exportDialog.maskingHeading')}</p>
 					{loadError && (
-						<p className="text-destructive">Erro ao carregar configuração: {loadError}</p>
+						<p className="text-destructive">{t('exportDialog.loadError', { error: loadError })}</p>
 					)}
-					{!config && !loadError && <p className="text-muted-foreground">Carregando…</p>}
+					{!config && !loadError && (
+						<p className="text-muted-foreground">{t('exportDialog.loading')}</p>
+					)}
 					{config && !config.enabled && (
 						<p className="text-amber-600 dark:text-amber-400">
-							<strong>Atenção:</strong> mascaramento está <strong>desabilitado</strong> em
-							Configurações &gt; Privacidade. Nada será redigido neste arquivo.
+							<Trans
+								t={t}
+								i18nKey="exportDialog.maskingDisabled"
+								components={{ strong: <strong /> }}
+							/>
 						</p>
 					)}
 					{config && config.enabled && (
 						<ul className="list-disc space-y-0.5 pl-5">
 							<li>
-								Headers redigidos:{' '}
-								<strong>
-									{config.headerKeys.length} chaves + {config.headerRegex.length} regex
-								</strong>
+								<Trans
+									t={t}
+									i18nKey="exportDialog.headers"
+									values={{
+										keys: config.headerKeys.length,
+										regex: config.headerRegex.length,
+									}}
+									components={{ strong: <strong /> }}
+								/>
 							</li>
 							<li>
-								Body — regex aplicadas: <strong>{config.bodyRegex.length}</strong>
+								<Trans
+									t={t}
+									i18nKey="exportDialog.body"
+									values={{ total: config.bodyRegex.length }}
+									components={{ strong: <strong /> }}
+								/>
 							</li>
 							<li>
-								Console:{' '}
-								<strong>
-									{config.consoleEnabled
-										? `redigindo (${config.consoleRegex.length} regex)`
-										: 'desabilitado para esta sessão'}
-								</strong>
+								<Trans
+									t={t}
+									i18nKey="exportDialog.console"
+									values={{
+										state: config.consoleEnabled
+											? t('exportDialog.consoleRedacting', {
+													total: config.consoleRegex.length,
+												})
+											: t('exportDialog.consoleDisabled'),
+									}}
+									components={{ strong: <strong /> }}
+								/>
 							</li>
 							<li>
-								rrweb:{' '}
-								<strong>
-									{config.rrwebMaskAllInputs ? 'todos os inputs mascarados' : 'só password/cc/cvv'}
-								</strong>
+								<Trans
+									t={t}
+									i18nKey="exportDialog.rrweb"
+									values={{
+										state: config.rrwebMaskAllInputs
+											? t('exportDialog.rrwebAllInputs')
+											: t('exportDialog.rrwebSensitiveOnly'),
+									}}
+									components={{ strong: <strong /> }}
+								/>
 							</li>
 							<li>
-								Truncar paths em stacks: <strong>{config.truncateUserPaths ? 'sim' : 'não'}</strong>
+								<Trans
+									t={t}
+									i18nKey="exportDialog.truncatePaths"
+									values={{
+										state: config.truncateUserPaths ? t('exportDialog.yes') : t('exportDialog.no'),
+									}}
+									components={{ strong: <strong /> }}
+								/>
 							</li>
 						</ul>
 					)}
 					<p className="mt-2 text-muted-foreground">
-						Edite essas regras em <strong>Configurações &gt; Privacidade</strong>.
+						<Trans t={t} i18nKey="exportDialog.editHint" components={{ strong: <strong /> }} />
 					</p>
 				</section>
 
 				<DialogFooter>
 					<Button variant="ghost" onClick={() => onOpenChange(false)}>
-						Cancelar
+						{t('common:actions.cancel')}
 					</Button>
 					<Button
 						variant="destructive"
@@ -118,7 +155,7 @@ export function ExportConfirmDialog({ open, onOpenChange, onConfirm }: Props) {
 							onOpenChange(false);
 						}}
 					>
-						Entendi, exportar
+						{t('exportDialog.confirm')}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

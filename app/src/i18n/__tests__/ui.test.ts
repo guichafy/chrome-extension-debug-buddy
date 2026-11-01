@@ -9,7 +9,10 @@ function storageData(): Record<string, unknown> {
 	return (chrome.storage.local as unknown as { _data: Record<string, unknown> })._data;
 }
 
-async function freshModules(): Promise<{ ui: UiModule; instance: InstanceModule }> {
+async function freshModules(): Promise<{
+	ui: UiModule;
+	instance: InstanceModule;
+}> {
 	vi.resetModules();
 	const ui = await import('../ui');
 	const instance = await import('../instance');

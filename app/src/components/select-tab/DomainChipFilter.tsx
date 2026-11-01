@@ -1,5 +1,7 @@
-import React from 'react';
 import { cn } from '@/lib/utils';
+import type React from 'react';
+import { useTranslation } from 'react-i18next';
+import { INVALID_HOSTNAME } from './types';
 
 interface DomainChipFilterProps {
 	domains: { name: string; count: number }[];
@@ -42,19 +44,20 @@ export const DomainChipFilter: React.FC<DomainChipFilterProps> = ({
 	active,
 	onChange,
 }) => {
+	const { t } = useTranslation('selectTab');
 	return (
 		<div className="flex flex-wrap gap-1.5">
 			<Chip
-				label="Todos"
+				label={t('domains.all')}
 				count={total}
 				pressed={active === null}
 				onClick={() => onChange(null)}
-				ariaLabel="Todos — Mostrar todos os domínios"
+				ariaLabel={t('domains.allAriaLabel')}
 			/>
 			{domains.map((d) => (
 				<Chip
 					key={d.name}
-					label={d.name}
+					label={d.name === INVALID_HOSTNAME ? t('list.invalidUrl') : d.name}
 					count={d.count}
 					pressed={active === d.name}
 					onClick={() => onChange(d.name)}

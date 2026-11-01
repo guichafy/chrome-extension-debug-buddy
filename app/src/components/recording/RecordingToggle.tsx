@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRecording } from '@/hooks/useRecording';
 import { getRecordingDisabled, setRecordingDisabled } from '@/lib/session/recordingPreference';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
 	tabId: number | null;
@@ -31,6 +32,7 @@ function formatBytes(bytes: number): string {
 // (size/duration) + dot pulsante + warning quando próximo do limite. Substitui
 // o RecordingBanner descontinuado consolidando tudo dentro do header.
 export function RecordingToggle({ tabId, interceptionActive }: Props) {
+	const { t } = useTranslation('sessions');
 	const [disabled, setDisabled] = useState<boolean | null>(null);
 	const { status } = useRecording(tabId);
 
@@ -88,7 +90,7 @@ export function RecordingToggle({ tabId, interceptionActive }: Props) {
 			checked={checked}
 			onCheckedChange={onToggle}
 			disabled={switchDisabled}
-			aria-label="Gravação"
+			aria-label={t('recording.label')}
 			className={isRecording ? 'data-[state=checked]:bg-red-600' : undefined}
 		/>
 	);
@@ -102,7 +104,7 @@ export function RecordingToggle({ tabId, interceptionActive }: Props) {
 						aria-hidden="true"
 					/>
 				)}
-				Gravação
+				{t('recording.label')}
 			</Label>
 
 			{isRecording ? (
@@ -113,13 +115,18 @@ export function RecordingToggle({ tabId, interceptionActive }: Props) {
 								{switchEl}
 								<span
 									className="font-mono text-muted-foreground text-xs tabular-nums"
-									aria-label={`Sessão: ${formatBytes(status.sizeBytes)} de ${SIZE_LIMIT_MB} MB, ${durationMin.toFixed(1)} de ${DURATION_LIMIT_MIN} minutos`}
+									aria-label={t('recording.statusAriaLabel', {
+										size: formatBytes(status.sizeBytes),
+										sizeLimit: SIZE_LIMIT_MB,
+										minutes: durationMin.toFixed(1),
+										durationLimit: DURATION_LIMIT_MIN,
+									})}
 								>
 									{formatBytes(status.sizeBytes)} · {durationMin.toFixed(1)}m
 								</span>
 								{nearLimit && (
 									<output className="rounded bg-yellow-300 px-1.5 py-0.5 font-semibold text-[10px] text-red-900">
-										próximo do limite
+										{t('recording.nearLimit')}
 									</output>
 								)}
 							</div>
@@ -128,7 +135,7 @@ export function RecordingToggle({ tabId, interceptionActive }: Props) {
 							<div className="space-y-2 text-xs">
 								<div>
 									<div className="mb-1 flex justify-between">
-										<span>Tamanho</span>
+										<span>{t('recording.size')}</span>
 										<span className="tabular-nums">
 											{formatBytes(status.sizeBytes)} / {SIZE_LIMIT_MB} MB
 										</span>
@@ -146,7 +153,7 @@ export function RecordingToggle({ tabId, interceptionActive }: Props) {
 								</div>
 								<div>
 									<div className="mb-1 flex justify-between">
-										<span>Duração</span>
+										<span>{t('recording.duration')}</span>
 										<span className="tabular-nums">
 											{durationMin.toFixed(1)} / {DURATION_LIMIT_MIN} min
 										</span>
@@ -162,7 +169,7 @@ export function RecordingToggle({ tabId, interceptionActive }: Props) {
 										/>
 									</div>
 								</div>
-								<div className="text-muted-foreground">Clique no switch para parar a gravação.</div>
+								<div className="text-muted-foreground">{t('recording.stopHint')}</div>
 							</div>
 						</TooltipContent>
 					</Tooltip>
