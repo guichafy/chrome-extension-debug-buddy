@@ -43,6 +43,11 @@ vi.mock('../layout/NavMain', () => ({
 	),
 }));
 
+// O seletor de idioma tem teste próprio (LanguageSwitcher.test.tsx).
+vi.mock('../layout/LanguageSwitcher', () => ({
+	LanguageSwitcher: () => <div data-testid="language-switcher" />,
+}));
+
 // Mock para os componentes lucide-react
 vi.mock('lucide-react', () => ({
 	ChevronsUpDown: () => <span data-testid="icon-chevrons-updown">ChevronsUpDown</span>,
@@ -125,6 +130,14 @@ describe('AppSidebar Component', () => {
 		// Verifica se a mensagem de autoria está presente
 		expect(screen.getByText('Desenvolvido por')).toBeTruthy();
 		expect(screen.getByText('Guilherme Chafy')).toBeTruthy();
+	});
+
+	test('renderiza o seletor de idioma no SidebarFooter', () => {
+		render(<AppSidebar />);
+
+		expect(screen.getByTestId('sidebar-footer')).toContainElement(
+			screen.getByTestId('language-switcher'),
+		);
 	});
 
 	// Itens do menu: Command Center, Rules Lab, Sessões, Privacidade.

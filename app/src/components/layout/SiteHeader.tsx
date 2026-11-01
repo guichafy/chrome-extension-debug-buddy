@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { LucideIcon, type LucideIconName } from '@/components/ui/lucide-icon';
 import { Separator } from '@/components/ui/separator';
@@ -47,6 +48,7 @@ export function SiteHeader({
 	onStopDebugging,
 	metrics,
 }: SiteHeaderProps) {
+	const { t } = useTranslation('layout');
 	const tabState = resolveTabButtonState(targetTab);
 	const [liveInsightsCount, setLiveInsightsCount] = useState(0);
 
@@ -55,8 +57,8 @@ export function SiteHeader({
 		tabState === 'available'
 			? targetTab.title
 			: tabState === 'closed'
-				? 'Aba indisponível — selecionar outra'
-				: 'Selecionar Aba';
+				? t('header.tabUnavailableSelectAnother')
+				: t('header.selectTab');
 	// Mantém `outline` como base mas pinta borda/ícone com a paleta destrutiva
 	// no estado fechado para sinalizar que ação é necessária.
 	const tabButtonClassName =
@@ -81,7 +83,12 @@ export function SiteHeader({
 					{targetTab.id !== null && (
 						<Sheet>
 							<SheetTrigger asChild>
-								<Button variant="ghost" size="icon" aria-label="Live Insights" className="relative">
+								<Button
+									variant="ghost"
+									size="icon"
+									aria-label={t('header.liveInsights')}
+									className="relative"
+								>
 									<LucideIcon name="activity" className="size-4" />
 									{liveInsightsCount > 0 && (
 										<span className="-top-0.5 -right-0.5 absolute flex h-4 min-w-4 items-center justify-center rounded-full bg-info px-1 font-medium text-[10px] text-info-foreground">
@@ -95,10 +102,8 @@ export function SiteHeader({
 								className="w-[520px] p-0 sm:w-[640px] sm:max-w-none lg:w-[760px]"
 							>
 								<SheetHeader className="sr-only">
-									<SheetTitle>Live Insights</SheetTitle>
-									<SheetDescription>
-										Detecções de stack e recomendações em tempo real para a aba alvo.
-									</SheetDescription>
+									<SheetTitle>{t('header.liveInsights')}</SheetTitle>
+									<SheetDescription>{t('header.liveInsightsDescription')}</SheetDescription>
 								</SheetHeader>
 								<LiveInsightsPanel
 									tabId={targetTab.id}
@@ -120,7 +125,9 @@ export function SiteHeader({
 									data-tab-state={tabState}
 									aria-label={
 										tabState === 'closed'
-											? `Aba indisponível: ${targetTab.title || 'aba selecionada anteriormente'}. Clique para selecionar outra.`
+											? t('header.tabUnavailableAriaLabel', {
+													title: targetTab.title || t('header.previouslySelectedTab'),
+												})
 											: undefined
 									}
 									className={tabButtonClassName}
@@ -141,13 +148,15 @@ export function SiteHeader({
 							{tabState === 'closed' && (
 								<TooltipContent side="bottom" className="max-w-[300px] break-words">
 									<div>
-										<div className="font-medium text-destructive">Aba não está mais disponível</div>
+										<div className="font-medium text-destructive">
+											{t('header.tabNoLongerAvailable')}
+										</div>
 										{targetTab.title && (
 											<div className="text-xs text-muted-foreground">
-												Última aba: {targetTab.title}
+												{t('header.lastTab', { title: targetTab.title })}
 											</div>
 										)}
-										<div className="mt-1 text-xs">Clique para selecionar uma nova aba.</div>
+										<div className="mt-1 text-xs">{t('header.clickToSelectNewTab')}</div>
 									</div>
 								</TooltipContent>
 							)}
@@ -162,7 +171,7 @@ export function SiteHeader({
 							disabled={tabState !== 'available'}
 						>
 							<LucideIcon name="play" className="h-4 w-4" />
-							<span className="hidden sm:inline">Iniciar Análise</span>
+							<span className="hidden sm:inline">{t('header.startAnalysis')}</span>
 						</Button>
 					) : (
 						<Button
@@ -171,7 +180,7 @@ export function SiteHeader({
 							onClick={onStopDebugging}
 						>
 							<LucideIcon name="stop" className="h-4 w-4" />
-							<span className="hidden sm:inline">Parar Análise</span>
+							<span className="hidden sm:inline">{t('header.stopAnalysis')}</span>
 						</Button>
 					)}
 				</div>

@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import 'fake-indexeddb/auto';
 import { TextDecoder, TextEncoder } from 'node:util';
 import { vi } from 'vitest';
+import { initI18nForTests } from '@/i18n/testing';
 
 // Polyfill para File.prototype.text (ausente em versões antigas do jsdom)
 if (typeof File !== 'undefined' && !File.prototype.text) {
@@ -120,4 +121,11 @@ const storageData: Record<string, unknown> = {};
 	tabs: {
 		query: vi.fn(),
 	},
+	i18n: {
+		getUILanguage: vi.fn(() => 'pt-BR'),
+	},
 };
+
+// i18n síncrono em pt-BR (os testes verificam os textos em português); chave
+// ausente lança. Ver src/i18n/testing.ts.
+initI18nForTests();

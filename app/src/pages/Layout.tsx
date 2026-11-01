@@ -1,4 +1,5 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { SelectTabDialog } from '../components/select-tab/SelectTabDialog';
 import { AppSidebar } from '../components/layout/AppSidebar';
@@ -29,6 +30,7 @@ const RouteFallback: React.FC = () => (
 );
 
 const Layout: React.FC = () => {
+	const { t } = useTranslation('layout');
 	const { isDebugging, targetTab, startDebugging, stopDebugging } = useDebugging();
 
 	// Estado consolidado: o Layout passa a ser dono dos hooks que antes eram
@@ -177,8 +179,8 @@ const Layout: React.FC = () => {
 		const { succeeded, failed } = await pendingState.ignoreAllPending();
 		if (failed.length === 0) return;
 		const detail = failed.map((f) => `- ${f.requestId}: ${f.error}`).join('\n');
-		alert(`${succeeded} ignorada(s) com sucesso, ${failed.length} falha(s):\n${detail}`);
-	}, [pendingState.ignoreAllPending]);
+		alert(t('dock.ignoreAllResult', { succeeded, failed: failed.length, detail }));
+	}, [pendingState.ignoreAllPending, t]);
 
 	const navigateNext = useCallback(() => {
 		if (pendingIdsOrdered.length === 0) return;

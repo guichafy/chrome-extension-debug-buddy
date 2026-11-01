@@ -22,6 +22,11 @@
  *    tags — Chrome Web Store rejects those).
  * 9. permissions array contains only known Chrome MV3 permissions
  *    (warn-only — new permissions get added as Chrome evolves).
+ * 10. The i18next runtime (UI-only) is not reachable from the service worker
+ *    or the content scripts. MV3 service workers forbid `import()` — used to
+ *    lazy-load the locale catalogs — and react-i18next would drag React into
+ *    the worker. We walk the static import graph of background.js and check
+ *    every content script bundle for an i18next-core-only string.
  *
  * Exits 0 on success, 1 on any failure. Prints a checklist-style report.
  *
@@ -188,6 +193,49 @@ if (Array.isArray(manifest.permissions)) {
 		}
 	}
 	ok(`${manifest.permissions.length} permission(s) checked`);
+}
+
+// 10. i18next must stay out of the service worker and content scripts
+const I18NEXT_SIGNATURE = 'i18next is already initialized';
+const STATIC_IMPORT_RE = /(?:^|[;\s}])import\s*(?:[^'"()]*?\bfrom\s*)?["'](\.{1,2}\/[^"']+)["']/g;
+
+function reachableFiles(entry) {
+	const seen = new Set();
+	const queue = [resolve(distDir, entry)];
+	while (queue.length > 0) {
+		const file = queue.pop();
+		if (seen.has(file)) continue;
+		if (!existsSync(file)) {
+			fail(`static import target missing: ${file}`);
+			continue;
+		}
+		seen.add(file);
+		const code = readFileSync(file, 'utf8');
+		for (const match of code.matchAll(STATIC_IMPORT_RE)) {
+			queue.push(resolve(dirname(file), match[1]));
+		}
+	}
+	return seen;
+}
+
+const workerAndContentEntries = [];
+if (typeof manifest.background?.service_worker === 'string') {
+	workerAndContentEntries.push(manifest.background.service_worker);
+}
+for (const script of manifest.content_scripts ?? []) {
+	for (const js of script.js ?? []) workerAndContentEntries.push(js);
+}
+let i18nLeaks = 0;
+for (const entry of workerAndContentEntries) {
+	for (const file of reachableFiles(entry)) {
+		if (readFileSync(file, 'utf8').includes(I18NEXT_SIGNATURE)) {
+			fail(`i18next runtime reachable from ${entry} via ${file.slice(distDir.length + 1)} — the i18n instance is UI-only (src/i18n/instance.ts)`);
+			i18nLeaks += 1;
+		}
+	}
+}
+if (i18nLeaks === 0) {
+	ok(`i18next runtime absent from service worker and content scripts (${workerAndContentEntries.length} entry point(s) walked)`);
 }
 
 // Summary
