@@ -1,3 +1,4 @@
+import { i18n } from '@/i18n/instance';
 import { useState } from 'react';
 import type { Recommendation, RecommendationSeverity } from '@/lib/session/types';
 
@@ -13,10 +14,17 @@ const SEVERITY_LABEL_CLASSES: Record<RecommendationSeverity, string> = {
 	info: 'text-sky-700 dark:text-sky-400',
 };
 
-const SEVERITY_LABEL: Record<RecommendationSeverity, string> = {
-	error: 'ERRO',
-	warn: 'AVISO',
-	info: 'INFO',
+// Getters: o rótulo segue o idioma ativo da UI (replay:recommendations.severity).
+const SEVERITY_LABEL: Readonly<Record<RecommendationSeverity, string>> = {
+	get error() {
+		return i18n.t('replay:recommendations.severity.error');
+	},
+	get warn() {
+		return i18n.t('replay:recommendations.severity.warn');
+	},
+	get info() {
+		return i18n.t('replay:recommendations.severity.info');
+	},
 };
 
 export const RECOMMENDATION_ROW_TOKENS = {

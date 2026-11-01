@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { LucideIcon } from '@/components/ui/lucide-icon';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -27,6 +28,7 @@ interface Props {
 // binários ou maiores ficam com `bodyUnavailableReason` explicando por que;
 // drawer mostra a explicação ao invés de fingir vazio (no-fallbacks).
 export function ReplayRequestDetailsSheet({ request, open, onOpenChange }: Props) {
+	const { t } = useTranslation(['replay', 'commandCenter']);
 	if (!request) return null;
 
 	const responseHeaders = request.response?.headers ?? request.headers ?? {};
@@ -49,9 +51,7 @@ export function ReplayRequestDetailsSheet({ request, open, onOpenChange }: Props
 							{formatDuration(request.duration)}
 						</span>
 					</SheetTitle>
-					<SheetDescription className="sr-only">
-						Detalhes da requisição capturada na sessão de replay.
-					</SheetDescription>
+					<SheetDescription className="sr-only">{t('details.description')}</SheetDescription>
 					<p className="break-all font-mono text-muted-foreground text-xs" title={request.url}>
 						{request.url}
 					</p>
@@ -59,65 +59,76 @@ export function ReplayRequestDetailsSheet({ request, open, onOpenChange }: Props
 
 				<Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
 					<TabsList className="mx-4 mt-3 grid grid-cols-3">
-						<TabsTrigger value="overview">Overview</TabsTrigger>
-						<TabsTrigger value="request">Request</TabsTrigger>
-						<TabsTrigger value="response">Response</TabsTrigger>
+						<TabsTrigger value="overview">{t('commandCenter:inspector.tabs.overview')}</TabsTrigger>
+						<TabsTrigger value="request">{t('commandCenter:inspector.tabs.request')}</TabsTrigger>
+						<TabsTrigger value="response">{t('commandCenter:inspector.tabs.response')}</TabsTrigger>
 					</TabsList>
 
 					<ScrollArea className="flex-1 px-4 py-3">
 						<TabsContent value="overview" className="space-y-2 text-sm">
-							<KV label="URL" value={request.url} mono />
-							<KV label="Method" value={request.method ?? '—'} />
-							<KV label="Status" value={`${request.status} ${request.statusText ?? ''}`.trim()} />
-							<KV label="Resource type" value={request.type ?? '—'} />
-							<KV label="MIME type" value={request.mimeType ?? '—'} />
-							<KV label="Duração" value={formatDuration(request.duration)} />
-							{request.isMocked && <KV label="Mocked" value="sim" />}
-							{request.isTransformed && <KV label="Transformed" value="sim" />}
+							<KV label={t('details.url')} value={request.url} mono />
+							<KV label={t('details.method')} value={request.method ?? '—'} />
+							<KV
+								label={t('details.status')}
+								value={`${request.status} ${request.statusText ?? ''}`.trim()}
+							/>
+							<KV label={t('details.resourceType')} value={request.type ?? '—'} />
+							<KV label={t('details.mimeType')} value={request.mimeType ?? '—'} />
+							<KV label={t('details.duration')} value={formatDuration(request.duration)} />
+							{request.isMocked && <KV label={t('details.mocked')} value={t('details.yes')} />}
+							{request.isTransformed && (
+								<KV label={t('details.transformed')} value={t('details.yes')} />
+							)}
 							{typeof request.mockLatencyMs === 'number' && (
-								<KV label="Mock latency" value={`${request.mockLatencyMs} ms`} />
+								<KV label={t('details.mockLatency')} value={`${request.mockLatencyMs} ms`} />
 							)}
 							{request.captureError && (
 								<div className="mt-3 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-destructive text-xs">
 									<LucideIcon name="alert-triangle" className="mt-0.5 h-4 w-4 shrink-0" />
-									<span className="break-words">Falha na captura: {request.captureError}</span>
+									<span className="break-words">
+										{t('commandCenter:inspector.captureFailed', { error: request.captureError })}
+									</span>
 								</div>
 							)}
 						</TabsContent>
 
 						<TabsContent value="request" className="space-y-3">
 							<section>
-								<h3 className="mb-1 font-medium text-sm">Headers</h3>
+								<h3 className="mb-1 font-medium text-sm">{t('commandCenter:inspector.headers')}</h3>
 								<HeaderTable
 									headers={requestHeaders}
-									emptyMessage="Sem request headers capturados nesta sessão."
+									emptyMessage={t('details.noRequestHeaders')}
 								/>
 							</section>
 							<section>
-								<h3 className="mb-1 font-medium text-sm">Body</h3>
+								<h3 className="mb-1 font-medium text-sm">{t('commandCenter:inspector.body')}</h3>
 								{requestBody !== undefined ? (
-									<BodyViewer body={requestBody} label="Body" expandedHeight={false} />
+									<BodyViewer
+										body={requestBody}
+										label={t('commandCenter:inspector.body')}
+										expandedHeight={false}
+									/>
 								) : (
-									<BodyUnavailableNote reason="Sem body de request capturado para esta sessão." />
+									<BodyUnavailableNote reason={t('details.noRequestBody')} />
 								)}
 							</section>
 						</TabsContent>
 
 						<TabsContent value="response" className="space-y-3">
 							<section>
-								<h3 className="mb-1 font-medium text-sm">Headers</h3>
+								<h3 className="mb-1 font-medium text-sm">{t('commandCenter:inspector.headers')}</h3>
 								<HeaderTable
 									headers={responseHeaders}
-									emptyMessage="Sem response headers capturados nesta sessão."
+									emptyMessage={t('details.noResponseHeaders')}
 								/>
 							</section>
 							<section>
-								<h3 className="mb-1 font-medium text-sm">Body</h3>
+								<h3 className="mb-1 font-medium text-sm">{t('commandCenter:inspector.body')}</h3>
 								<BodyViewer
 									body={responseBody}
 									mimeType={request.mimeType}
 									bodyUnavailableReason={request.bodyUnavailableReason}
-									label="Body"
+									label={t('commandCenter:inspector.body')}
 									expandedHeight
 								/>
 							</section>

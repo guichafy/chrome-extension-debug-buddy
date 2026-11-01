@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import type { TechHit } from '@/lib/insights/types';
 
@@ -19,6 +20,7 @@ function confidenceBadgeClass(level: ConfidenceLevel): string {
 }
 
 export function TechItem({ tech }: Props) {
+	const { t } = useTranslation('replay');
 	const level = levelFor(tech.confidence);
 	return (
 		<div className="flex items-center gap-1.5">
@@ -39,7 +41,7 @@ export function TechItem({ tech }: Props) {
 					target="_blank"
 					rel="noreferrer noopener"
 					className="text-[10px] text-muted-foreground hover:underline"
-					aria-label={`Site oficial de ${tech.name}`}
+					aria-label={t('techItem.officialSite', { name: tech.name })}
 				>
 					↗
 				</a>

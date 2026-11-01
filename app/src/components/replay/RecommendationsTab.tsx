@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useMemo, useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { Recommendation, RecommendationSeverity } from '@/lib/session/types';
@@ -10,6 +11,7 @@ interface Props {
 const SEVERITIES: RecommendationSeverity[] = ['error', 'warn', 'info'];
 
 export function RecommendationsTab({ items }: Props) {
+	const { t } = useTranslation('replay');
 	const [enabled, setEnabled] = useState<Record<RecommendationSeverity, boolean>>({
 		error: true,
 		warn: true,
@@ -40,7 +42,7 @@ export function RecommendationsTab({ items }: Props) {
 			<div className="overflow-auto rounded border">
 				{filtered.length === 0 ? (
 					<p className="p-3 text-muted-foreground text-sm">
-						Nenhuma recomendação{items.length > 0 ? ' com os filtros atuais' : ''}.
+						{items.length > 0 ? t('recommendations.noneWithFilters') : t('recommendations.none')}
 					</p>
 				) : (
 					filtered.map((h) => <RecommendationRow key={h.id} item={h} />)
