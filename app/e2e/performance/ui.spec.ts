@@ -20,6 +20,7 @@ for (const scenario of scenarios) {
 		browserName,
 	}, testInfo) => {
 		const context = await launchExtensionContext();
+		context.setDefaultTimeout(15_000);
 		const errors: string[] = [];
 		const samples: { action: string; ms: number }[] = [];
 		let metrics: Record<string, unknown> = {};
@@ -173,14 +174,20 @@ for (const scenario of scenarios) {
 				});
 				const workBefore = await page.evaluate(() => ({ ...(window as any).__bodyWork }));
 				// Canal real do background, controle isolado de updates de OUTRA request.
-				await context.serviceWorkers()[0].evaluate(async () => {
+				await context.serviceWorkers()[0].evaluate(async (cycle) => {
 					for (let i = 0; i < 5; i++)
 						await chrome.runtime.sendMessage({
 							action: 'requestUpdated',
 							requestId: 'perf-1',
-							updates: { duration: 20 + i },
+							updates: { duration: 20 + cycle * 5 + i },
 						});
-				});
+				}, cycle);
+				if (!scenario.live) {
+					// Confirma aplicação do último patch antes de medir reprocessamento.
+					await expect(page.locator('tr', { hasText: '/api/perf/1' }).first()).toContainText(
+						`${24 + cycle * 5}ms`,
+					);
+				}
 				await page.evaluate(
 					() =>
 						new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
@@ -238,7 +245,12 @@ for (const scenario of scenarios) {
 				.fill('/api/perf/0');
 			samples.push({
 				action: 'filtrar',
-				ms: await interact(page, page.getByRole('option').first(), 'tbody', '/api/perf/0'),
+				ms: await interact(
+					page,
+					page.getByRole('listbox').getByRole('option').first(),
+					'tbody',
+					'/api/perf/0',
+				),
 			});
 			await expect(page.locator('tbody tr')).toHaveCount(1);
 			await page.getByRole('button', { name: /^Remover filtro/ }).click();
