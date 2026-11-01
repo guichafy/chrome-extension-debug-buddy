@@ -187,6 +187,13 @@ for (const scenario of scenarios) {
 					await expect(page.locator('tr', { hasText: '/api/perf/1' }).first()).toContainText(
 						`${24 + cycle * 5}ms`,
 					);
+				} else {
+					// Aguarda um commit real de captura após os broadcasts; dois frames
+					// sozinhos poderiam terminar antes da janela de agrupamento da UI.
+					const count = page.getByText(/^\d+ requisição\(ões\) encontrada\(s\)\.$/);
+					const before = await count.textContent();
+					if (before === null) throw new Error('Contador de requests ausente');
+					await expect(count).not.toHaveText(before);
 				}
 				await page.evaluate(
 					() =>
@@ -274,10 +281,13 @@ for (const scenario of scenarios) {
 				return value.value;
 			};
 			const cpuTaskSeconds = metric(after, 'TaskDuration') - metric(before, 'TaskDuration');
+			// Encerra a janela de CPU/bloqueios antes do GC forçado para medir memória.
+			// Pausas solicitadas pelo próprio harness não são interações do produto.
+			const longTasks = await page.evaluate<number[]>(() => (window as any).__longTasks);
+			const { profile } = await cdp.send('Profiler.stop');
 			await cdp.send('HeapProfiler.collectGarbage');
 			const dom = await cdp.send('Memory.getDOMCounters');
 			const heap = await cdp.send('Runtime.getHeapUsage');
-			const longTasks = await page.evaluate<number[]>(() => (window as any).__longTasks);
 			await page.getByRole('button', { name: 'Limpar Histórico', exact: true }).click();
 			await page
 				.getByRole('alertdialog')
@@ -315,7 +325,6 @@ for (const scenario of scenarios) {
 				errors,
 				environment: performanceEnvironment(context),
 			};
-			const { profile } = await cdp.send('Profiler.stop');
 			await writeFile(testInfo.outputPath('ui.cpuprofile'), JSON.stringify(profile));
 			await testInfo.attach('ui.cpuprofile', {
 				path: testInfo.outputPath('ui.cpuprofile'),

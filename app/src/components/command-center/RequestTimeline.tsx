@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { InterceptedResponse } from '@/types/intercepted';
 import type { Filter } from '@/types/filters';
 import { DataTable } from '@/components/requests/data-table';
 import { columns } from '@/components/requests/columns';
+import { createRequestRowsCache } from '@/components/requests/flatRequestRowModels';
 import { FilterBar } from './FilterBar';
 
 interface RequestTimelineProps {
@@ -26,15 +27,8 @@ export function RequestTimeline({
 	onFiltersChange,
 	onClearHistory,
 }: RequestTimelineProps) {
-	const { rows, pendingRowIds } = useMemo(() => {
-		const rowList: { id: string; request: (typeof requests)[string] }[] = [];
-		const pending = new Set<string>();
-		for (const [id, request] of Object.entries(requests)) {
-			rowList.push({ id, request });
-			if (request.isWaiting === true) pending.add(id);
-		}
-		return { rows: rowList, pendingRowIds: pending };
-	}, [requests]);
+	const [buildRows] = useState(createRequestRowsCache);
+	const { rows, pendingRowIds } = useMemo(() => buildRows(requests), [requests, buildRows]);
 
 	return (
 		<DataTable

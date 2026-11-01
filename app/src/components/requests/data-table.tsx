@@ -7,7 +7,6 @@ import {
 	SortingState,
 	VisibilityState,
 	flexRender,
-	getCoreRowModel,
 	getFilteredRowModel,
 	getPaginationRowModel,
 	getSortedRowModel,
@@ -26,6 +25,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LucideIcon } from '@/components/ui/lucide-icon';
+import { getStableFlatCoreRowModel } from './flatRequestRowModels';
 import {
 	DropdownMenu,
 	DropdownMenuCheckboxItem,
@@ -45,7 +45,7 @@ interface DataTableProps<TData, TValue> {
 	pendingRowIds?: Set<string>;
 }
 
-export function DataTable<TData, TValue>({
+export function DataTable<TData extends { id: string }, TValue>({
 	columns,
 	data,
 	onSelect,
@@ -87,7 +87,8 @@ export function DataTable<TData, TValue>({
 	const table = useReactTable({
 		data,
 		columns,
-		getCoreRowModel: getCoreRowModel(),
+		getCoreRowModel: getStableFlatCoreRowModel(),
+		getRowId: (row) => row.id,
 		getPaginationRowModel: getPaginationRowModel(),
 		onSortingChange: setSorting,
 		getSortedRowModel: getSortedRowModel(),
@@ -212,7 +213,6 @@ export function DataTable<TData, TValue>({
 					<TableBody>
 						{table.getRowModel().rows?.length ? (
 							table.getRowModel().rows.map((row) => {
-								// @ts-expect-error - acessar id via original
 								const rowRequestId: string = row.original.id;
 								const isPendingRow = pendingRowIds?.has(rowRequestId) ?? false;
 								return (
