@@ -2,7 +2,7 @@
   "name": "Debug Buddy",
   "short_name": "DbgBuddy",
   "description": "Create API mocks and troubleshoot web apps: inspect network calls, simulate failures, replay sessions and reproduce API errors.",
-  "version": "0.13.5",
+  "version": "0.13.6",
   "manifest_version": 3,
   "icons": {
     "16": "images/icon_16px.png",

@@ -1,3 +1,9 @@
+## [0.13.6](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.13.5...v0.13.6) (2026-11-01)
+
+### Bug Fixes
+
+* **session:** escapar JSON embutido no viewer.html exportado ([4a5eac0](https://github.com/guichafy/chrome-extension-debug-buddy/commit/4a5eac0843ab83519d5b49b5320cb41695aadff4))
+
 ## [0.13.5](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.13.4...v0.13.5) (2026-11-01)
 
 ### Performance
