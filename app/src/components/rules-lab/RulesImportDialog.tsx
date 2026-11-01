@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
 	Dialog,
@@ -26,6 +27,7 @@ export function RulesImportDialog({
 	rules,
 	onConfirm,
 }: RulesImportDialogProps) {
+	const { t } = useTranslation(['rulesLab', 'common']);
 	const [strategy, setStrategy] = useState<ImportStrategy>('merge');
 	const [isApplying, setIsApplying] = useState(false);
 
@@ -42,10 +44,8 @@ export function RulesImportDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="sm:max-w-md">
 				<DialogHeader>
-					<DialogTitle>Importar regras</DialogTitle>
-					<DialogDescription>
-						{rules.length} regra(s) prontas para importar. Escolha a estratégia.
-					</DialogDescription>
+					<DialogTitle>{t('import.title')}</DialogTitle>
+					<DialogDescription>{t('import.description', { count: rules.length })}</DialogDescription>
 				</DialogHeader>
 
 				<div className="space-y-2">
@@ -57,10 +57,8 @@ export function RulesImportDialog({
 							onChange={() => setStrategy('merge')}
 						/>
 						<div>
-							<div className="text-sm font-medium">Adicionar às regras existentes</div>
-							<p className="text-xs text-muted-foreground">
-								Mantém as regras atuais e cria novas com IDs novos.
-							</p>
+							<div className="text-sm font-medium">{t('import.merge')}</div>
+							<p className="text-xs text-muted-foreground">{t('import.mergeHint')}</p>
 						</div>
 					</label>
 					<label className="flex items-start gap-2 rounded-md border p-3 hover:bg-accent/40">
@@ -71,17 +69,15 @@ export function RulesImportDialog({
 							onChange={() => setStrategy('replace')}
 						/>
 						<div>
-							<div className="text-sm font-medium">Substituir todas as regras</div>
-							<p className="text-xs text-muted-foreground">
-								Apaga todas as regras existentes e usa apenas as importadas.
-							</p>
+							<div className="text-sm font-medium">{t('import.replace')}</div>
+							<p className="text-xs text-muted-foreground">{t('import.replaceHint')}</p>
 						</div>
 					</label>
 				</div>
 
 				<DialogFooter>
 					<Button variant="outline" onClick={() => onOpenChange(false)} disabled={isApplying}>
-						Cancelar
+						{t('common:actions.cancel')}
 					</Button>
 					<Button onClick={handleConfirm} disabled={isApplying} className="gap-2">
 						{isApplying ? (
@@ -89,7 +85,7 @@ export function RulesImportDialog({
 						) : (
 							<LucideIcon name="check" className="h-4 w-4" />
 						)}
-						Confirmar import
+						{t('import.confirm')}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

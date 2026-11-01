@@ -1,4 +1,5 @@
 import type { LucideIconName } from '@/components/ui/lucide-icon';
+import { i18n } from '@/i18n/instance';
 import type { Action, Matcher, Rule, RuleStage } from '@/types/rules';
 
 export interface ActionVisuals {
@@ -17,6 +18,9 @@ export interface StageVisuals {
 	borderClass: string;
 }
 
+// Rótulos vêm do namespace `rules` do i18n (só a UI importa este módulo);
+// quem renderiza já re-renderiza na troca de idioma via useTranslation.
+
 // Phase 6: badge de stage. Azul=request (a regra age antes da rede), verde=
 // response (age depois da resposta chegar). Tokens de design system mantêm
 // consistência com `lib/statusBadge.ts`.
@@ -24,7 +28,7 @@ export function getStageVisuals(stage: RuleStage): StageVisuals {
 	if (stage === 'request') {
 		return {
 			iconName: 'upload',
-			label: 'Request',
+			label: i18n.t('rules:stages.request'),
 			bgClass: 'bg-info/15',
 			textClass: 'text-info',
 			borderClass: 'border-info/40',
@@ -32,7 +36,7 @@ export function getStageVisuals(stage: RuleStage): StageVisuals {
 	}
 	return {
 		iconName: 'download',
-		label: 'Response',
+		label: i18n.t('rules:stages.response'),
 		bgClass: 'bg-success/15',
 		textClass: 'text-success',
 		borderClass: 'border-success/40',
@@ -44,7 +48,7 @@ export function getActionVisuals(action: Action): ActionVisuals {
 		case 'mock':
 			return {
 				iconName: 'server-crash',
-				label: 'Mock',
+				label: i18n.t('rules:actionTypes.mock'),
 				bgClass: 'bg-violet-500/10',
 				textClass: 'text-violet-300',
 				borderClass: 'border-violet-500/30',
@@ -52,7 +56,7 @@ export function getActionVisuals(action: Action): ActionVisuals {
 		case 'requestDelay':
 			return {
 				iconName: 'timer',
-				label: 'Latência',
+				label: i18n.t('rules:actionTypes.requestDelay'),
 				bgClass: 'bg-amber-500/10',
 				textClass: 'text-amber-300',
 				borderClass: 'border-amber-500/30',
@@ -60,7 +64,7 @@ export function getActionVisuals(action: Action): ActionVisuals {
 		case 'transform':
 			return {
 				iconName: 'file-edit',
-				label: 'Transform',
+				label: i18n.t('rules:actionTypes.transform'),
 				bgClass: 'bg-sky-500/10',
 				textClass: 'text-sky-300',
 				borderClass: 'border-sky-500/30',
@@ -68,7 +72,7 @@ export function getActionVisuals(action: Action): ActionVisuals {
 		case 'breakpoint':
 			return {
 				iconName: 'octagon-alert',
-				label: 'Breakpoint',
+				label: i18n.t('rules:actionTypes.breakpoint'),
 				bgClass: 'bg-rose-500/10',
 				textClass: 'text-rose-300',
 				borderClass: 'border-rose-500/30',
@@ -76,7 +80,7 @@ export function getActionVisuals(action: Action): ActionVisuals {
 		case 'requestModify':
 			return {
 				iconName: 'edit',
-				label: 'Modify req',
+				label: i18n.t('rules:actionTypes.requestModify'),
 				bgClass: 'bg-info/10',
 				textClass: 'text-info',
 				borderClass: 'border-info/30',
@@ -84,7 +88,7 @@ export function getActionVisuals(action: Action): ActionVisuals {
 		case 'responseModify':
 			return {
 				iconName: 'edit',
-				label: 'Modify res',
+				label: i18n.t('rules:actionTypes.responseModify'),
 				bgClass: 'bg-info/10',
 				textClass: 'text-info',
 				borderClass: 'border-info/30',
@@ -92,7 +96,7 @@ export function getActionVisuals(action: Action): ActionVisuals {
 		case 'block':
 			return {
 				iconName: 'x-circle',
-				label: 'Block',
+				label: i18n.t('rules:actionTypes.block'),
 				bgClass: 'bg-destructive/10',
 				textClass: 'text-destructive',
 				borderClass: 'border-destructive/30',
@@ -108,29 +112,35 @@ export function getActionSummary(action: Action): string {
 	switch (action.type) {
 		case 'mock': {
 			const phrase = action.statusPhrase ? ` ${action.statusPhrase}` : '';
-			return `Mock ${action.status}${phrase}`;
+			return i18n.t('rules:summary.mock', { status: action.status, phrase });
 		}
 		case 'requestDelay':
-			return `Atrasar ${action.timeMs}ms`;
+			return i18n.t('rules:summary.delay', { ms: action.timeMs });
 		case 'transform': {
 			if (action.mode === 'advanced') {
 				const hasScript = (action.advancedScript ?? '').trim().length > 0;
-				return hasScript ? 'Transform · script avançado' : 'Transform · script vazio';
+				return hasScript
+					? i18n.t('rules:summary.transformAdvanced')
+					: i18n.t('rules:summary.transformEmptyScript');
 			}
 			const opsCount = action.operations?.length ?? 0;
 			if (opsCount > 0) {
-				return `Transform · ${opsCount} ${opsCount === 1 ? 'operação' : 'operações'}`;
+				return i18n.t('rules:summary.transformOperations', { count: opsCount });
 			}
-			return action.status ? `Transform (status ${action.status})` : 'Transform resposta';
+			return action.status
+				? i18n.t('rules:summary.transformStatus', { status: action.status })
+				: i18n.t('rules:summary.transformResponse');
 		}
 		case 'breakpoint':
-			return action.description ? `Breakpoint — ${action.description}` : 'Breakpoint';
+			return action.description
+				? i18n.t('rules:summary.breakpointWithDescription', { description: action.description })
+				: i18n.t('rules:summary.breakpoint');
 		case 'requestModify':
-			return 'Modificar request';
+			return i18n.t('rules:summary.requestModify');
 		case 'responseModify':
-			return 'Modificar response';
+			return i18n.t('rules:summary.responseModify');
 		case 'block':
-			return `Bloquear (${action.errorReason})`;
+			return i18n.t('rules:summary.block', { reason: action.errorReason });
 		default: {
 			const exhaustive: never = action;
 			throw new Error(`Tipo de ação não suportado: ${(exhaustive as { type: string }).type}`);
@@ -155,16 +165,20 @@ export function getMatcherSummary(matchers: Matcher[]): string {
 
 	if (url && url.type === 'url') {
 		const pattern = url.pattern.trim();
-		parts.push(pattern.length > 0 ? pattern : '(qualquer URL)');
+		parts.push(pattern.length > 0 ? pattern : i18n.t('rules:matcherSummary.anyUrl'));
 	} else if (parts.length === 0) {
 		const header = enabled.find((m) => m.type === 'header');
 		const body = enabled.find((m) => m.type === 'body');
 		if (header && header.type === 'header') {
-			parts.push(`header ${header.name || '(qualquer)'}`);
+			parts.push(
+				i18n.t('rules:matcherSummary.header', {
+					name: header.name || i18n.t('rules:matcherSummary.anyHeader'),
+				}),
+			);
 		} else if (body && body.type === 'body') {
 			parts.push('body');
 		} else {
-			parts.push('Sem condições');
+			parts.push(i18n.t('rules:matcherSummary.noConditions'));
 		}
 	}
 

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
 	DropdownMenu,
@@ -51,6 +52,7 @@ export function RulesList({
 	onReorder,
 	onMove,
 }: RulesListProps) {
+	const { t } = useTranslation(['rulesLab', 'rules']);
 	const [page, setPage] = useState(0);
 	const [draggingId, setDraggingId] = useState<string | null>(null);
 
@@ -71,7 +73,7 @@ export function RulesList({
 	if (rules.length === 0) {
 		return (
 			<div className="px-6 py-10 text-center text-sm text-muted-foreground">
-				Nenhuma regra corresponde aos filtros atuais.
+				{t('list.noMatches')}
 			</div>
 		);
 	}
@@ -92,21 +94,21 @@ export function RulesList({
 					data-testid="rules-reorder-hint"
 				>
 					<LucideIcon name="grip-vertical" className="h-3 w-3" />
-					Arraste pelo manípulo ou use Ctrl/Cmd + ↑/↓ para reordenar a prioridade.
+					{t('list.reorderHint')}
 				</div>
 			)}
 			<Table data-testid="rules-table">
 				<TableHeader>
 					<TableRow className="hover:bg-transparent">
 						<TableHead className="h-9 w-12 text-center text-[11px] font-medium uppercase tracking-wide">
-							Ordem
+							{t('list.columns.order')}
 						</TableHead>
 						<TableHead className="h-9 w-16 text-[11px] font-medium uppercase tracking-wide">
-							Status
+							{t('list.columns.status')}
 						</TableHead>
 						<TableHead className="h-9 w-32 text-[11px] font-medium uppercase tracking-wide">
 							<div className="flex items-center gap-1">
-								<span>Stage</span>
+								<span>{t('list.columns.stage')}</span>
 								<DropdownMenu>
 									<DropdownMenuTrigger asChild>
 										<Button
@@ -114,7 +116,7 @@ export function RulesList({
 											variant="ghost"
 											size="icon"
 											className={cn('h-5 w-5', stageFilterActive && 'text-primary')}
-											aria-label="Filtrar por stage"
+											aria-label={t('list.filterByStage')}
 											data-testid="stage-filter-trigger"
 											data-active={stageFilterActive || undefined}
 										>
@@ -123,7 +125,7 @@ export function RulesList({
 									</DropdownMenuTrigger>
 									<DropdownMenuContent align="start" className="w-40">
 										<DropdownMenuLabel className="text-[11px] uppercase tracking-wide text-muted-foreground">
-											Stage
+											{t('list.columns.stage')}
 										</DropdownMenuLabel>
 										<DropdownMenuSeparator />
 										<DropdownMenuCheckboxItem
@@ -135,7 +137,7 @@ export function RulesList({
 											className="text-xs"
 											data-testid="stage-filter-option-all"
 										>
-											Todos
+											{t('list.stageAll')}
 										</DropdownMenuCheckboxItem>
 										<DropdownMenuCheckboxItem
 											checked={stageFilter === 'request'}
@@ -146,7 +148,7 @@ export function RulesList({
 											className="text-xs"
 											data-testid="stage-filter-option-request"
 										>
-											Request
+											{t('rules:stages.request')}
 										</DropdownMenuCheckboxItem>
 										<DropdownMenuCheckboxItem
 											checked={stageFilter === 'response'}
@@ -157,26 +159,26 @@ export function RulesList({
 											className="text-xs"
 											data-testid="stage-filter-option-response"
 										>
-											Response
+											{t('rules:stages.response')}
 										</DropdownMenuCheckboxItem>
 									</DropdownMenuContent>
 								</DropdownMenu>
 							</div>
 						</TableHead>
 						<TableHead className="h-9 w-32 text-[11px] font-medium uppercase tracking-wide">
-							Tipo
+							{t('list.columns.type')}
 						</TableHead>
 						<TableHead className="h-9 text-[11px] font-medium uppercase tracking-wide">
-							Matcher
+							{t('list.columns.matcher')}
 						</TableHead>
 						<TableHead className="h-9 text-[11px] font-medium uppercase tracking-wide">
-							Ação
+							{t('list.columns.action')}
 						</TableHead>
 						<TableHead className="hidden h-9 w-32 text-[11px] font-medium uppercase tracking-wide md:table-cell">
-							Atualizado
+							{t('list.columns.updated')}
 						</TableHead>
 						<TableHead className="h-9 w-32 text-right text-[11px] font-medium uppercase tracking-wide">
-							Ações
+							{t('list.columns.actions')}
 						</TableHead>
 					</TableRow>
 				</TableHeader>
@@ -210,8 +212,8 @@ export function RulesList({
 			<div className="flex items-center justify-between border-t px-4 py-2.5 text-[11px] text-muted-foreground">
 				<span>
 					{showPagination
-						? `Mostrando ${showingFrom}–${showingTo} de ${rules.length}`
-						: `${rules.length} de ${totalCount}`}
+						? t('list.showing', { from: showingFrom, to: showingTo, total: rules.length })
+						: t('list.shownOfTotal', { shown: rules.length, total: totalCount })}
 				</span>
 
 				{showPagination && (
@@ -222,7 +224,7 @@ export function RulesList({
 							className="h-7 w-7"
 							disabled={page === 0}
 							onClick={() => setPage((p) => Math.max(0, p - 1))}
-							aria-label="Página anterior"
+							aria-label={t('list.previousPage')}
 						>
 							<LucideIcon name="chevron-left" className="h-3.5 w-3.5" />
 						</Button>
@@ -235,7 +237,7 @@ export function RulesList({
 							className="h-7 w-7"
 							disabled={page >= totalPages - 1}
 							onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-							aria-label="Próxima página"
+							aria-label={t('list.nextPage')}
 						>
 							<LucideIcon name="chevron-right" className="h-3.5 w-3.5" />
 						</Button>

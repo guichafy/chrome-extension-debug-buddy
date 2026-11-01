@@ -1,5 +1,6 @@
 import type { DragEvent, KeyboardEvent } from 'react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { LucideIcon } from '@/components/ui/lucide-icon';
@@ -31,13 +32,23 @@ interface RuleTableRowProps {
 	onMove?: (id: string, direction: 'up' | 'down') => void;
 }
 
-const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
-	day: '2-digit',
-	month: '2-digit',
-	year: '2-digit',
-	hour: '2-digit',
-	minute: '2-digit',
-});
+// Um formatter por idioma (Intl.DateTimeFormat é caro de construir por linha).
+const dateFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function getDateFormatter(language: string): Intl.DateTimeFormat {
+	let formatter = dateFormatters.get(language);
+	if (!formatter) {
+		formatter = new Intl.DateTimeFormat(language, {
+			day: '2-digit',
+			month: '2-digit',
+			year: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit',
+		});
+		dateFormatters.set(language, formatter);
+	}
+	return formatter;
+}
 
 export function RuleTableRow({
 	rule,
@@ -54,6 +65,7 @@ export function RuleTableRow({
 	draggingId,
 	onMove,
 }: RuleTableRowProps) {
+	const { t, i18n } = useTranslation('rulesLab');
 	// Phase 1 (compat): exibe a primeira action como "head" do chain. Phase 4
 	// substituirá por visualização da chain completa quando houver múltiplas
 	// actions na mesma regra.
@@ -62,7 +74,7 @@ export function RuleTableRow({
 	const stageVisuals = getStageVisuals(rule.stage);
 	const matchSummary = getMatcherSummary(rule.matchers);
 	const thenSummary = getActionSummary(headAction);
-	const updatedAt = dateFormatter.format(new Date(rule.updatedAt));
+	const updatedAt = getDateFormatter(i18n.language).format(new Date(rule.updatedAt));
 
 	const [dropPosition, setDropPosition] = useState<'before' | 'after' | null>(null);
 	const isDragging = canReorder && draggingId === rule.id;
@@ -164,7 +176,7 @@ export function RuleTableRow({
 				<Switch
 					checked={rule.enabled}
 					onCheckedChange={() => onToggle(rule.id)}
-					aria-label={rule.enabled ? 'Pausar regra' : 'Ativar regra'}
+					aria-label={rule.enabled ? t('row.pause') : t('row.activate')}
 					data-testid={`rule-toggle-${rule.id}`}
 				/>
 			</TableCell>
@@ -190,14 +202,13 @@ export function RuleTableRow({
 									<span
 										className="inline-flex items-center text-warning"
 										data-testid={`rule-unreachable-indicator-${rule.id}`}
-										aria-label="Regra inalcançável"
+										aria-label={t('row.unreachable')}
 									>
 										<LucideIcon name="alert-triangle" className="h-3.5 w-3.5" />
 									</span>
 								</TooltipTrigger>
 								<TooltipContent side="top" className="max-w-[260px] text-xs">
-									Inalcançável: uma regra terminal do mesmo stage acima sempre executa antes desta.
-									Ajuste a ordem ou os matchers para que esta regra seja exercitada.
+									{t('row.unreachableTooltip')}
 								</TooltipContent>
 							</Tooltip>
 						</TooltipProvider>
@@ -242,7 +253,7 @@ export function RuleTableRow({
 						size="icon"
 						className="h-7 w-7"
 						onClick={() => onEdit(rule)}
-						aria-label="Editar regra"
+						aria-label={t('row.edit')}
 					>
 						<LucideIcon name="edit" className="h-3.5 w-3.5" />
 					</Button>
@@ -251,7 +262,7 @@ export function RuleTableRow({
 						size="icon"
 						className="h-7 w-7"
 						onClick={() => onDuplicate(rule)}
-						aria-label="Duplicar regra"
+						aria-label={t('row.duplicate')}
 					>
 						<LucideIcon name="copy" className="h-3.5 w-3.5" />
 					</Button>
@@ -260,7 +271,7 @@ export function RuleTableRow({
 						size="icon"
 						className="h-7 w-7 text-destructive hover:text-destructive"
 						onClick={() => onRemove(rule.id)}
-						aria-label="Excluir regra"
+						aria-label={t('row.delete')}
 					>
 						<LucideIcon name="trash" className="h-3.5 w-3.5" />
 					</Button>
