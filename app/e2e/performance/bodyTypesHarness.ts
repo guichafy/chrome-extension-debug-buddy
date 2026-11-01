@@ -2,7 +2,7 @@ import { performanceEnvironment } from './environment';
 import { expect, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { getExtensionId, launchExtensionContext } from '../helpers/extension';
+import { getExtensionId, launchExtensionContext, waitForAppDatabase } from '../helpers/extension';
 import {
 	assertInteractionBudgets,
 	distribution,
@@ -28,6 +28,7 @@ export const bodyTypesPanel = '[role="tabpanel"][data-state="active"]';
 export const bodyTypesPre = `${bodyTypesPanel} pre`;
 
 export async function seedBodyTypes(page: Page, fixtures: BodyTypesFixture[]) {
+	await waitForAppDatabase(page);
 	await page.evaluate(async (cases) => {
 		const db = await new Promise<IDBDatabase>((resolve, reject) => {
 			const request = indexedDB.open('debugger-extension-db', 2);

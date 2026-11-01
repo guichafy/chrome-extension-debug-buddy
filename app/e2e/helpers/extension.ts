@@ -1,4 +1,4 @@
-import { type BrowserContext, chromium } from '@playwright/test';
+import { type BrowserContext, chromium, type Page } from '@playwright/test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -65,6 +65,22 @@ async function waitForServiceWorker(context: BrowserContext) {
 	return (
 		context.serviceWorkers()[0] ??
 		(await context.waitForEvent('serviceworker', { timeout: 10_000 }))
+	);
+}
+
+// A UI cria o IndexedDB (com os object stores) no mount do Layout, que só
+// acontece depois do init do i18n (preferência + chunk do idioma). Um seed que
+// abra o banco antes disso cria a versão sem stores e a UI não roda o upgrade —
+// então quem semeia logo após o `goto` precisa esperar o banco existir.
+// Se a UI estiver no meio do upgrade, o `open` seguinte espera ele terminar.
+export async function waitForAppDatabase(page: Page): Promise<void> {
+	await page.waitForFunction(
+		async () => {
+			const databases = await indexedDB.databases();
+			return databases.some((db) => db.name === 'debugger-extension-db' && (db.version ?? 0) >= 2);
+		},
+		undefined,
+		{ timeout: 10_000 },
 	);
 }
 
