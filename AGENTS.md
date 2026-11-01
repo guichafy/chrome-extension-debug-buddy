@@ -96,6 +96,15 @@ Background → UI: `chrome.tabs.sendMessage(interceptorTabId, {action, ...})` vi
 
 When you add a new action, edit `app/src/types/messages.ts` — that file is the single source of truth, imported by `background.ts` and the UI hooks alike.
 
+### 6. Internationalization (UI only)
+
+`app/src/i18n/` holds the i18next + react-i18next setup (issue #3). Only the UI pages (options tab and Side Panel) load it: `entrypoints/options/main.tsx` and `entrypoints/sidepanel/main.tsx` await `initUiI18n()` (`i18n/ui.ts`) before the first render. The language comes from `chrome.storage.local.uiLanguage` (written by the sidebar `LanguageSwitcher`, synced across pages through `storage.onChanged`), then from `chrome.i18n.getUILanguage()`, then `DEFAULT_LANGUAGE` (`en`). Each language is a lazy chunk.
+
+- **Catalogs**: `i18n/locales/pt-BR/<namespace>.ts` is the source of truth; every other language is typed with `Translation<typeof source>` (`i18n/types.ts`), so `tsc` fails on a missing or extra key. Keys are typed in `t()` via `i18n/i18next.d.ts`. `i18n/__tests__/catalogParity.test.ts` checks plural forms per language (CLDR: pt needs `_one`/`_many`/`_other`; `_zero` is optional and preserves "0 abas"-style texts), interpolation variables, `<Trans>` tags and empty strings.
+- **No fallback language**: a missing key renders as `namespace:key` and is logged (`missingKeyHandler`); in Vitest it throws.
+- **Never import `@/i18n/*` from code reachable from `background.ts`, `offscreen`, `sandbox` or `probe/*`**: MV3 service workers forbid `import()` (lazy catalogs) and react-i18next would pull React into the worker. `npm run lint:ext` walks the static import graph of `dist/background.js` and the content scripts and fails if the i18next runtime is there. Shared domain modules therefore return structured data and let the UI build the text (e.g. `explainMatchers` returns an `outcome`). Texts the worker generates today (recommendation summaries, `error:` strings in message responses, capture errors) are still PT-BR.
+- **UI-only modules** outside React (e.g. `domain/ruleTemplates.ts`, `types/filters.ts`, `lib/filterSuggestions.ts`) call `i18n.t()` from `@/i18n/instance`; label maps are getters, so they resolve in the active language on every read. Per-row table cells use `components/requests/tableLabels.ts` (labels cached per language) instead of calling `t()` per cell.
+
 ## Frontend layout
 
 `app/src/`:
@@ -110,6 +119,7 @@ When you add a new action, edit `app/src/types/messages.ts` — that file is the
 - `components/requests/duration.ts` — pure helpers (`formatDuration`, `getDurationColorClass`, `compareDurations`) used by the "Tempo" column. Co-located tests in `__tests__/duration.test.ts`.
 - `lib/` — shared utilities (`indexedDB`, `networkTiming`, `legacyMigration`, `statusBadge`, `helpers`, `utils` — the `cn` shadcn helper). Imported by both background and UI.
 - `types/` — shared type contracts (`messages`, `rules`, `intercepted`, `legacy`).
+- `i18n/` — UI translations: language negotiation (`languages.ts`), preference (`preference.ts`), page bootstrap (`ui.ts`), catalogs per language/namespace (`locales/`). See "Internationalization (UI only)" above.
 - `domain/` — pure functions for HTTP semantics, mock latency, rule matching.
 - `styles/globals.css` — Tailwind v4 + design tokens.
 
@@ -134,7 +144,8 @@ Output `entryFileNames: '[name].js'` is required so `manifest.json`'s `service_w
 
 - **Indentation: tabs (size 2)** per `.editorconfig` and Biome config. Don't switch to spaces — diffs will be huge.
 - Biome formatter: single quotes, trailing commas everywhere, semicolons always, print width 100, JSX double quotes.
-- UI strings, comments, and console logs are written in Portuguese-BR — match that when editing existing files.
+- Comments and console logs are written in Portuguese-BR — match that when editing existing files.
+- **UI strings never go inline**: add the key to `app/src/i18n/locales/pt-BR/<namespace>.ts` plus the translation in every other language (`tsc` enforces it) and render with `useTranslation('<namespace>')`/`t()` (or `<Trans>` for markup). Keep the pt-BR text identical when moving existing copy — E2E/performance selectors match it. Invariant errors (`throw new Error` on impossible states) stay untranslated, like logs.
 - Functional React + hooks. Classes only for the two service wrappers: `IndexedDBServiceImpl` (`app/src/lib/indexedDB.ts`) and `NetworkTimingTracker` (`app/src/lib/networkTiming.ts`).
 
 ## No fallbacks / no default values (project-wide rule)
@@ -151,7 +162,7 @@ When writing or auditing code:
 
 ## Tests
 
-**Vitest** with `jsdom` environment and `globals: true` (no per-file `import { describe, test, expect, vi } from 'vitest'` needed). `app/vitest.setup.ts` imports `@testing-library/jest-dom/vitest` for DOM matchers and mocks the `chrome` global (`runtime`, `storage.local`, `tabs.query`); add to that mock when a new test needs an API beyond what's there. Test files live next to the code in `__tests__/` directories. Path alias `@/*` → `src/*` is configured in `vitest.config.ts`.
+**Vitest** with `jsdom` environment and `globals: true` (no per-file `import { describe, test, expect, vi } from 'vitest'` needed). `app/vitest.setup.ts` imports `@testing-library/jest-dom/vitest` for DOM matchers and mocks the `chrome` global (`runtime`, `storage.local`, `tabs.query`, `i18n.getUILanguage`); add to that mock when a new test needs an API beyond what's there. It also initializes i18n synchronously in pt-BR (`src/i18n/testing.ts`) — existing tests assert Portuguese texts, and a missing translation key throws. Tests that need English call `i18n.changeLanguage('en')` and switch back in `afterEach`. Test files live next to the code in `__tests__/` directories. Path alias `@/*` → `src/*` is configured in `vitest.config.ts`.
 
 ## Commit hooks
 
@@ -169,7 +180,6 @@ The `prepare` script in `app/package.json` (`cd .. && husky`) reinstalls the hoo
 
 Run `gh issue list --state open` for the live list. Active items as of last sync:
 
-- **#3** — i18n (PT-BR / EN) integration with Vite.
 - **#6** — Display `package.json` version in `AppSidebar` footer.
 - **#19** — Capture and store request headers separately in the background script.
 
