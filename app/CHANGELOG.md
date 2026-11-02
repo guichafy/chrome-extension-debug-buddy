@@ -1,3 +1,9 @@
+## [0.15.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.14.0...v0.15.0) (2026-11-02)
+
+### Features
+
+* **sidebar:** display version and simplify GitHub footer ([f7eb3dd](https://github.com/guichafy/chrome-extension-debug-buddy/commit/f7eb3dd40bd7b3be217ad9ddef4a0a6d13ad7fa0))
+
 ## [0.14.0](https://github.com/guichafy/chrome-extension-debug-buddy/compare/v0.13.6...v0.14.0) (2026-11-01)
 
 ### Features
