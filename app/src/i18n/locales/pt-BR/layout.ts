@@ -9,8 +9,9 @@ const layout = {
 	},
 	sidebar: {
 		logoAlt: 'Logo',
-		developedBy: 'Desenvolvido por',
-		copyright: '© 2025 - Todos os direitos reservados',
+		contribute: 'GitHub',
+		copyright: '© 2026',
+		version: 'Versão {{version}}',
 	},
 	language: {
 		label: 'Idioma',

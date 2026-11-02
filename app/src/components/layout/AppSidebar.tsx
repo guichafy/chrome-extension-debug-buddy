@@ -13,6 +13,7 @@ import {
 	SidebarMenuItem,
 	SidebarMenuButton,
 } from '@/components/ui/sidebar';
+import { version } from '../../../package.json';
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar>;
 
@@ -49,15 +50,17 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
 					</SidebarMenuItem>
 					<SidebarMenuItem>
 						<div className="flex flex-col items-start px-3 py-2">
-							<span className="text-xs text-muted-foreground">{t('sidebar.developedBy')}</span>
 							<a
 								href="https://github.com/guichafy/chrome-extension-debug-buddy"
 								target="_blank"
 								rel="noopener noreferrer"
 								className="text-sm font-semibold hover:underline text-primary"
 							>
-								Guilherme Chafy
+								{t('sidebar.contribute')}
 							</a>
+							<span className="text-xs text-muted-foreground">
+								{t('sidebar.version', { version })}
+							</span>
 							<span className="text-xs text-muted-foreground">{t('sidebar.copyright')}</span>
 						</div>
 					</SidebarMenuItem>

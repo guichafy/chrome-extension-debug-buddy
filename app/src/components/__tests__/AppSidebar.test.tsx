@@ -1,4 +1,6 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import { i18n } from '@/i18n/instance';
+import { version } from '../../../package.json';
 import { AppSidebar } from '../layout/AppSidebar';
 
 // Mock para o react-router-dom
@@ -123,13 +125,24 @@ describe('AppSidebar Component', () => {
 		expect(screen.getByText('Sessões')).toBeInTheDocument();
 	});
 
-	// Teste para verificar se o SidebarFooter exibe informações do desenvolvedor
-	test('renderiza o SidebarFooter com informações do desenvolvedor', () => {
+	// Teste para verificar se o SidebarFooter exibe o link do repositório
+	test('renderiza o SidebarFooter com link para o repositório', () => {
 		render(<AppSidebar />);
 
-		// Verifica se a mensagem de autoria está presente
-		expect(screen.getByText('Desenvolvido por')).toBeTruthy();
-		expect(screen.getByText('Guilherme Chafy')).toBeTruthy();
+		const repoLink = screen.getByRole('link', {
+			name: 'GitHub',
+		});
+		expect(repoLink).toHaveAttribute(
+			'href',
+			'https://github.com/guichafy/chrome-extension-debug-buddy',
+		);
+		expect(repoLink).toHaveAttribute('target', '_blank');
+		expect(repoLink).toHaveAttribute('rel', 'noopener noreferrer');
+
+		// Textos antigos de autoria/direitos não devem mais aparecer
+		expect(screen.queryByText('Desenvolvido por')).not.toBeInTheDocument();
+		expect(screen.queryByText('Guilherme Chafy')).not.toBeInTheDocument();
+		expect(screen.queryByText(/direitos reservados/i)).not.toBeInTheDocument();
 	});
 
 	test('renderiza o seletor de idioma no SidebarFooter', () => {
@@ -153,5 +166,33 @@ describe('AppSidebar Component', () => {
 		// Nenhum item de navegação carrega contador.
 		const counts = screen.queryAllByTestId('nav-item-count');
 		expect(counts.length).toBe(0);
+	});
+
+	// A versão exibida é a do package.json (import estático, sem fallback).
+	test('exibe a versão do package.json no rodapé da sidebar', () => {
+		render(<AppSidebar />);
+
+		const footer = screen.getByTestId('sidebar-footer');
+		const versionText = within(footer).getByText(`Versão ${version}`);
+
+		// A versão fica no mesmo item do link do repositório e do copyright.
+		const item = versionText.closest('[data-testid="sidebar-menu-item"]');
+		expect(item).not.toBeNull();
+		expect(item).toHaveTextContent('GitHub');
+		expect(item).toHaveTextContent('© 2026');
+	});
+
+	test('exibe o rodapé em inglês quando o idioma da UI é en', async () => {
+		await i18n.changeLanguage('en');
+		try {
+			render(<AppSidebar />);
+
+			const footer = screen.getByTestId('sidebar-footer');
+			expect(within(footer).getByRole('link', { name: 'GitHub' })).toBeInTheDocument();
+			expect(within(footer).getByText(`Version ${version}`)).toBeInTheDocument();
+			expect(within(footer).getByText('© 2026')).toBeInTheDocument();
+		} finally {
+			await i18n.changeLanguage('pt-BR');
+		}
 	});
 });
