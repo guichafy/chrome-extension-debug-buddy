@@ -11,8 +11,9 @@ const layout: Translation<typeof source> = {
 	},
 	sidebar: {
 		logoAlt: 'Logo',
-		developedBy: 'Developed by',
-		copyright: '© 2025 - All rights reserved',
+		contribute: 'GitHub',
+		copyright: '© 2026',
+		version: 'Version {{version}}',
 	},
 	language: {
 		label: 'Language',
